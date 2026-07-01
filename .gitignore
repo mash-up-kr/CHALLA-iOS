@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Xcode 사용자 설정
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Tuist 생성물 (tuist generate 로 매번 새로 만들어짐 → 커밋 X)
+*.xcodeproj
+*.xcworkspace
+Derived/
+
+# Tuist 로컬 캐시 / 의존성
+.tuist-cache/
+Tuist/.build/
+Tuist/Dependencies/
+graph.png
