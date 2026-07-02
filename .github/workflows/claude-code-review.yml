@@ -29,8 +29,10 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
           plugins: "code-review@claude-code-plugins"
-          # 리뷰에 필요한 도구 허용: 파일 읽기 + diff 조회 + claude[bot] 인라인 코멘트용 MCP 툴
-          claude_args: '--allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh pr diff:*),Bash(gh pr view:*),mcp__github_inline_comment__create_inline_comment"'
+          # 진행 체크리스트 + 최종 요약이 담긴 추적 코멘트를 claude[bot]이 관리
+          track_progress: true
+          # 리뷰에 필요한 도구 허용: 파일 읽기 + diff 조회 + 인라인/요약 코멘트용 툴
+          claude_args: '--allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),mcp__github_inline_comment__create_inline_comment,mcp__github_comment__update_claude_comment"'
           prompt: |
             먼저 Claude-Code-PR-Review/common.md 와 ${{ matrix.rule }} 를 읽어라.
             이번 잡은 ${{ matrix.name }} 전담이다. 이 PR의 변경 파일을 해당 관점으로만 리뷰하라.
@@ -42,6 +44,7 @@ jobs:
             인라인 코멘트를 남겨라. 각 코멘트는 아래 마커 중 하나로 시작한다:
               ❗ 필수 수정  /  💊 개선 제안  /  ❓ 질문·확인
             그리고 "왜 문제인지 + 개선 대안/예시 코드"를 함께 적어라.
-            마지막에 전체 요약 한 줄(최종 판정: 🟢 LGTM / 🔴 차단 N건)을 정리하라.
+            마지막에 mcp__github_comment__update_claude_comment 툴로 추적 코멘트를 갱신해
+            전체 요약과 최종 판정(🟢 LGTM / 🔴 차단 N건)을 정리하라.
 
             PR: ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
