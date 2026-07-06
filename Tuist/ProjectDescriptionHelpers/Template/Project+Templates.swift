@@ -31,4 +31,50 @@ public extension Project {
             ]
         )
     }
+
+    /// 실행 가능한 앱(.app) 하나를 담은 프로젝트를 생성한다.
+    /// - 검수앱(CHALLADesignSystemApp) / 실서비스앱(CHALLAApp) / 피처 데모앱 등에 공통 사용.
+    /// - 라이브러리(makeModule)와 달리 표시이름·번들ID를 직접 받는다(앱은 App Store 고유 식별 필요).
+    /// - Parameters:
+    ///   - name: 앱 타깃 이름 (예: CHALLADesignSystemApp)
+    ///   - displayName: 홈화면/TestFlight 표시 이름 (한글 가능, 예: "CHALLA 디자인 시스템")
+    ///   - bundleId: 앱 번들 ID (예: com.challa.designsystem)
+    ///   - dependencies: 앱이 의존하는 대상 (검수앱=디자인시스템, 데모앱=피처+데이터 등)
+    static func makeAppProject(
+        name: String,
+        displayName: String,
+        bundleId: String,
+        dependencies: [TargetDependency] = []
+    ) -> Project {
+        let infoPlist: [String: Plist.Value] = [
+            "CFBundleDisplayName": .string(displayName),
+            "UILaunchScreen": .dictionary([:]),
+            "UISupportedInterfaceOrientations": .array([
+                .string("UIInterfaceOrientationPortrait")
+            ]),
+            "ITSAppUsesNonExemptEncryption": .boolean(false)
+        ]
+
+        return Project(
+            name: name,
+            organizationName: Environment.organizationName,
+            options: .options(
+                defaultKnownRegions: ["en", "ko"],
+                developmentRegion: "ko"
+            ),
+            targets: [
+                .target(
+                    name: name,
+                    destinations: Environment.destinations,
+                    product: .app,
+                    bundleId: bundleId,
+                    deploymentTargets: Environment.deploymentTarget,
+                    infoPlist: .extendingDefault(with: infoPlist),
+                    sources: ["Sources/**"],
+                    resources: ["Resources/**"],
+                    dependencies: dependencies
+                )
+            ]
+        )
+    }
 }
