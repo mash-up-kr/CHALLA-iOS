@@ -5,8 +5,9 @@ struct RootView: View {
         NavigationStack {
             List {
                 Section("Foundation") {
-                    Text("준비 중")
-                        .foregroundStyle(.secondary)
+                    NavigationLink("Color") {
+                        ColorGallery()
+                    }
                 }
 
                 Section("Component") {
