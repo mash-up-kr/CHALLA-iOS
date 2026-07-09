@@ -32,11 +32,13 @@ public extension View {
     /// Text("안녕하세요").challaFont(CHALLAFont.Body.mediumRegular)
     /// ```
     func challaFont(_ typography: CHALLATypography) -> some View {
-        self
+        // lineHeight가 size보다 작은 폰트(예: Dirtyline heading.xlarge)는 음수가 되므로 0으로 막는다.
+        let extraLineSpace = max(0, typography.lineHeight - typography.size)
+        return self
             .font(typography.font)
             // SwiftUI lineSpacing은 "줄 사이 간격"이라 (lineHeight - size)가 실제 추가 간격.
-            .lineSpacing(typography.lineHeight - typography.size)
+            .lineSpacing(extraLineSpace)
             // 첫 줄 위/아래로도 절반씩 여백을 줘 Figma의 줄 높이 박스를 재현.
-            .padding(.vertical, (typography.lineHeight - typography.size) / 2)
+            .padding(.vertical, extraLineSpace / 2)
     }
 }
