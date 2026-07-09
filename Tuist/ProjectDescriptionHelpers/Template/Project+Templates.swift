@@ -28,7 +28,10 @@ public extension Project {
                     hasResource: hasResource,
                     dependencies: dependencies
                 )
-            ]
+            ],
+            // 리소스가 있을 때만 폰트 접근자/등록 코드를 자동 생성한다.
+            // (otf/ttf 폴더를 스캔해 <모듈>FontFamily + registerAllCustomFonts() 를 Derived에 생성)
+            resourceSynthesizers: hasResource ? [.fonts()] : []
         )
     }
 
