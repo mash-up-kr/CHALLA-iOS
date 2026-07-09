@@ -8,6 +8,9 @@ struct RootView: View {
                     NavigationLink("Color") {
                         ColorGallery()
                     }
+                    NavigationLink("Typography") {
+                        TypographyGallery()
+                    }
                 }
 
                 Section("Component") {
