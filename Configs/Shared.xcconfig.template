@@ -1,0 +1,5 @@
+// 이 파일을 같은 폴더에 Shared.xcconfig 로 복사한 뒤 자기 팀 ID를 넣는다.
+// (Shared.xcconfig 는 개인/환경별 값이라 git에 올리지 않음)
+
+// Apple Developer 팀 ID (Xcode > Settings > Accounts 에서 확인)
+DEVELOPMENT_TEAM = YOUR_TEAM_ID

@@ -17,3 +17,6 @@ Derived/
 Tuist/.build/
 Tuist/Dependencies/
 graph.png
+
+# 로컬 서명 설정 (팀 ID 등 개인/환경별 값 — template 복사해서 생성)
+Configs/Shared.xcconfig
