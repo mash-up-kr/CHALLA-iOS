@@ -36,15 +36,15 @@ public extension Project {
     }
 
     /// 실행 가능한 앱(.app) 하나를 담은 프로젝트를 생성한다.
-    /// - 검수앱(CHALLADesignSystemApp) / 실서비스앱(CHALLAApp) / 피처 데모앱 등에 공통 사용.
+    /// - 디자인 시스템 앱(CHALLADesignSystemApp) / 실서비스앱(CHALLAApp) / 피처 데모앱 등에 공통 사용.
     /// - 라이브러리(makeModule)와 달리 표시이름·번들ID를 직접 받는다(앱은 App Store 고유 식별 필요).
     /// - Parameters:
     ///   - name: 앱 타깃 이름 (예: CHALLADesignSystemApp)
     ///   - displayName: 홈화면/TestFlight 표시 이름 (한글 가능, 예: "CHALLA 디자인 시스템")
     ///   - bundleId: 앱 번들 ID (예: com.challa.designsystem)
-    ///   - marketingVersion: 사용자에게 보이는 버전 (앱마다 독립 — 검수앱과 서비스앱은 별개 앱)
+    ///   - marketingVersion: 사용자에게 보이는 버전 (앱마다 독립 — 디자인 시스템 앱과 서비스앱은 별개 앱)
     ///   - buildNumber: 빌드 번호 (같은 버전 안에서 업로드마다 증가)
-    ///   - dependencies: 앱이 의존하는 대상 (검수앱=디자인시스템, 데모앱=피처+데이터 등)
+    ///   - dependencies: 앱이 의존하는 대상 (디자인 시스템 앱=DS 모듈, 데모앱=피처+데이터 등)
     static func makeAppProject(
         name: String,
         displayName: String,
