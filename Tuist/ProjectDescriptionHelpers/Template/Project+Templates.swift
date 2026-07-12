@@ -47,8 +47,9 @@ public extension Project {
     ///   - name: 앱 타깃 이름 (예: CHALLADesignSystemApp)
     ///   - displayName: 홈화면/TestFlight 표시 이름 (한글 가능, 예: "CHALLA 디자인 시스템")
     ///   - bundleId: 앱 번들 ID (예: com.challa.designsystem)
-    ///   - marketingVersion: 사용자에게 보이는 버전 (앱마다 독립)
-    ///   - buildNumber: 빌드 번호 (같은 버전 안에서 업로드마다 증가)
+    ///   - marketingVersion: 사용자에게 보이는 버전 (앱마다 독립 — 디자인 시스템 앱과 서비스앱은 별개 앱)
+    ///   - buildNumber: 빌드 번호 — 로컬 기본값. CI(Xcode Cloud)에서는 TUIST_BUILD_NUMBER 환경변수가 우선
+    ///     (ci_post_clone.sh가 CI_BUILD_NUMBER를 넘겨 업로드마다 자동 증가 — 수동 +1 커밋 불필요)
     ///   - dependencies: 앱이 의존하는 대상 (디자인 시스템 앱=DS 모듈, 데모앱=피처+데이터 등)
     static func makeAppProject(
         name: String,
@@ -67,12 +68,17 @@ public extension Project {
             "ITSAppUsesNonExemptEncryption": .boolean(false)
         ]
 
+        // 빌드 번호: TUIST_BUILD_NUMBER 환경변수가 있으면(CI) 그 값, 없으면(로컬) 파라미터 값.
+        // xcconfig 주입이 아닌 generate 시점 결정이라 빌드 설정 우선순위(base > xcconfig)에 안 밀린다.
+        // (ProjectDescription. 명시: 우리 헬퍼의 Environment enum과 이름이 겹침)
+        let resolvedBuildNumber = ProjectDescription.Environment.buildNumber.getString(default: buildNumber)
+
         // 서명·버전 빌드 설정. DEVELOPMENT_TEAM은 Configs/Shared.xcconfig에서 주입.
         let settings: Settings = .settings(
             base: [
                 "CODE_SIGN_STYLE": "Automatic",
                 "MARKETING_VERSION": .string(marketingVersion),
-                "CURRENT_PROJECT_VERSION": .string(buildNumber)
+                "CURRENT_PROJECT_VERSION": .string(resolvedBuildNumber)
             ],
             configurations: [
                 .debug(name: .debug, xcconfig: .relativeToRoot("Configs/Shared.xcconfig")),
