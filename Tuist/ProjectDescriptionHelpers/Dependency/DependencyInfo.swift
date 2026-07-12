@@ -6,6 +6,7 @@ import ProjectDescription
 public extension TargetDependency {
 
     // MARK: - UI
+
     /// CHALLADesignSystem 모듈에 대한 의존성.
     static let designSystem = TargetDependency.project(
         target: "CHALLADesignSystem",

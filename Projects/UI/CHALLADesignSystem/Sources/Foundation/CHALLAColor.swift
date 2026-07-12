@@ -32,7 +32,7 @@ public enum CHALLAColor {
         public static let level3 = Color(hex: "2F2F2F")
         public static let level4 = Color(hex: "3B3B3B")
     }
-    
+
     /// Status 팔레트 (상태 피드백: 성공/주의/위험)
     public enum Status {
         public static let positive = Color(hex: "00E467")

@@ -60,16 +60,15 @@ private extension CHALLAFont {
 
     /// 굵기 + 크기 + 행간으로 타이포 토큰을 만든다.
     static func token(_ weight: FontFace, size: CGFloat, lineHeight: CGFloat) -> CHALLATypography {
-        let font: Font
-        switch weight {
+        let font: Font = switch weight {
         case .bold:
-            font = CHALLADesignSystemFontFamily.Suit.bold.swiftUIFont(size: size)
+            CHALLADesignSystemFontFamily.Suit.bold.swiftUIFont(size: size)
         case .semiBold:
-            font = CHALLADesignSystemFontFamily.Suit.semiBold.swiftUIFont(size: size)
+            CHALLADesignSystemFontFamily.Suit.semiBold.swiftUIFont(size: size)
         case .regular:
-            font = CHALLADesignSystemFontFamily.Suit.regular.swiftUIFont(size: size)
+            CHALLADesignSystemFontFamily.Suit.regular.swiftUIFont(size: size)
         case .dirtyline:
-            font = CHALLADesignSystemFontFamily.Dirtyline36Daysoftype2022.regular.swiftUIFont(size: size)
+            CHALLADesignSystemFontFamily.Dirtyline36Daysoftype2022.regular.swiftUIFont(size: size)
         }
         return CHALLATypography(font: font, size: size, lineHeight: lineHeight)
     }
