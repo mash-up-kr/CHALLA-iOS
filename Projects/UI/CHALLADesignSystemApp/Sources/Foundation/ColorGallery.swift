@@ -32,6 +32,12 @@ struct ColorGallery: View {
                 ("Level 4", CHALLAColor.Background.level4)
             ])
 
+            colorSection("Status", colors: [
+                ("Positive", CHALLAColor.Status.positive),
+                ("Cautionary", CHALLAColor.Status.cautionary),
+                ("Destructive", CHALLAColor.Status.destructive)
+            ])
+            
             colorSection("Line", colors: [
                 ("Normal", CHALLAColor.Line.normal),
                 ("Neutral", CHALLAColor.Line.neutral),

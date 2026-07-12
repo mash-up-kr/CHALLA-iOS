@@ -50,6 +50,13 @@ public enum CHALLAColor {
     public enum Material {
         public static let dimmer = Color(hex: "171719", opacity: 0.52)
     }
+
+    /// Status 팔레트 (상태 피드백: 성공/주의/위험)
+    public enum Status {
+        public static let positive = Color(hex: "00E467")
+        public static let cautionary = Color(hex: "FFB200")
+        public static let destructive = Color(hex: "ED4C4C")
+    }
 }
 
 // MARK: - Color(hex:)
