@@ -1,0 +1,9 @@
+# SwiftFormat 설정 — ./Scripts/lint.sh 로 실행 (버전은 mise.toml에 고정)
+--swiftversion 6.0
+
+# 제외: 자동 생성물(Derived), 스텐실 템플릿 폴더, 외부 SPM 체크아웃
+--exclude Derived,**/Derived,Tuist/Templates,Tuist/.build
+
+# 팀 스타일이 확정되지 않았거나 코드 구조를 바꾸는 규칙은 끔 — 공백·정렬 등 안전한 규칙만 유지
+# (기존 코드 스타일 존중이 우선. 팀 컨벤션 확정 시 하나씩 활성화)
+--disable redundantReturn,redundantSelf,wrapMultilineStatementBraces,blankLinesAtStartOfScope,redundantSwiftUIGroup,redundantMemberwiseInit,trailingCommas
