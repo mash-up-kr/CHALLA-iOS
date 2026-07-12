@@ -7,12 +7,25 @@ public extension Project {
     /// - Parameters:
     ///   - name: 모듈 이름 (= 프로젝트/타깃 이름)
     ///   - hasResource: 리소스(폰트/애셋) 유무
+    ///   - hasTests: 테스트 타깃(<모듈명>Tests, Tests/** 규약) 포함 여부
     ///   - dependencies: 이 모듈(타깃)이 의존하는 대상 (호출부에서 헬퍼로 명시)
     static func makeModule(
         name: String,
         hasResource: Bool = false,
+        hasTests: Bool = false,
         dependencies: [TargetDependency] = []
     ) -> Project {
+        var targets = [
+            Target.makeModuleTarget(
+                name: name,
+                hasResource: hasResource,
+                dependencies: dependencies
+            )
+        ]
+        if hasTests {
+            targets.append(Target.makeTestTarget(name: name))
+        }
+
         return Project(
             name: name,
             organizationName: Environment.organizationName,
@@ -20,14 +33,7 @@ public extension Project {
                 defaultKnownRegions: ["en", "ko"],
                 developmentRegion: "ko"
             ),
-            targets: [
-                Target.makeModuleTarget(
-                    name: name,
-                    hasResource: hasResource,
-                    dependencies: dependencies
-                )
-            ],
-            
+            targets: targets,
             // 리소스가 있을 때만 폰트 접근자/등록 코드를 자동 생성한다.
             // (otf/ttf 폴더를 스캔해 <모듈>FontFamily + registerAllCustomFonts() 를 Derived에 생성)
             resourceSynthesizers: hasResource ? [.fonts()] : []

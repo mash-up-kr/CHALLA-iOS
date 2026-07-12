@@ -28,4 +28,24 @@ public extension Target {
             dependencies: dependencies
         )
     }
+
+    /// 모듈의 유닛 테스트 타깃(<모듈명>Tests)을 생성한다.
+    /// - 소스 위치는 모듈 루트의 `Tests/**` 규약 (Sources/ 옆).
+    /// - 본체 타깃에 의존하므로 `@testable import <모듈명>` 가능.
+    /// - 실행은 `tuist test` — 워크스페이스의 테스트 타깃을 자동 탐색해 돌린다.
+    /// - Parameter name: 테스트 대상 모듈 이름 (타깃 이름은 <name>Tests 로 자동 부여)
+    static func makeTestTarget(
+        name: String
+    ) -> Target {
+        return Target.target(
+            name: "\(name)Tests",
+            destinations: Environment.destinations,
+            product: .unitTests,
+            bundleId: "\(Environment.bundleIdPrefix).\(name.lowercased())tests",
+            deploymentTargets: Environment.deploymentTarget,
+            infoPlist: .default,
+            sources: ["Tests/**"],
+            dependencies: [.target(name: name)]
+        )
+    }
 }

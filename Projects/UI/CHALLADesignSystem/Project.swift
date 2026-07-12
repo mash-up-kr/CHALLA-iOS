@@ -3,5 +3,6 @@ import ProjectDescriptionHelpers
 
 let project = Project.makeModule(
     name: "CHALLADesignSystem",
-    hasResource: true
+    hasResource: true,
+    hasTests: true
 )
