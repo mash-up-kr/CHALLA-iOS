@@ -1,0 +1,32 @@
+#!/bin/bash
+# git pre-commit 훅 — staged Swift 파일만 포맷/린트 검사한다.
+# (bootstrap.sh 가 core.hooksPath 를 이 폴더로 설정해 팀 전체가 공유)
+# 한계: 검사 내용은 워킹트리 기준 — add 이후 수정분은 CI가 최종 검사한다.
+# 급할 때 우회: git commit --no-verify  (CI가 최종 방어선이라 안전)
+set -uo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+# Apple Silicon(/opt/homebrew)·Intel(/usr/local) brew, mise 기본 경로 — GUI git 클라이언트는 PATH가 좁다
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+# 스텐실 템플릿 폴더는 린트 제외 (.swiftformat/.swiftlint.yml 의 exclude 와 판정 일치)
+PATHSPEC=(':(glob)**/*.swift' ':(exclude)Tuist/Templates/**')
+
+COUNT=$(git diff --cached --name-only --diff-filter=ACMR -- "${PATHSPEC[@]}" | wc -l | tr -d ' ')
+[ "$COUNT" -eq 0 ] && exit 0
+
+if ! command -v mise >/dev/null 2>&1; then
+    echo "⚠️  mise 미설치 — 린트 검사를 건너뜁니다 (./Scripts/bootstrap.sh 실행 권장)"
+    exit 0
+fi
+
+# NUL 구분으로 넘겨 공백 포함 파일명에도 안전
+staged() { git diff --cached --name-only -z --diff-filter=ACMR -- "${PATHSPEC[@]}"; }
+
+if ! staged | xargs -0 mise exec -- swiftformat --lint --quiet \
+    || ! staged | xargs -0 mise exec -- swiftlint lint --strict --quiet --force-exclude; then
+    echo
+    echo "❌ 커밋 전 린트 실패 — ./Scripts/lint.sh --fix 실행 후 다시 커밋하세요"
+    echo "   (급하면 git commit --no-verify 로 우회 가능 — CI에서 다시 검사됩니다)"
+    exit 1
+fi
