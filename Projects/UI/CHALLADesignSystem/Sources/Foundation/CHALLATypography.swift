@@ -7,11 +7,11 @@ import SwiftUI
 public struct CHALLATypography: Sendable {
     
     public let font: Font
-    
-    /// Figma 기준 줄 높이(pt). 폰트 크기와 별개로 지정된다.
+
+    /// 폰트 크기(pt). Font에 넣은 값은 다시 꺼낼 수 없어 행간 계산용으로 보관.
     public let size: CGFloat
-    
-    /// 폰트 크기(pt). lineHeight - size 로 위아래 여백을 계산하기 위해 보관.
+
+    /// Figma 기준 줄 높이(pt). lineHeight - size 로 행간 보정을 계산한다.
     public let lineHeight: CGFloat
 
 
@@ -29,7 +29,7 @@ public extension View {
     /// CHALLATypography 토큰을 적용한다. 폰트 + 행간(lineSpacing/padding 보정)을 함께 반영.
     /// 사용 예시:
     /// ```swift
-    /// Text("안녕하세요").challaFont(CHALLAFont.Body.mediumRegular)
+    /// Text("안녕하세요").challaFont(CHALLAFont.Body.medium.regular)
     /// ```
     func challaFont(_ typography: CHALLATypography) -> some View {
         // lineHeight가 size보다 작은 폰트(예: Dirtyline heading.xlarge)는 음수가 되므로 0으로 막는다.

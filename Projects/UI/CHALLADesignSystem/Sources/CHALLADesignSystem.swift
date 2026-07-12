@@ -1,5 +1,0 @@
-import Foundation
-
-// 확인용 임시 placeholder (삭제 예정)
-// 프레임워크 타깃은 소스가 최소 1개 있어야 빌드되므로 임시로 둔 파일.
-enum CHALLADesignSystemPlaceholder {}

@@ -32,6 +32,13 @@ public enum CHALLAColor {
         public static let level3 = Color(hex: "2F2F2F")
         public static let level4 = Color(hex: "3B3B3B")
     }
+    
+    /// Status 팔레트 (상태 피드백: 성공/주의/위험)
+    public enum Status {
+        public static let positive = Color(hex: "00E467")
+        public static let cautionary = Color(hex: "FFB200")
+        public static let destructive = Color(hex: "ED4C4C")
+    }
 
     /// Line 팔레트 (구분선, 반투명)
     public enum Line {
@@ -49,13 +56,6 @@ public enum CHALLAColor {
     /// Material 팔레트 (모달 뒤 딤 처리 등, 반투명)
     public enum Material {
         public static let dimmer = Color(hex: "171719", opacity: 0.52)
-    }
-
-    /// Status 팔레트 (상태 피드백: 성공/주의/위험)
-    public enum Status {
-        public static let positive = Color(hex: "00E467")
-        public static let cautionary = Color(hex: "FFB200")
-        public static let destructive = Color(hex: "ED4C4C")
     }
 }
 
