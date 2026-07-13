@@ -1,8 +1,7 @@
 import SwiftUI
 import CHALLADesignSystem
 
-/// Foundation > Color 검수 화면.
-/// CHALLAColor의 각 그룹을 스와치 + 이름으로 나열한다. (YDS Stage 참고)
+/// Foundation > Color 검수 화면. 그룹별로 스와치를 나열한다.
 struct ColorGallery: View {
     var body: some View {
         List {

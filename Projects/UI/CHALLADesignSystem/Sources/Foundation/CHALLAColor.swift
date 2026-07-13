@@ -63,7 +63,7 @@ public enum CHALLAColor {
 
 extension Color {
     /// "FF1887" 또는 "#FF1887" 형태의 6자리 hex 문자열로 Color를 생성한다.
-    /// - opacity: 불투명도(0~1). 생략 시 1.0(완전 불투명). Line/Dimmer 등 반투명 토큰에서만 지정한다.
+    /// - opacity: 불투명도(0~1). 반투명 토큰에서만 지정한다.
     /// hex 파싱에 실패하면 rgb가 0으로 남아 검은색(#000000)이 된다.
     init(hex: String, opacity: Double = 1.0) {
         let sanitized = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex

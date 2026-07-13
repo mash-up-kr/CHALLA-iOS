@@ -7,7 +7,6 @@ public extension TargetDependency {
 
     // MARK: - UI
     /// CHALLADesignSystem 모듈에 대한 의존성.
-    /// 이 모듈(디자인시스템)을 가져다 쓰는 앱/피처의 `dependencies`에 `.designSystem`으로 추가한다.
     static let designSystem = TargetDependency.project(
         target: "CHALLADesignSystem",
         path: .relativeToRoot("Projects/UI/CHALLADesignSystem")

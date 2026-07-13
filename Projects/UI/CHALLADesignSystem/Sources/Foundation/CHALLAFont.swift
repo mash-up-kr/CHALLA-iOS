@@ -2,19 +2,15 @@ import SwiftUI
 
 // MARK: - CHALLAFont (토큰)
 
-/// CHALLA 디자인 시스템의 타이포 토큰. Figma Typography 구조(크기 × 굵기 매트릭스)를 그대로 반영한다.
-/// - 폰트: 본문 SUIT(Bold/SemiBold/Regular), 포인트 Dirtyline(Heading.home / Heading.xlarge)
-/// - Figma에 존재하는 조합만 노출한다: 단일 토큰(home, xlarge)은 CHALLATypography,
-///   3굵기 토큰은 WeightSet(bold/medium/regular)으로 표현
+/// CHALLA 디자인 시스템의 타이포 토큰. Figma Typography 구조를 그대로 반영한다.
+/// 본문은 SUIT, 포인트(Heading.home / xlarge)는 Dirtyline.
 ///
-/// 사용 예시:
 /// ```swift
 /// Text("제목").challaFont(CHALLAFont.Heading.large.bold)
-/// Text("본문").challaFont(CHALLAFont.Body.medium.regular)
 /// ```
 public enum CHALLAFont {
 
-    /// 한 크기(size/lineHeight)의 3굵기 묶음. 같은 크기 안에서 굵기만 달라진다.
+    /// 한 크기의 3굵기(bold/medium/regular) 묶음.
     public struct WeightSet: Sendable {
         public let bold: CHALLATypography
         public let medium: CHALLATypography
@@ -57,8 +53,7 @@ public enum CHALLAFont {
 
 private extension CHALLAFont {
 
-    /// 폰트 파일 종류. Tuist 자동 생성 폰트 접근자로 매핑된다.
-    /// (Figma의 'medium'은 실제 SUIT SemiBold(600)에 매핑됨)
+    /// 폰트 파일 종류. (Figma의 'medium'은 SUIT SemiBold에 매핑)
     enum FontFace {
         case bold, semiBold, regular, dirtyline
     }

@@ -1,10 +1,8 @@
 import ProjectDescription
 
 public extension Project {
+    
     /// 프레임워크 모듈 하나를 담은 프로젝트를 생성한다.
-    /// (Tuist에서 Project = 여러 타깃을 묶는 컨테이너. 여기선 타깃 1개를 담는다.)
-    /// - 우리 아키텍처의 프레임워크 모듈에 사용: Feature / Domain / Data / UI(DesignSystem) / Core / Shared
-    /// - 스킴은 Tuist 자동 생성(타깃당 1개)에 맡긴다 → 별도 스킴 정의 없음.
     /// - 이 프로젝트가 담는 타깃의 product(static/dynamic)는 `makeModuleTarget`이 hasResource로 자동 결정.
     /// - Parameters:
     ///   - name: 모듈 이름 (= 프로젝트/타깃 이름)
@@ -29,6 +27,7 @@ public extension Project {
                     dependencies: dependencies
                 )
             ],
+            
             // 리소스가 있을 때만 폰트 접근자/등록 코드를 자동 생성한다.
             // (otf/ttf 폴더를 스캔해 <모듈>FontFamily + registerAllCustomFonts() 를 Derived에 생성)
             resourceSynthesizers: hasResource ? [.fonts()] : []
@@ -42,7 +41,7 @@ public extension Project {
     ///   - name: 앱 타깃 이름 (예: CHALLADesignSystemApp)
     ///   - displayName: 홈화면/TestFlight 표시 이름 (한글 가능, 예: "CHALLA 디자인 시스템")
     ///   - bundleId: 앱 번들 ID (예: com.challa.designsystem)
-    ///   - marketingVersion: 사용자에게 보이는 버전 (앱마다 독립 — 디자인 시스템 앱과 서비스앱은 별개 앱)
+    ///   - marketingVersion: 사용자에게 보이는 버전 (앱마다 독립)
     ///   - buildNumber: 빌드 번호 (같은 버전 안에서 업로드마다 증가)
     ///   - dependencies: 앱이 의존하는 대상 (디자인 시스템 앱=DS 모듈, 데모앱=피처+데이터 등)
     static func makeAppProject(

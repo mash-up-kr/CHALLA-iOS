@@ -7,8 +7,8 @@ import ProjectDescription
 
 /// 모듈 이름 (= 프로젝트/타깃/폴더 이름). 예: RoomDomain
 private let nameAttribute: Template.Attribute = .required("name")
+
 /// Projects/ 아래 그룹 폴더. 예: Room, Auth, UI, Core, Shared
-/// (Tuist 예약어 --path 와 겹치지 않도록 속성명은 group 사용. 매번 명시하도록 required)
 private let groupAttribute: Template.Attribute = .required("group")
 
 let moduleTemplate = Template(
