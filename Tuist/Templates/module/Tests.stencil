@@ -1,5 +1,5 @@
-import Testing
 @testable import {{ name }}
+import Testing
 
 // 확인용 임시 테스트 (실제 테스트 작성 시 교체)
 // Swift Testing 사용: @Test 함수 + #expect(조건) — tuist test 로 실행된다.
