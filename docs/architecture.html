@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHALLA · Modular Architecture v1.1</title>
+</head>
+<body>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --page: #f4f6fb;
+    --ink: #1f2433;
+    --muted: #6b7280;
+    --faint: #9aa0ad;
+    --surface: #ffffff;
+    --surface-line: rgba(0,0,0,0.05);
+    --box-line: rgba(0,0,0,0.04);
+    --box-shadow: 0 1.5px 4px rgba(20,20,50,0.08);
+    --group-bg: rgba(255,255,255,0.55);
+    --group-line: rgba(0,0,0,0.12);
+    --ghost-bg: rgba(255,255,255,0.4);
+    --ghost-line: #c3c8d4;
+    --ghost-ink: #8b909d;
+    --divider: #f0f1f5;
+    --accent: #6a5cff;
+    --accent2: #b85cff;
+    --star: #ff9d3c;
+
+    --app-bg:#fde7ee;    --app-t:#f0608a;
+    --feat-bg:#e3f4f4;   --feat-t:#21b3b3;
+    --domain-bg:#fdeede; --domain-t:#f29a3c;
+    --data-bg:#e9e6f5;   --data-t:#6b5bd2;
+    --net-bg:#e2ecfb;    --net-t:#3d7bd9;
+    --core-bg:#eef0fb;   --core-t:#5b6bd2;
+    --ui-bg:#fdf3df;     --ui-t:#e0a72e;
+    --shared-bg:#fdeede; --shared-t:#f07b3c;
+
+    --chip-app-bg:#1f2433;  --chip-app-ink:#ffffff;
+    --chip-mod-bg:#eef0fb;  --chip-mod-ink:#5b6bd2;
+    --code-bg:#1f2433; --code-ink:#e8eaf2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page:#14161e; --ink:#e8eaf2; --muted:#9aa2b5; --faint:#7a8095;
+      --surface:#232735; --surface-line:rgba(255,255,255,0.07);
+      --box-line:rgba(255,255,255,0.08); --box-shadow:0 1.5px 4px rgba(0,0,0,0.4);
+      --group-bg:rgba(255,255,255,0.05); --group-line:rgba(255,255,255,0.16);
+      --ghost-bg:rgba(255,255,255,0.03); --ghost-line:#4a5063; --ghost-ink:#8b909d;
+      --divider:#2e3342;
+      --app-bg:#3a2230;    --app-t:#d05578;
+      --feat-bg:#1d3436;   --feat-t:#1e9e9e;
+      --domain-bg:#3a2d1e; --domain-t:#d98a34;
+      --data-bg:#2b2740;   --data-t:#7d6de0;
+      --net-bg:#1e2c40;    --net-t:#4d86dd;
+      --core-bg:#242840;   --core-t:#6d7bdc;
+      --ui-bg:#38301c;     --ui-t:#cf9c2c;
+      --shared-bg:#3a2a1e; --shared-t:#dd7940;
+      --chip-app-bg:#e8eaf2; --chip-app-ink:#1f2433;
+      --chip-mod-bg:#2b3046; --chip-mod-ink:#93a0e8;
+      --code-bg:#1a1d28; --code-ink:#d6dae6;
+    }
+  }
+  :root[data-theme="light"] {
+    --page:#f4f6fb; --ink:#1f2433; --muted:#6b7280; --faint:#9aa0ad;
+    --surface:#ffffff; --surface-line:rgba(0,0,0,0.05);
+    --box-line:rgba(0,0,0,0.04); --box-shadow:0 1.5px 4px rgba(20,20,50,0.08);
+    --group-bg:rgba(255,255,255,0.55); --group-line:rgba(0,0,0,0.12);
+    --ghost-bg:rgba(255,255,255,0.4); --ghost-line:#c3c8d4; --ghost-ink:#8b909d;
+    --divider:#f0f1f5;
+    --app-bg:#fde7ee;    --app-t:#f0608a;
+    --feat-bg:#e3f4f4;   --feat-t:#21b3b3;
+    --domain-bg:#fdeede; --domain-t:#f29a3c;
+    --data-bg:#e9e6f5;   --data-t:#6b5bd2;
+    --net-bg:#e2ecfb;    --net-t:#3d7bd9;
+    --core-bg:#eef0fb;   --core-t:#5b6bd2;
+    --ui-bg:#fdf3df;     --ui-t:#e0a72e;
+    --shared-bg:#fdeede; --shared-t:#f07b3c;
+    --chip-app-bg:#1f2433; --chip-app-ink:#ffffff;
+    --chip-mod-bg:#eef0fb; --chip-mod-ink:#5b6bd2;
+    --code-bg:#1f2433; --code-ink:#e8eaf2;
+  }
+  :root[data-theme="dark"] {
+    --page:#14161e; --ink:#e8eaf2; --muted:#9aa2b5; --faint:#7a8095;
+    --surface:#232735; --surface-line:rgba(255,255,255,0.07);
+    --box-line:rgba(255,255,255,0.08); --box-shadow:0 1.5px 4px rgba(0,0,0,0.4);
+    --group-bg:rgba(255,255,255,0.05); --group-line:rgba(255,255,255,0.16);
+    --ghost-bg:rgba(255,255,255,0.03); --ghost-line:#4a5063; --ghost-ink:#8b909d;
+    --divider:#2e3342;
+    --app-bg:#3a2230;    --app-t:#d05578;
+    --feat-bg:#1d3436;   --feat-t:#1e9e9e;
+    --domain-bg:#3a2d1e; --domain-t:#d98a34;
+    --data-bg:#2b2740;   --data-t:#7d6de0;
+    --net-bg:#1e2c40;    --net-t:#4d86dd;
+    --core-bg:#242840;   --core-t:#6d7bdc;
+    --ui-bg:#38301c;     --ui-t:#cf9c2c;
+    --shared-bg:#3a2a1e; --shared-t:#dd7940;
+    --chip-app-bg:#e8eaf2; --chip-app-ink:#1f2433;
+    --chip-mod-bg:#2b3046; --chip-mod-ink:#93a0e8;
+    --code-bg:#1a1d28; --code-ink:#d6dae6;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+    background: var(--page);
+    color: var(--ink);
+    padding: 48px 40px 72px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  /* ── Header ── */
+  .header { text-align: center; margin-bottom: 28px; }
+  .header h1 {
+    font-size: 34px; font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    text-wrap: balance;
+  }
+  .header .ver {
+    display: inline-block; margin-top: 12px; padding: 5px 16px;
+    background: var(--chip-app-bg); color: var(--chip-app-ink); border-radius: 999px;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.5px;
+  }
+  .header .sub { margin-top: 12px; color:var(--muted); font-size:14px; }
+
+  /* ── Legend ── */
+  .legend {
+    display:flex; justify-content:center; flex-wrap:wrap; gap:10px 22px;
+    margin-bottom: 32px; font-size: 12.5px; color: var(--muted); font-weight: 600;
+  }
+  .legend .item { display:inline-flex; align-items:center; gap:7px; }
+  .lg-folder {
+    width: 30px; height: 18px; border:1px dashed var(--group-line); border-radius:5px;
+    background: var(--group-bg);
+  }
+  .lg-box {
+    width: 30px; height: 18px; background: var(--surface); border-radius: 5px;
+    box-shadow: var(--box-shadow); border: 1px solid var(--box-line);
+  }
+  .chip {
+    display:inline-block; border-radius:5px; padding:1.5px 6px;
+    font-size:9.5px; font-weight:800; letter-spacing:.4px; vertical-align: 2px;
+  }
+  .chip.app { background: var(--chip-app-bg); color: var(--chip-app-ink); }
+  .chip.mod { background: var(--chip-mod-bg); color: var(--chip-mod-ink); }
+
+  /* ── Layer band ── */
+  .band {
+    border-radius: 18px; padding: 16px 20px 20px;
+    margin-bottom: 18px; position: relative;
+    border: 1.5px solid var(--surface-line);
+  }
+  .band-title {
+    display: inline-flex; align-items:center; gap:8px;
+    font-size: 15px; font-weight: 800; margin-bottom: 14px;
+    padding: 4px 12px; border-radius: 8px; color:#fff;
+  }
+  .band-title .dot { width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.85); }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+  .group {
+    background: var(--group-bg);
+    border: 1px dashed var(--group-line);
+    border-radius: 12px; padding: 10px 12px 12px;
+  }
+  .group-label { font-size:11px; font-weight:700; color:var(--muted); margin-bottom:8px; letter-spacing:.4px; }
+  .group-label .kind { color: var(--faint); font-weight: 600; }
+  .group .row { gap: 8px; }
+
+  .box {
+    background: var(--surface); border-radius: 10px;
+    padding: 11px 15px; font-size: 13.5px; font-weight: 600;
+    box-shadow: var(--box-shadow);
+    border: 1px solid var(--box-line);
+    white-space: nowrap;
+  }
+  .box small { display:block; font-weight:500; color:var(--faint); font-size:11px; margin-top:3px; white-space: normal; max-width: 240px; }
+  .box.star { border: 2px solid var(--star); box-shadow:0 2px 10px rgba(255,157,60,.35); position:relative; }
+  .box.star::after{ content:"★ 단일 진실"; position:absolute; top:-10px; right:-6px; background:var(--star); color:#fff; font-size:9px; font-weight:800; padding:2px 7px; border-radius:999px;}
+  .box.appbox { border: 1.5px solid var(--chip-app-bg); }
+  .box.ghost { background:var(--ghost-bg); border:1px dashed var(--ghost-line); color:var(--ghost-ink); font-weight:500; box-shadow:none; }
+
+  .app    { background:var(--app-bg); }    .app .band-title{ background:var(--app-t); }
+  .feat   { background:var(--feat-bg); }   .feat .band-title{ background:var(--feat-t); }
+  .domain { background:var(--domain-bg); } .domain .band-title{ background:var(--domain-t); }
+  .data   { background:var(--data-bg); }   .data .band-title{ background:var(--data-t); }
+  .net    { background:var(--net-bg); }    .net .band-title{ background:var(--net-t); }
+  .core   { background:var(--core-bg); }   .core .band-title{ background:var(--core-t); }
+  .ui     { background:var(--ui-bg); }     .ui .band-title{ background:var(--ui-t); }
+  .shared { background:var(--shared-bg); } .shared .band-title{ background:var(--shared-t); }
+
+  .flow { text-align:center; color:var(--faint); font-size:12px; font-weight:700; margin:-8px 0 10px; }
+
+  /* ── Bottom cards ── */
+  .cards { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:28px; }
+  @media (max-width: 760px) { .cards { grid-template-columns:1fr; } }
+  .card { background:var(--surface); border-radius:16px; padding:20px 22px; border:1px solid var(--surface-line); box-shadow:0 2px 8px rgba(20,20,50,.05);}
+  .card h3 { font-size:14px; font-weight:800; margin-bottom:14px; display:flex; align-items:center; gap:8px;}
+  .card h3 .ic{ width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,var(--accent),var(--accent2)); display:inline-block; flex:none;}
+  .rule { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--divider); font-size:13px; align-items:flex-start;}
+  .rule:last-child{border-bottom:none;}
+  .rule b{ color:var(--accent); flex:none; }
+  .own { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--divider); font-size:13px;}
+  .own:last-child{border-bottom:none;}
+  .own .who{ font-weight:800; flex:none; }
+  .own .what{ text-align:right; }
+  .tag{ display:inline-block; background:var(--chip-mod-bg); color:var(--chip-mod-ink); border-radius:6px; padding:2px 8px; font-size:11px; font-weight:700; margin-left:6px;}
+
+  /* ── Token flow ── */
+  .tokenflow {
+    margin-top: 10px; padding: 14px 16px; border-radius: 12px;
+    background: var(--code-bg); color: var(--code-ink);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px; line-height: 1.75; overflow-x: auto;
+  }
+  .tokenflow .cm { color: var(--faint); }
+
+  /* ── Tree section ── */
+  .tree-section { margin-top: 32px; }
+  .tree-section h2 {
+    font-size: 18px; font-weight: 800; margin-bottom: 6px; letter-spacing:-0.3px;
+  }
+  .tree-section .desc { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  .tree {
+    background: var(--code-bg); color: var(--code-ink);
+    border-radius: 16px; padding: 22px 26px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; line-height: 1.8;
+    overflow-x: auto;
+  }
+  .tree .k-folder { color:#8fb4ff; font-weight:700; }
+  .tree .k-mod { color:#7ee0c2; }
+  .tree .k-app { color:#ffb86b; font-weight:700; }
+  .tree .cm { color:#7a8095; }
+  .tree .new { color:#ffd166; font-weight: 700; }
+</style>
+
+<div class="wrap">
+
+  <div class="header">
+    <h1>CHALLA · Modular Architecture</h1>
+    <div class="ver">v1.1.0 · Tuist + TCA</div>
+    <div class="sub">Feature는 화면별 분리(3인 병렬) · Domain/Data는 Aggregate당 1개 · Network는 Data 전용 레이어로 분리</div>
+  </div>
+
+  <div class="legend">
+    <span class="item"><span class="lg-folder"></span> 폴더 (그룹, 프로젝트 아님)</span>
+    <span class="item"><span class="lg-box"></span> 모듈 (Tuist 프로젝트/타깃)</span>
+    <span class="item"><span class="chip app">APP</span> 실행 가능한 앱 타깃</span>
+    <span class="item"><span class="chip mod">DEMO</span> 데모앱 (로컬 실행 전용)</span>
+  </div>
+
+  <!-- APP -->
+  <div class="band app">
+    <span class="band-title"><span class="dot"></span>App · 앱 실행 · 전체 흐름 조립</span>
+    <div class="row">
+      <div class="group"><div class="group-label">App/ <span class="kind">(폴더)</span></div><div class="row">
+        <div class="box appbox">CHALLAApp <span class="chip app">APP</span><small>실배포앱 · 모든 Feature 조립</small></div>
+        <div class="box">AppFeature<small>로그인/프로필/메인 진입 분기 · 루트 네비게이션</small></div>
+        <div class="box">AppView<small>최상위 SwiftUI View</small></div>
+        <div class="box">DependencyAssembly<small>DIContainer 실행</small></div>
+      </div></div>
+      <div class="group"><div class="group-label">DIContainer/ <span class="kind">(폴더)</span></div><div class="row">
+        <div class="box">LiveDependency<small>실제 구현체 등록</small></div>
+        <div class="box">TestDependency<small>Mock 등록</small></div>
+        <div class="box">PreviewDependency<small>더미 등록</small></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="flow">▼ 화면 전환은 App이 조립 (Feature끼리 직접 참조 ✕)</div>
+
+  <!-- FEATURE -->
+  <div class="band feat">
+    <span class="band-title"><span class="dot"></span>Feature · View · Reducer · Store</span>
+    <div class="row">
+      <div class="group"><div class="group-label">Auth/ <span class="kind">(폴더)</span></div><div class="row">
+        <div class="box">OnboardingFeature</div><div class="box">LoginFeature</div></div></div>
+      <div class="group"><div class="group-label">User/ <span class="kind">(폴더)</span></div><div class="row">
+        <div class="box">ProfileSetupFeature</div><div class="box">ProfileEditFeature</div></div></div>
+      <div class="group"><div class="group-label">Home/ <span class="kind">(폴더)</span></div><div class="row">
+        <div class="box">HomeFeature</div></div></div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <div class="group"><div class="group-label">Room/ <span class="kind">(폴더 · 화면 5분할)</span></div><div class="row">
+        <div class="box">RoomCreateFeature</div><div class="box">RoomJoinFeature</div>
+        <div class="box">RoomInviteFeature</div><div class="box">RoomDetailFeature<small>인화대기/완료 = 상태</small></div>
+        <div class="box">RoomSettingFeature</div></div></div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <div class="group"><div class="group-label">Camera/ <span class="kind">(폴더)</span></div><div class="row">
+        <div class="box">CameraFeature</div></div></div>
+      <div class="group"><div class="group-label">Photo/ <span class="kind">(폴더)</span></div><div class="row">
+        <div class="box">PhotoDetailFeature<small>상세 · 리액션</small></div></div></div>
+      <div class="group"><div class="group-label">Setting/ <span class="kind">(폴더)</span></div><div class="row">
+        <div class="box">SettingFeature</div></div></div>
+      <div class="box ghost">각 Feature 폴더 안 Demo/ <span class="chip mod">DEMO</span><small>해당 피처 + Mock Data만 조립해 단독 실행 (배포 ✕)</small></div>
+    </div>
+  </div>
+
+  <div class="flow">▼ Feature → Domain (인터페이스에만 의존)</div>
+
+  <!-- DOMAIN -->
+  <div class="band domain">
+    <span class="band-title"><span class="dot"></span>Domain · Entity · UseCase · Repository(interface)</span>
+    <div class="row">
+      <div class="box">AuthDomain<small>AuthToken · 로그인 규칙</small></div>
+      <div class="box">UserDomain<small>User · Profile</small></div>
+      <div class="box star">RoomDomain<small>Room · Participant · FilmStatus · InviteCode + UseCases</small></div>
+      <div class="box">PhotoDomain<small>Photo · Reaction</small></div>
+      <div class="box">SettingDomain<small>계정 관리 규칙</small></div>
+    </div>
+  </div>
+
+  <div class="flow">▲ Data → Domain (인터페이스 구현 · 의존성 역전)</div>
+
+  <!-- DATA -->
+  <div class="band data">
+    <span class="band-title"><span class="dot"></span>Data · Repository 구현 · DTO · API</span>
+    <div class="row">
+      <div class="box">AuthData<small>소셜SDK · 토큰저장(Keychain)</small></div>
+      <div class="box">UserData</div>
+      <div class="box">RoomData<small>방 CRUD · 인화상태 · 서버시간</small></div>
+      <div class="box">PhotoData<small>사진 조회/업로드/리액션</small></div>
+      <div class="box">SettingData</div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <div class="box ghost">HomeDomain/Data ✕ → RoomDomain 재사용</div>
+      <div class="box ghost">CameraDomain/Data ✕ → 장수=Room · 업로드=Photo</div>
+      <div class="box ghost">FilmDomain ✕ → Room.filmStatus 흡수</div>
+    </div>
+  </div>
+
+  <div class="flow">▼ Network는 Data 전용 — Feature · Domain은 import ✕</div>
+
+  <!-- NETWORK (NEW) -->
+  <div class="band net">
+    <span class="band-title"><span class="dot"></span>Network · 서버 통신 (Core에서 분리)</span>
+    <div class="row">
+      <div class="box">CHALLANetwork<small>Endpoint · HTTPClient · Interceptor · NetworkError→AppError 매핑</small></div>
+      <div class="box">TokenProvider<small>protocol만 정의 — 구현은 AuthData(Keychain 사용) · DIContainer가 연결</small></div>
+    </div>
+  </div>
+
+  <div class="flow">▼ 모든 레이어가 Core / Shared 공유 (둘 다 공용 — 차이는 코드 성격)</div>
+
+  <!-- CORE -->
+  <div class="band core">
+    <span class="band-title"><span class="dot"></span>Core · OS/디바이스를 만지는 인프라 (사이드 이펙트 있음)</span>
+    <div class="row">
+      <div class="box">Keychain<small>범용 보안 저장소 (토큰은 손님)</small></div>
+      <div class="box">Camera<small>AVFoundation</small></div>
+      <div class="box">Permission<small>카메라/사진첩/푸시</small></div>
+      <div class="box">FileStorage<small>임시 파일 · 캐시</small></div>
+      <div class="box">Logger<small>os.log 래핑</small></div>
+      <div class="box">Share<small>iOS 공유하기</small></div>
+      <div class="box ghost">Network ✕ → 상위 레이어로 승격</div>
+    </div>
+  </div>
+
+  <!-- UI -->
+  <div class="band ui">
+    <span class="band-title"><span class="dot"></span>UI · 순수 SwiftUI (Feature import ✕)</span>
+    <div class="row">
+      <div class="group"><div class="group-label">UI/ <span class="kind">(폴더)</span></div><div class="row">
+        <div class="box">CHALLADesignSystem<small>버튼 · 색상 · 폰트 · 아이콘 · 바텀시트 · 토스트 · 필름카드</small></div>
+        <div class="box appbox">CHALLADesignSystemApp <span class="chip app">APP</span><small>검수앱 · DS 카탈로그 · TestFlight 별도 배포</small></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- SHARED -->
+  <div class="band shared">
+    <span class="band-title"><span class="dot"></span>Shared · 순수 공통 코드 (import Foundation만 · 사이드 이펙트 ✕)</span>
+    <div class="row">
+      <div class="box">HGFoundation<small>Extension · EntityID · AppError · Validator</small></div>
+      <div class="box">HGResources<small>공통 리소스 접근 헬퍼</small></div>
+      <div class="box ghost">Tuist/Package.swift<small>TCA · Kingfisher · KakaoSDK — 외부 패키지 (모듈 아님)</small></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM CARDS -->
+  <div class="cards">
+    <div class="card">
+      <h3><span class="ic"></span>의존성 규칙</h3>
+      <div class="rule"><b>단방향</b><span>Feature → Domain ← Data. 상위만 하위를 참조</span></div>
+      <div class="rule"><b>주입</b><span>Feature는 Data를 import ✕ → DIContainer가 구현체 주입</span></div>
+      <div class="rule"><b>화면 전환</b><span>Feature끼리 직접 참조 ✕ → App이 TCA로 조립</span></div>
+      <div class="rule"><b>Network</b><span>Data만 import. Feature·Domain은 서버의 존재를 모름</span></div>
+      <div class="rule"><b>엔티티 단일화</b><span>Room은 RoomDomain 1곳에만 정의 → 변환지옥 차단</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="ic"></span>레이어 판별 기준 (한 줄 규칙)</h3>
+      <div class="rule"><b>사이드 이펙트</b><span>함수가 결과값 계산 이외에 바깥세상(OS·기기·서버)을 읽거나 바꾸는 것 — <code>keychain.save()</code> · <code>logger.info()</code> · <code>camera.capture()</code>. 순수 코드는 같은 입력이면 항상 같은 출력 · 바깥세상 불변</span></div>
+      <div class="rule"><b>Shared</b><span>시뮬레이터 없이 유닛테스트가 돌아가는 순수 코드. <code>import Foundation</code>만 허용 · 아무것도 import ✕</span></div>
+      <div class="rule"><b>Core</b><span>OS를 만지는 코드 (Keychain·AVFoundation·os.log…). Shared import 가능</span></div>
+      <div class="rule"><b>Network</b><span>서버를 만지는 코드. Core(Logger 등)·Shared import 가능</span></div>
+      <div class="rule"><b>토큰 흐름</b><span>Network는 TokenProvider(protocol)만 정의 → AuthData가 Keychain으로 구현 → DIContainer가 연결. Network는 키체인의 존재를 모름</span></div>
+      <div class="rule"><b>Core 명칭</b><span>CoreData·CoreLocation처럼 Core = 저수준 기술 래핑이라는 Apple 관례. 순수 규칙은 Domain, 사이드 이펙트는 가장자리(Core·Network) 격리 — 배치 원칙은 Clean Architecture와 동일</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="ic"></span>앱 · 데모앱 배치</h3>
+      <div class="rule"><b>실배포앱</b><span>CHALLAApp → <code>Projects/App/</code> — 모든 Feature 조립</span></div>
+      <div class="rule"><b>검수앱</b><span>CHALLADesignSystemApp → <code>Projects/UI/</code> (DS 옆 세트) — TestFlight 별도 배포</span></div>
+      <div class="rule"><b>피처 데모앱</b><span>각 피처 폴더 안 <code>Demo/</code> — Mock 주입 · 로컬 실행 전용 · 배포 ✕</span></div>
+      <div class="rule"><b>예외 1개</b><span>데모앱만은 Data를 직접 import 가능 (앱 조립 지점이므로)</span></div>
+    </div>
+    <div class="card">
+      <h3><span class="ic"></span>3인 협업 분담</h3>
+      <div class="own"><span class="who">Dev A</span><span class="what">Auth <span class="tag">로그인</span> · User · Setting</span></div>
+      <div class="own"><span class="who">Dev B</span><span class="what">Home · Room <span class="tag">Domain+Data 1 · Feature 5</span></span></div>
+      <div class="own"><span class="who">Dev C</span><span class="what">Camera · Photo · DesignSystem</span></div>
+      <div class="own"><span class="who">공통</span><span class="what">Core · Shared · Network · DIContainer <span class="tag">합의 후 수정</span></span></div>
+    </div>
+  </div>
+
+  <!-- TREE -->
+  <div class="tree-section">
+    <h2>모듈 구조 (docs/ARCHITECTURE.md와 동기화)</h2>
+    <div class="desc">ARCHITECTURE.md 「모듈 구조」와 동일한 트리 — (폴더) / (모듈) / (앱) 표기 · Network 분리 · 데모앱 통합.</div>
+    <pre class="tree">
+Projects/
+├─ App/                              <span class="k-folder">(폴더)</span> 앱 실행 · 전체 흐름 조립
+│  ├─ CHALLAApp                      <span class="k-app">(앱)</span>   실배포앱 — 모든 Feature 조립
+│  ├─ AppFeature                     <span class="k-mod">(모듈)</span> 로그인/프로필/메인 진입 분기 + 루트 네비게이션
+│  ├─ AppView                        <span class="k-mod">(모듈)</span> 최상위 SwiftUI View
+│  └─ DependencyAssembly             <span class="k-mod">(모듈)</span> DIContainer 실행
+│
+├─ DIContainer/                      <span class="k-folder">(폴더)</span> 의존성 조립 전용
+│  ├─ LiveDependency                 <span class="k-mod">(모듈)</span> 실제 구현체 등록
+│  ├─ TestDependency                 <span class="k-mod">(모듈)</span> 테스트용 Mock 등록
+│  └─ PreviewDependency              <span class="k-mod">(모듈)</span> 프리뷰용 더미 등록
+│
+├─ Auth/                             <span class="k-folder">(폴더)</span> 인증
+│  ├─ OnboardingFeature              <span class="k-mod">(모듈)</span> 온보딩 화면
+│  ├─ LoginFeature                   <span class="k-mod">(모듈)</span> 로그인 화면 (카카오/애플)
+│  │   └─ Demo/                      <span class="k-app">(앱)</span>   피처 데모앱 — Mock 주입 · 로컬 실행 전용
+│  │                                        <span class="cm">※ 모든 XxxFeature가 같은 패턴으로 Demo/를 가질 수 있음</span>
+│  ├─ AuthDomain                     <span class="k-mod">(모듈)</span> AuthToken · 로그인 규칙 · AuthRepository(interface)
+│  └─ AuthData                       <span class="k-mod">(모듈)</span> 소셜 SDK · 로그인 API · TokenProvider 구현(Keychain 사용)
+│
+├─ User/                             <span class="k-folder">(폴더)</span> 유저 · 프로필
+│  ├─ ProfileSetupFeature            <span class="k-mod">(모듈)</span> 최초 프로필 설정 화면
+│  ├─ ProfileEditFeature             <span class="k-mod">(모듈)</span> 프로필 수정 화면
+│  ├─ UserDomain                     <span class="k-mod">(모듈)</span> User · Profile · UserRepository(interface)
+│  └─ UserData                       <span class="k-mod">(모듈)</span> 유저 조회/수정 API 구현
+│
+├─ Home/                             <span class="k-folder">(폴더)</span> 홈  (Domain/Data 없음)
+│  └─ HomeFeature                    <span class="k-mod">(모듈)</span> 방 목록 · Empty · 생성/입장/상세 진입
+│                                          <span class="cm">└ RoomDomain.fetchRooms 재사용</span>
+│
+├─ Room/   ⭐                        <span class="k-folder">(폴더)</span> 도메인/데이터 통합 · Feature는 화면별 유지
+│  ├─ RoomDomain                     <span class="k-mod">(모듈)</span> ★ 방의 단일 진실 (Single Source of Truth)
+│  │   ├─ Entities/                        <span class="cm">Room · Participant · InviteCode · RoomID</span>
+│  │   │   └─ FilmStatus                   <span class="cm">촬영중 · 인화대기 · 완료  ← Film 도메인 흡수</span>
+│  │   ├─ RoomRepository                   <span class="cm">인터페이스 1개</span>
+│  │   └─ UseCases/                        <span class="cm">FetchRooms · Create · Join · Invite · Detail · DevelopFilm · Setting</span>
+│  ├─ RoomData                       <span class="k-mod">(모듈)</span> RoomRepository 구현 1개 + DTO 매핑
+│  ├─ RoomCreateFeature              <span class="k-mod">(모듈)</span> 방 이름 · 색상 · 필름 장수 설정
+│  ├─ RoomJoinFeature                <span class="k-mod">(모듈)</span> 초대코드 입력 · 입장
+│  ├─ RoomInviteFeature              <span class="k-mod">(모듈)</span> 초대코드 표시 · 공유
+│  ├─ RoomDetailFeature              <span class="k-mod">(모듈)</span> 방 상세 · 참여자 · 남은 장수
+│  │                                        <span class="cm">├ 인화대기/완료 = 이 화면의 "상태"  ← FilmWaiting/Completed 흡수</span>
+│  │                                        <span class="cm">└ 결과 사진 목록 = 이 화면의 그리드   ← PhotoResult 흡수</span>
+│  └─ RoomSettingFeature             <span class="k-mod">(모듈)</span> 방 이름 수정 · 나가기 · 삭제
+│
+├─ Camera/                           <span class="k-folder">(폴더)</span> 촬영  (Domain/Data 없음)
+│  └─ CameraFeature                  <span class="k-mod">(모듈)</span> 셔터 · 플래시 · 전후면 · 장수 카운트
+│                                          <span class="cm">├ 장수 제한   → RoomDomain</span>
+│                                          <span class="cm">├ 업로드 큐   → PhotoData (PhotoDomain UseCase 경유)</span>
+│                                          <span class="cm">└ 촬영 장치   → Core/Camera</span>
+│
+├─ Photo/                            <span class="k-folder">(폴더)</span> 사진 결과
+│  ├─ PhotoDetailFeature             <span class="k-mod">(모듈)</span> 사진 상세 · 리액션 · 다운로드
+│  │                                        <span class="cm">└ 결과 목록은 RoomDetailFeature로 흡수</span>
+│  ├─ PhotoDomain                    <span class="k-mod">(모듈)</span> Photo · Reaction · PhotoRepository(interface)
+│  └─ PhotoData                      <span class="k-mod">(모듈)</span> 사진 조회/업로드/리액션 API 구현
+│
+├─ Setting/                          <span class="k-folder">(폴더)</span> 앱 설정
+│  ├─ SettingFeature                 <span class="k-mod">(모듈)</span> 약관 · 피드백 · 로그아웃 · 회원탈퇴 · 테마
+│  ├─ SettingDomain                  <span class="k-mod">(모듈)</span> 설정 항목 · 계정 관리 규칙
+│  └─ SettingData                    <span class="k-mod">(모듈)</span> 피드백 전송 · 회원탈퇴 API 구현
+│
+├─ <span class="new">Network/  ★신규</span>                   <span class="k-folder">(폴더)</span> 서버 통신 — Core에서 분리 (Data 전용 레이어)
+│  └─ CHALLANetwork                  <span class="k-mod">(모듈)</span> Endpoint · HTTPClient · Interceptor
+│                                          <span class="cm">├ NetworkError → AppError 매핑</span>
+│                                          <span class="cm">└ TokenProvider(protocol) 정의 — 구현은 AuthData</span>
+│                                    <span class="cm"># 모듈명 "Network"는 Apple Network.framework와 충돌 → CHALLA 접두</span>
+│
+├─ Core/                             <span class="k-folder">(폴더)</span> OS/디바이스 래핑 인프라 (Network 제외)
+│  ├─ Keychain                       <span class="k-mod">(모듈)</span> 범용 보안 저장소 — 토큰은 손님 중 하나
+│  ├─ Camera                         <span class="k-mod">(모듈)</span> AVFoundation 래핑
+│  ├─ Permission                     <span class="k-mod">(모듈)</span> 카메라/사진첩/푸시 권한
+│  ├─ FileStorage                    <span class="k-mod">(모듈)</span> 임시 파일 · 캐시
+│  ├─ Logger                         <span class="k-mod">(모듈)</span> os.log 래핑 — Core여도 전 레이어 공용
+│  └─ Share                          <span class="k-mod">(모듈)</span> iOS 공유하기
+│
+├─ UI/                               <span class="k-folder">(폴더)</span>
+│  ├─ CHALLADesignSystem             <span class="k-mod">(모듈)</span> 순수 SwiftUI UI 모듈 (Feature import 금지)
+│  │                                        <span class="cm">→ 자세한 내용은 DESIGN_SYSTEM.md 참고</span>
+│  └─ CHALLADesignSystemApp          <span class="k-app">(앱)</span>   검수앱 — DS 카탈로그 · TestFlight 별도 배포
+│
+└─ Shared/                           <span class="k-folder">(폴더)</span> UI 없는 순수 공통 코드 — import Foundation만
+   ├─ HGFoundation                   <span class="k-mod">(모듈)</span> Extension · EntityID · AppError · Validator
+   └─ HGResources                    <span class="k-mod">(모듈)</span> 공통 리소스 접근 헬퍼
+
+Tuist/
+└─ Package.swift                     <span class="cm"># 외부 패키지 (모듈 아님) — TCA · Firebase · Kingfisher · KakaoSDK …</span>
+    </pre>
+  </div>
+
+</div>
+</body>
+</html>
