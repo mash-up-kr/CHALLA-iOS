@@ -146,79 +146,14 @@ CHALLA 디자인 시스템
 
 ---
 
-## 초기 구축 순서 (다른 모듈보다 먼저)
+## 배포 · CI/CD
 
-디자인 시스템 + 검수앱만 먼저 만들어 굴러가는지 검증한 뒤, 나머지 모듈은 이 패턴을 복제한다.
-
-1. 이슈 생성 (`[Build] #n - Tuist 디자인 시스템 + 검수앱 초기 세팅`)
-2. 브랜치 생성 (`build/#n-tuist-designsystem-setup`)
-3. `mise.toml`로 Tuist 버전 고정 (예: 4.182.0)
-4. `CHALLADesignSystem` 모듈 + `CHALLADesignSystemApp` 검수앱 최소 세팅
-5. 시뮬레이터로 버튼 1개가 상태별로 뜨는지 확인
-6. PR 올려 3명 합의
+배포 전략(앱 2개 분리, 파이프라인, 수동 절차)은 **`docs/DEPLOYMENT.md`** 로 분리했다.
+실 구현은 이슈 #8에서 진행 중 (CI는 GitHub Actions, 배포는 Xcode Cloud).
 
 ---
 
-## CI/CD 방침 (앱 2개 = TestFlight 슬롯 2개)
-
-실앱과 검수앱은 App Store Connect 입장에서 **완전히 별개의 앱**이다.
-
-- 각각 **다른 번들 ID** (예: `com.challa.app` / `com.challa.designsystem`)
-- 각각 **다른 App Store Connect 앱 등록**, 다른 배포 대상 (실앱→유저 / 검수앱→디자이너)
-- **번들 ID는 초기 세팅 때부터 다르게 잡아둔다** (나중에 CI/CD 붙일 때 안 꼬이게).
-
-파이프라인 구조:
-
-```
-.github/workflows/
-├─ ci.yml                   # PR마다: mise install → tuist install → tuist build/test (배포 X)
-├─ deploy-app.yml           # CHALLAApp → TestFlight (릴리즈 태그 등 신중하게)
-└─ deploy-designsystem.yml  # CHALLADesignSystemApp → TestFlight (DS 변경 시 자동, 자주)
-```
-
-- **DS 변경 시**: 검수앱만 자동 배포(디자이너 확인). 실앱은 다음 정식 릴리즈에 최신 DS 포함.
-  → path 필터로 "DS 바뀌면 검수앱만 쏜다".
-- **Tuist 버전**: `mise.toml` 고정 → CI에서도 `mise install` 한 줄로 로컬과 동일 버전.
-- 빌드 캐시(`tuist install`/빌드)를 GitHub Actions 캐시에 태워 시간 단축.
-
-> CI/CD는 배포할 것이 생겼을 때 붙여도 늦지 않다. 먼저 로컬에서 도는 것을 확인한다.
-
----
-
-## 검수앱 TestFlight 배포
-
-디자이너가 컴포넌트를 실기기로 검수하도록, 검수앱(`CHALLADesignSystemApp`)을
-TestFlight에 올린다. **위치는 `Projects/UI/CHALLADesignSystemApp/`지만 배포는 독립적**이다
-(배포는 폴더가 아니라 타깃/번들ID 기준).
-
-### 배포 대상 식별
-
-| 항목 | 값 |
-| :-- | :-- |
-| 타깃/스킴 | `CHALLADesignSystemApp` |
-| 번들 ID | `com.challa.designsystem` |
-| 표시 이름 | CHALLA 디자인 시스템 |
-| App Store Connect | `com.challa.designsystem`로 등록된 **별도 앱** (실앱과 무관) |
-
-### 사전 준비 (최초 1회)
-- App Store Connect에 `com.challa.designsystem` 번들ID로 앱 생성 (이름/SKU 지정)
-- `DEVELOPMENT_TEAM`(팀 ID) 확보 → 사이닝 설정에 반영
-- 앱 아이콘 1024pt (TestFlight 필수) → `Resources/Assets.xcassets/AppIcon`
-- 버전/빌드: `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`
-
-### 오늘 방식 — Xcode 수동 업로드
-1. `tuist generate` → Xcode에서 열기
-2. 스킴 `CHALLADesignSystemApp` 선택, 디바이스 타깃 `Any iOS Device`
-3. **Product > Archive**
-4. Organizer > **Distribute App > App Store Connect > Upload**
-5. App Store Connect > **TestFlight > 디자이너 그룹**에 배포
-
-### 이후 방식 — 자동화 (CI/CD)
-- 위 "CI/CD 방침"의 `deploy-designsystem.yml`이 담당.
-- **DS 코드가 바뀐 PR이 main에 머지되면** 검수앱만 자동 빌드 → TestFlight 업로드.
-- 디자이너는 Figma 라이브러리 갱신 → 개발이 검수앱 업데이트 → 재검수 루프로 진행.
-
-### 검수 워크플로우 (YDS Stage 방식)
+## 검수 워크플로우 (YDS Stage 방식)
 1. 디자이너가 Figma 컴포넌트/토큰 업데이트
 2. 개발자가 검수앱에 해당 Variant(모든 상태) 반영
 3. 검수앱 TestFlight 배포 → 디자이너가 실기기에서 Figma와 1:1 대조
