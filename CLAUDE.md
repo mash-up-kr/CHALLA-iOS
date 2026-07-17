@@ -27,6 +27,8 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme <스킴> \
 
 레이어: `App → Feature → Domain ← Data → Network → Core·Shared` + UI(CHALLADesignSystem) + DIContainer
 
+> 이 구조는 목표 설계다. 현재 구현된 모듈은 `ls Projects/`로 확인할 것 (초기 단계라 일부 레이어는 아직 생성 전이다).
+
 핵심 규칙 6개 — 위반 금지 (상세: `.claude/rules/architecture.md`, 배경: `docs/ARCHITECTURE.md`):
 
 1. `Feature → Domain ← Data` (Data가 Domain 인터페이스 구현)
