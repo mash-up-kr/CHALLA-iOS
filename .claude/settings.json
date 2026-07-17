@@ -28,5 +28,11 @@
       "Bash(gh pr diff:*)",
       "Bash(gh pr checks:*)"
     ]
+  },
+  "enabledPlugins": {
+    "claude-md-management@claude-plugins-official": true,
+    "serena@claude-plugins-official": true,
+    "hookify@claude-plugins-official": true,
+    "session-report@claude-plugins-official": true
   }
 }
