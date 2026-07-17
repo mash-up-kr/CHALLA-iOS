@@ -19,7 +19,7 @@ skills: modern-swift, swiftui-patterns, swift-diagnostics, swift-testing, compos
 ## Context
 
 **IMPORTANT:** 시스템 프롬프트에는 오늘 날짜가 포함되어 있습니다 - 모든 API 조사, 문서 확인, deprecation 확인에 이를 사용하세요. 프레임워크/API를 다루다 막힌다면, 학습 데이터 이후 변경되었을 수 있으니 최신 문서를 검색하세요.
-**Platform:** iOS 26.0+, Swift 6.2+, Strict concurrency
+**Platform:** iOS 17.0+ (iPhone 전용), Swift 6.2+ (strict concurrency)
 
 ## Review Categories
 
@@ -33,11 +33,21 @@ skills: modern-swift, swiftui-patterns, swift-diagnostics, swift-testing, compos
 
 **Modern Swift:**
 - [ ] Swift 6.2 feature를 적절히 사용하고 있는가
-- [ ] deprecated API가 없는가 (2025년 상태를 Sosumi로 확인)
+- [ ] deprecated API가 없는가 (Apple 공식 문서로 확인)
 - [ ] typed error로 적절한 에러 처리를 하는가
 - [ ] 조기 반환을 위한 guard 문을 사용하는가
 
-### 2. TCA Patterns (해당하는 경우)
+### 2. CHALLA 레이어 위반 (필수 검사)
+
+기준: `.claude/rules/architecture.md`, `.claude/rules/design-system.md`
+
+- [ ] Feature가 Data를 import하지 않는가 (DIContainer 주입 원칙)
+- [ ] Feature 모듈끼리 서로 import하지 않는가
+- [ ] CHALLADesignSystem이 Feature를 import하지 않는가
+- [ ] CHALLANetwork를 Data 외의 레이어가 import하지 않는가
+- [ ] `Color(hex:)`/`Font.custom` 직접 호출로 디자인 토큰을 우회하지 않는가
+
+### 3. TCA Patterns (해당하는 경우)
 
 - [ ] Action이 taxonomy를 따르는가 (view/delegate/internal)
 - [ ] State가 `Equatable`을 만족하는 `@ObservableState`인가
@@ -45,7 +55,7 @@ skills: modern-swift, swiftui-patterns, swift-diagnostics, swift-testing, compos
 - [ ] Effect에 적절한 cancellation이 있는가
 - [ ] view에 비즈니스 로직이 없는가
 
-### 3. Security
+### 4. Security
 
 - [ ] 하드코딩된 비밀값이나 API 키가 없는가
 - [ ] 민감한 데이터가 로그에 남지 않는가
@@ -53,7 +63,7 @@ skills: modern-swift, swiftui-patterns, swift-diagnostics, swift-testing, compos
 - [ ] credential에 Keychain을 사용하는가
 - [ ] 필요한 API에 대한 privacy manifest 항목이 있는가
 
-### 4. Performance
+### 5. Performance
 
 - [ ] N+1 쿼리 pattern이 없는가
 - [ ] 큰 컬렉션이 `Identifiable`을 제대로 사용하는가
@@ -61,7 +71,7 @@ skills: modern-swift, swiftui-patterns, swift-diagnostics, swift-testing, compos
 - [ ] view에서 불필요한 재계산이 없는가
 - [ ] `@State`와 `@Binding`을 적절히 구분해서 사용하는가
 
-### 5. HIG Compliance
+### 6. HIG Compliance
 
 - [ ] 시스템 색상과 material을 사용하는가
 - [ ] Dynamic Type을 지원하는가
@@ -69,7 +79,7 @@ skills: modern-swift, swiftui-patterns, swift-diagnostics, swift-testing, compos
 - [ ] 플랫폼에 적합한 navigation을 사용하는가
 - [ ] 표준 gesture를 준수하는가
 
-### 6. Code Quality
+### 7. Code Quality
 
 - [ ] 명확하고 서술적인 네이밍을 사용하는가
 - [ ] 단일 책임 원칙을 따르는가
@@ -89,10 +99,10 @@ skills: modern-swift, swiftui-patterns, swift-diagnostics, swift-testing, compos
 | Question | **[QUESTION]** | 설명이 필요함 |
 | Praise | **[PRAISE]** | 강조할 만한 훌륭한 코드 |
 
-## MCP Servers
+## Apple 문서 확인
 
-Apple 문서를 위해 Sosumi MCP server를 사용하세요:
-- 2025년 기준 API deprecation 상태 확인
+API 조사가 필요하면 Apple 공식 문서를 확인하세요:
+- API deprecation 상태 확인
 - 최신 API 대체 항목 확인
 - HIG 준수 여부 확인
 

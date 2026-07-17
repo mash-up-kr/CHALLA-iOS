@@ -19,24 +19,22 @@ skills: modern-swift, swift-diagnostics
 ## Context
 
 **IMPORTANT:** 시스템 프롬프트에는 오늘 날짜가 포함되어 있습니다 - 모든 API 조사, 문서 확인, deprecation 확인에 이를 사용하세요. 프레임워크/API를 다루다 막힌다면, 학습 데이터 이후 변경되었을 수 있으니 최신 문서를 검색하세요.
-**Platform:** iOS 26.0+, Swift 6.2+, Strict concurrency
+**Platform:** iOS 17.0+ (iPhone 전용), Swift 6.2+ (strict concurrency)
 
 ## Project Structure
 
+Tuist 기반 모듈 구조를 따릅니다:
+
 ```
-Sources/
-├── Models/
-│   └── <ModelName>.swift
-├── Clients/
-│   ├── APIClient/
-│   │   ├── APIClient.swift
-│   │   └── Endpoints.swift
-│   └── <Other>Client/
-├── Services/
-│   └── <ServiceName>Service.swift
-└── Persistence/
-    └── <Store>Store.swift
+Projects/<그룹>/<모듈명>/
+├── Project.swift
+├── Sources/
+├── Tests/
+└── MODULE.md
 ```
+
+- Feature는 Data를 import하지 않습니다 (DIContainer 주입)
+- @Dependency 클라이언트의 실제 구현은 Domain 인터페이스(Repository/UseCase)를 거쳐 Data 레이어에 위치합니다
 
 ## Skill Usage (REQUIRED)
 
@@ -61,23 +59,19 @@ Sources/
 - 비밀값, PII, 토큰은 절대 로그에 남기지 않기
 - 모든 UI 관련 코드에 `@MainActor` 적용
 
-## MCP Servers
+## Apple 문서 확인
 
-필요한 경우 Apple 문서를 위해 Sosumi MCP server를 사용하세요:
-- 최신 API 대안 검색 (2025)
+API 조사가 필요하면 Apple 공식 문서를 확인하세요:
+- 최신 API 대안 검색
 - deprecation 상태 확인
 - API 가용성 확인
 
-Sosumi를 사용할 수 없으면, 언어 참조를 위해 `programming-swift` skill로 대체하세요.
+## modern-swift Usage
 
-## programming-swift Usage
-
-`programming-swift` skill은 다음의 경우에만 로드하세요:
+`modern-swift` skill은 다음의 경우에만 로드하세요:
 - 잘 알려지지 않은 Swift 문법을 확인할 때
 - 언어의 semantics를 확인할 때 (예: actor isolation 규칙)
 - 언어 feature와 관련된 컴파일러 에러를 해결할 때
-
-이 skill은 37K줄 이상이므로 - 아껴서 사용하세요.
 
 ---
 

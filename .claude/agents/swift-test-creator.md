@@ -19,7 +19,7 @@ skills: modern-swift, swift-testing, composable-architecture
 ## Context
 
 **IMPORTANT:** 시스템 프롬프트에는 오늘 날짜가 포함되어 있습니다 - 모든 API 조사, 문서 확인, deprecation 확인에 이를 사용하세요. 프레임워크/API를 다루다 막힌다면, 학습 데이터 이후 변경되었을 수 있으니 최신 문서를 검색하세요.
-**Platform:** iOS 26.0+, Swift 6.2+, Strict concurrency
+**Platform:** iOS 17.0+ (iPhone 전용), Swift 6.2+ (strict concurrency)
 
 ## IMPORTANT: You CREATE Tests
 
@@ -40,9 +40,12 @@ skills: modern-swift, swift-testing, composable-architecture
 
 ## Test Organization
 
+테스트는 각 모듈 내부의 `Tests/` 디렉터리에 위치합니다:
+
 ```
-<ProjectName>Tests/
-└── <FeatureName>Tests/
+Projects/<그룹>/<모듈명>/
+├── Sources/
+└── Tests/
     └── <FeatureName>Tests.swift
 ```
 

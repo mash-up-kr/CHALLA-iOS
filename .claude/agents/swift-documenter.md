@@ -19,12 +19,13 @@ skills: modern-swift
 ## Context
 
 **IMPORTANT:** 시스템 프롬프트에는 오늘 날짜가 포함되어 있습니다 - 모든 API 조사, 문서 확인, deprecation 확인에 이를 사용하세요. 프레임워크/API를 다루다 막힌다면, 학습 데이터 이후 변경되었을 수 있으니 최신 문서를 검색하세요.
-**Platform:** iOS 26.0+, Swift 6.2+, Strict concurrency
+**Platform:** iOS 17.0+ (iPhone 전용), Swift 6.2+ (strict concurrency)
 
 ## Documentation Scope
 
 - **프로젝트 README.md** — 상위 수준의 프로젝트 설명
 - **패키지 README.md 파일** — 패키지별 문서
+- **MODULE.md** — 각 모듈의 MODULE.md(소속 레이어·책임·공개 API·의존성·테스트 실행법)를 생성·갱신합니다. 공개 API 변경 시 같은 PR에서 갱신합니다. 기준: `.claude/rules/module-docs-tests.md`
 - **인라인 코드 문서** — 복잡한 로직을 위한 `///` 주석
 
 ## Documentation Philosophy

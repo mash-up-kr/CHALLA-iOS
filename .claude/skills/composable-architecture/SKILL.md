@@ -1,6 +1,6 @@
 ---
 name: composable-architecture
-description: Use when building features with TCA (The Composable Architecture), structuring reducers, managing state, handling effects, navigation, or testing TCA features. Covers @Reducer, Store, Effect, TestStore, reducer composition, and TCA patterns.
+description: TCA(The Composable Architecture)로 Feature를 구축하거나 reducer 구조화, state 관리, effect·navigation 처리, TCA feature 테스트를 할 때 사용합니다. @Reducer, Store, Effect, TestStore, reducer 조합 패턴을 다룹니다.
 ---
 
 # The Composable Architecture (TCA)

@@ -23,7 +23,7 @@ skills: modern-swift, composable-architecture
 ## Context
 
 **IMPORTANT:** 시스템 프롬프트에는 오늘 날짜가 포함되어 있습니다 - 모든 API 조사, 문서 확인, deprecation 확인에 이를 사용하세요. 프레임워크/API를 다루다 막힌다면, 학습 데이터 이후 변경되었을 수 있으니 최신 문서를 검색하세요.
-**Platform:** iOS 26.0+, Swift 6.2+, Strict concurrency
+**Platform:** iOS 17.0+ (iPhone 전용), Swift 6.2+ (strict concurrency)
 **Context Budget:** 목표는 <100K 토큰이며, 초과가 불가피한 경우 중요한 아키텍처 결정을 우선시하세요
 
 ## Skill Usage (REQUIRED)
@@ -41,17 +41,17 @@ skills: modern-swift, composable-architecture
 
 feature를 다음 원칙에 따라 평가하세요:
 
-- **Local-First, Privacy-First:** SQLite 또는 UserDefaults를 기본으로 합니다. 요청이 없으면 백엔드를 사용하지 않습니다.
+- **Layered Architecture First:** CHALLA는 서버가 있는 앱입니다(CHALLANetwork 경유). persistence와 네트워킹은 Domain 인터페이스(Repository/UseCase)로 추상화하고, 구현은 Data 레이어에 둡니다. OS 접점(Keychain 등)은 Core 모듈을 사용합니다. 기준 문서는 `docs/ARCHITECTURE.md`와 `.claude/rules/architecture.md`입니다.
 - **Speed Over Features:** latency를 최적화합니다. 불필요한 탭이나 다이얼로그를 피합니다.
 - **Minimalism Wins:** 명확한 이점 없이는 abstraction을 만들지 않습니다. 모든 파일은 존재할 이유가 있어야 합니다.
-- **Modern APIs Only:** deprecated API를 사용하지 않습니다. Sosumi로 2025년 기준 가용성을 확인하세요.
+- **Modern APIs Only:** deprecated API를 사용하지 않습니다. Apple 공식 문서로 가용성을 확인하세요.
 
 ## Platform Considerations
 
 요구사항을 플랫폼 역량에 맞춰 평가하세요:
 
 - [ ] 디바이스 요구사항 (iPhone, iPad, 특정 하드웨어?)
-- [ ] 필요한 feature에 대한 native API 가용성 (2025년 API)
+- [ ] 필요한 feature에 대한 native API 가용성
 - [ ] 권한 요구사항 및 privacy manifest 항목
 - [ ] App Store Review Guidelines 고려사항
 - [ ] 접근성 요구사항 (VoiceOver, Dynamic Type, Reduce Motion)
@@ -71,37 +71,28 @@ feature를 다음 원칙에 따라 평가하세요:
 - 복잡한 state가 없는 독립적인 model인 경우
 - 단순한 CRUD 작업인 경우
 
-## Persistence Decision
+## Persistence & Networking Decision
 
-**SQLite** — 기본 선택
-- 로컬 persistence
-- private CloudKit sync
+CHALLA는 서버가 있는 앱입니다. persistence와 네트워킹 설계 시:
 
-**UserDefaults**
-- 단순한 key-value 저장
-- 사용자 설정(preference)
+- **Domain 인터페이스로 추상화** — Repository/UseCase 인터페이스는 Domain 레이어에 정의
+- **구현은 Data 레이어에** — 네트워킹은 CHALLANetwork를 경유하고, 저장소 구현도 Data 레이어에 위치
+- **OS 접점은 Core 모듈** — Keychain 등 OS API 래핑은 Core 모듈 사용
 
-**CloudKit (direct)** — SQLite로 처리할 수 없는 경우에만
-- public CloudKit database
-- shared CloudKit database
+기준 문서: `docs/ARCHITECTURE.md`, `.claude/rules/architecture.md`
 
-**절대 제안하지 말 것:** SwiftData, Core Data (명시적으로 요청된 경우가 아니면)
+## Apple 문서 확인
 
-## MCP Servers
-
-Apple 문서를 위해 Sosumi MCP server를 사용하세요:
-- 최신 API 대안 검색 (2025)
+API 조사가 필요하면 Apple 공식 문서를 확인하세요:
+- 최신 API 대안 검색
 - deprecation 상태 확인
 - API 가용성 확인
 
-Sosumi를 사용할 수 없으면, 언어 참조를 위해 `programming-swift` skill로 대체하세요.
+## modern-swift Usage
 
-## programming-swift Usage
-
-`programming-swift` skill은 다음의 경우에만 로드하세요:
+`modern-swift` skill은 다음의 경우에만 로드하세요:
 - 잘 알려지지 않은 Swift 문법을 확인할 때
 - 언어의 semantics를 확인할 때 (예: actor isolation 규칙)
-- 이 skill은 37K줄 이상이므로 - 아껴서 사용하세요
 
 ## Architecture Planning Workflow
 
@@ -112,7 +103,7 @@ Sosumi를 사용할 수 없으면, 언어 참조를 위해 `programming-swift` s
 
 ### 2. Evaluate Platform Capabilities
 - Platform Considerations 체크리스트 확인
-- 2025년 기준 API 가용성 검증
+- API 가용성 검증
 - 필요한 권한 파악
 
 ### 3. Make Architecture Decision
@@ -121,7 +112,7 @@ Sosumi를 사용할 수 없으면, 언어 참조를 위해 `programming-swift` s
 - 확장성과 유지보수성 고려
 
 ### 4. Design Persistence Layer
-- persistence 전략 선택 (SQLite, UserDefaults, CloudKit)
+- persistence·네트워킹은 Domain 인터페이스(Repository/UseCase)로 추상화하고 구현은 Data 레이어에 배치
 - 데이터 model 설계
 - 필요한 경우 sync 전략 계획
 

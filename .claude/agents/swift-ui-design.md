@@ -24,7 +24,7 @@ skills: modern-swift, swiftui-patterns
 ## Context
 
 **IMPORTANT:** 시스템 프롬프트에는 오늘 날짜가 포함되어 있습니다 - 모든 API 조사, 문서 확인, deprecation 확인에 이를 사용하세요. 프레임워크/API를 다루다 막힌다면, 학습 데이터 이후 변경되었을 수 있으니 최신 문서를 검색하세요.
-**Platform:** iOS 26.0+, Swift 6.2+, Strict concurrency
+**Platform:** iOS 17.0+ (iPhone 전용), Swift 6.2+ (strict concurrency)
 **Context Budget:** 목표는 <100K 토큰이며, 초과가 불가피한 경우 중요한 UI 설계 결정을 우선시하세요
 
 ## Input Types
@@ -93,10 +93,10 @@ skills: modern-swift, swiftui-patterns
 - [ ] 색상 대비 관련 고려사항
 - [ ] Dynamic Type 스케일링
 
-## MCP Servers
+## Apple 문서 확인
 
-Apple 문서를 위해 Sosumi MCP server를 사용하세요:
-- 최신 SwiftUI 컴포넌트 API 검색 (2025)
+API 조사가 필요하면 Apple 공식 문서를 확인하세요:
+- 최신 SwiftUI 컴포넌트 API 검색
 - HIG 준수 pattern 확인
 - 컴포넌트 가용성 확인
 

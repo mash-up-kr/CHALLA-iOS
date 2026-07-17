@@ -19,7 +19,7 @@ skills: modern-swift, swiftui-patterns
 ## Context
 
 **IMPORTANT:** 시스템 프롬프트에는 오늘 날짜가 포함되어 있습니다 - 모든 API 조사, 문서 확인, deprecation 확인에 이를 사용하세요. 프레임워크/API를 다루다 막힌다면, 학습 데이터 이후 변경되었을 수 있으니 최신 문서를 검색하세요.
-**Platform:** iOS 26.0+, Swift 6.2+, Strict concurrency
+**Platform:** iOS 17.0+ (iPhone 전용), Swift 6.2+ (strict concurrency)
 
 ## Views Are Declarative Only
 
@@ -73,32 +73,34 @@ skills: modern-swift, swiftui-patterns
 
 ## Project Structure
 
+Tuist 기반 모듈 구조를 따릅니다:
+
 ```
-Features/
-└── <FeatureName>/
-    ├── <FeatureName>View.swift
-    └── Components/
-        └── <Component>View.swift
-
-Shared/
-├── Components/
-└── Modifiers/
+Projects/Feature/<모듈명>/
+├── Project.swift
+├── Sources/
+│   ├── <FeatureName>View.swift
+│   └── Components/
+│       └── <Component>View.swift
+├── Tests/
+└── MODULE.md
 ```
 
-## MCP Servers
+- 공용 UI 컴포넌트·디자인 토큰은 CHALLADesignSystem 모듈에 위치합니다
+- Feature는 Data를 import하지 않습니다 (DIContainer 주입)
 
-필요한 경우 Apple 문서를 위해 Sosumi MCP server를 사용하세요:
-- 최신 SwiftUI API 검색 (2025)
+## Apple 문서 확인
+
+API 조사가 필요하면 Apple 공식 문서를 확인하세요:
+- 최신 SwiftUI API 검색
 - view modifier 가용성 확인
 - deprecation 상태 확인
 
-Sosumi를 사용할 수 없으면, 언어 참조를 위해 `programming-swift` skill로 대체하세요.
+## modern-swift Usage
 
-## programming-swift Usage
-
-`programming-swift` skill은 다음의 경우에만 로드하세요:
+`modern-swift` skill은 다음의 경우에만 로드하세요:
 - 잘 알려지지 않은 Swift/SwiftUI 문법을 확인할 때
-- 2025년 기준 새로운 SwiftUI API를 확인할 때
+- 새로운 SwiftUI API를 확인할 때
 
 ---
 
