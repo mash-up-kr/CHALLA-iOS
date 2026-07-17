@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHALLA iOS팀 Claude Code 하네스 가이드</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1d1d1f; --muted: #6e6e73; --line: #e5e5ea;
+    --card: #f5f5f7; --accent: #0071e3; --accent-soft: #e8f2fe;
+    --ok: #1a7f37; --ok-soft: #e6f4ea; --warn: #9a6700; --warn-soft: #fff4d6;
+    --purple: #6e42c1; --purple-soft: #f1e9fb; --pink: #bf3989; --pink-soft: #fbe7f3;
+    --code-bg: #f0f0f2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161618; --fg: #f5f5f7; --muted: #98989d; --line: #3a3a3c;
+      --card: #232326; --accent: #4ca6ff; --accent-soft: #1b2a3d;
+      --ok: #57c477; --ok-soft: #16301e; --warn: #e3b341; --warn-soft: #3a2e10;
+      --purple: #b394f0; --purple-soft: #2a2138; --pink: #f088c2; --pink-soft: #3a1f30;
+      --code-bg: #2c2c2e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: "Apple SD Gothic Neo", Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.65; font-size: 16px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 20px 80px; }
+  h1 { font-size: 32px; margin: 0 0 8px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; margin: 64px 0 4px; padding-top: 16px; border-top: 1px solid var(--line); letter-spacing: -0.3px; }
+  h2 .num { color: var(--accent); margin-right: 8px; }
+  .lead { color: var(--muted); margin: 0 0 24px; }
+  code, .mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 0.88em; }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 5px; }
+  pre { background: var(--code-bg); padding: 14px 16px; border-radius: 10px; overflow-x: auto; font-size: 13.5px; line-height: 1.6; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; margin: 12px 0; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--card); }
+  .overflow { overflow-x: auto; }
+
+  /* 배지 */
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 0; }
+  .badge { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px; font-size: 14px; }
+  .badge b { color: var(--accent); }
+
+  /* 로드 계층 */
+  .layers { display: flex; flex-direction: column; gap: 0; margin: 20px 0; }
+  .layer { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; background: var(--card); }
+  .layer .when { flex-shrink: 0; width: 130px; font-size: 12.5px; font-weight: 700; text-align: center; padding: 5px 8px; border-radius: 8px; }
+  .layer .desc { font-size: 14.5px; }
+  .layer .desc .path { color: var(--muted); font-size: 13px; }
+  .w-always { background: var(--ok-soft); color: var(--ok); }
+  .w-path { background: var(--accent-soft); color: var(--accent); }
+  .w-topic { background: var(--purple-soft); color: var(--purple); }
+  .w-delegate { background: var(--pink-soft); color: var(--pink); }
+  .w-future { background: var(--warn-soft); color: var(--warn); }
+
+  /* 파이프라인 */
+  .pipe { display: flex; flex-direction: column; gap: 0; margin: 24px 0; }
+  .stage { display: flex; gap: 14px; }
+  .stage .rail { display: flex; flex-direction: column; align-items: center; width: 34px; flex-shrink: 0; }
+  .stage .dot { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; flex-shrink: 0; }
+  .stage .bar { width: 2px; flex: 1; background: var(--line); min-height: 14px; }
+  .stage .body { padding: 2px 0 22px; }
+  .stage .t { font-weight: 700; font-size: 16px; }
+  .stage .t a { color: var(--accent); text-decoration: none; }
+  .stage .t a:hover { text-decoration: underline; }
+  .stage .s { color: var(--muted); font-size: 14px; }
+  .stage.end .dot { background: var(--ok); }
+
+  /* 관계 매트릭스 */
+  .matrix td.on { background: var(--accent-soft); text-align: center; color: var(--accent); font-weight: 700; }
+  .matrix td.off { text-align: center; color: var(--line); }
+  .matrix th.rot { font-size: 12.5px; }
+
+  /* 카드 */
+  details.card { border: 1px solid var(--line); border-radius: 12px; margin: 10px 0; background: var(--card); overflow: hidden; }
+  details.card summary { cursor: pointer; padding: 14px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; list-style: none; }
+  details.card summary::-webkit-details-marker { display: none; }
+  details.card summary::after { content: "▾"; margin-left: auto; color: var(--muted); transition: transform .15s; }
+  details.card[open] summary::after { transform: rotate(180deg); }
+  details.card .inner { padding: 0 16px 16px; font-size: 14.5px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .card .name { font-weight: 800; font-size: 15.5px; }
+  .tag { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .tag.model-opus { background: var(--purple-soft); color: var(--purple); }
+  .tag.model-haiku { background: var(--ok-soft); color: var(--ok); }
+  .tag.model-inherit { background: var(--card); color: var(--muted); border: 1px solid var(--line); }
+  .tag.step { background: var(--accent-soft); color: var(--accent); }
+  .tag.wait { background: var(--warn-soft); color: var(--warn); }
+  .kv { margin: 8px 0 0; }
+  .kv dt { font-weight: 700; font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .kv dd { margin: 2px 0 0; }
+
+  .note { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 10px 10px 0; margin: 16px 0; font-size: 14.5px; }
+  .note.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13.5px; }
+  .toc { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin: 28px 0; font-size: 14.5px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol { margin: 8px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>CHALLA iOS팀 Claude Code 하네스 가이드</h1>
+<p class="lead">클론만 하면 팀 전원이 같은 AI 워크플로우로 개발할 수 있게 만드는 장치들 — 무엇이, 언제, 어떻게 움직이는지 이 문서 하나로 이해합니다.</p>
+
+<div class="badges">
+  <span class="badge">서브에이전트 <b>10</b></span>
+  <span class="badge">스킬 <b>7</b></span>
+  <span class="badge">경로 규칙 <b>5</b></span>
+  <span class="badge">팀 권한 설정 <b>1</b></span>
+  <span class="badge">CLAUDE.md <b>102줄</b></span>
+</div>
+
+<div class="toc">
+  <b>목차</b>
+  <ol>
+    <li><a href="#s2">하네스 동작 원리 — 로드 계층</a></li>
+    <li><a href="#s3">개발 파이프라인 흐름</a></li>
+    <li><a href="#s4">에이전트 ↔ 스킬 관계도</a></li>
+    <li><a href="#s5">실전 사용 예시</a></li>
+    <li><a href="#s6">서브에이전트 10종 레퍼런스</a></li>
+    <li><a href="#s7">스킬 7종 레퍼런스</a></li>
+    <li><a href="#s8">규칙 계층 (rules · CLAUDE.md)</a></li>
+    <li><a href="#s9">권한 · 개인화 · 금지사항</a></li>
+    <li><a href="#s10">플러그인 — 하네스 확장 패키지</a></li>
+    <li><a href="#s11">원격 리뷰 봇 (추후 업데이트 예정)</a></li>
+    <li><a href="#s12">한눈에 보기 — 절차와 하네스의 연결</a></li>
+  </ol>
+</div>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s2"><span class="num">1</span>하네스 동작 원리 — 로드 계층</h2>
+<p class="lead">지시를 어디에 두느냐가 곧 언제 읽히느냐입니다. 아래로 갈수록 "필요할 때만" 로드됩니다.</p>
+
+<div class="layers">
+  <div class="layer">
+    <span class="when w-always">항상 로드</span>
+    <div class="desc"><b>CLAUDE.md</b> — 프로젝트 첫 페이지. 빌드 명령, 모듈 의존 규칙 여섯 가지, 커밋 컨벤션, 에이전트 호출 안내 <span class="path">(루트, 200줄 미만 유지)</span></div>
+  </div>
+  <div class="layer">
+    <span class="when w-path">경로 매칭 시</span>
+    <div class="desc"><b>.claude/rules/*.md</b> — 해당 경로의 파일을 만질 때만 로드되는 세부 규칙 <span class="path">(예: Feature 코드 수정 시 TCA 규칙 발동)</span></div>
+  </div>
+  <div class="layer">
+    <span class="when w-topic">관련 작업 시</span>
+    <div class="desc"><b>.claude/skills/</b> — 작업 방법을 담은 참고 문서. 관련 작업이 시작되면 자동 로드 <span class="path">(평소엔 한 줄 설명만 올라와 있어 가벼움)</span></div>
+  </div>
+  <div class="layer">
+    <span class="when w-topic">링크 참조 시</span>
+    <div class="desc"><b>docs/*.md</b> — 배경 설명 원본. CLAUDE.md·rules가 "상세는 여기"라고 가리킬 때만 읽음 <span class="path">(ARCHITECTURE·CONVENTIONS·DESIGN_SYSTEM·DEPLOYMENT·AI_WORKFLOW)</span></div>
+  </div>
+  <div class="layer">
+    <span class="when w-delegate">위임 시</span>
+    <div class="desc"><b>.claude/agents/</b> — 역할 전용 일꾼. 별도 기억 공간에서 일하고 결과만 반환 <span class="path">(자동 위임 또는 이름 지명)</span></div>
+  </div>
+  <div class="layer">
+    <span class="when w-always">도구 사용 시</span>
+    <div class="desc"><b>.claude/settings.json</b> — 팀이 합의한 권한 목록. 빌드·조회 명령은 확인 없이 실행되고, <b>커밋·푸시·PR 생성은 항상 사용자 확인을 거칩니다</b> <span class="path">(허용 목록 전체는 8번 참고)</span></div>
+  </div>
+  <div class="layer">
+    <span class="when w-future">향후 도입</span>
+    <div class="desc"><b>Hook</b> — 특정 시점에 무조건 실행되는 검사 스크립트 <span class="path">(후보 검토 중 — 커밋 전 MODULE.md 동기화 검사 등)</span></div>
+  </div>
+</div>
+
+<div class="note">
+  <b>핵심 원리:</b> 항상 필요한 건 위에(얇게), 가끔 필요한 건 아래에(조건부로). 이렇게 나눠야 Claude의 기억 공간이 낭비되지 않고, 긴 세션에서도 규칙이 안 잊힙니다.
+</div>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s3"><span class="num">2</span>개발 파이프라인 흐름</h2>
+<p class="lead">이슈 하나를 처리하는 표준 순서. 원칙: <b>설계 없이 구현으로 직행하지 않는다.</b></p>
+
+<div class="pipe">
+  <div class="stage">
+    <div class="rail"><div class="dot">1</div><div class="bar"></div></div>
+    <div class="body"><div class="t">탐색 — <a href="#a-search">swift-search</a></div><div class="s">"관련 코드가 어디 있지?" — 직접 grep 하지 말고 위임. 검색 노이즈로부터 메인 대화를 보호</div></div>
+  </div>
+  <div class="stage">
+    <div class="rail"><div class="dot">2</div><div class="bar"></div></div>
+    <div class="body"><div class="t">설계 — <a href="#a-tca-architect">tca-architect</a> / <a href="#a-architect">swift-architect</a></div><div class="s">구현 전 State·Action·의존성·파일 구조 설계. 시안 분석이 필요하면 <a href="#a-ui-design">swift-ui-design</a>을 먼저</div></div>
+  </div>
+  <div class="stage">
+    <div class="rail"><div class="dot">3</div><div class="bar"></div></div>
+    <div class="body"><div class="t">구현 — <a href="#a-tca-engineer">tca-engineer</a> / <a href="#a-engineer">swift-engineer</a></div><div class="s">TCA 리듀서는 tca-engineer, Domain·Data·Core 등 순수 Swift는 swift-engineer</div></div>
+  </div>
+  <div class="stage">
+    <div class="rail"><div class="dot">4</div><div class="bar"></div></div>
+    <div class="body"><div class="t">뷰 — <a href="#a-specialist">swiftui-specialist</a></div><div class="s">코어 로직이 끝난 뒤 SwiftUI 뷰 구현. 색·폰트는 반드시 디자인 토큰 사용</div></div>
+  </div>
+  <div class="stage">
+    <div class="rail"><div class="dot">5</div><div class="bar"></div></div>
+    <div class="body"><div class="t">리뷰 — <a href="#a-reviewer">swift-code-reviewer</a></div><div class="s">커밋 전 셀프 리뷰. CHALLA 레이어 위반(Feature→Data import 등) 필수 검사 포함</div></div>
+  </div>
+  <div class="stage">
+    <div class="rail"><div class="dot">6</div><div class="bar"></div></div>
+    <div class="body"><div class="t">테스트 — <a href="#a-test">swift-test-creator</a></div><div class="s">Swift Testing(@Test·#expect)·TestStore 기반. 모듈 내부 Tests/에 배치</div></div>
+  </div>
+  <div class="stage">
+    <div class="rail"><div class="dot">7</div><div class="bar"></div></div>
+    <div class="body"><div class="t">문서 — <a href="#a-doc">swift-documenter</a></div><div class="s">MODULE.md(책임·공개 API·의존성) 갱신, 주석 정리</div></div>
+  </div>
+  <div class="stage end">
+    <div class="rail"><div class="dot">✓</div></div>
+    <div class="body"><div class="t">커밋 → PR</div><div class="s">커밋·푸시는 항상 사람이 확인 버튼. PR에 <code>Resolved: #이슈번호</code> → 리뷰 봇 + 팀원 리뷰 → 머지</div></div>
+  </div>
+</div>
+
+<div class="note warn">
+  문서 수정처럼 가벼운 작업은 중간 단계를 생략해도 됩니다. 단, <b>새 Feature는 2~7 전부 거치는 것이 기본</b>입니다.
+</div>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s4"><span class="num">3</span>에이전트 ↔ 스킬 관계도</h2>
+<p class="lead">에이전트가 어떤 스킬을 참고해서 일하는지. ● = 참조함</p>
+
+<div class="overflow">
+<table class="matrix">
+  <tr>
+    <th>에이전트 \ 스킬</th>
+    <th class="rot">modern-swift</th>
+    <th class="rot">composable-architecture</th>
+    <th class="rot">swiftui-patterns</th>
+    <th class="rot">swift-diagnostics</th>
+    <th class="rot">swift-testing</th>
+  </tr>
+  <tr><td>swift-search</td><td class="off">–</td><td class="off">–</td><td class="off">–</td><td class="off">–</td><td class="off">–</td></tr>
+  <tr><td>swift-architect</td><td class="on">●</td><td class="on">●</td><td class="off">–</td><td class="off">–</td><td class="off">–</td></tr>
+  <tr><td>tca-architect</td><td class="on">●</td><td class="on">●</td><td class="off">–</td><td class="off">–</td><td class="off">–</td></tr>
+  <tr><td>swift-ui-design</td><td class="on">●</td><td class="off">–</td><td class="on">●</td><td class="off">–</td><td class="off">–</td></tr>
+  <tr><td>swift-engineer</td><td class="on">●</td><td class="off">–</td><td class="off">–</td><td class="on">●</td><td class="off">–</td></tr>
+  <tr><td>tca-engineer</td><td class="on">●</td><td class="on">●</td><td class="off">–</td><td class="off">–</td><td class="off">–</td></tr>
+  <tr><td>swiftui-specialist</td><td class="on">●</td><td class="off">–</td><td class="on">●</td><td class="off">–</td><td class="off">–</td></tr>
+  <tr><td>swift-code-reviewer</td><td class="on">●</td><td class="on">●</td><td class="on">●</td><td class="on">●</td><td class="on">●</td></tr>
+  <tr><td>swift-test-creator</td><td class="on">●</td><td class="on">●</td><td class="off">–</td><td class="off">–</td><td class="on">●</td></tr>
+  <tr><td>swift-documenter</td><td class="on">●</td><td class="off">–</td><td class="off">–</td><td class="off">–</td><td class="off">–</td></tr>
+</table>
+</div>
+
+<p style="font-size:14.5px; margin-bottom:6px">표에서 눈여겨볼 패턴 세 가지:</p>
+<ul style="font-size:14.5px; line-height:1.7; padding-left:22px; margin-top:0">
+  <li><b>modern-swift는 거의 모든 에이전트가 참고합니다</b> — Swift 6.2 strict concurrency를 쓰는 프로젝트라, 코드를 직접 작성하는 아홉 에이전트가 전부 이 스킬을 봅니다. 코드를 쓰지 않고 찾기만 하는 swift-search만 예외입니다.</li>
+  <li><b>composable-architecture는 TCA 작업을 맡는 에이전트들만 참고합니다</b> — 설계하는 tca-architect, 구현하는 tca-engineer, 리뷰어, 테스트 작성자가 모두 같은 TCA 패턴 문서를 보고 일합니다. 덕분에 설계 따로 구현 따로 어긋나는 일이 생기지 않습니다.</li>
+  <li><b>다섯 스킬을 전부 참고하는 에이전트는 swift-code-reviewer 하나뿐입니다</b> — 동시성부터 TCA, UI, 진단, 테스트까지 모든 영역을 검사하는 마지막 관문이기 때문입니다.</li>
+</ul>
+<p style="font-size:14.5px; color:var(--muted)">
+표에 없는 스킬 2종은 에이전트 없이 단독 동작: <code>swiftui-specialist</code>(스킬)는 메인 대화에서 SwiftUI 리뷰·deprecation 점검 시 발동, <code>device-interaction</code>은 시뮬레이터 조작 도구 설치 후 사용 가능(현재 대기).
+</p>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s5"><span class="num">4</span>실전 사용 예시 — "방 생성 화면" 이슈를 받았다면</h2>
+<p class="lead">에이전트 이름을 몰라도 알아서 위임되지만, <b>지명하면 100% 확실</b>합니다.</p>
+
+<pre><code>1. "RoomCreateFeature 관련해서 기존에 비슷한 화면 구조 있는지 찾아줘"
+     → swift-search가 탐색
+
+2. "이슈 #23 방 생성 화면 만들 건데, tca-architect로 설계부터 해줘"
+     → State/Action/의존성/네비게이션 설계안이 나옴
+
+3. "설계대로 구현해줘"
+     → tca-engineer가 리듀서, swiftui-specialist가 뷰 구현
+
+4. "커밋 전에 리뷰하고 테스트 만들어줘"
+     → swift-code-reviewer → swift-test-creator 순서로 실행
+
+5. "MODULE.md 갱신하고 커밋 준비해줘"
+     → swift-documenter 정리 후, 커밋은 확인 프롬프트에서 승인</code></pre>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s6"><span class="num">5</span>서브에이전트 10종 레퍼런스</h2>
+<p class="lead">파이프라인 순서대로. 카드를 클릭하면 상세가 열립니다.</p>
+
+<details class="card" id="a-search">
+  <summary><span class="tag step">① 탐색</span><span class="name">swift-search</span><span class="tag model-haiku">haiku</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 발동</dt><dd>"X가 어디 있지?", "Y 찾아줘" 같은 모든 탐색 질의. 코드 위치를 모를 때 직접 grep 하지 말고 이쪽으로</dd>
+    <dt>하는 일</dt><dd>자기만의 임시 기억 공간에서 수백 줄의 검색 노이즈를 소화하고, 신뢰도 높은 파일 위치만 반환. 가장 싸고 빠른 모델(haiku)을 써서 비용도 절약</dd>
+    <dt>도구 / 스킬</dt><dd>Grep, Glob, Read, Bash / 참조 스킬 없음 (검색 전용)</dd>
+  </dl></div>
+</details>
+
+<details class="card" id="a-architect">
+  <summary><span class="tag step">② 설계</span><span class="name">swift-architect</span><span class="tag model-opus">opus</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 발동</dt><dd>새 기능 시작 전, 비-TCA 영역(Domain·Data·Network·Core 모듈 등)의 구조 설계가 필요할 때</dd>
+    <dt>하는 일</dt><dd>파일 구조·구현 전략 설계. persistence·네트워킹은 Domain 인터페이스로 추상화하고 구현은 Data 레이어에 두는 CHALLA 원칙을 기준으로 설계</dd>
+    <dt>도구 / 스킬</dt><dd>Read, Write, Edit, Glob, Grep, Bash, Skill, TodoWrite / modern-swift, composable-architecture</dd>
+  </dl></div>
+</details>
+
+<details class="card" id="a-tca-architect">
+  <summary><span class="tag step">② 설계</span><span class="name">tca-architect</span><span class="tag model-opus">opus</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 발동</dt><dd>새 TCA Feature 설계 — State/Action/의존성/네비게이션 구조를 정해야 할 때 (구현 전 필수)</dd>
+    <dt>하는 일</dt><dd>@Reducer 구조, Action 분류(view/delegate/internal), @DependencyClient 인터페이스, tree/stack 네비게이션 방식 결정</dd>
+    <dt>도구 / 스킬</dt><dd>Read, Write, Edit, Glob, Grep, Bash, Skill, TodoWrite / modern-swift, composable-architecture</dd>
+  </dl></div>
+</details>
+
+<details class="card" id="a-ui-design">
+  <summary><span class="tag step">② 설계</span><span class="name">swift-ui-design</span><span class="tag model-opus">opus</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 발동</dt><dd>디자인 시안·스크린샷·UI 설명에서 시작하는 작업의 초입 (feature 설계 이전)</dd>
+    <dt>하는 일</dt><dd>시각 자료를 분석해 SwiftUI 구현 계획 수립. 읽기 전용(Write 권한 없음)이라 분석만 하고 코드는 안 만듦</dd>
+    <dt>도구 / 스킬</dt><dd>Read, Glob, Grep, Skill / modern-swift, swiftui-patterns</dd>
+  </dl></div>
+</details>
+
+<details class="card" id="a-engineer">
+  <summary><span class="tag step">③ 구현</span><span class="name">swift-engineer</span><span class="tag model-inherit">모델 상속</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 발동</dt><dd>vanilla Swift 구현 — Domain 엔티티·UseCase, Data Repository, 네트워킹, 저장소 등 TCA가 아닌 코드</dd>
+    <dt>하는 일</dt><dd>Tuist 모듈 레이아웃(Projects/그룹/모듈)에 맞게 구현. Feature는 Data를 import하지 않고 클라이언트 구현은 Domain 인터페이스를 거쳐 Data에 배치</dd>
+    <dt>도구 / 스킬</dt><dd>Read, Write, Edit, Glob, Grep, Bash, Skill / modern-swift, swift-diagnostics</dd>
+  </dl></div>
+</details>
+
+<details class="card" id="a-tca-engineer">
+  <summary><span class="tag step">③ 구현</span><span class="name">tca-engineer</span><span class="tag model-inherit">모델 상속</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 발동</dt><dd>TCA 설계가 끝난 뒤 리듀서·액션·상태·의존성 구현이 필요할 때</dd>
+    <dt>하는 일</dt><dd>@Reducer/@ObservableState 구현. Client는 인터페이스만 사용하고 데이터 접근을 직접 구현하지 않음 (live 구현은 Data 레이어)</dd>
+    <dt>도구 / 스킬</dt><dd>Read, Write, Edit, Glob, Grep, Bash, Skill / modern-swift, composable-architecture</dd>
+  </dl></div>
+</details>
+
+<details class="card" id="a-specialist">
+  <summary><span class="tag step">④ 뷰</span><span class="name">swiftui-specialist</span><span class="tag model-inherit">모델 상속</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 발동</dt><dd>코어/TCA 구현 완료 후 SwiftUI 뷰를 만들 때</dd>
+    <dt>하는 일</dt><dd>HIG 준수 뷰 구현. 공용 UI는 CHALLADesignSystem 컴포넌트·토큰 사용 (Color(hex:) 직접 호출 금지)</dd>
+    <dt>도구 / 스킬</dt><dd>Read, Write, Edit, Glob, Grep, Bash, Skill / modern-swift, swiftui-patterns</dd>
+    <dt>주의</dt><dd>동명의 <a href="#k-specialist">swiftui-specialist 스킬</a>과는 별개 (스킬은 리뷰·deprecation 점검용)</dd>
+  </dl></div>
+</details>
+
+<details class="card" id="a-reviewer">
+  <summary><span class="tag step">⑤ 리뷰</span><span class="name">swift-code-reviewer</span><span class="tag model-inherit">모델 상속</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 발동</dt><dd>구현 완료 후, 테스트 작성 전 (커밋 전 셀프 리뷰)</dd>
+    <dt>하는 일</dt><dd>품질·보안·성능·HIG 검사 + <b>CHALLA 레이어 위반 필수 검사</b>: Feature→Data import, Feature 간 import, DesignSystem→Feature import, CHALLANetwork 외부 import, 디자인 토큰 우회</dd>
+    <dt>도구 / 스킬</dt><dd>Read, Glob, Grep, Bash, Skill (수정 권한 없음 — 지적만) / 스킬 5종 전부</dd>
+  </dl></div>
+</details>
+
+<details class="card" id="a-test">
+  <summary><span class="tag step">⑥ 테스트</span><span class="name">swift-test-creator</span><span class="tag model-inherit">모델 상속</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 발동</dt><dd>구현·리뷰가 끝난 코드에 테스트를 붙일 때</dd>
+    <dt>하는 일</dt><dd>Swift Testing(@Test, #expect) 기반 유닛·통합 테스트. TCA는 TestStore. 모듈 내부 Projects/그룹/모듈/Tests/에 배치</dd>
+    <dt>도구 / 스킬</dt><dd>Read, Write, Edit, Glob, Grep, Bash, Skill / modern-swift, swift-testing, composable-architecture</dd>
+  </dl></div>
+</details>
+
+<details class="card" id="a-doc">
+  <summary><span class="tag step">⑦ 문서</span><span class="name">swift-documenter</span><span class="tag model-haiku">haiku</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 발동</dt><dd>feature 완료 후 문서 정리, 공개 API 변경 시</dd>
+    <dt>하는 일</dt><dd>README·인라인 주석과 <b>모듈별 MODULE.md</b>(소속 레이어·책임·공개 API·의존성·테스트 실행법) 생성·갱신</dd>
+    <dt>도구 / 스킬</dt><dd>Read, Write, Edit, Glob, Grep, Bash, Skill / modern-swift</dd>
+  </dl></div>
+</details>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s7"><span class="num">6</span>스킬 7종 레퍼런스</h2>
+<p class="lead">스킬은 자동 로드되므로 평소엔 신경 쓸 필요 없습니다. "이런 지식이 깔려 있다"만 알아두세요.</p>
+
+<details class="card">
+  <summary><span class="name">composable-architecture</span><span class="tag step">참고 문서 14개</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 로드</dt><dd>TCA로 Feature 구축, 리듀서 구조화, state·effect·navigation 처리, TCA 테스트 작성 시</dd>
+    <dt>내용</dt><dd>@Reducer, Store, Effect, TestStore, 리듀서 조합 패턴. 네비게이션(기초/고급), 공유 상태, 테스트 5종, 의존성, 성능</dd>
+    <dt>쓰는 에이전트</dt><dd>swift-architect, tca-architect, tca-engineer, swift-code-reviewer, swift-test-creator</dd>
+  </dl></div>
+</details>
+
+<details class="card">
+  <summary><span class="name">modern-swift</span><span class="tag step">참고 문서 8개</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 로드</dt><dd>async/await 작성, strict concurrency, Sendable 오류 수정, actor 상태 관리, Task/TaskGroup 사용 시</dd>
+    <dt>내용</dt><dd>Swift 6.2 동시성 전반 — 동시성 기초, 매크로, 마이그레이션 패턴, task 취소, task group</dd>
+    <dt>쓰는 에이전트</dt><dd>전원 (swift-search 제외) — 공통 참고 문서</dd>
+  </dl></div>
+</details>
+
+<details class="card">
+  <summary><span class="name">swiftui-patterns</span><span class="tag step">참고 문서 12개</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 로드</dt><dd>iOS 17+ SwiftUI 구현 — @Observable/@Bindable, NavigationStack, MVVM, 접근성, .task 비동기 처리</dd>
+    <dt>내용</dt><dd>우리 배포 타깃(iOS 17)에 정확히 맞는 실무 패턴 모음. ObservableObject에서 마이그레이션 가이드 포함</dd>
+    <dt>쓰는 에이전트</dt><dd>swift-ui-design, swiftui-specialist, swift-code-reviewer</dd>
+  </dl></div>
+</details>
+
+<details class="card" id="k-specialist">
+  <summary><span class="name">swiftui-specialist</span><span class="tag step">참고 문서 9개</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 로드</dt><dd>SwiftUI 코드 <b>리뷰·정리</b>, soft-deprecated API 점검 시 (신규 구현 패턴은 swiftui-patterns가 담당)</dd>
+    <dt>내용</dt><dd>Apple 공식 톤의 권위 문서 — view 구조 분리, dataflow/environment, ForEach identity, localization, deprecation 마이그레이션</dd>
+    <dt>쓰는 에이전트</dt><dd>없음 — 메인 대화에서 직접 발동하는 단독 스킬</dd>
+  </dl></div>
+</details>
+
+<details class="card">
+  <summary><span class="name">swift-diagnostics</span><span class="tag step">참고 문서 5개</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 로드</dt><dd>NavigationStack 이상 동작, 빌드 실패("No such module" 등), 메모리 누수·retain cycle 디버깅 시</dd>
+    <dt>내용</dt><dd>증상별 체계적 진단 워크플로우 — 네비게이션, 빌드 이슈, 메모리, 빌드 성능, Xcode 디버깅</dd>
+    <dt>쓰는 에이전트</dt><dd>swift-engineer, swift-code-reviewer</dd>
+  </dl></div>
+</details>
+
+<details class="card">
+  <summary><span class="name">swift-testing</span><span class="tag step">단일 문서</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 로드</dt><dd>Swift Testing(@Test, #expect, #require) 테스트 작성, XCTest 마이그레이션, async·파라미터라이즈 테스트 시</dd>
+    <dt>내용</dt><dd>우리 테스트 정책의 표준 프레임워크 사용법</dd>
+    <dt>쓰는 에이전트</dt><dd>swift-test-creator, swift-code-reviewer</dd>
+  </dl></div>
+</details>
+
+<details class="card">
+  <summary><span class="name">device-interaction</span><span class="tag wait">대기 상태</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>언제 로드</dt><dd>시뮬레이터에서 스크린샷·UI 계층·터치로 앱 동작을 검증할 때</dd>
+    <dt>현재 상태</dt><dd><b>전용 조작 도구가 설치돼 있지 않아 지금은 동작하지 않습니다.</b> 도구 도입 시 활성화되는 예비 스킬</dd>
+  </dl></div>
+</details>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s8"><span class="num">7</span>규칙 계층 — rules와 CLAUDE.md</h2>
+
+<div class="overflow">
+<table>
+  <tr><th>규칙 파일</th><th>로드 조건</th><th>핵심 내용</th></tr>
+  <tr><td class="mono">architecture.md</td><td class="mono">Projects/**</td><td>모듈이 서로 의존할 수 있는 방향을 정한 규칙 여섯 가지와, 위반했을 때의 해결 방법</td></tr>
+  <tr><td class="mono">design-system.md</td><td class="mono">Projects/**/*.swift</td><td>디자인 토큰 강제 — Color(hex:)·Font.custom 직접 호출 금지</td></tr>
+  <tr><td class="mono">tca-feature.md</td><td class="mono">Projects/**/*Feature/**</td><td>TCA 필수/권장 규칙 (PR 리뷰 봇과 동일 기준)</td></tr>
+  <tr><td class="mono">module-docs-tests.md</td><td class="mono">Projects/**</td><td>모듈마다 MODULE.md + Swift Testing 테스트 세트 유지</td></tr>
+  <tr><td class="mono">five-whys.md</td><td>항상</td><td>버그 분석 시 "왜"를 5번 파고들어 근본 원인까지</td></tr>
+</table>
+</div>
+
+<p style="font-size:14.5px">
+<b>CLAUDE.md</b>(항상 로드)는 이 모든 것의 첫 페이지입니다: 프로젝트 개요 → 빌드 명령 → 아키텍처 요약 → 컨벤션 → 에이전트 호출 가이드 → 테스트·MODULE.md 정책 → 개인 설정 안내.
+규칙의 배경 설명은 <code>docs/ARCHITECTURE.md</code>·<code>docs/CONVENTIONS.md</code>·<code>docs/DESIGN_SYSTEM.md</code>가 원본이고, 배포 전략은 <code>docs/DEPLOYMENT.md</code>에 있습니다.
+</p>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s9"><span class="num">8</span>권한 · 개인화 · 금지사항</h2>
+
+<p class="lead">팀 공유 권한 파일(<code>.claude/settings.json</code>)에 등록된 명령은 매번 묻지 않고 바로 실행됩니다. 목록에 없는 명령은 실행 전에 사용자에게 확인을 받습니다.</p>
+
+<div class="overflow">
+<table>
+  <tr><th>묻지 않고 실행되는 것</th><th>구체적인 명령</th></tr>
+  <tr><td>빌드 · 시뮬레이터</td><td class="mono">mise install/exec, tuist 전체, xcodebuild 전체, xcrun simctl 전체, swift build/test</td></tr>
+  <tr><td>git — 상태 조회</td><td class="mono">git status, log, diff, show, branch, fetch</td></tr>
+  <tr><td>git — 커밋 전 준비</td><td class="mono">git add, checkout, switch (여기까지만 — 커밋은 아래 참고)</td></tr>
+  <tr><td>GitHub 조회</td><td class="mono">gh issue/pr의 list·view·diff·checks, gh label list, gh auth status</td></tr>
+</table>
+</div>
+
+<div class="note">
+  <b>항상 확인을 받는 것:</b> <code>git commit</code>, <code>git push</code>, <code>gh pr create</code>를 포함해 위 목록에 없는 모든 명령. 특히 커밋·푸시·PR 생성은 CLAUDE.md 컨벤션에서도 사용자 확인을 필수로 정해두었습니다.
+  이 파일에는 팀 공유 플러그인 4종(session-report · claude-md-management · serena · hookify)도 함께 등록되어 있어, 팀원 모두 같은 플러그인 구성으로 시작합니다.
+</div>
+
+<p class="lead" style="margin-top:18px">개인 설정은 아래 파일로 분리합니다 — 전부 gitignore 대상이라 팀에 공유되지 않습니다.</p>
+
+<div class="overflow">
+<table>
+  <tr><th>하고 싶은 것</th><th>방법</th></tr>
+  <tr><td>나만의 지시 (말투, 개인 습관)</td><td>루트에 <code>CLAUDE.local.md</code> 생성 — gitignore되어 팀에 안 보임</td></tr>
+  <tr><td>나만의 권한 허용</td><td><code>.claude/settings.local.json</code> — 자동 생성·gitignore</td></tr>
+  <tr><td>내 모든 프로젝트 공통 설정</td><td><code>~/.claude/CLAUDE.md</code>, <code>~/.claude/skills/</code> (저장소 밖)</td></tr>
+</table>
+</div>
+
+<div class="note warn">
+  <b>금지:</b> 팀 공유 <code>.claude/settings.json</code>에 개인 토큰·API 키·개인 경로를 넣지 않습니다. 시크릿이 커밋에 섞이면 즉시 팀에 공유하고 키를 재발급합니다. 에이전트·스킬·rules 수정은 PR로 — 하네스도 코드처럼 리뷰받습니다.
+</div>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s10"><span class="num">9</span>플러그인 — 하네스 확장 패키지</h2>
+<p class="lead">플러그인은 스킬·에이전트·훅·연동 서버를 한 묶음으로 설치하는 패키지입니다. 마켓플레이스에서 <code>/plugin</code>으로 설치하고, 팀 공유 목록은 <code>.claude/settings.json</code>에 기록되어 팀원 모두 같은 구성으로 시작합니다.</p>
+
+<div class="note">
+  <b>플러그인을 설치하면 하네스 방식이 바뀌나요? 아니요.</b> 플러그인이 가져오는 것들은 1번에서 본 로드 계층의 <b>같은 층에 그대로 편입</b>됩니다 —
+  플러그인의 스킬은 "관련 작업 시" 층으로, 에이전트는 "위임 시" 층으로, 훅은 훅 층으로, 연동 서버(MCP·LSP)는 도구 목록으로 들어갑니다.
+  이름 앞에 <code>플러그인이름:</code>이 붙어서(예: <code>session-report:session-report</code>) 우리가 직접 만든 스킬과 충돌하지 않습니다.
+</div>
+
+<p style="font-size:14.5px">
+팀 공유 플러그인은 네 개입니다. 순서에 의미가 있어요 — <b>먼저 재고(1), 고정비를 줄이고(2), 검색을 바꾸고(3), 실수를 차단(4)</b>하는 흐름입니다.
+</p>
+
+<details class="card">
+  <summary><span class="name">1. session-report — 토큰 사용 명세서</span><span class="tag step">직접 호출</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>무엇을 주나</dt><dd>모든 세션 기록을 스캔해서 프로젝트별·스킬별·프롬프트별 토큰 사용량을 HTML 대시보드로 만들어 줍니다. "어디가 많이 먹었는지" 경고 카드까지 자동으로 채워줍니다.</dd>
+    <dt>언제 쓰나</dt><dd>비용이 어디서 새는지 모를 때 · 캐시가 잘 작동하는지 확인할 때 · 절약 작업의 전후를 비교할 때</dd>
+    <dt>사용법</dt><dd><code>/session-report</code> 또는 자연어로 "지난 7일 세션 리포트 만들어줘"</dd>
+    <dt>테스트 보고 (정욱)</dt><dd>7일치 리포트를 직접 돌려봤다. <b>세션 하나가 주간 토큰의 66%(95.9M)를 차지</b>하고 있었고, 그 안에서 짧은 질문 하나가 10.9M을 쓴 것까지 짚어줬다.</dd>
+  </dl></div>
+</details>
+
+<details class="card">
+  <summary><span class="name">2. claude-md-management — CLAUDE.md 군살 관리</span><span class="tag step">직접 호출</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>먼저 알 것</dt><dd>CLAUDE.md는 <b>모든 요청에 자동으로 따라붙는 파일</b>입니다. 비대해질수록 매 요청 토큰이 늘어나는 고정비가 됩니다.</dd>
+    <dt>무엇을 주나</dt><dd>도구 두 개 — <code>/revise-claude-md</code>는 <b>회의록</b>(방금 끝낸 세션에서 배운 것을 추출해 추가 후보 제안), <code>claude-md-improver</code>는 <b>감사관</b>(모든 CLAUDE.md를 6개 기준 100점으로 채점하고 diff를 승인받아 반영).</dd>
+    <dt>언제 쓰나</dt><dd>의미 있는 세션을 마쳤을 때 회의록을, 분기·마일스톤마다 감사를. 평소에는 세션 중 <code>#</code> 키로 배운 것을 즉시 캡처하는 게 가장 쌉니다.</dd>
+    <dt>사용법</dt><dd><code>/revise-claude-md</code> 또는 "CLAUDE.md 감사해줘"</dd>
+    <dt>테스트 보고 (정욱)</dt><dd>우리 프로젝트의 CLAUDE.md 전체를 검사시켜 봤다. 점수를 매겨주고(B등급) 개선할 부분을 짚어줘서, 그대로 반영했더니 A등급으로 올릴 수 있었다.</dd>
+  </dl></div>
+</details>
+
+<details class="card">
+  <summary><span class="name">3. serena — 글자가 아니라 의미로 찾는 코드 검색</span><span class="tag step">자연어 요청</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>무엇을 주나</dt><dd>Claude Code에 <b>코드 탐색기</b>를 추가하는 플러그인입니다. Xcode로 치면 ⌘클릭 "정의로 이동"과 "참조 찾기"를 Claude에게 붙여주는 것. grep으로 <code>login</code>을 검색하면 <code>loginMessage</code> 변수와 주석 속 "로그인"까지 전부 잡히지만, serena는 <code>loginTapped</code> 액션이 실제로 정의되고 호출되는 곳만 짚습니다.</dd>
+    <dt>언제 쓰나</dt><dd>버그 추적으로 호출 지점을 하나도 빠짐없이 찾아야 할 때 · 이름 변경·리팩터링 · 1,000줄 파일에서 함수 하나만 필요할 때 (파일 통째 읽기 대비 토큰 수십분의 일)</dd>
+    <dt>사용법</dt><dd>자연어로 "LSP로 찾아줘" — 별도 명령은 없습니다</dd>
+    <dt>테스트 보고 (정욱)</dt><dd>같은 질문("이 심볼 어디서 쓰여?")을 두 방식으로 시켜봤다. swift-search는 약 23,400토큰을 써서 맥락 요약을, serena는 수백 토큰으로 <b>참조 43곳의 줄·칸 위치</b>를 돌려줬다.</dd>
+    <dt>준비물</dt><dd>uv 설치(<code>brew install uv</code>) + 빌드로 인덱스 생성 + <code>buildServer.json</code>(xcode-build-server). 셋 다 갖춰져야 참조 검색이 동작합니다.</dd>
+  </dl></div>
+</details>
+
+<details class="card">
+  <summary><span class="name">4. hookify — 사고 치기 전에 멈추는 규칙</span><span class="tag wait">규칙 0개 — 만들면 동작</span></summary>
+  <div class="inner"><dl class="kv">
+    <dt>무엇을 주나</dt><dd>반복되는 실수를 도구 호출 <b>직전에 자동 검사해서 차단</b>하는 훅을 마크다운 규칙 한 장으로 만들어 줍니다.</dd>
+    <dt>언제 쓰나</dt><dd>같은 지적을 두 번 이상 하게 될 때. "잘못 씀 → 지적 → 사과 → 재시도" 사이클은 회당 수천 토큰인데, 이걸 시작 전에 끊습니다.</dd>
+    <dt>사용법</dt><dd><code>/hookify node_modules에 파일 쓰지 마</code> 한 줄이면 규칙 파일이 생성되고 <b>다음 턴부터 즉시 적용</b>(재시작 불필요). <code>/hookify:list</code>로 목록, <code>/hookify:configure</code>로 켜고 끄기.</dd>
+    <dt>주의</dt><dd>너무 넓은 패턴(예: <code>log</code>)은 <code>login</code>·<code>dialog</code>까지 막아 정상 작업을 방해합니다 — 단순하게 시작하세요. 현재 우리 규칙은 0개라 감시 지점만 있고 아무것도 막지 않는 상태입니다.</dd>
+  </dl></div>
+</details>
+
+<p style="font-size:14.5px; color:var(--muted); margin-top:12px">
+개인적으로만 쓰는 플러그인(발표자료 생성 등)은 팀 목록에 넣지 말고 개인 설정(<code>.claude/settings.local.json</code>)에 두세요. 설치·제거 후에는 <code>/reload-plugins</code>로 반영합니다.
+</p>
+
+<h3 style="font-size:17px; margin-top:26px">serena와 swift-search는 뭐가 다른가</h3>
+<p class="lead">"<code>loginTapped</code> 어디서 쓰여?"라는 같은 질문을 둘 다 처리할 수 있어서 헷갈리기 쉽습니다. 정욱이 실제로 같은 질문을 둘 다에게 시켜서 비교한 결과입니다.</p>
+
+<div class="overflow">
+<table>
+  <tr><th></th><th>swift-search (서브에이전트)</th><th>serena (LSP)</th></tr>
+  <tr><td>일하는 방식</td><td>별도 대화 공간에서 grep으로 찾고 파일을 읽어서 요약을 만들어 돌려줌</td><td>컴파일러가 만든 인덱스에서 심볼의 정의·참조 좌표를 바로 꺼내옴</td></tr>
+  <tr><td>정확도</td><td>글자 일치 — <code>login</code> 검색이 <code>loginMessage</code> 변수, 주석 속 "로그인"까지 잡음</td><td><code>loginTapped</code>가 실제 정의·호출되는 곳만, 줄과 칸 위치까지</td></tr>
+  <tr><td>돌려주는 것</td><td>맥락 해설이 담긴 요약 ("로그인 처리는 LoginFeature에 모여 있고 View는 액션만 보낸다")</td><td>위치 목록만 — 해석 없음</td></tr>
+  <tr><td>비용 (정욱 실측)</td><td>약 23,400 토큰 · 도구 호출 13회 · 약 69초</td><td>수백 토큰 · 호출 1회 · 몇 초</td></tr>
+  <tr><td>준비물</td><td>없음 — 즉시 동작</td><td>빌드로 만든 인덱스 + <code>buildServer.json</code>(xcode-build-server) 필요. 최초 설치 시 uv도 필요(<code>brew install uv</code>)</td></tr>
+</table>
+</div>
+
+<div class="note">
+  <b>결론 — 이럴 때 이걸 쓰세요.</b><br>
+  · 로그인 버그를 추적하느라 <code>loginTapped</code>가 호출되는 곳을 <b>하나도 빠짐없이</b> 찾아야 할 때, <code>LoginFeature</code>의 이름을 바꾸는 리팩터링을 할 때 → <b>serena</b><br>
+  · "로그인 기능이 전체적으로 어떻게 구성돼 있어?"처럼 <b>구조와 맥락을 이해</b>해야 할 때 → <b>swift-search</b><br>
+  덧붙여 swift-search가 쓰는 토큰은 별도 공간에서 소비되어 메인 대화를 무겁게 하지 않고, serena의 결과는 메인 대화에 직접 쌓입니다 — 참조가 수백 개인 심볼을 조회할 땐 이 점도 고려하세요.
+</div>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s11"><span class="num">10</span>원격 리뷰 봇 — 추후 업데이트 예정</h2>
+<p class="lead">PR을 올리면 GitHub Actions에서 Claude가 자동으로 코드를 리뷰합니다. 설정은 main 브랜치에 있습니다 — 실행 설정은 <code>.github/workflows/claude-code-review.yml</code>, 리뷰 기준은 <code>Claude-Code-PR-Review/</code> 폴더의 문서들입니다.</p>
+
+<div class="note">
+  <b>상세 가이드는 추후 업데이트 예정입니다.</b> 방향은 정해져 있어요:
+  로컬 점검(swift-code-reviewer)과 원격 점검(리뷰 봇)을 서로 독립된 관문으로 이중화해서,
+  한쪽 리뷰가 놓치거나 스스로 옳다고 믿어버리는 것(확증 편향)을 다른 쪽이 걸러내는 구조로 갑니다.
+</div>
+
+<!-- ─────────────────────────────── -->
+<h2 id="s12"><span class="num">11</span>한눈에 보기 — 절차와 하네스의 연결</h2>
+<p class="lead">개발 절차의 각 단계가 하네스의 어떤 부품을 쓰는지 한 장으로 정리했습니다. <b>단계나 부품에 마우스를 올리면</b> 연결된 것만 밝게 남습니다.</p>
+
+<style>
+  svg.hg { width: 100%; height: auto; display: block; margin: 14px 0 6px; }
+  svg.hg text { fill: var(--fg); font-family: inherit; }
+  svg.hg .nt { font-weight: 700; font-size: 13.5px; }
+  svg.hg .ns { fill: var(--muted); font-size: 11px; }
+  svg.hg .hdr { fill: var(--muted); font-size: 12.5px; font-weight: 700; letter-spacing: .05em; }
+  svg.hg rect.nb { fill: var(--card); stroke: var(--line); stroke-width: 1.2; }
+  svg.hg path.edge { fill: none; stroke-width: 2; opacity: .45; transition: opacity .15s, stroke-width .15s; }
+  svg.hg .e-md { stroke: var(--accent); }
+  svg.hg .e-rule { stroke: var(--warn); }
+  svg.hg .e-skill { stroke: var(--ok); }
+  svg.hg .e-agent { stroke: var(--purple); }
+  svg.hg .e-plugin { stroke: var(--pink); }
+  svg.hg .e-perm { stroke: var(--muted); }
+  svg.hg .e-bot { stroke: var(--fg); }
+  svg.hg .e-ms { stroke: var(--accent); }
+  svg.hg .e-ca { stroke: var(--purple); }
+  svg.hg .e-sp { stroke: var(--pink); }
+  svg.hg .e-sd { stroke: var(--warn); }
+  svg.hg .e-st { stroke: var(--ok); }
+  svg.hg .e-q { stroke: var(--muted); }
+  svg.hg g[data-a], svg.hg g[data-s] { cursor: default; transition: opacity .15s; }
+</style>
+
+<div class="overflow">
+<svg id="hgraph" class="hg" viewBox="0 0 860 520" role="img" aria-label="개발 절차와 하네스 구성요소 연결 그래프" style="min-width:640px">
+  <text class="hdr" x="30" y="46">개발 절차 (단계)</text>
+  <text class="hdr" x="608" y="46">하네스 부품 (무엇이 일하나)</text>
+
+  <!-- edges -->
+  <path class="edge e-md"     data-a="start"  data-s="md"     d="M250 90 C 420 90, 440 117, 608 117"/>
+  <path class="edge e-agent"  data-a="search" data-s="agent"  d="M250 144 C 420 144, 440 279, 608 279"/>
+  <path class="edge e-plugin" data-a="search" data-s="plugin" d="M250 144 C 420 144, 440 333, 608 333"/>
+  <path class="edge e-agent"  data-a="design" data-s="agent"  d="M250 198 C 420 198, 440 279, 608 279"/>
+  <path class="edge e-skill"  data-a="design" data-s="skill"  d="M250 198 C 420 198, 440 225, 608 225"/>
+  <path class="edge e-agent"  data-a="impl"   data-s="agent"  d="M250 252 C 420 252, 440 279, 608 279"/>
+  <path class="edge e-skill"  data-a="impl"   data-s="skill"  d="M250 252 C 420 252, 440 225, 608 225"/>
+  <path class="edge e-rule"   data-a="impl"   data-s="rule"   d="M250 252 C 420 252, 440 171, 608 171"/>
+  <path class="edge e-agent"  data-a="view"   data-s="agent"  d="M250 306 C 420 306, 440 279, 608 279"/>
+  <path class="edge e-rule"   data-a="view"   data-s="rule"   d="M250 306 C 420 306, 440 171, 608 171"/>
+  <path class="edge e-agent"  data-a="review" data-s="agent"  d="M250 360 C 420 360, 440 279, 608 279"/>
+  <path class="edge e-rule"   data-a="review" data-s="rule"   d="M250 360 C 420 360, 440 171, 608 171"/>
+  <path class="edge e-agent"  data-a="test"   data-s="agent"  d="M250 414 C 420 414, 440 279, 608 279"/>
+  <path class="edge e-skill"  data-a="test"   data-s="skill"  d="M250 414 C 420 414, 440 225, 608 225"/>
+  <path class="edge e-perm"   data-a="pr"     data-s="perm"   d="M250 468 C 420 468, 440 387, 608 387"/>
+  <path class="edge e-bot"    data-a="pr"     data-s="bot"    d="M250 468 C 420 468, 440 441, 608 441"/>
+
+  <!-- 왼쪽: 절차 -->
+  <g data-a="start"><rect class="nb" x="30" y="70" width="220" height="40" rx="10"/><text class="nt" x="42" y="87">세션 시작</text><text class="ns" x="42" y="103">프로젝트 첫 페이지가 자동 로드</text></g>
+  <g data-a="search"><rect class="nb" x="30" y="124" width="220" height="40" rx="10"/><text class="nt" x="42" y="141">코드 탐색</text><text class="ns" x="42" y="157">"어디 있어?" — 요약 또는 정밀 좌표</text></g>
+  <g data-a="design"><rect class="nb" x="30" y="178" width="220" height="40" rx="10"/><text class="nt" x="42" y="195">설계</text><text class="ns" x="42" y="211">구조 결정 — architect 계열</text></g>
+  <g data-a="impl"><rect class="nb" x="30" y="232" width="220" height="40" rx="10"/><text class="nt" x="42" y="249">구현</text><text class="ns" x="42" y="265">코드 작성 — 이때 경로 규칙 발동</text></g>
+  <g data-a="view"><rect class="nb" x="30" y="286" width="220" height="40" rx="10"/><text class="nt" x="42" y="303">뷰 작성</text><text class="ns" x="42" y="319">SwiftUI — 디자인 토큰 규칙 적용</text></g>
+  <g data-a="review"><rect class="nb" x="30" y="340" width="220" height="40" rx="10"/><text class="nt" x="42" y="357">리뷰</text><text class="ns" x="42" y="373">1차 관문 — HIG 포함 전 분야 점검</text></g>
+  <g data-a="test"><rect class="nb" x="30" y="394" width="220" height="40" rx="10"/><text class="nt" x="42" y="411">테스트</text><text class="ns" x="42" y="427">Swift Testing으로 작성</text></g>
+  <g data-a="pr"><rect class="nb" x="30" y="448" width="220" height="40" rx="10"/><text class="nt" x="42" y="465">커밋 · PR</text><text class="ns" x="42" y="481">사용자 확인 후 진행 — 2차 관문으로</text></g>
+
+  <!-- 오른쪽: 하네스 부품 -->
+  <g data-s="md"><rect class="nb" x="608" y="97" width="222" height="40" rx="10"/><text class="nt" x="620" y="114">CLAUDE.md</text><text class="ns" x="620" y="130">항상 로드 — 모든 것의 출발점</text></g>
+  <g data-s="rule"><rect class="nb" x="608" y="151" width="222" height="40" rx="10"/><text class="nt" x="620" y="168">.claude/rules</text><text class="ns" x="620" y="184">해당 경로 파일을 만질 때 발동</text></g>
+  <g data-s="skill"><rect class="nb" x="608" y="205" width="222" height="40" rx="10"/><text class="nt" x="620" y="222">스킬</text><text class="ns" x="620" y="238">관련 작업 시 로드되는 매뉴얼</text></g>
+  <g data-s="agent"><rect class="nb" x="608" y="259" width="222" height="40" rx="10"/><text class="nt" x="620" y="276">서브에이전트</text><text class="ns" x="620" y="292">별도 공간에서 일하고 결과만 반환</text></g>
+  <g data-s="plugin"><rect class="nb" x="608" y="313" width="222" height="40" rx="10"/><text class="nt" x="620" y="330">플러그인</text><text class="ns" x="620" y="346">serena · session-report 등 4종</text></g>
+  <g data-s="perm"><rect class="nb" x="608" y="367" width="222" height="40" rx="10"/><text class="nt" x="620" y="384">권한 목록</text><text class="ns" x="620" y="400">빌드·조회는 통과, 커밋은 확인</text></g>
+  <g data-s="bot"><rect class="nb" x="608" y="421" width="222" height="40" rx="10"/><text class="nt" x="620" y="438">원격 리뷰 봇</text><text class="ns" x="620" y="454">PR이 열리면 자동 리뷰</text></g>
+</svg>
+</div>
+
+<p style="font-size:14.5px; color:var(--muted)">
+읽는 순서는 위에서 아래입니다: 세션이 열리면 CLAUDE.md가 깔리고, 탐색·설계·구현·뷰·리뷰·테스트가 각자 필요한 부품을 쓰다가, 마지막 커밋·PR에서 권한 확인과 원격 리뷰 봇을 거쳐 끝납니다.
+</p>
+
+<h3 style="font-size:17px; margin-top:30px">누가 무슨 말에 움직이나 — 질문 → 에이전트 → 스킬</h3>
+<p class="lead">왼쪽처럼 말하면 가운데 에이전트가 움직이고, 그 에이전트는 오른쪽 스킬을 참고해서 일합니다. 마우스를 올려 확인해보세요.</p>
+
+<div class="overflow">
+<svg id="qgraph" class="hg" viewBox="0 0 860 600" role="img" aria-label="질문-에이전트-스킬 연결 그래프" style="min-width:640px">
+  <text class="hdr" x="10" y="46">이렇게 말하면</text>
+  <text class="hdr" x="315" y="46">이 에이전트가 움직이고</text>
+  <text class="hdr" x="630" y="46">이 스킬을 참고합니다</text>
+
+  <!-- 질문 → 에이전트 (1:1) -->
+  <path class="edge e-q" data-a="search"     d="M240 90 L315 90"/>
+  <path class="edge e-q" data-a="architect"  d="M240 142 L315 142"/>
+  <path class="edge e-q" data-a="tcaarch"    d="M240 194 L315 194"/>
+  <path class="edge e-q" data-a="uidesign"   d="M240 246 L315 246"/>
+  <path class="edge e-q" data-a="engineer"   d="M240 298 L315 298"/>
+  <path class="edge e-q" data-a="tcaeng"     d="M240 350 L315 350"/>
+  <path class="edge e-q" data-a="specialist" d="M240 402 L315 402"/>
+  <path class="edge e-q" data-a="reviewer"   d="M240 454 L315 454"/>
+  <path class="edge e-q" data-a="testcreator" d="M240 506 L315 506"/>
+  <path class="edge e-q" data-a="documenter" d="M240 558 L315 558"/>
+
+  <!-- 에이전트 → 스킬 -->
+  <path class="edge e-ms" data-a="architect"   data-s="ms" d="M545 142 C 590 142, 590 150, 630 150"/>
+  <path class="edge e-ca" data-a="architect"   data-s="ca" d="M545 142 C 590 142, 590 250, 630 250"/>
+  <path class="edge e-ms" data-a="tcaarch"     data-s="ms" d="M545 194 C 590 194, 590 150, 630 150"/>
+  <path class="edge e-ca" data-a="tcaarch"     data-s="ca" d="M545 194 C 590 194, 590 250, 630 250"/>
+  <path class="edge e-ms" data-a="uidesign"    data-s="ms" d="M545 246 C 590 246, 590 150, 630 150"/>
+  <path class="edge e-sp" data-a="uidesign"    data-s="sp" d="M545 246 C 590 246, 590 350, 630 350"/>
+  <path class="edge e-ms" data-a="engineer"    data-s="ms" d="M545 298 C 590 298, 590 150, 630 150"/>
+  <path class="edge e-sd" data-a="engineer"    data-s="sd" d="M545 298 C 590 298, 590 450, 630 450"/>
+  <path class="edge e-ms" data-a="tcaeng"      data-s="ms" d="M545 350 C 590 350, 590 150, 630 150"/>
+  <path class="edge e-ca" data-a="tcaeng"      data-s="ca" d="M545 350 C 590 350, 590 250, 630 250"/>
+  <path class="edge e-ms" data-a="specialist"  data-s="ms" d="M545 402 C 590 402, 590 150, 630 150"/>
+  <path class="edge e-sp" data-a="specialist"  data-s="sp" d="M545 402 C 590 402, 590 350, 630 350"/>
+  <path class="edge e-ms" data-a="reviewer"    data-s="ms" d="M545 454 C 590 454, 590 150, 630 150"/>
+  <path class="edge e-ca" data-a="reviewer"    data-s="ca" d="M545 454 C 590 454, 590 250, 630 250"/>
+  <path class="edge e-sp" data-a="reviewer"    data-s="sp" d="M545 454 C 590 454, 590 350, 630 350"/>
+  <path class="edge e-sd" data-a="reviewer"    data-s="sd" d="M545 454 C 590 454, 590 450, 630 450"/>
+  <path class="edge e-st" data-a="reviewer"    data-s="st" d="M545 454 C 590 454, 590 550, 630 550"/>
+  <path class="edge e-ms" data-a="testcreator" data-s="ms" d="M545 506 C 590 506, 590 150, 630 150"/>
+  <path class="edge e-ca" data-a="testcreator" data-s="ca" d="M545 506 C 590 506, 590 250, 630 250"/>
+  <path class="edge e-st" data-a="testcreator" data-s="st" d="M545 506 C 590 506, 590 550, 630 550"/>
+  <path class="edge e-ms" data-a="documenter"  data-s="ms" d="M545 558 C 590 558, 590 150, 630 150"/>
+
+  <!-- 왼쪽: 자연어 질문 -->
+  <g data-a="search"><rect class="nb" x="10" y="72" width="230" height="36" rx="10"/><text x="22" y="94" font-size="12.5">"CHALLAColor 어디서 쓰여?"</text></g>
+  <g data-a="architect"><rect class="nb" x="10" y="124" width="230" height="36" rx="10"/><text x="22" y="146" font-size="12.5">"이 기능 구조 어떻게 잡지?"</text></g>
+  <g data-a="tcaarch"><rect class="nb" x="10" y="176" width="230" height="36" rx="10"/><text x="22" y="198" font-size="12.5">"방 생성 Feature 설계해줘"</text></g>
+  <g data-a="uidesign"><rect class="nb" x="10" y="228" width="230" height="36" rx="10"/><text x="22" y="250" font-size="12.5">"이 시안 분석해줘" + 스크린샷</text></g>
+  <g data-a="engineer"><rect class="nb" x="10" y="280" width="230" height="36" rx="10"/><text x="22" y="302" font-size="12.5">"API 서비스 구현해줘"</text></g>
+  <g data-a="tcaeng"><rect class="nb" x="10" y="332" width="230" height="36" rx="10"/><text x="22" y="354" font-size="12.5">"로그인 리듀서 구현해줘"</text></g>
+  <g data-a="specialist"><rect class="nb" x="10" y="384" width="230" height="36" rx="10"/><text x="22" y="406" font-size="12.5">"로그인 화면 뷰 만들어줘"</text></g>
+  <g data-a="reviewer"><rect class="nb" x="10" y="436" width="230" height="36" rx="10"/><text x="22" y="458" font-size="12.5">"구현 끝났어, 리뷰해줘"</text></g>
+  <g data-a="testcreator"><rect class="nb" x="10" y="488" width="230" height="36" rx="10"/><text x="22" y="510" font-size="12.5">"테스트 작성해줘"</text></g>
+  <g data-a="documenter"><rect class="nb" x="10" y="540" width="230" height="36" rx="10"/><text x="22" y="562" font-size="12.5">"MODULE.md 정리해줘"</text></g>
+
+  <!-- 가운데: 에이전트 -->
+  <g data-a="search"><rect class="nb" x="315" y="72" width="230" height="36" rx="10"/><text class="nt" x="327" y="90" font-size="13">swift-search</text><text class="ns" x="327" y="103">코드 위치 탐색 — 스킬 없이 단독</text></g>
+  <g data-a="architect"><rect class="nb" x="315" y="124" width="230" height="36" rx="10"/><text class="nt" x="327" y="142" font-size="13">swift-architect</text><text class="ns" x="327" y="155">일반 Swift 설계</text></g>
+  <g data-a="tcaarch"><rect class="nb" x="315" y="176" width="230" height="36" rx="10"/><text class="nt" x="327" y="194" font-size="13">tca-architect</text><text class="ns" x="327" y="207">TCA Feature 설계</text></g>
+  <g data-a="uidesign"><rect class="nb" x="315" y="228" width="230" height="36" rx="10"/><text class="nt" x="327" y="246" font-size="13">swift-ui-design</text><text class="ns" x="327" y="259">시안·스크린샷 분석</text></g>
+  <g data-a="engineer"><rect class="nb" x="315" y="280" width="230" height="36" rx="10"/><text class="nt" x="327" y="298" font-size="13">swift-engineer</text><text class="ns" x="327" y="311">모델·서비스·네트워킹 구현</text></g>
+  <g data-a="tcaeng"><rect class="nb" x="315" y="332" width="230" height="36" rx="10"/><text class="nt" x="327" y="350" font-size="13">tca-engineer</text><text class="ns" x="327" y="363">리듀서·액션·의존성 구현</text></g>
+  <g data-a="specialist"><rect class="nb" x="315" y="384" width="230" height="36" rx="10"/><text class="nt" x="327" y="402" font-size="13">swiftui-specialist</text><text class="ns" x="327" y="415">SwiftUI 뷰 구현</text></g>
+  <g data-a="reviewer"><rect class="nb" x="315" y="436" width="230" height="36" rx="10"/><text class="nt" x="327" y="454" font-size="13">swift-code-reviewer</text><text class="ns" x="327" y="467">전 분야 리뷰 — 스킬 5개 전부</text></g>
+  <g data-a="testcreator"><rect class="nb" x="315" y="488" width="230" height="36" rx="10"/><text class="nt" x="327" y="506" font-size="13">swift-test-creator</text><text class="ns" x="327" y="519">Swift Testing 테스트 작성</text></g>
+  <g data-a="documenter"><rect class="nb" x="315" y="540" width="230" height="36" rx="10"/><text class="nt" x="327" y="558" font-size="13">swift-documenter</text><text class="ns" x="327" y="571">README·MODULE.md 정리</text></g>
+
+  <!-- 오른쪽: 스킬 -->
+  <g data-s="ms"><rect class="nb" x="630" y="130" width="200" height="40" rx="10"/><text class="nt" x="642" y="147" font-size="12.5">modern-swift</text><text class="ns" x="642" y="163">동시성 — 전원 공통 참고</text></g>
+  <g data-s="ca"><rect class="nb" x="630" y="230" width="200" height="40" rx="10"/><text class="nt" x="642" y="247" font-size="12.5">composable-architecture</text><text class="ns" x="642" y="263">TCA 패턴</text></g>
+  <g data-s="sp"><rect class="nb" x="630" y="330" width="200" height="40" rx="10"/><text class="nt" x="642" y="347" font-size="12.5">swiftui-patterns</text><text class="ns" x="642" y="363">iOS 17+ SwiftUI 패턴</text></g>
+  <g data-s="sd"><rect class="nb" x="630" y="430" width="200" height="40" rx="10"/><text class="nt" x="642" y="447" font-size="12.5">swift-diagnostics</text><text class="ns" x="642" y="463">빌드·메모리·내비 진단</text></g>
+  <g data-s="st"><rect class="nb" x="630" y="530" width="200" height="40" rx="10"/><text class="nt" x="642" y="547" font-size="12.5">swift-testing</text><text class="ns" x="642" y="563">Swift Testing 작성법</text></g>
+</svg>
+</div>
+
+<script>
+(function () {
+  ['hgraph', 'qgraph'].forEach(function (id) {
+    var svg = document.getElementById(id);
+    if (!svg) return;
+    var edges = Array.prototype.slice.call(svg.querySelectorAll('path.edge'));
+    var nodes = Array.prototype.slice.call(svg.querySelectorAll('g[data-a], g[data-s]'));
+    function reset() {
+      edges.forEach(function (p) { p.style.opacity = ''; p.style.strokeWidth = ''; });
+      nodes.forEach(function (n) { n.style.opacity = ''; });
+    }
+    nodes.forEach(function (n) {
+      n.addEventListener('mouseenter', function () {
+        var a = n.getAttribute('data-a'), s = n.getAttribute('data-s');
+        var keep = {};
+        keep[a || s] = true;
+        edges.forEach(function (p) {
+          var hit = a ? p.getAttribute('data-a') === a : p.getAttribute('data-s') === s;
+          if (hit) {
+            keep[p.getAttribute('data-a')] = true;
+            keep[p.getAttribute('data-s')] = true;
+            p.style.opacity = '1'; p.style.strokeWidth = '3.5';
+          } else {
+            p.style.opacity = '0.06';
+          }
+        });
+        nodes.forEach(function (m) {
+          var k = m.getAttribute('data-a') || m.getAttribute('data-s');
+          m.style.opacity = keep[k] ? '1' : '0.22';
+        });
+      });
+      n.addEventListener('mouseleave', reset);
+    });
+  });
+})();
+</script>
+
+<div class="footer">
+  CHALLA iOS · 이슈 #9 하네스 셋팅 · 원본 규칙: <span class="mono">CLAUDE.md</span>, <span class="mono">.claude/rules/</span> · 온보딩 절차: <span class="mono">docs/AI_WORKFLOW.md</span><br>
+  에이전트·스킬 구성이 바뀌면 이 문서도 같은 PR에서 갱신해주세요.
+</div>
+
+</div>
+</body>
+</html>
