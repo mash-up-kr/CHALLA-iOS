@@ -24,3 +24,7 @@ Configs/Shared.xcconfig
 # Claude Code 개인 설정 (팀 공유 설정은 .claude/settings.json 에 커밋)
 .claude/settings.local.json
 CLAUDE.local.md
+
+# 개인 환경 파일
+buildServer.json
+session-report-*.html
