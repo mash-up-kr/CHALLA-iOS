@@ -1,0 +1,86 @@
+import Foundation
+
+extension Endpoint {
+
+    /// 이 엔드포인트를 실제 전송 가능한 `URLRequest`로 변환한다.
+    /// Moya의 `Endpoint.urlRequest()` + `Task` 해석을 합친 역할.
+    func asURLRequest() throws -> URLRequest {
+        let url = path.isEmpty ? baseURL : baseURL.appendingPathComponent(path)
+        var request = URLRequest(url: url)
+        request.httpMethod = method.rawValue
+        headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+
+        switch task {
+        case .requestPlain:
+            break
+
+        case .requestData(let data):
+            request.httpBody = data
+
+        case .requestParameters(let parameters, let encoding):
+            request = try encoding.encode(request, with: parameters)
+
+        case .requestJSONEncodable(let value):
+            request = try encodeJSON(value, into: request)
+
+        case .uploadMultipart(let forms):
+            request = encodeMultipart(forms, into: request)
+        }
+
+        return request
+    }
+
+    // MARK: - Task별 인코딩
+
+    private func encodeJSON(_ value: any Encodable & Sendable, into request: URLRequest) throws -> URLRequest {
+        var request = request
+        do {
+            request.httpBody = try JSONEncoder().encode(value)
+        } catch {
+            throw NetworkError.invalidRequest(reason: "JSON 인코딩에 실패했습니다: \(error.localizedDescription)")
+        }
+        if request.value(forHTTPHeaderField: "Content-Type") == nil {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        return request
+    }
+
+    private func encodeMultipart(_ forms: [MultipartFormData], into request: URLRequest) -> URLRequest {
+        var request = request
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let lineBreak = "\r\n"
+        var body = Data()
+
+        for form in forms {
+            body.appendString("--\(boundary)\(lineBreak)")
+
+            var disposition = "Content-Disposition: form-data; name=\"\(form.name)\""
+            if let fileName = form.fileName {
+                disposition += "; filename=\"\(fileName)\""
+            }
+            body.appendString(disposition + lineBreak)
+
+            if let mimeType = form.mimeType {
+                body.appendString("Content-Type: \(mimeType)\(lineBreak)")
+            }
+            body.appendString(lineBreak)
+
+            body.append(form.data)
+            body.appendString(lineBreak)
+        }
+        body.appendString("--\(boundary)--\(lineBreak)")
+
+        request.httpBody = body
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        return request
+    }
+}
+
+// MARK: - 내부 유틸
+
+private extension Data {
+    /// UTF-8 문자열을 이어붙인다 (multipart 본문 조립용).
+    mutating func appendString(_ string: String) {
+        append(Data(string.utf8))
+    }
+}
