@@ -62,7 +62,7 @@ Projects/
 │                                          └ RoomDomain.fetchRooms 재사용
 │
 ├─ Room/   ⭐                        (폴더) 도메인/데이터 통합 · Feature는 화면별 유지
-│  ├─ RoomDomain                     (모듈) ★ 방의 단일 진실 (Single Source of Truth)
+│  ├─ RoomDomain                     (모듈) ★ 방 도메인 공용 — Feature 5개가 공유
 │  │   ├─ Entities/                        Room · Participant · InviteCode · RoomID
 │  │   │   └─ FilmStatus                   촬영중 · 인화대기 · 완료  ← Film 도메인 흡수
 │  │   ├─ RoomRepository                   인터페이스 1개
@@ -126,7 +126,7 @@ Tuist/
 
 | 변경 | 이유 |
 | :-- | :-- |
-| `Room*Domain` 5개 → `RoomDomain` 1개 | 엔티티 단일 진실, 중복 차단 |
+| `Room*Domain` 5개 → `RoomDomain` 1개 | 엔티티를 한 모듈에서 공용, 중복 차단 |
 | `Room*Data` 5개 → `RoomData` 1개 | `RoomRepository`를 한 곳에서 구현 |
 | `FilmDomain` 삭제 → `Room.filmStatus` 흡수 | 인화 상태는 방의 상태 |
 | `HomeDomain/Data`, `CameraDomain/Data` 삭제 | Home은 `RoomDomain.fetchRooms` 재사용 / Camera는 Room·Photo·Core 재사용 |

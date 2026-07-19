@@ -177,7 +177,7 @@
   }
   .box small { display:block; font-weight:500; color:var(--faint); font-size:11px; margin-top:3px; white-space: normal; max-width: 240px; }
   .box.star { border: 2px solid var(--star); box-shadow:0 2px 10px rgba(255,157,60,.35); position:relative; }
-  .box.star::after{ content:"★ 단일 진실"; position:absolute; top:-10px; right:-6px; background:var(--star); color:#fff; font-size:9px; font-weight:800; padding:2px 7px; border-radius:999px;}
+  .box.star::after{ content:"★ 공용 도메인"; position:absolute; top:-10px; right:-6px; background:var(--star); color:#fff; font-size:9px; font-weight:800; padding:2px 7px; border-radius:999px;}
   .box.appbox { border: 1.5px solid var(--chip-app-bg); }
   .box.ghost { background:var(--ghost-bg); border:1px dashed var(--ghost-line); color:var(--ghost-ink); font-weight:500; box-shadow:none; }
 
@@ -451,7 +451,7 @@ Projects/
 │                                          <span class="cm">└ RoomDomain.fetchRooms 재사용</span>
 │
 ├─ Room/   ⭐                        <span class="k-folder">(폴더)</span> 도메인/데이터 통합 · Feature는 화면별 유지
-│  ├─ RoomDomain                     <span class="k-mod">(모듈)</span> ★ 방의 단일 진실 (Single Source of Truth)
+│  ├─ RoomDomain                     <span class="k-mod">(모듈)</span> ★ 방 도메인 공용 — Feature 5개가 공유
 │  │   ├─ Entities/                        <span class="cm">Room · Participant · InviteCode · RoomID</span>
 │  │   │   └─ FilmStatus                   <span class="cm">촬영중 · 인화대기 · 완료  ← Film 도메인 흡수</span>
 │  │   ├─ RoomRepository                   <span class="cm">인터페이스 1개</span>
