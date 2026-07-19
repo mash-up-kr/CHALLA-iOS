@@ -1,0 +1,4 @@
+import Foundation
+
+// 프레임워크 타깃은 소스가 최소 1개 필요해 임시로 두는 placeholder (실코드 추가 후 삭제)
+enum {{ name }}Placeholder {}
