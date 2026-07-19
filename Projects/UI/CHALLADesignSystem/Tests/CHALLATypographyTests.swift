@@ -3,13 +3,16 @@ import Testing
 
 /// 타이포 토큰의 불변식 검증.
 /// Figma 시안 값이 코드에 잘못 옮겨졌을 때(크기·행간 뒤바뀜 등) 컴파일은 통과하므로 테스트로 잡는다.
-struct CHALLAFontTests {
+struct CHALLATypographyTests {
 
     /// Figma에 정의된 3굵기(WeightSet) 토큰 전체
-    private let weightSets: [CHALLAFont.WeightSet] = [
-        CHALLAFont.Heading.large, CHALLAFont.Heading.medium, CHALLAFont.Heading.small,
-        CHALLAFont.Body.large, CHALLAFont.Body.medium, CHALLAFont.Body.small,
-        CHALLAFont.Description.large, CHALLAFont.Description.medium, CHALLAFont.Description.small
+    private let weightSets: [CHALLATypography.WeightSet] = [
+        CHALLATypography.heading.large, CHALLATypography.heading.medium,
+        CHALLATypography.heading.small, CHALLATypography.heading.xsmall,
+        CHALLATypography.body.large, CHALLATypography.body.medium,
+        CHALLATypography.body.small, CHALLATypography.body.xsmall,
+        CHALLATypography.description.large, CHALLATypography.description.medium,
+        CHALLATypography.description.small
     ]
 
     @Test("WeightSet의 세 굵기는 같은 크기·행간을 공유한다")
@@ -24,7 +27,7 @@ struct CHALLAFontTests {
 
     @Test("WeightSet 토큰은 행간이 크기보다 작지 않다 — challaFont 행간 보정이 항상 0 이상")
     func lineHeightIsNotSmallerThanSize() {
-        // Dirtyline 단일 토큰(Heading.xlarge)은 의도적으로 lineHeight < size 라 제외
+        // Dirtyline 단일 토큰(heading.xlarge)은 의도적으로 lineHeight < size 라 제외
         for set in weightSets {
             #expect(set.regular.lineHeight >= set.regular.size)
         }
@@ -35,7 +38,7 @@ struct CHALLAFontTests {
         for set in weightSets {
             #expect(set.regular.size > 0)
         }
-        #expect(CHALLAFont.Heading.home.size > 0)
-        #expect(CHALLAFont.Heading.xlarge.size > 0)
+        #expect(CHALLATypography.heading.home.size > 0)
+        #expect(CHALLATypography.heading.xlarge.size > 0)
     }
 }
