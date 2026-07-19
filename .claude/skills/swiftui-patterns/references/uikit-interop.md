@@ -99,9 +99,11 @@ struct ImagePicker: UIViewControllerRepresentable {
             guard let provider = results.first?.itemProvider else { return }
 
             if provider.canLoadObject(ofClass: UIImage.self) {
-                provider.loadObject(ofClass: UIImage.self) { image, _ in
-                    DispatchQueue.main.async {
-                        self.image = image as? UIImage
+                // loadObject의 completion은 백그라운드에서 올 수 있다 —
+                // GCD 대신 @MainActor Task로 메인 액터에 복귀하고, escaping closure이므로 [weak self]
+                provider.loadObject(ofClass: UIImage.self) { [weak self] image, _ in
+                    Task { @MainActor [weak self] in
+                        self?.image = image as? UIImage
                     }
                 }
             }
