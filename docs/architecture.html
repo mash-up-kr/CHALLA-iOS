@@ -407,11 +407,11 @@
       <div class="rule"><b>예외 1개</b><span>데모앱만은 Data를 직접 import 가능 (앱 조립 지점이므로)</span></div>
     </div>
     <div class="card">
-      <h3><span class="ic"></span>3인 협업 분담</h3>
-      <div class="own"><span class="who">Dev A</span><span class="what">Auth <span class="tag">로그인</span> · User · Setting</span></div>
-      <div class="own"><span class="who">Dev B</span><span class="what">Home · Room <span class="tag">Domain+Data 1 · Feature 5</span></span></div>
-      <div class="own"><span class="who">Dev C</span><span class="what">Camera · Photo · DesignSystem</span></div>
-      <div class="own"><span class="who">공통</span><span class="what">Core · Shared · Network · DIContainer <span class="tag">합의 후 수정</span></span></div>
+      <h3><span class="ic"></span>모듈 세트 규칙 (테스트 · 문서)</h3>
+      <div class="rule"><b>한 세트</b><span>모듈 하나 = <code>Sources/</code> + <code>Tests/</code> + <code>MODULE.md</code>. 구현만 있는 모듈은 미완성</span></div>
+      <div class="rule"><b>테스트</b><span>Swift Testing으로 작성. Domain은 순수 유닛테스트(가장 두텁게) · Feature는 TestStore · Data는 Mock 검증</span></div>
+      <div class="rule"><b>MODULE.md</b><span>책임 · 공개 API · 의존 관계 기록. 공개 API가 바뀌면 같은 PR에서 갱신</span></div>
+      <div class="rule"><b>피처 데모앱</b><span>새 Feature를 만들면 <code>Demo/</code>도 함께 — Mock 데이터로 그 화면만 단독 실행·검증</span></div>
     </div>
   </div>
 
