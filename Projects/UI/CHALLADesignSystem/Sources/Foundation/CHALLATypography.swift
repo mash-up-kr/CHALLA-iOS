@@ -28,7 +28,7 @@ public extension View {
     /// 타이포 토큰을 적용한다. 폰트와 함께 Figma의 줄 높이를 재현한다.
     ///
     /// ```swift
-    /// Text("안녕하세요").challaFont(CHALLAFont.Body.medium.regular)
+    /// Text("안녕하세요").challaFont(.body.medium.regular)
     /// ```
     func challaFont(_ typography: CHALLATypography) -> some View {
         // Figma 줄 높이와 폰트 크기의 차이만큼 여백을 만든다.

@@ -1,0 +1,50 @@
+name: Claude Code Review
+on:
+  pull_request:
+    types: [opened, reopened]   # PR 새로 열릴 때 + 닫았다 다시 열 때 (재리뷰용)
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # 리뷰 코멘트 달기용
+      id-token: write        # Claude GitHub 앱(OIDC) 토큰 발급용 → 코멘트가 claude[bot] 이름으로
+    strategy:
+      fail-fast: false       # 한 잡이 실패해도 나머지는 계속
+      matrix:
+        include:
+          # 관점별 전담 리뷰어 (둘 다 PR 전체 diff를 자기 관점으로만 봄)
+          - { name: Architecture, rule: "Claude-Code-PR-Review/architecture.md" }
+          - { name: Convention,   rule: "Claude-Code-PR-Review/convention.md" }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # diff 비교 위해 전체 히스토리 필요
+
+      - name: Claude 리뷰 (${{ matrix.name }})
+        uses: anthropics/claude-code-action@v1
+        with:
+          # github_token 미지정 → 액션이 Claude 앱(OIDC)로 토큰 발급 → 코멘트가 claude[bot] 이름으로
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          # 진행 체크리스트 + 최종 요약이 담긴 추적 코멘트를 claude[bot]이 관리
+          track_progress: true
+          # 리뷰에 필요한 도구 허용: 파일 읽기 + diff 조회 + 인라인/요약 코멘트용 툴
+          claude_args: '--allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),mcp__github_inline_comment__create_inline_comment,mcp__github_comment__update_claude_comment"'
+          prompt: |
+            먼저 Claude-Code-PR-Review/common.md 와 ${{ matrix.rule }} 를 읽어라.
+            이번 잡은 ${{ matrix.name }} 전담이다. 이 PR의 변경 파일을 해당 관점으로만 리뷰하라.
+            common.md(공통 기준)와 ${{ matrix.rule }}(전담 규칙)을 최우선 기준으로 삼아라.
+            다른 잡의 관점(아키텍처 ↔ 컨벤션)은 중복 지적하지 마라.
+            모든 출력은 한국어로 한다.
+
+            문제가 있는 코드 라인에는 mcp__github_inline_comment__create_inline_comment 툴로
+            인라인 코멘트를 남겨라. 각 코멘트는 아래 마커 중 하나로 시작한다:
+              ❗ 필수 수정  /  💊 개선 제안  /  ❓ 질문·확인
+            그리고 "왜 문제인지 + 개선 대안/예시 코드"를 함께 적어라.
+            마지막에 mcp__github_comment__update_claude_comment 툴로 추적 코멘트를 갱신해
+            전체 요약과 최종 판정(🟢 LGTM / 🔴 차단 N건)을 정리하라.
+
+            PR: ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
