@@ -30,7 +30,7 @@ skills: modern-swift, composable-architecture
 - 적절한 taxonomy(view/delegate/internal)를 갖춘 Action enum 정의
 - 적절한 cancellation을 갖춘 Effect 구현
 - `@DependencyClient` struct 생성
-- `DependencyValues`에 dependency 등록
+- `DependencyValues` 접근자(computed property) 정의 — 단, 구현체 등록(liveValue/testValue/previewValue)은 DIContainer 폴더 담당이므로 Feature 모듈 안에서 하지 않는다
 - 모든 dependency에 대한 test 구현 제공
 
 ### MUST NOT Do

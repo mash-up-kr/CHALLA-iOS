@@ -67,6 +67,8 @@ extension DependencyValues {
 }
 ```
 
+> ⚠️ **CHALLA 적용 시 주의**: 위는 TCA 공식 문서의 범용 예제다. 이 저장소에서는 `liveValue`에서 `URLSession`을 직접 호출하지 않는다 — 네트워크는 `CHALLANetwork`를 거치고, `liveValue`/`testValue`/`previewValue` 등록은 Feature 모듈이 아니라 **DIContainer 폴더**에서 한다 (`.claude/rules/architecture.md` 규칙 2).
+
 `@DependencyClient` macro는 `unimplemented` error를 던지는 `.testValue`를 자동으로 생성하여 테스트되지 않은 code path를 잡아냅니다.
 
 ### Typed Error를 위한 WrappedError 패턴
