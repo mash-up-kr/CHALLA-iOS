@@ -32,7 +32,7 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme <스킴> \
 핵심 규칙 6개 — 위반 금지 (상세: `.claude/rules/architecture.md`, 배경: `docs/ARCHITECTURE.md`):
 
 1. `Feature → Domain ← Data` (Data가 Domain 인터페이스 구현)
-2. Feature는 Data를 import 하지 않는다 (DIContainer가 주입)
+2. Feature는 Data를 import 하지 않는다 (`@Dependency`가 주입 — 등록은 DIContainer 폴더)
 3. Feature끼리 직접 참조하지 않는다 (네비게이션은 App이 조립)
 4. Core · Shared는 누구나 import 가능
 5. `CHALLADesignSystem`은 Feature를 import 하지 않는다

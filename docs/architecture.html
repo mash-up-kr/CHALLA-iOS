@@ -259,12 +259,12 @@
         <div class="box appbox">CHALLAApp <span class="chip app">APP</span><small>실배포앱 · 모든 Feature 조립</small></div>
         <div class="box">AppFeature<small>로그인/프로필/메인 진입 분기 · 루트 네비게이션</small></div>
         <div class="box">AppView<small>최상위 SwiftUI View</small></div>
-        <div class="box">DependencyAssembly<small>DIContainer 실행</small></div>
+        <div class="box">DependencyAssembly<small>@Dependency 등록 실행 (조립 지점)</small></div>
       </div></div>
       <div class="group"><div class="group-label">DIContainer/ <span class="kind">(폴더)</span></div><div class="row">
-        <div class="box">LiveDependency<small>실제 구현체 등록</small></div>
-        <div class="box">TestDependency<small>Mock 등록</small></div>
-        <div class="box">PreviewDependency<small>더미 등록</small></div>
+        <div class="box">LiveDependency<small>실제 구현체 — DependencyKey의 liveValue</small></div>
+        <div class="box">TestDependency<small>Mock — testValue (TestStore에서 교체)</small></div>
+        <div class="box">PreviewDependency<small>더미 — previewValue (#Preview용)</small></div>
       </div></div>
     </div>
   </div>
@@ -339,7 +339,7 @@
     <span class="band-title"><span class="dot"></span>Network · 서버 통신 (Core에서 분리)</span>
     <div class="row">
       <div class="box">CHALLANetwork<small>Endpoint · HTTPClient · Interceptor · NetworkError→AppError 매핑</small></div>
-      <div class="box">TokenProvider<small>protocol만 정의 — 구현은 AuthData(Keychain 사용) · DIContainer가 연결</small></div>
+      <div class="box">TokenProvider<small>protocol만 정의 — 구현은 AuthData(Keychain 사용) · @Dependency 등록으로 연결</small></div>
     </div>
   </div>
 
@@ -385,7 +385,7 @@
     <div class="card">
       <h3><span class="ic"></span>의존성 규칙</h3>
       <div class="rule"><b>단방향</b><span>Feature → Domain ← Data. 상위만 하위를 참조</span></div>
-      <div class="rule"><b>주입</b><span>Feature는 Data를 import ✕ → DIContainer가 구현체 주입</span></div>
+      <div class="rule"><b>주입</b><span>Feature는 Data를 import ✕ → <code>@Dependency</code>로 꺼내 쓰고, 구현체 등록은 DIContainer 폴더에서</span></div>
       <div class="rule"><b>화면 전환</b><span>Feature끼리 직접 참조 ✕ → App이 TCA로 조립</span></div>
       <div class="rule"><b>Network</b><span>Data만 import. Feature·Domain은 서버의 존재를 모름</span></div>
       <div class="rule"><b>엔티티 단일화</b><span>Room은 RoomDomain 1곳에만 정의 → 변환지옥 차단</span></div>
@@ -396,7 +396,7 @@
       <div class="rule"><b>Shared</b><span>시뮬레이터 없이 유닛테스트가 돌아가는 순수 코드. <code>import Foundation</code>만 허용 · 아무것도 import ✕</span></div>
       <div class="rule"><b>Core</b><span>OS를 만지는 코드 (Keychain·AVFoundation·os.log…). Shared import 가능</span></div>
       <div class="rule"><b>Network</b><span>서버를 만지는 코드. Core(Logger 등)·Shared import 가능</span></div>
-      <div class="rule"><b>토큰 흐름</b><span>Network는 TokenProvider(protocol)만 정의 → AuthData가 Keychain으로 구현 → DIContainer가 연결. Network는 키체인의 존재를 모름</span></div>
+      <div class="rule"><b>토큰 흐름</b><span>Network는 TokenProvider(protocol)만 정의 → AuthData가 Keychain으로 구현 → @Dependency 등록으로 연결. Network는 키체인의 존재를 모름</span></div>
       <div class="rule"><b>Core 명칭</b><span>CoreData·CoreLocation처럼 Core = 저수준 기술 래핑이라는 Apple 관례. 순수 규칙은 Domain, 사이드 이펙트는 가장자리(Core·Network) 격리 — 배치 원칙은 Clean Architecture와 동일</span></div>
     </div>
     <div class="card">
@@ -425,12 +425,12 @@ Projects/
 │  ├─ CHALLAApp                      <span class="k-app">(앱)</span>   실배포앱 — 모든 Feature 조립
 │  ├─ AppFeature                     <span class="k-mod">(모듈)</span> 로그인/프로필/메인 진입 분기 + 루트 네비게이션
 │  ├─ AppView                        <span class="k-mod">(모듈)</span> 최상위 SwiftUI View
-│  └─ DependencyAssembly             <span class="k-mod">(모듈)</span> DIContainer 실행
+│  └─ DependencyAssembly             <span class="k-mod">(모듈)</span> @Dependency 등록 실행 (조립 지점)
 │
-├─ DIContainer/                      <span class="k-folder">(폴더)</span> 의존성 조립 전용
-│  ├─ LiveDependency                 <span class="k-mod">(모듈)</span> 실제 구현체 등록
-│  ├─ TestDependency                 <span class="k-mod">(모듈)</span> 테스트용 Mock 등록
-│  └─ PreviewDependency              <span class="k-mod">(모듈)</span> 프리뷰용 더미 등록
+├─ DIContainer/                      <span class="k-folder">(폴더)</span> @Dependency 등록 모음 (의존성 조립 전용)
+│  ├─ LiveDependency                 <span class="k-mod">(모듈)</span> 실제 구현체 — DependencyKey liveValue
+│  ├─ TestDependency                 <span class="k-mod">(모듈)</span> Mock — testValue (TestStore 교체용)
+│  └─ PreviewDependency              <span class="k-mod">(모듈)</span> 더미 — previewValue (#Preview용)
 │
 ├─ Auth/                             <span class="k-folder">(폴더)</span> 인증
 │  ├─ OnboardingFeature              <span class="k-mod">(모듈)</span> 온보딩 화면
