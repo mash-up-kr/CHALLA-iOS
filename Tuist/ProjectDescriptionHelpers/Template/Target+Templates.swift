@@ -1,7 +1,7 @@
 import ProjectDescription
 
 public extension Target {
-    
+
     /// 라이브러리/모듈 타깃을 생성한다.
     /// - product는 리소스 유무에 따라 자동 결정:
     ///   - 리소스 없음 → `.staticFramework` (앱 본체에 합쳐져 실행 빠름)

@@ -1,7 +1,7 @@
 import ProjectDescription
 
 public extension Project {
-    
+
     /// 프레임워크 모듈 하나를 담은 프로젝트를 생성한다.
     /// - 이 프로젝트가 담는 타깃의 product(static/dynamic)는 `makeModuleTarget`이 hasResource로 자동 결정.
     /// - Parameters:
