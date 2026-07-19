@@ -6,6 +6,6 @@ let project = Project.makeAppProject(
     displayName: "CHALLA 디자인 시스템",
     bundleId: "com.challa.designsystem",
     marketingVersion: "1.0.0",
-    buildNumber: "2",
+    buildNumber: "3",
     dependencies: [.designSystem]
 )
