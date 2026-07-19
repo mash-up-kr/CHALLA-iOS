@@ -19,6 +19,9 @@ struct TypographyGallery: View {
                 row("small · bold", .heading.small.bold)
                 row("small · medium", .heading.small.medium)
                 row("small · regular", .heading.small.regular)
+                row("xsmall · bold", .heading.xsmall.bold)
+                row("xsmall · medium", .heading.xsmall.medium)
+                row("xsmall · regular", .heading.xsmall.regular)
             }
 
             Section("Body") {
@@ -31,6 +34,9 @@ struct TypographyGallery: View {
                 row("small · bold", .body.small.bold)
                 row("small · medium", .body.small.medium)
                 row("small · regular", .body.small.regular)
+                row("xsmall · bold", .body.xsmall.bold)
+                row("xsmall · medium", .body.xsmall.medium)
+                row("xsmall · regular", .body.xsmall.regular)
             }
 
             Section("Description") {

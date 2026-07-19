@@ -31,14 +31,16 @@ public extension CHALLATypography {
         public let xlarge = token(.dirtyline, size: 60, lineHeight: 42)
         public let large = WeightSet(size: 28, lineHeight: 36)
         public let medium = WeightSet(size: 24, lineHeight: 32)
-        public let small = WeightSet(size: 20, lineHeight: 28)
+        public let small = WeightSet(size: 22, lineHeight: 30)
+        public let xsmall = WeightSet(size: 20, lineHeight: 28)
     }
 
     /// Body — 본문
     struct Body: Sendable {
         public let large = WeightSet(size: 18, lineHeight: 24)
         public let medium = WeightSet(size: 16, lineHeight: 20)
-        public let small = WeightSet(size: 14, lineHeight: 16)
+        public let small = WeightSet(size: 15, lineHeight: 18)
+        public let xsmall = WeightSet(size: 14, lineHeight: 16)
     }
 
     /// Description — 보조 설명
