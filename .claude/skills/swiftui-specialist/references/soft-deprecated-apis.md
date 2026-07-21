@@ -1,0 +1,352 @@
+# Soft-Deprecated SwiftUI APIs
+
+생성 기준: iOS 27.0, macOS 27.0, tvOS 27.0, watchOS 27.0, visionOS 27.0
+
+## Types
+
+- `struct CarouselTabViewStyle : TabViewStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - VerticalTabViewStyle로 이름이 변경됨
+- `struct MenuButton<Label, Content> : View where Label : View, Content : View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `Menu`를 사용하세요.
+- `struct ActionSheet` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `View.confirmationDialog(title:isPresented:titleVisibility:presenting::actions:)`instead.
+- `struct ColumnNavigationViewStyle : NavigationViewStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - styled NavigationView를 NavigationSplitView로 교체하세요.
+- `struct Alert` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 View.alert(_:isPresented:presenting:actions:)를 사용하세요.
+- `struct BorderedButtonMenuStyle : MenuStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - .menuStyle(.button)과 .buttonStyle(.bordered)를 사용하세요.
+- `struct RotationGesture : Gesture` (iOS, macOS, tvOS, watchOS, visionOS)
+  - RotateGesture로 이름이 변경됨
+- `struct PresentationMode` (iOS, macOS, tvOS, watchOS, visionOS)
+  - EnvironmentValues.isPresented 또는 EnvironmentValues.dismiss를 사용하세요.
+- `struct MagnificationGesture : Gesture` (iOS, macOS, tvOS, watchOS, visionOS)
+  - MagnifyGesture로 이름이 변경됨
+- `struct ContextMenu<MenuItems> where MenuItems : View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `contextMenu(menuItems:)`를 사용하세요.
+- `struct PullDownMenuButtonStyle : MenuButtonStyle` (iOS, macOS, visionOS)
+  - 대신 `BorderedButtonMenuStyle`를 사용하세요.
+- `struct BorderlessPullDownMenuButtonStyle : MenuButtonStyle` (iOS, macOS, visionOS)
+  - 대신 `BorderlessButtonMenuStyle`를 사용하세요.
+- `struct BorderlessButtonMenuButtonStyle : MenuButtonStyle` (iOS, macOS, visionOS)
+  - 대신 `BorderlessButtonMenuStyle`를 사용하세요.
+- `struct DefaultMenuButtonStyle : MenuButtonStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `menuStyle(.automatic)`를 사용하세요.
+- `struct DefaultNavigationViewStyle : NavigationViewStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - styled NavigationView를 대신 NavigationStack 또는 NavigationSplitView로 교체하세요.
+- `struct BorderlessButtonMenuStyle : MenuStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - .menuStyle(.button)과 .buttonStyle(.borderless)를 사용하세요.
+- `struct DoubleColumnNavigationViewStyle : NavigationViewStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - styled NavigationView를 대신 NavigationStack 또는 NavigationSplitView로 교체하세요.
+- `struct NavigationView<Content> : View where Content : View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 NavigationStack 또는 NavigationSplitView를 사용하세요.
+- `struct PopUpButtonPickerStyle : PickerStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `menu` 스타일을 사용하세요.
+- `struct StackNavigationViewStyle : NavigationViewStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - stack-styled NavigationView를 NavigationStack으로 교체하세요.
+- `enum ContentSizeCategory : Hashable, CaseIterable, Sendable` (iOS, macOS, tvOS, watchOS, visionOS)
+  - DynamicTypeSize로 이름이 변경됨
+- `enum ControlActiveState : Equatable, CaseIterable, Sendable` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `EnvironmentValues.appearsActive`를 사용하세요.
+
+## Protocols
+
+- `protocol NavigationViewStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - styled NavigationView를 대신 NavigationStack 또는 NavigationSplitView로 교체하세요.
+- `protocol AnimatableModifier : Animatable, ViewModifier` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Animatable을 직접 사용하세요.
+- `protocol MenuButtonStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `MenuStyle`를 사용하세요.
+
+## Initializers
+
+- `TextField.init<V>(_ titleKey: LocalizedStringKey, value: Binding<V>, formatter: Formatter, onEditingChanged: @escaping (Bool) -> Void, onCommit: @escaping () -> Void)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:value:formatter:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `TextField.init<V>(_ titleKey: LocalizedStringKey, value: Binding<V>, formatter: Formatter, onEditingChanged: @escaping (Bool) -> Void)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:value:formatter:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `TextField.init<V>(_ titleKey: LocalizedStringKey, value: Binding<V>, formatter: Formatter, onCommit: @escaping () -> Void)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:value:formatter:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `TextField.init<S, V>(_ title: S, value: Binding<V>, formatter: Formatter, onEditingChanged: @escaping (Bool) -> Void, onCommit: @escaping () -> Void) where S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:value:formatter:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `TextField.init<S, V>(_ title: S, value: Binding<V>, formatter: Formatter, onEditingChanged: @escaping (Bool) -> Void) where S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:value:formatter:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `TextField.init<S, V>(_ title: S, value: Binding<V>, formatter: Formatter, onCommit: @escaping () -> Void) where S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:value:formatter:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `MenuButton.init(_ titleKey: LocalizedStringKey, @ContentBuilder content: () -> Content)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `Menu`를 사용하세요.
+- `TabView.init(selection: Binding<SelectionValue>?, @ContentBuilder content: () -> Content)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 TabContentBuilder 기반 TabView 이니셜라이저를 사용하세요.
+- `Slider.init<V>(value: Binding<V>, in bounds: ClosedRange<V> = 0...1, onEditingChanged: @escaping (Bool) -> Void = { _ in }, minimumValueLabel: ValueLabel, maximumValueLabel: ValueLabel, @ContentBuilder label: () -> Label) where V : BinaryFloatingPoint, V.Stride : BinaryFloatingPoint` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Slider(value:in:label:minimumValueLabel:maximumValueLabel:onEditingChanged:)로 이름이 변경됨
+- `Slider.init<V>(value: Binding<V>, in bounds: ClosedRange<V>, step: V.Stride = 1, onEditingChanged: @escaping (Bool) -> Void = { _ in }, minimumValueLabel: ValueLabel, maximumValueLabel: ValueLabel, @ContentBuilder label: () -> Label) where V : BinaryFloatingPoint, V.Stride : BinaryFloatingPoint` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Slider(value:in:step:label:minimumValueLabel:maximumValueLabel:onEditingChanged:)로 이름이 변경됨
+- `Slider.init<V>(value: Binding<V>, in bounds: ClosedRange<V> = 0...1, onEditingChanged: @escaping (Bool) -> Void = { _ in }, @ContentBuilder label: () -> Label) where V : BinaryFloatingPoint, V.Stride : BinaryFloatingPoint` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Slider(value:in:label:onEditingChanged:)로 이름이 변경됨
+- `Slider.init<V>(value: Binding<V>, in bounds: ClosedRange<V>, step: V.Stride = 1, onEditingChanged: @escaping (Bool) -> Void = { _ in }, @ContentBuilder label: () -> Label) where V : BinaryFloatingPoint, V.Stride : BinaryFloatingPoint` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Slider(value:in:step:label:onEditingChanged:)로 이름이 변경됨
+- `LinearProgressViewStyle.init(tint: Color)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 ``View/tint(_)``를 사용하세요.
+- `CircularProgressViewStyle.init(tint: Color)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 ``View/tint(_)``를 사용하세요.
+- `TextField.init(_ titleKey: LocalizedStringKey, text: Binding<String>, onEditingChanged: @escaping (Bool) -> Void, onCommit: @escaping () -> Void)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:text:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `TextField.init(_ titleKey: LocalizedStringKey, text: Binding<String>, onEditingChanged: @escaping (Bool) -> Void)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:text:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `TextField.init(_ titleKey: LocalizedStringKey, text: Binding<String>, onCommit: @escaping () -> Void)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:text:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `TextField.init<S>(_ title: S, text: Binding<String>, onEditingChanged: @escaping (Bool) -> Void, onCommit: @escaping () -> Void) where S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:text:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `TextField.init<S>(_ title: S, text: Binding<String>, onEditingChanged: @escaping (Bool) -> Void) where S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:text:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `TextField.init<S>(_ title: S, text: Binding<String>, onCommit: @escaping () -> Void) where S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - TextField.init(_:text:onEditingChanged:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요. onEditingChanged 매개변수가 이전에 제공하던 기능은 FocusState<T>와 View.focused(_:equals:)를 사용하세요.
+- `InsetListStyle.init(alternatesRowBackgrounds: Bool)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - `.alternatingRowBackgrounds()` 뷰 모디파이어와 함께 `.inset` 스타일을 사용하세요.
+- `ToolbarItem.init(id: String, placement: ToolbarItemPlacement = .automatic, showsByDefault: Bool, @ContentBuilder content: () -> Content)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - CustomizableToolbarContent/defaultCustomization(_:options) 모디파이어를 .hidden 값과 함께 사용하세요.
+- `Section.init(header: Parent, footer: Footer, @ContentBuilder content: () -> Content)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Section(content:header:footer:)로 이름이 변경됨
+- `Section.init(footer: Footer, @ContentBuilder content: () -> Content)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Section(content:footer:)로 이름이 변경됨
+- `Section.init(header: Parent, @ContentBuilder content: () -> Content)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Section(content:header:)로 이름이 변경됨
+- `GroupBox.init(label: Label, @ContentBuilder content: () -> Content)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - GroupBox(content:label:)로 이름이 변경됨
+- `InsetTableStyle.init(alternatesRowBackgrounds: Bool)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - `.alternatingRowBackgrounds()` 뷰 모디파이어와 함께 `.inset` 스타일을 사용하세요.
+- `Picker.init(selection: Binding<SelectionValue>, label: Label, @ContentBuilder content: () -> Content)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Picker(selection:content:label:)로 이름이 변경됨
+- `ScrollView.init(_ axes: Set = .vertical, showsIndicators: Bool = true, @ContentBuilder content: () -> Content)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - ScrollView(_:content:) 이니셜라이저와 scrollIndicators(:_) 모디파이어를 사용하세요.
+- `NavigationLink.init(destination: Destination, @ContentBuilder label: () -> Label)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - destination으로 클로저를 전달하세요.
+- `NavigationLink.init(_ titleKey: LocalizedStringKey, destination: Destination)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - destination으로 클로저를 전달하세요.
+- `NavigationLink.init<S>(_ title: S, destination: Destination) where S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - destination으로 클로저를 전달하세요.
+- `NavigationLink.init(destinationName: String, @ContentBuilder label: () -> Label)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - NavigationLink(value:label:)를 사용하세요.
+- `NavigationLink.init(destinationName: String, isActive: Binding<Bool>, @ContentBuilder label: () -> Label)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - NavigationLink(value:label:)를 사용하세요.
+- `NavigationLink.init<V>(destinationName: String, tag: V, selection: Binding<V?>, @ContentBuilder label: () -> Label) where V : Hashable` (iOS, macOS, tvOS, watchOS, visionOS)
+  - NavigationLink(value:label:)를 사용하세요.
+- `SecureField.init(_ titleKey: LocalizedStringKey, text: Binding<String>, onCommit: @escaping () -> Void)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - SecureField.init(_:text:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요.
+- `SecureField.init<S>(_ title: S, text: Binding<String>, onCommit: @escaping () -> Void) where S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - SecureField.init(_:text:)로 이름이 변경됨. onCommit 매개변수가 이전에 제공하던 기능은 View.onSubmit(of:_:)를 사용하세요.
+- `BorderedButtonStyle.init(tint: Color)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 ``View/tint(_)``를 사용하세요.
+- `Color.init(_ color: UIColor)` (iOS, tvOS, watchOS, visionOS)
+  - UIColor를 변환할 때는 Color(uiColor:)를 사용하거나, 표준 Color를 직접 생성하세요.
+- `BorderedListStyle.init(alternatesRowBackgrounds: Bool)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - `.alternatingRowBackgrounds()` 뷰 모디파이어와 함께 `.bordered` 스타일을 사용하세요.
+- `Stepper.init(onIncrement: (() -> Void)?, onDecrement: (() -> Void)?, onEditingChanged: @escaping (Bool) -> Void = { _ in }, @ContentBuilder label: () -> Label)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Stepper(label:onIncrement:onDecrement:onEditingChanged:)로 이름이 변경됨
+- `Stepper.init<V>(value: Binding<V>, step: V.Stride = 1, onEditingChanged: @escaping (Bool) -> Void = { _ in }, @ContentBuilder label: () -> Label) where V : Strideable` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Stepper(value:step:label:onEditingChanged:)로 이름이 변경됨
+- `Stepper.init<V>(value: Binding<V>, in bounds: ClosedRange<V>, step: V.Stride = 1, onEditingChanged: @escaping (Bool) -> Void = { _ in }, @ContentBuilder label: () -> Label) where V : Strideable` (iOS, macOS, tvOS, watchOS, visionOS)
+  - Stepper(value:in:step:label:onEditingChanged:)로 이름이 변경됨
+- `LinearGaugeStyle.init(tint: Color)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 ``View/tint(_)``를 사용하세요.
+- `LinearGaugeStyle.init(tint: Gradient)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 ``View/tint(_)``를 사용하세요.
+- `BorderedTableStyle.init(alternatesRowBackgrounds: Bool)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - `.alternatingRowBackgrounds()` 뷰 모디파이어와 함께 `.bordered` 스타일을 사용하세요.
+- `PasteButton.init<Payload>(supportedContentTypes: [UTType], validator: @escaping ([NSItemProvider]) -> Payload?, payloadAction: @escaping (Payload) -> Void)` (iOS, macOS, tvOS, watchOS, visionOS)
+- `PasteButton.init(supportedTypes: [String], payloadAction: @escaping ([NSItemProvider]) -> Void)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `supportedContentTypes`로 `UTType`s를 제공하세요.
+- `SpatialTapGesture.init(count: Int = 1, coordinateSpace: CoordinateSpace = .local)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 CoordinateSpaceProtocol을 받는 오버로드를 사용하세요.
+- `SwitchToggleStyle.init(tint: Color)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 ``View/tint(_)``를 사용하세요.
+- `Color.init(_ cgColor: CGColor)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - CGColor를 변환할 때는 Color(cgColor:)를 사용하거나, 표준 Color를 직접 생성하세요.
+- `Color.init(_ color: NSColor)` (macOS)
+  - NSColor를 변환할 때는 Color(nsColor:)를 사용하거나, 표준 Color를 직접 생성하세요.
+
+## Functions and Methods
+
+- `View.accessibility(value: Text) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityValue(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(value: Text) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityValue(_:)로 이름이 변경됨
+- `View.actionSheet<T>(item: Binding<T?>, content: (T) -> ActionSheet) -> some View where T : Identifiable` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `confirmationDialog(title:isPresented:titleVisibility:presenting::actions:)`를 사용하세요.
+- `View.actionSheet(isPresented: Binding<Bool>, content: () -> ActionSheet) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `confirmationDialog(title:isPresented:titleVisibility:presenting::actions:)`를 사용하세요.
+- `View.alert<Item>(item: Binding<Item?>, content: (Item) -> Alert) -> some View where Item : Identifiable` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `alert(title:isPresented:presenting::actions:) 사용하세요.
+- `View.alert(isPresented: Binding<Bool>, content: () -> Alert) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `alert(title:isPresented:presenting::actions:) 사용하세요.
+- `View.onContinuousHover(coordinateSpace: CoordinateSpace = .local, perform action: @escaping (HoverPhase) -> Void) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 CoordinateSpaceProtocol을 받는 오버로드를 사용하세요.
+- `View.listRowPlatterColor(_ color: Color?) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - listItemTint(_:)로 이름이 변경됨
+- `View.dropDestination<T>(for payloadType: T.Type = T.self, action: @escaping (_ items: [T], _ location: CGPoint) -> Bool, isTargeted: @escaping (Bool) -> Void = { _ in }) -> some View where T : Transferable` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `DropSession` 매개변수를 받는 `action`과 함께 `dropDestination(for:isEnabled:action:)`를 사용하세요.
+- `DropInfo.hasItemsConforming(to types: [String]) -> Bool` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `types`로 `UTType`s를 제공하세요.
+- `View.statusBarHidden(_ hidden: Bool = true) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 .toolbarVisibility(_, for: .statusBar)를 사용하세요.
+- `View.statusBar(hidden: Bool) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - statusBarHidden(_:)로 이름이 변경됨
+- `View.autocapitalization(_ style: UITextAutocapitalizationType) -> some View` (iOS, tvOS, visionOS)
+  - textInputAutocapitalization(_:)를 사용하세요.
+- `ListStyle.static inset(alternatesRowBackgrounds: Bool) -> InsetListStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - `.alternatingRowBackgrounds()` 뷰 모디파이어와 함께 `.inset` 스타일을 사용하세요.
+- `View.navigationBarItems<L, T>(leading: L, trailing: T) -> some View where L : View, T : View` (iOS, macOS, tvOS, visionOS)
+  - navigationBarLeading 또는 navigationBarTrailing 배치와 함께 toolbar(_:)를 사용하세요.
+- `View.navigationBarItems<L>(leading: L) -> some View where L : View` (iOS, macOS, tvOS, visionOS)
+  - navigationBarLeading 또는 navigationBarTrailing 배치와 함께 toolbar(_:)를 사용하세요.
+- `View.navigationBarItems<T>(trailing: T) -> some View where T : View` (iOS, macOS, tvOS, visionOS)
+  - navigationBarLeading 또는 navigationBarTrailing 배치와 함께 toolbar(_:)를 사용하세요.
+- `View.accessibility(hidden: Bool) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityHidden(_:)로 이름이 변경됨
+- `View.accessibility(label: Text) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityLabel(_:)로 이름이 변경됨
+- `View.accessibility(hint: Text) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityHint(_:)로 이름이 변경됨
+- `View.accessibility(inputLabels: [Text]) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityInputLabels(_:)로 이름이 변경됨
+- `View.accessibility(identifier: String) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityIdentifier(_:)로 이름이 변경됨
+- `View.accessibility(sortPriority: Double) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilitySortPriority(_:)로 이름이 변경됨
+- `View.accessibility(activationPoint: CGPoint) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityActivationPoint(_:)로 이름이 변경됨
+- `View.accessibility(activationPoint: UnitPoint) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityActivationPoint(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(hidden: Bool) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityHidden(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(label: Text) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityLabel(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(hint: Text) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityHint(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(inputLabels: [Text]) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityInputLabels(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(identifier: String) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityIdentifier(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(sortPriority: Double) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilitySortPriority(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(activationPoint: CGPoint) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityActivationPoint(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(activationPoint: UnitPoint) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityActivationPoint(_:)로 이름이 변경됨
+- `View.navigationBarHidden(_ hidden: Bool) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - toolbar(.hidden)를 사용하세요.
+- `View.navigationBarTitle(_ title: Text) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - navigationTitle(_:)로 이름이 변경됨
+- `View.navigationBarTitle(_ titleKey: LocalizedStringKey) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - navigationTitle(_:)로 이름이 변경됨
+- `View.navigationBarTitle<S>(_ title: S) -> some View where S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - navigationTitle(_:)로 이름이 변경됨
+- `View.navigationBarTitle(_ title: Text, displayMode: TitleDisplayMode) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - navigationBarTitleDisplayMode(_:)와 함께 navigationTitle(_:)를 사용하세요.
+- `View.navigationBarTitle(_ titleKey: LocalizedStringKey, displayMode: TitleDisplayMode) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - navigationBarTitleDisplayMode(_:)와 함께 navigationTitle(_:)를 사용하세요.
+- `View.navigationBarTitle<S>(_ title: S, displayMode: TitleDisplayMode) -> some View where S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - navigationBarTitleDisplayMode(_:)와 함께 navigationTitle(_:)를 사용하세요.
+- `View.navigationViewStyle<S>(_ style: S) -> some View where S : NavigationViewStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - styled NavigationView를 대신 NavigationStack 또는 NavigationSplitView로 교체하세요.
+- `View.contextMenu<MenuItems>(_ contextMenu: ContextMenu<MenuItems>?) -> some View where MenuItems : View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `contextMenu(menuItems:)`를 사용하세요.
+- `DynamicViewContent.onInsert(of acceptedTypeIdentifiers: [String], perform action: @escaping (Int, [NSItemProvider]) -> Void) -> some DynamicViewContent` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `supportedContentTypes`로 `UTType`s를 제공하세요.
+- `View.toolbarBackground(_ visibility: Visibility, for bars: ToolbarPlacement...) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - toolbarBackgroundVisibility(_:for:)로 이름이 변경됨
+- `View.toolbar(_ visibility: Visibility, for bars: ToolbarPlacement...) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - toolbarVisibility(_:for:)로 이름이 변경됨
+- `View.onPasteCommand(of supportedTypes: [String], perform payloadAction: @escaping ([NSItemProvider]) -> Void) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `supportedContentTypes`로 `UTType`s를 제공하세요.
+- `View.searchable<S>(text: Binding<String>, placement: SearchFieldPlacement = .automatic, prompt: Text? = nil, @ContentBuilder suggestions: () -> S) -> some View where S : View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - searchSuggestions 모디파이어와 함께 searchable 모디파이어를 사용하세요.
+- `View.searchable<S>(text: Binding<String>, placement: SearchFieldPlacement = .automatic, prompt: LocalizedStringKey, @ContentBuilder suggestions: () -> S) -> some View where S : View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - searchSuggestions 모디파이어와 함께 searchable 모디파이어를 사용하세요.
+- `View.searchable<V, S>(text: Binding<String>, placement: SearchFieldPlacement = .automatic, prompt: S, @ContentBuilder suggestions: () -> V) -> some View where V : View, S : StringProtocol` (iOS, macOS, tvOS, watchOS, visionOS)
+  - searchSuggestions 모디파이어와 함께 searchable 모디파이어를 사용하세요.
+- `View.tabItem<V>(@ContentBuilder _ label: () -> V) -> some View where V : View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `Tab(title:image:value:content:)` 및 관련 이니셜라이저를 사용하세요.
+- `View.coordinateSpace<T>(name: T) -> some View where T : Hashable` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 coordinateSpace(_:)를 사용하세요.
+- `View.onLongPressGesture(minimumDuration: Double = 0.5, maximumDistance: CGFloat = 10, pressing: ((Bool) -> Void)? = nil, perform action: @escaping () -> Void) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - onLongPressGesture(minimumDuration:maximumDuration:perform:onPressingChanged:)로 이름이 변경됨
+- `View.onLongPressGesture(minimumDuration: Double = 0.5, pressing: ((Bool) -> Void)? = nil, perform action: @escaping () -> Void) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - onLongPressGesture(minimumDuration:perform:onPressingChanged:)로 이름이 변경됨
+- `ListStyle.static bordered(alternatesRowBackgrounds: Bool) -> BorderedListStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - `.alternatingRowBackgrounds()` 뷰 모디파이어와 함께 `.bordered` 스타일을 사용하세요.
+- `TabViewCustomization.resetSectionOrder(for sectionID: String)` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `section` 서브스크립트를 사용해 `resetTabOrder`를 호출하세요.
+- `View.disableAutocorrection(_ disable: Bool?) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - autocorrectionDisabled(_:)로 이름이 변경됨
+- `View.menuButtonStyle<S>(_ style: S) -> some View where S : MenuButtonStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `menuStyle(_:)`를 사용하세요.
+- `View.accessibility(addTraits traits: AccessibilityTraits) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityAddTraits(_:)로 이름이 변경됨
+- `View.accessibility(removeTraits traits: AccessibilityTraits) -> ModifiedContent<Self, AccessibilityAttachmentModifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityRemoveTraits(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(addTraits traits: AccessibilityTraits) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityAddTraits(_:)로 이름이 변경됨
+- `ModifiedContent.accessibility(removeTraits traits: AccessibilityTraits) -> ModifiedContent<Content, Modifier>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - accessibilityRemoveTraits(_:)로 이름이 변경됨
+- `View.onTapGesture(count: Int = 1, coordinateSpace: CoordinateSpace = .local, perform action: @escaping (CGPoint) -> Void) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 CoordinateSpaceProtocol을 받는 오버로드를 사용하세요.
+- `View.foregroundColor(_ color: Color?) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - foregroundStyle(_:)로 이름이 변경됨
+- `View.accentColor(_ accentColor: Color?) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 asset catalog의 accent color 또는 View.tint(_:)를 사용하세요.
+- `View.overlay<Overlay>(_ overlay: Overlay, alignment: Alignment = .center) -> some View where Overlay : View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `overlay(alignment:content:)`를 사용하세요.
+- `View.mask<Mask>(_ mask: Mask) -> some View where Mask : View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 mask가 @ContentBuilder를 받는 오버로드를 사용하세요.
+- `GeometryProxy.frame(in coordinateSpace: CoordinateSpace) -> CGRect` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 CoordinateSpaceProtocol을 받는 오버로드를 사용하세요.
+- `Font.static system(_ style: TextStyle, design: Design = .default) -> Font` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `system(_:design:weight:)`를 사용하세요.
+- `Text.foregroundColor(_ color: Color?) -> Text` (iOS, macOS, tvOS, watchOS, visionOS)
+  - foregroundStyle(_:)로 이름이 변경됨
+- `View.background<Background>(_ background: Background, alignment: Alignment = .center) -> some View where Background : View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `background(alignment:content:)`를 사용하세요.
+- `View.edgesIgnoringSafeArea(_ edges: Set) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 ignoresSafeArea(_:edges:)를 사용하세요.
+- `View.cornerRadius(_ radius: CGFloat, antialiased: Bool = true) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `clipShape` 또는 `fill`을 사용하세요.
+- `Font.static system(size: CGFloat, weight: Weight = .regular, design: Design = .default) -> Font` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `system(size:weight:design:)`를 사용하세요.
+- `View.colorScheme(_ colorScheme: ColorScheme) -> some View` (iOS, macOS, tvOS, watchOS, visionOS)
+  - preferredColorScheme(_:)로 이름이 변경됨
+- `Section.collapsible(_ collapsible: Bool) -> some View` (macOS, tvOS, watchOS)
+  - 표준 Section 이니셜라이저를 사용하세요. macOS 14.0 이후부터는 collapsibility\n를 기본적으로 허용하지 않습니다.
+
+## Properties
+
+- `NavigationViewStyle.static columns: ColumnNavigationViewStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - styled NavigationView를 NavigationSplitView로 교체하세요.
+- `ToolbarItemPlacement.static navigationBarLeading: ToolbarItemPlacement` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 topBarLeading을 사용하세요.
+- `ToolbarItemPlacement.static navigationBarTrailing: ToolbarItemPlacement` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 topBarTrailing을 사용하세요.
+- `EnvironmentValues.presentationMode: Binding<PresentationMode>` (iOS, macOS, tvOS, watchOS, visionOS)
+  - isPresented 또는 dismiss를 사용하세요.
+- `NavigationViewStyle.static automatic: DefaultNavigationViewStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - styled NavigationView를 대신 NavigationStack 또는 NavigationSplitView로 교체하세요.
+- `MenuStyle.static borderlessButton: BorderlessButtonMenuStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - .menuStyle(.button)과 .buttonStyle(.borderless)를 사용하세요.
+- `EnvironmentValues.disableAutocorrection: Bool?` (iOS, macOS, tvOS, watchOS, visionOS)
+  - autocorrectionDisabled로 이름이 변경됨
+- `NavigationViewStyle.static stack: StackNavigationViewStyle` (iOS, macOS, tvOS, watchOS, visionOS)
+  - stack-styled NavigationView를 NavigationStack으로 교체하세요.
+- `EnvironmentValues.sizeCategory: ContentSizeCategory` (iOS, macOS, tvOS, watchOS, visionOS)
+  - dynamicTypeSize로 이름이 변경됨
+- `Color.cgColor: CGColor?` (iOS, macOS, tvOS, watchOS, visionOS)
+  - resolve(in:)로 이름이 변경됨
+- `EnvironmentValues.controlActiveState: ControlActiveState` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `EnvironmentValues.appearsActive`를 사용하세요.
+- `SurroundingsEffect.static systemDark: SurroundingsEffect` (macOS, visionOS)
+  - dark로 이름이 변경됨
+
+## Subscripts
+
+- `TabViewCustomization.subscript(sectionID id: String) -> [String]?` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `section` 서브스크립트를 사용해 `tabOrder`를 읽으세요.
+- `TabViewCustomization.subscript(sidebarVisibility id: String) -> Visibility` (iOS, macOS, tvOS, watchOS, visionOS)
+  - 대신 `tab` 서브스크립트를 사용해 `sidebarVisibility`를 읽으세요.
