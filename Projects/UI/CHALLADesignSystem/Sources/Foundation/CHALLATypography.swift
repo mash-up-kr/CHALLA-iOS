@@ -13,12 +13,6 @@ public struct CHALLATypography: Sendable {
 
     /// Figma에 정의된 줄 높이(pt).
     public let lineHeight: CGFloat
-
-    init(font: Font, size: CGFloat, lineHeight: CGFloat) {
-        self.font = font
-        self.size = size
-        self.lineHeight = lineHeight
-    }
 }
 
 // MARK: - View Modifier
@@ -36,7 +30,7 @@ public extension View {
         let extraLineSpace = max(0, typography.lineHeight - typography.size)
         return self
             .font(typography.font)
-            .lineSpacing(extraLineSpace)             // 줄 사이 간격
-            .padding(.vertical, extraLineSpace / 2)  // 첫 줄 위 · 마지막 줄 아래 여백
+            .lineSpacing(extraLineSpace) // 줄 사이 간격
+            .padding(.vertical, extraLineSpace / 2) // 첫 줄 위 · 마지막 줄 아래 여백
     }
 }

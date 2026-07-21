@@ -1,5 +1,5 @@
-import SwiftUI
 import CHALLADesignSystem
+import SwiftUI
 
 /// Foundation > Color 검수 화면. 그룹별로 스와치를 나열한다.
 struct ColorGallery: View {
@@ -36,7 +36,7 @@ struct ColorGallery: View {
                 ("Cautionary", CHALLAColor.Status.cautionary),
                 ("Destructive", CHALLAColor.Status.destructive)
             ])
-            
+
             colorSection("Line", colors: [
                 ("Normal", CHALLAColor.Line.normal),
                 ("Neutral", CHALLAColor.Line.neutral),
