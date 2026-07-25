@@ -1,0 +1,92 @@
+import SwiftUI
+
+/// 디자인 시스템 텍스트 버튼.
+/// 비활성화는 SwiftUI 표준 `.disabled(_:)`로 제어한다 — 색은 자동으로 비활성 팔레트로 바뀐다.
+///
+/// ```swift
+/// CHALLATextButton("촬영 시작") { store.send(.startTapped) }
+///
+/// CHALLATextButton("다음", variant: .neutral, size: .medium, trailingIcon: .caretRight) {
+///     store.send(.nextTapped)
+/// }
+/// .disabled(!canProceed)
+/// ```
+public struct CHALLATextButton: View {
+
+    /// 부모가 건 `.disabled(_:)`가 환경에 기록한 활성 여부를 물려받는다.
+    /// 터치 차단(SwiftUI 담당)과 비활성 색 적용(이 뷰 담당)이 항상 같은 상태를 보도록
+    /// 별도 isDisabled 파라미터 대신 표준 환경값을 읽는다.
+    @Environment(\.isEnabled) private var isEnabled
+
+    private let title: String
+    private let variant: CHALLAButtonVariant
+    private let size: CHALLAButtonSize
+    private let leadingIcon: CHALLAIcon?
+    private let trailingIcon: CHALLAIcon?
+    private let action: () -> Void
+
+    public init(
+        _ title: String,
+        variant: CHALLAButtonVariant = .primary,
+        size: CHALLAButtonSize = .large,
+        leadingIcon: CHALLAIcon? = nil,
+        trailingIcon: CHALLAIcon? = nil,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.variant = variant
+        self.size = size
+        self.leadingIcon = leadingIcon
+        self.trailingIcon = trailingIcon
+        self.action = action
+    }
+
+    public var body: some View {
+        Button(action: action) {
+            HStack(spacing: size.contentSpacing) {
+                if let leadingIcon {
+                    leadingIcon.image(size: size.iconSize, color: contentColor)
+                }
+                Text(title)
+                    .challaFont(size.typography)
+                    .lineLimit(1)   // 고정 높이 안에서 줄바꿈되면 클리핑되므로 한 줄 고정
+                if let trailingIcon {
+                    trailingIcon.image(size: size.iconSize, color: contentColor)
+                }
+            }
+            .foregroundStyle(contentColor)
+            .padding(.horizontal, size.horizontalPadding)
+            .frame(height: size.height)
+            .background {
+                if let background = variant.backgroundColor(isEnabled: isEnabled) {
+                    RoundedRectangle(cornerRadius: size.radius)
+                        .fill(background)
+                }
+            }
+            // 탭 영역 정의: transparent(배경 없음)도 프레임 전체가 반응하고,
+            // 44pt 미만 크기는 보이지 않게 사방으로 확장한다 (touchAreaInset 참고).
+            .contentShape(
+                RoundedRectangle(cornerRadius: size.radius)
+                    .inset(by: -size.touchAreaInset)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var contentColor: Color {
+        variant.contentColor(isEnabled: isEnabled)
+    }
+}
+
+#Preview {
+    VStack(spacing: 16) {
+        CHALLATextButton("주요 버튼") {}
+        CHALLATextButton("보통 버튼", variant: .neutral, trailingIcon: .caretRight) {}
+        CHALLATextButton("투명 버튼", variant: .transparent) {}
+        CHALLATextButton("비활성 버튼", size: .medium) {}
+            .disabled(true)
+        CHALLATextButton("작은 버튼", variant: .neutral, size: .small, leadingIcon: .check) {}
+    }
+    .padding()
+    .background(CHALLAColor.Background.surface)
+}
