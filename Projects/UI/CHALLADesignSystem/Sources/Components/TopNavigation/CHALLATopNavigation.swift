@@ -90,6 +90,7 @@ public struct CHALLATopNavigation: View {
             Text("home")
                 .challaFont(.heading.home)
                 .foregroundStyle(CHALLAColor.Primary.yellow)
+                .accessibilityLabel("홈") // VoiceOver가 영문 "home" 대신 한국어로 낭독
             Spacer(minLength: 0)
             if let trailing {
                 iconSlot(trailing)
@@ -100,6 +101,8 @@ public struct CHALLATopNavigation: View {
 
     /// sub: 타이틀은 좌우 슬롯 유무와 무관하게 항상 화면 중앙 (Figma도 절대 위치 중앙).
     private func subBar(title: String, leading: Item?, trailing: Item?) -> some View {
+        // VoiceOver 낭독 순서 지정 (숫자 클수록 먼저): 뒤로가기(3) → 타이틀(2) → 우측 액션(1).
+        // 지정하지 않으면 선언 순서대로 타이틀부터 읽는데, iOS 기본 내비게이션 바는 뒤로가기부터 읽는다.
         ZStack {
             Text(title)
                 .challaFont(.body.large.bold)
@@ -107,25 +110,30 @@ public struct CHALLATopNavigation: View {
                 .lineLimit(1)
                 // 타이틀이 길어도 좌우 슬롯(40pt)과 겹치지 않게 가용 폭을 제한
                 .padding(.horizontal, Metric.horizontalPadding + Metric.touchArea)
+                .accessibilityAddTraits(.isHeader) // 로터 헤더 탐색 대상
+                .accessibilitySortPriority(2)
             HStack {
                 if let leading {
                     iconSlot(leading)
+                        .accessibilitySortPriority(3)
                 }
                 Spacer(minLength: 0)
                 if let trailing {
                     iconSlot(trailing)
+                        .accessibilitySortPriority(1)
                 }
             }
             .padding(.horizontal, Metric.horizontalPadding)
         }
     }
 
-    /// 아이콘 24pt를 40pt 터치 영역 가운데에 두고, 영역 전체가 탭에 반응한다.
+    /// 아이콘 24pt를 40pt 터치 영역 가운데에 두고,
+    /// 히트 영역만 HIG 최소 터치 타깃(44)까지 보이지 않게 확장한다 (버튼과 동일 정책).
     private func iconSlot(_ item: Item) -> some View {
         Button(action: item.action) {
-            item.icon.image(size: .size24)
+            item.icon.image(size: .size24, color: CHALLAColor.Label.neutral) // Figma 실측 색
                 .frame(width: Metric.touchArea, height: Metric.touchArea)
-                .contentShape(Rectangle())
+                .contentShape(Rectangle().expandedToHitTarget(from: Metric.touchArea))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(item.accessibilityLabel)
