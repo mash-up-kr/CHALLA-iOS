@@ -57,18 +57,7 @@ public struct CHALLATextButton: View {
             .foregroundStyle(contentColor)
             .padding(.horizontal, size.horizontalPadding)
             .frame(height: size.height)
-            .background {
-                if let background = variant.backgroundColor(isEnabled: isEnabled) {
-                    RoundedRectangle(cornerRadius: size.radius)
-                        .fill(background)
-                }
-            }
-            // 탭 영역 정의: transparent(배경 없음)도 프레임 전체가 반응하고,
-            // 44pt 미만 크기는 보이지 않게 사방으로 확장한다 (touchAreaInset 참고).
-            .contentShape(
-                RoundedRectangle(cornerRadius: size.radius)
-                    .inset(by: -size.touchAreaInset)
-            )
+            .challaButtonBackground(variant: variant, size: size, isEnabled: isEnabled)
         }
         .buttonStyle(.plain)
     }
