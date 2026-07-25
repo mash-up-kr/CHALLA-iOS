@@ -6,8 +6,10 @@ import CHALLADesignSystem
 /// focus·typing 상태는 정적 나열이 불가능하므로 직접 탭해서 확인한다 (커서·테두리 = 노랑).
 struct TextFieldGallery: View {
 
+    // 섹션마다 독립된 상태를 쓴다 — 공유하면 한쪽 입력이 다른 섹션에 나타나 검수를 오인시킨다
     @State private var interactive = ""
     @State private var typed = "텍스트"
+    @State private var centerAligned = ""
     @State private var leadingText = ""
     @State private var customBorder = ""
     @State private var customTypo = ""
@@ -45,7 +47,7 @@ struct TextFieldGallery: View {
         VStack(alignment: .leading, spacing: 16) {
             galleryTitle("Alignment")
             galleryCaption("Center (기본)")
-            CHALLATextField(text: $interactive, placeholder: "내용을 입력해 주세요.")
+            CHALLATextField(text: $centerAligned, placeholder: "내용을 입력해 주세요.")
             galleryCaption("Leading (방 만들기 실사용)")
             CHALLATextField(text: $leadingText, placeholder: "방 이름 입력", textAlignment: .leading)
         }

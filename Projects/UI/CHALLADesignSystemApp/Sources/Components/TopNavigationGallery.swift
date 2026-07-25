@@ -53,6 +53,12 @@ struct TopNavigationGallery: View {
                 leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") {},
                 trailing: .icon(.close, accessibilityLabel: "닫기") {}
             )
+            galleryCaption("긴 타이틀 (말줄임·슬롯 회피 확인)")
+            CHALLATopNavigation.sub(
+                title: "아주아주 길어서 한 줄에 안 들어가는 타이틀",
+                leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") {},
+                trailing: .icon(.close, accessibilityLabel: "닫기") {}
+            )
         }
     }
 
