@@ -26,7 +26,7 @@ struct TopNavigationGallery: View {
             CHALLATopNavigation.main()
             galleryCaption("trailing 아이콘")
             CHALLATopNavigation.main(
-                trailing: .init(.setting, accessibilityLabel: "설정") {}
+                trailing: .icon(.setting, accessibilityLabel: "설정") {}
             )
         }
     }
@@ -40,18 +40,18 @@ struct TopNavigationGallery: View {
             galleryCaption("leading 아이콘")
             CHALLATopNavigation.sub(
                 title: "타이틀",
-                leading: .init(.caretLeft, accessibilityLabel: "뒤로 가기") {}
+                leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") {}
             )
             galleryCaption("trailing 아이콘")
             CHALLATopNavigation.sub(
                 title: "타이틀",
-                trailing: .init(.close, accessibilityLabel: "닫기") {}
+                trailing: .icon(.close, accessibilityLabel: "닫기") {}
             )
             galleryCaption("leading + trailing")
             CHALLATopNavigation.sub(
                 title: "타이틀",
-                leading: .init(.caretLeft, accessibilityLabel: "뒤로 가기") {},
-                trailing: .init(.close, accessibilityLabel: "닫기") {}
+                leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") {},
+                trailing: .icon(.close, accessibilityLabel: "닫기") {}
             )
         }
     }

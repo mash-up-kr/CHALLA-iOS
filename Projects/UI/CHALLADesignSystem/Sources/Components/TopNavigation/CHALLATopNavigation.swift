@@ -10,33 +10,38 @@ import SwiftUI
 /// 상태바 영역(safe area)은 포함하지 않는다 — 화면 최상단에 붙이면 SwiftUI가 알아서 비켜준다.
 ///
 /// ```swift
-/// CHALLATopNavigation.main(trailing: .init(.setting, accessibilityLabel: "설정") { ... })
+/// CHALLATopNavigation.main(trailing: .icon(.setting, accessibilityLabel: "설정") { ... })
 ///
 /// CHALLATopNavigation.sub(
 ///     title: "방 만들기",
-///     leading: .init(.caretLeft, accessibilityLabel: "뒤로 가기") { ... },
-///     trailing: .init(.close, accessibilityLabel: "닫기") { ... }
+///     leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") { ... },
+///     trailing: .icon(.close, accessibilityLabel: "닫기") { ... }
 /// )
 /// ```
 public struct CHALLATopNavigation: View {
 
-    /// 좌우 슬롯에 들어가는 아이콘 액션.
+    /// 좌우 슬롯에 들어가는 액션.
     public struct Item {
         let icon: CHALLAIcon
         let accessibilityLabel: String
         let action: () -> Void
 
-        /// - Parameters:
-        ///   - icon: 표시할 아이콘 (24pt로 그려진다).
-        ///   - accessibilityLabel: VoiceOver가 읽을 한국어 설명 (아이콘 버튼과 동일하게 필수).
-        public init(
-            _ icon: CHALLAIcon,
-            accessibilityLabel: String,
-            action: @escaping () -> Void
-        ) {
+        private init(icon: CHALLAIcon, accessibilityLabel: String, action: @escaping () -> Void) {
             self.icon = icon
             self.accessibilityLabel = accessibilityLabel
             self.action = action
+        }
+
+        /// 아이콘 액션 (24pt로 그려진다).
+        /// - Parameters:
+        ///   - icon: 표시할 아이콘.
+        ///   - accessibilityLabel: VoiceOver가 읽을 한국어 설명 (아이콘 버튼과 동일하게 필수).
+        public static func icon(
+            _ icon: CHALLAIcon,
+            accessibilityLabel: String,
+            action: @escaping () -> Void
+        ) -> Item {
+            Item(icon: icon, accessibilityLabel: accessibilityLabel, action: action)
         }
     }
 
@@ -143,12 +148,12 @@ private enum Metric {
 #Preview {
     VStack(spacing: 0) {
         CHALLATopNavigation.main()
-        CHALLATopNavigation.main(trailing: .init(.setting, accessibilityLabel: "설정") {})
+        CHALLATopNavigation.main(trailing: .icon(.setting, accessibilityLabel: "설정") {})
         CHALLATopNavigation.sub(title: "타이틀")
         CHALLATopNavigation.sub(
             title: "방 만들기",
-            leading: .init(.caretLeft, accessibilityLabel: "뒤로 가기") {},
-            trailing: .init(.close, accessibilityLabel: "닫기") {}
+            leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") {},
+            trailing: .icon(.close, accessibilityLabel: "닫기") {}
         )
     }
     .background(CHALLAColor.Background.surface)
