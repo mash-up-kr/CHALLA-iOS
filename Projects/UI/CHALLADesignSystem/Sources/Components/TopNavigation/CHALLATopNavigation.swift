@@ -22,9 +22,9 @@ public struct CHALLATopNavigation: View {
 
     /// 좌우 슬롯에 들어가는 액션.
     public struct Item {
-        let icon: CHALLAIcon
-        let accessibilityLabel: String
-        let action: () -> Void
+        fileprivate let icon: CHALLAIcon
+        fileprivate let accessibilityLabel: String
+        fileprivate let action: () -> Void
 
         private init(icon: CHALLAIcon, accessibilityLabel: String, action: @escaping () -> Void) {
             self.icon = icon
@@ -108,7 +108,8 @@ public struct CHALLATopNavigation: View {
                 .challaFont(.body.large.bold)
                 .foregroundStyle(CHALLAColor.Label.normal)
                 .lineLimit(1)
-                // 타이틀이 길어도 좌우 슬롯(40pt)과 겹치지 않게 가용 폭을 제한
+                // 타이틀 가용 폭에서 좌우의 아이콘 구역(가장자리 여백 16 + 터치 박스 40)을 제외한다
+                // — 긴 타이틀은 아이콘에 닿기 전에 말줄임으로 잘린다.
                 .padding(.horizontal, Metric.horizontalPadding + Metric.touchArea)
                 .accessibilityAddTraits(.isHeader) // 로터 헤더 탐색 대상
                 .accessibilitySortPriority(2)
