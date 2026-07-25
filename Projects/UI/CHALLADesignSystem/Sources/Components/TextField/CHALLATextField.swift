@@ -43,7 +43,9 @@ public struct CHALLATextField: View {
     }
 
     public var body: some View {
-        TextField("", text: $text, prompt: prompt)
+        // 첫 인자(title)는 prompt가 있으면 화면에 그려지지 않고 VoiceOver 이름표로만 쓰인다
+        // — 입력 후에도 이 필드의 용도가 낭독되도록 placeholder를 재사용한다.
+        TextField(placeholder, text: $text, prompt: prompt)
             .challaFont(typography)
             .multilineTextAlignment(textAlignment)
             .foregroundStyle(isEnabled ? CHALLAColor.Label.normal : CHALLAColor.Label.disabled)
@@ -63,7 +65,12 @@ public struct CHALLATextField: View {
             }
             // 글자 영역 밖 패딩을 눌러도 포커스되도록 박스 전체를 탭 영역으로 만든다.
             .contentShape(RoundedRectangle(cornerRadius: CHALLARadius.large))
-            .onTapGesture { isFocused = true }
+            .onTapGesture {
+                // 비활성 상태에선 탭해도 포커스를 주지 않는다 (키보드가 올라오면 안 됨).
+                // .disabled(_:)는 TextField 입력만 막고, 뷰에 붙인 이 제스처까지는 막아주지 않아서 직접 차단한다.
+                guard isEnabled else { return }
+                isFocused = true
+            }
     }
 
     /// placeholder 문구. 비활성 시엔 입력 글자와 같은 비활성 색으로 맞춘다
