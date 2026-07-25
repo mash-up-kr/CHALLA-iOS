@@ -55,15 +55,6 @@ extension CHALLAButtonSize {
         }
     }
 
-    /// HIG 최소 터치 타깃 (Human Interface Guidelines: 44×44pt)
-    private static let hitTargetMinimum: CGFloat = 44
-
-    /// 터치 영역 확장량. 최소 터치 타깃에 못 미치는 크기는
-    /// 시각 크기(Figma 실측)는 유지한 채 보이지 않는 히트 영역만 사방으로 넓힌다.
-    var touchAreaInset: CGFloat {
-        max(0, (Self.hitTargetMinimum - height) / 2)
-    }
-
     /// 텍스트 버튼의 아이콘-글자 간격 (Figma 실측: 전 크기 4)
     var contentSpacing: CGFloat { 4 }
 }
