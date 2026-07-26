@@ -16,22 +16,25 @@ public enum CHALLAButtonVariant: Sendable, CaseIterable {
 extension CHALLAButtonVariant {
 
     /// 배경색. transparent는 비활성이어도 배경이 생기지 않는다.
-    func backgroundColor(isEnabled: Bool) -> Color? {
+    /// destructive 비활성 디자인은 Figma에 없어 공통 비활성 팔레트로 떨어뜨린다.
+    func backgroundColor(role: CHALLAButtonRole? = nil, isEnabled: Bool) -> Color? {
         switch (self, isEnabled) {
         case (.transparent, _): return nil
         case (_, false): return CHALLAColor.Background.level2
-        case (.primary, true): return CHALLAColor.Label.normal
+        case (.primary, true):
+            return role == .destructive ? CHALLAColor.Status.destructive : CHALLAColor.Label.normal
         case (.neutral, true): return CHALLAColor.Background.level3
         }
     }
 
-    /// 글자·아이콘 색. 활성 primary의 어두운 글자색은 Figma가
-    /// Label/Disabled 변수(#444549)로 지정해놓아 그대로 따른다.
-    func contentColor(isEnabled: Bool) -> Color {
+    /// 글자·아이콘 색.
+    func contentColor(role: CHALLAButtonRole? = nil, isEnabled: Bool) -> Color {
         guard isEnabled else { return CHALLAColor.Label.disabled }
-        switch self {
-        case .primary: return CHALLAColor.Label.disabled
-        case .neutral, .transparent: return CHALLAColor.Label.normal
+        switch (self, role) {
+        case (.primary, .destructive): return CHALLAColor.Label.normal
+        case (.primary, nil): return CHALLAColor.Label.disabled
+        case (.neutral, .destructive), (.transparent, .destructive): return CHALLAColor.Status.destructive
+        case (.neutral, nil), (.transparent, nil): return CHALLAColor.Label.normal
         }
     }
 }
