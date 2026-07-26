@@ -10,6 +10,7 @@ let project = Project(
         defaultKnownRegions: ["en", "ko"],
         developmentRegion: "ko"
     ),
+    settings: .challaBase(),         // Swift 6 언어 모드
     targets: [
         .makeModuleTarget(name: "CHALLANetwork"),
         .target(

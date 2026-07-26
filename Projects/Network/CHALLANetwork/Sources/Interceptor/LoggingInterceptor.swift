@@ -2,8 +2,6 @@ import Foundation
 import os
 
 /// 요청/응답을 `os.Logger`로 남기는 인터셉터. Moya의 `NetworkLoggerPlugin`에 대응한다.
-///
-/// > Core/Logger 모듈이 생기면 그쪽에 위임하도록 바꾼다 (그전까지는 `os.Logger` 직접 사용).
 public struct LoggingInterceptor: Interceptor {
 
     /// 로깅 상세 수준.
@@ -17,6 +15,7 @@ public struct LoggingInterceptor: Interceptor {
     }
 
     private let level: Level
+    // TODO: Core/Logger 모듈이 생기면 os.Logger 직접 사용 대신 그쪽 로거에 위임한다.
     private let logger: Logger
 
     public init(
@@ -54,7 +53,8 @@ public struct LoggingInterceptor: Interceptor {
                 logger.debug("  body: \(string, privacy: .private)")
             }
         case .failure(let error):
-            logger.error("✕ \(String(describing: error), privacy: .public)")
+            // 오류 설명에 요청 URL이 포함될 수 있어 성공 경로와 동일하게 마스킹한다.
+            logger.error("✕ \(String(describing: error), privacy: .private)")
         }
     }
 }
