@@ -10,6 +10,7 @@ struct ButtonGallery: View {
             VStack(alignment: .leading, spacing: 40) {
                 textButtonSection
                 destructiveSection
+                fullWidthSection
                 textButtonIconSection
                 iconButtonSection
             }
@@ -73,6 +74,19 @@ struct ButtonGallery: View {
                     Spacer()
                 }
             }
+        }
+    }
+
+    /// 전체 폭(isFullWidth) 조합. 드로어 버튼 스택이 쓰는 형태 —
+    /// 배경·터치 영역이 부모 폭까지 늘어나는지, 글자가 가운데 오는지 검수한다.
+    private var fullWidthSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            galleryTitle("Text Button · Full Width")
+            galleryCaption("기본(내용 폭)과 대조")
+            CHALLATextButton("버튼명") {}
+            CHALLATextButton("버튼명", isFullWidth: true) {}
+            CHALLATextButton("버튼명", variant: .neutral, isFullWidth: true) {}
+            CHALLATextButton("보조 액션", variant: .transparent, size: .medium, isFullWidth: true) {}
         }
     }
 

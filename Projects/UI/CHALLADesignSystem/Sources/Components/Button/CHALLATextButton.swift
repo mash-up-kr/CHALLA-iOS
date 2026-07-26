@@ -24,6 +24,7 @@ public struct CHALLATextButton: View {
     private let variant: CHALLAButtonVariant
     private let role: CHALLAButtonRole?
     private let size: CHALLAButtonSize
+    private let isFullWidth: Bool
     private let leadingIcon: CHALLAIcon?
     private let trailingIcon: CHALLAIcon?
     private let action: () -> Void
@@ -33,6 +34,7 @@ public struct CHALLATextButton: View {
         variant: CHALLAButtonVariant = .primary,
         role: CHALLAButtonRole? = nil,
         size: CHALLAButtonSize = .large,
+        isFullWidth: Bool = false,
         leadingIcon: CHALLAIcon? = nil,
         trailingIcon: CHALLAIcon? = nil,
         action: @escaping () -> Void
@@ -41,6 +43,7 @@ public struct CHALLATextButton: View {
         self.variant = variant
         self.role = role
         self.size = size
+        self.isFullWidth = isFullWidth
         self.leadingIcon = leadingIcon
         self.trailingIcon = trailingIcon
         self.action = action
@@ -62,6 +65,8 @@ public struct CHALLATextButton: View {
             .foregroundStyle(contentColor)
             .padding(.horizontal, size.horizontalPadding)
             .frame(height: size.height)
+            // 배경 모디파이어보다 앞에 있어야 배경·터치 영역이 함께 늘어난다
+            .frame(maxWidth: isFullWidth ? .infinity : nil)
             .challaButtonBackground(variant: variant, role: role, size: size, isEnabled: isEnabled)
         }
         .buttonStyle(.plain)
