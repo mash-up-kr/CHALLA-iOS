@@ -1,0 +1,59 @@
+# PR CI — 린트 → 워크스페이스 생성 → 빌드+테스트
+# 러너 비용 절약: 단일 macOS 잡(lint 먼저 fail-fast), 코드 변경 없는 PR은 실행 안 함(paths),
+# 같은 PR에 새 푸시가 오면 이전 실행 취소(concurrency).
+name: CI
+
+# 주의: paths 필터 때문에 이 워크플로우를 required check로 지정하면
+# 문서만 고친 PR이 pending 상태로 머지 불가가 된다 — 그 시점엔 no-op 잡 방식으로 전환할 것.
+on:
+  push:
+    branches: [main] # 머지 커밋은 PR 스냅샷과 다를 수 있어 머지 후에도 한 번 더 검증
+    paths: # pull_request 의 paths 와 항상 동일하게 유지할 것
+      - "**.swift"
+      - "**.stencil"
+      - "Projects/**"
+      - "Configs/**"
+      - "Scripts/**"
+      - "mise.toml"
+      - ".swiftlint.yml"
+      - ".swiftformat"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.swift"
+      - "**.stencil"
+      - "Projects/**"
+      - "Configs/**"
+      - "Scripts/**"
+      - "mise.toml"
+      - ".swiftlint.yml"
+      - ".swiftformat"
+      - ".github/workflows/ci.yml"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-build-test:
+    name: Lint · Build · Test
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # mise.toml 기준으로 tuist·swiftlint·swiftformat 설치 (+자동 캐시·trust 처리)
+      - uses: jdx/mise-action@v4
+
+      - name: Lint
+        run: ./Scripts/lint.sh
+
+      - name: Generate workspace
+        run: |
+          # 시뮬레이터 빌드는 서명이 필요 없어 팀 ID는 더미로 충분
+          cp Configs/Shared.xcconfig.template Configs/Shared.xcconfig
+          tuist generate --no-open
+
+      - name: Test
+        run: tuist test
