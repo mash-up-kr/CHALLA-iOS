@@ -10,7 +10,7 @@ struct TestEndpoint: Endpoint {
     var headers: [String: String]?
 }
 
-/// `AccessTokenAuthorizable` 분기(.none/.bearer/.custom)를 검증하기 위한 Endpoint.
+/// `AccessTokenAuthorizable` 분기(.none/.bearer)를 검증하기 위한 Endpoint.
 struct AuthTestEndpoint: Endpoint, AccessTokenAuthorizable {
     var authorizationType: AuthorizationType
     var baseURL = URL(string: "https://api.example.com")!
