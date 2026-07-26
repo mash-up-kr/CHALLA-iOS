@@ -73,9 +73,9 @@ public struct CHALLATopNavigation: View {
     public var body: some View {
         Group {
             switch variant {
-            case .main(let trailing):
+            case let .main(trailing):
                 mainBar(trailing: trailing)
-            case .sub(let title, let leading, let trailing):
+            case let .sub(title, leading, trailing):
                 subBar(title: title, leading: leading, trailing: trailing)
             }
         }
