@@ -1,0 +1,4 @@
+#!/bin/bash
+# 머지 커밋도 pre-commit과 동일하게 staged 파일 린트 검사
+# (git merge는 pre-commit 대신 pre-merge-commit 훅을 실행한다)
+exec "$(dirname "$0")/pre-commit"

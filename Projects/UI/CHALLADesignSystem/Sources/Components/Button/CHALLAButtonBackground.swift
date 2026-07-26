@@ -26,8 +26,8 @@ struct CHALLAButtonBackgroundModifier: ViewModifier {
     }
 }
 
-// 기능은 위 Modifier에 있고, 이 extension은 .modifier(...) 호출 대신
-// 다른 수정자들처럼 .challaButtonBackground(...) 점 문법으로 쓰게 하는 통로다.
+/// 기능은 위 Modifier에 있고, 이 extension은 .modifier(...) 호출 대신
+/// 다른 수정자들처럼 .challaButtonBackground(...) 점 문법으로 쓰게 하는 통로다.
 extension View {
     /// 버튼 배경과 터치 영역 규칙을 적용한다 (상세: CHALLAButtonBackgroundModifier).
     func challaButtonBackground(

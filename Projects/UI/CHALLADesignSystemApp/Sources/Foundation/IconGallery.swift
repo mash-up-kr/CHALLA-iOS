@@ -1,5 +1,5 @@
-import SwiftUI
 import CHALLADesignSystem
+import SwiftUI
 
 /// Foundation > Icon 검수 화면.
 /// 아이콘·버튼이 어두운 배경 기준으로 디자인돼 있어 Background.surface 위에 그린다.

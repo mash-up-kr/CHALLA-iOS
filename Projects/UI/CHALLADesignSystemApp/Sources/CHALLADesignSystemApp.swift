@@ -1,5 +1,5 @@
-import SwiftUI
 import CHALLADesignSystem
+import SwiftUI
 
 @main
 struct CHALLADesignSystemApp: App {
