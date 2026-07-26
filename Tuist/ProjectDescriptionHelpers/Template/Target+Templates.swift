@@ -41,7 +41,7 @@ public extension Target {
             name: "\(name)Tests",
             destinations: Environment.destinations,
             product: .unitTests,
-            bundleId: "\(Environment.bundleIdPrefix).\(name.lowercased())tests",
+            bundleId: "\(Environment.bundleIdPrefix).\(name.lowercased()).tests",
             deploymentTargets: Environment.deploymentTarget,
             infoPlist: .default,
             sources: ["Tests/**"],
