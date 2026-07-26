@@ -74,7 +74,6 @@ skills: modern-swift, swiftui-patterns, swift-diagnostics, swift-testing, compos
 ### 6. HIG Compliance
 
 - [ ] 시스템 색상과 material을 사용하는가
-- [ ] Dynamic Type을 지원하는가
 - [ ] 접근성 label이 존재하는가
 - [ ] 플랫폼에 적합한 navigation을 사용하는가
 - [ ] 표준 gesture를 준수하는가

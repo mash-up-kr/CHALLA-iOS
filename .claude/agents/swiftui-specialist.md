@@ -66,7 +66,6 @@ skills: modern-swift, swiftui-patterns
 
 - 플랫폼에 적합한 navigation pattern
 - 시스템 색상과 material
-- Dynamic Type 지원
 - 접근성을 1급 요소로 취급
 - 적절한 햅틱 피드백
 - 표준 iOS gesture
