@@ -45,13 +45,15 @@ skills: modern-swift, composable-architecture
 Tuist 기반 모듈 구조를 따릅니다:
 
 ```
-Projects/Feature/<모듈명>/
-├── Project.swift
-├── Sources/
-│   ├── <FeatureName>Feature.swift    ← You create this
-│   └── <FeatureName>View.swift       ← Created separately
-├── Tests/
-└── MODULE.md
+Projects/<그룹>/<피처명>/              ← 피처 모듈과 데모앱을 묶는 폴더 (프로젝트 아님)
+├── <피처명>Feature/
+│   ├── Project.swift
+│   ├── Sources/
+│   │   ├── <피처명>Feature.swift      ← You create this
+│   │   └── <피처명>View.swift         ← Created separately
+│   ├── Tests/
+│   └── MODULE.md
+└── <피처명>FeatureDemo/               ← 이 피처 전용 데모앱 (Mock 주입 · 단독 실행)
 ```
 
 **중요:** Feature는 Data를 import하지 않습니다(DIContainer 주입). Feature에서 @Dependency로 쓰는 Client는 인터페이스만 사용하고, 데이터 접근을 직접 구현하지 않습니다 — live 구현은 Domain 인터페이스(Repository/UseCase)를 거쳐 Data 레이어에 위치합니다.

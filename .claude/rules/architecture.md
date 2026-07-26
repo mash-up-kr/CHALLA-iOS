@@ -10,7 +10,7 @@ paths: Projects/**
 
 1. `Feature → Domain ← Data` — Data가 Domain의 Repository 인터페이스를 구현한다.
 2. Feature는 Data를 import 하지 않는다 — `@Dependency`로 주입받고, 구현체 등록(liveValue/testValue/previewValue)은 DIContainer 폴더에서 한다.
-   (예외: 피처 데모앱 `Demo/`는 앱 조립 지점이므로 Mock/실 Data 주입 가능)
+   (예외: 피처 데모앱 `<피처명>FeatureDemo`는 앱 조립 지점이므로 Mock/실 Data 주입 가능)
 3. Feature끼리 직접 참조하지 않는다 — 화면 전환·조립은 App(AppFeature)이 담당한다.
 4. Core · Shared는 누구나 import 가능하다.
 5. `CHALLADesignSystem`은 Feature를 import 하지 않는다 (맨 아래 UI 레이어).
@@ -25,5 +25,8 @@ paths: Projects/**
 ## 새 모듈이 생길 때
 
 - 레이어 판별 한 줄 규칙: **시뮬레이터 없이 유닛테스트가 돌면 Shared, OS를 만지면 Core, 서버를 만지면 Network.**
+- **피처는 `<피처명>` 폴더로 묶는다** — `Projects/<그룹>/<피처명>/{<피처명>Feature, <피처명>FeatureDemo}`.
+  생성은 `tuist scaffold feature --name <피처명> --group <그룹>` (모듈 + 데모앱 한 세트).
+  Domain·Data·Core·Shared 등 피처가 아닌 모듈은 그룹 폴더 바로 아래에 두고 `tuist scaffold module`로 만든다.
 - 모듈 간 의존 선언은 `Tuist/ProjectDescriptionHelpers/Dependency/DependencyInfo.swift`에 헬퍼를 추가해 호출부에서 명시한다.
 - Domain·Data는 화면 단위가 아니라 aggregate(방) 단위로 1벌만 만든다 (예: RoomDomain 하나가 Room 관련 5개 Feature를 지탱).

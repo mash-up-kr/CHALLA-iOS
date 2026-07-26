@@ -5,6 +5,7 @@ Tuist 기반 모듈화 프로젝트이며, 개발자 3명이 협업한다. Featu
 
 - 배포 타깃: **iOS 17.0** / iPhone 전용 (`Tuist/ProjectDescriptionHelpers/Environment/Environment.swift`가 기준.
   에이전트·스킬 문서에 다른 OS 버전 표기가 있어도 이 값을 우선한다)
+- Swift 언어 모드: **Swift 6** (`Environment.swiftVersion`) — 전 모듈 공통. 신규 모듈도 scaffold 시 자동 적용
 - Tuist 버전: `mise.toml`로 고정 (팀 전원 동일 버전)
 
 ## 빌드 · 실행 명령
@@ -13,7 +14,9 @@ Tuist 기반 모듈화 프로젝트이며, 개발자 3명이 협업한다. Featu
 mise install                      # 최초 1회: mise.toml에 고정된 Tuist 설치
 mise exec -- tuist generate       # 워크스페이스 생성 (Xcode 프로젝트는 커밋 안 됨 — 매번 생성)
 mise exec -- tuist build          # 전체 빌드
-mise exec -- tuist scaffold module --name <모듈명> --group <그룹>   # 새 모듈 생성 후 tuist generate
+mise exec -- tuist scaffold feature --name <피처명> --group <그룹>  # 새 피처(모듈+데모앱) 한 세트 생성
+mise exec -- tuist scaffold module --name <모듈명> --group <그룹>   # 피처가 아닌 모듈(Domain·Data·Core…) 생성
+# scaffold 후에는 tuist generate
 
 # 시뮬레이터 빌드 (스킴 예: CHALLADesignSystemApp)
 xcodebuild -workspace CHALLA.xcworkspace -scheme <스킴> \
@@ -40,13 +43,30 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme <스킴> \
 
 레이어 판별: **시뮬레이터 없이 유닛테스트가 돌면 Shared, OS를 만지면 Core, 서버를 만지면 Network.**
 
+### 피처 폴더 구조
+
+피처 모듈과 그 데모앱은 **`<피처명>` 폴더 하나로 묶어** 그 안에 형제로 둔다.
+
+```
+Projects/Auth/                 # 그룹 폴더
+├─ Login/                      # 피처 폴더 (프로젝트 아님 — 묶음용)
+│  ├─ LoginFeature/            # 피처 모듈
+│  └─ LoginFeatureDemo/        # 이 피처 전용 데모앱
+├─ AuthDomain/                 # 피처가 아닌 모듈은 그룹 폴더 바로 아래
+└─ AuthData/
+```
+
+- 생성: `mise exec -- tuist scaffold feature --name Login --group Auth` (모듈 + 데모앱이 한 번에 생성됨)
+- `--name`에는 **`Feature` 접미사를 빼고** 피처 이름만 넘긴다 (`Login` → `LoginFeature` · `LoginFeatureDemo`)
+- 기존 피처에 데모앱만 추가할 때: `mise exec -- tuist scaffold demo --name <피처명> --group <그룹>`
+
 ### 앱 배치 (실배포앱 / 검수앱 / 데모앱)
 
 실행 가능한 앱은 세 종류이며 위치 규칙이 있다 — **실배포앱은 `App/`, 데모·검수앱은 대상 모듈 옆에.**
 
 - `CHALLAApp` (`Projects/App/`) — 실배포앱. 모든 Feature를 조립한 최종 프로덕트
 - `CHALLADesignSystemApp` (`Projects/UI/`) — 디자인 시스템 검수앱. DS 컴포넌트를 Variant 단위로 검수, TestFlight 별도 배포
-- `XxxFeatureDemo` (각 Feature 모듈 안 `Demo/`) — 피처 데모앱. **새 Feature를 만들면 Demo 앱도 함께 만들어** Mock 데이터로 그 화면만 단독 실행·검증한다.
+- `XxxFeatureDemo` (대상 Feature 모듈 **옆**, 같은 `<피처명>` 폴더 안) — 피처 데모앱. **새 Feature를 만들면 Demo 앱도 함께 만들어** Mock 데이터로 그 화면만 단독 실행·검증한다.
   데모앱은 앱 조립 지점이므로 예외적으로 Data(Mock)를 주입할 수 있다 (규칙 2의 유일한 예외)
 
 ## 컨벤션 (요약)
@@ -83,7 +103,7 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme <스킴> \
 **모든 모듈은 자기 테스트와 자기 문서를 가진다.** 모듈 하나를 만들면 다음 세 가지가 한 세트다:
 
 ```
-Projects/<그룹>/<모듈명>/
+Projects/<그룹>/<모듈명>/              # 피처 모듈이면 Projects/<그룹>/<피처명>/<피처명>Feature/
 ├── Sources/          # 구현
 ├── Tests/            # 이 모듈의 Swift Testing 테스트 (모듈 단위로 실행 가능)
 └── MODULE.md         # 이 모듈의 책임 · 공개 API · 의존성 기록

@@ -295,7 +295,7 @@
         <div class="box">PhotoDetailFeature<small>상세 · 리액션</small></div></div></div>
       <div class="group"><div class="group-label">Setting/ <span class="kind">(폴더)</span></div><div class="row">
         <div class="box">SettingFeature</div></div></div>
-      <div class="box ghost">각 Feature 폴더 안 Demo/ <span class="chip mod">DEMO</span><small>해당 피처 + Mock Data만 조립해 단독 실행 (배포 ✕)</small></div>
+      <div class="box ghost">각 Feature 옆 XxxFeatureDemo <span class="chip mod">DEMO</span><small>&lt;피처명&gt;/ 폴더 안에 Feature와 형제로 배치 · Mock Data만 조립해 단독 실행 (배포 ✕)</small></div>
     </div>
   </div>
 
@@ -403,7 +403,8 @@
       <h3><span class="ic"></span>앱 · 데모앱 배치</h3>
       <div class="rule"><b>실배포앱</b><span>CHALLAApp → <code>Projects/App/</code> — 모든 Feature 조립</span></div>
       <div class="rule"><b>검수앱</b><span>CHALLADesignSystemApp → <code>Projects/UI/</code> (DS 옆 세트) — TestFlight 별도 배포</span></div>
-      <div class="rule"><b>피처 데모앱</b><span>각 피처 폴더 안 <code>Demo/</code> — Mock 주입 · 로컬 실행 전용 · 배포 ✕</span></div>
+      <div class="rule"><b>피처 데모앱</b><span><code>Projects/&lt;그룹&gt;/&lt;피처명&gt;/&lt;피처명&gt;FeatureDemo/</code> — 피처 모듈과 같은 폴더 안 형제 · Mock 주입 · 로컬 실행 전용 · 배포 ✕</span></div>
+      <div class="rule"><b>피처 폴더</b><span>피처 모듈 + 데모앱은 <code>&lt;피처명&gt;/</code> 폴더 한 벌로 묶는다 (Domain·Data는 그룹 폴더 바로 아래). 생성: <code>tuist scaffold feature --name &lt;피처명&gt; --group &lt;그룹&gt;</code></span></div>
       <div class="rule"><b>예외 1개</b><span>데모앱만은 Data를 직접 import 가능 (앱 조립 지점이므로)</span></div>
     </div>
     <div class="card">
@@ -433,10 +434,14 @@ Projects/
 │  └─ PreviewDependency              <span class="k-mod">(모듈)</span> 더미 — previewValue (#Preview용)
 │
 ├─ Auth/                             <span class="k-folder">(폴더)</span> 인증
-│  ├─ OnboardingFeature              <span class="k-mod">(모듈)</span> 온보딩 화면
-│  ├─ LoginFeature                   <span class="k-mod">(모듈)</span> 로그인 화면 (카카오/애플)
-│  │   └─ Demo/                      <span class="k-app">(앱)</span>   피처 데모앱 — Mock 주입 · 로컬 실행 전용
-│  │                                        <span class="cm">※ 모든 XxxFeature가 같은 패턴으로 Demo/를 가질 수 있음</span>
+│  ├─ Onboarding/                    <span class="k-folder">(폴더)</span> 온보딩 피처 묶음
+│  │  ├─ OnboardingFeature           <span class="k-mod">(모듈)</span> 온보딩 화면
+│  │  └─ OnboardingFeatureDemo       <span class="k-app">(앱)</span>   피처 데모앱
+│  ├─ Login/                         <span class="k-folder">(폴더)</span> 로그인 피처 묶음
+│  │  ├─ LoginFeature                <span class="k-mod">(모듈)</span> 로그인 화면 (카카오/애플)
+│  │  └─ LoginFeatureDemo            <span class="k-app">(앱)</span>   피처 데모앱 — Mock 주입 · 로컬 실행 전용
+│  │                                        <span class="cm">※ 피처 모듈과 데모앱은 &lt;피처명&gt; 폴더 안에서 형제로 둔다.</span>
+│  │                                        <span class="cm">  모든 XxxFeature가 XxxFeatureDemo를 가질 수 있음</span>
 │  ├─ AuthDomain                     <span class="k-mod">(모듈)</span> AuthToken · 로그인 규칙 · AuthRepository(interface)
 │  └─ AuthData                       <span class="k-mod">(모듈)</span> 소셜 SDK · 로그인 API · TokenProvider 구현(Keychain 사용)
 │
