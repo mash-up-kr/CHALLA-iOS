@@ -1,5 +1,5 @@
-import SwiftUI
 import CHALLADesignSystem
+import SwiftUI
 
 /// Playground > Haptic 체험 화면.
 /// iOS가 제공하는 햅틱 종류를 직접 눌러보고 화면·상황별로 어떤 진동을 쓸지 고르기 위한 제안 도구다.

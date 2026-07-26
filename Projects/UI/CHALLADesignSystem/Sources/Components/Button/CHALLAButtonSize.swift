@@ -65,5 +65,7 @@ extension CHALLAButtonSize {
     }
 
     /// 텍스트 버튼의 아이콘-글자 간격 (Figma 실측: 전 크기 4)
-    var contentSpacing: CGFloat { 4 }
+    var contentSpacing: CGFloat {
+        4
+    }
 }
