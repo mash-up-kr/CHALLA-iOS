@@ -115,20 +115,8 @@ let client = DefaultHTTPClient(
 ## 의존성
 
 - **이 모듈이 의존**: 없음 (`Foundation` · `os`만 사용, 외부 패키지 0)
-- **이 모듈에 의존**: `*Data` 모듈들 (RoomData · PhotoData · AuthData · UserData · SettingData 등) · 검수앱 `CHALLANetworkApp`
+- **이 모듈에 의존**: `*Data` 모듈들 (RoomData · PhotoData · AuthData · UserData · SettingData 등)
 - **연결**: `TokenProvider` 구현(`AuthData`)과 `HTTPClient` 주입은 조립 지점(앱 타깃의 `CompositionRoot`)이 담당
-
-## 검수앱 (CHALLANetworkApp)
-
-`Projects/Network/CHALLANetworkApp` — 이 모듈을 단독 실행·검증하는 데모앱
-(디자인시스템 검수앱 `CHALLADesignSystemApp`과 같은 "대상 모듈 옆" 배치).
-JSONPlaceholder를 대상으로 `Endpoint` 선언 → `DefaultHTTPClient` 실행 → 응답/오류 표시까지의
-전체 흐름을 버튼으로 확인할 수 있다 (requestPlain · URLEncoding · requestJSONEncodable · 404 · 인증 인터셉터).
-
-```bash
-mise exec -- tuist generate
-# Xcode에서 CHALLANetworkApp 스킴 실행
-```
 
 ## 테스트 실행 방법
 
