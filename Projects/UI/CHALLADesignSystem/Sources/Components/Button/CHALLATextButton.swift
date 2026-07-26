@@ -10,6 +10,8 @@ import SwiftUI
 ///     store.send(.nextTapped)
 /// }
 /// .disabled(!canProceed)
+///
+/// CHALLATextButton("그래도 탈퇴하기", role: .destructive) { store.send(.withdrawTapped) }
 /// ```
 public struct CHALLATextButton: View {
 
@@ -20,6 +22,7 @@ public struct CHALLATextButton: View {
 
     private let title: String
     private let variant: CHALLAButtonVariant
+    private let role: CHALLAButtonRole?
     private let size: CHALLAButtonSize
     private let leadingIcon: CHALLAIcon?
     private let trailingIcon: CHALLAIcon?
@@ -28,6 +31,7 @@ public struct CHALLATextButton: View {
     public init(
         _ title: String,
         variant: CHALLAButtonVariant = .primary,
+        role: CHALLAButtonRole? = nil,
         size: CHALLAButtonSize = .large,
         leadingIcon: CHALLAIcon? = nil,
         trailingIcon: CHALLAIcon? = nil,
@@ -35,6 +39,7 @@ public struct CHALLATextButton: View {
     ) {
         self.title = title
         self.variant = variant
+        self.role = role
         self.size = size
         self.leadingIcon = leadingIcon
         self.trailingIcon = trailingIcon
@@ -57,13 +62,13 @@ public struct CHALLATextButton: View {
             .foregroundStyle(contentColor)
             .padding(.horizontal, size.horizontalPadding)
             .frame(height: size.height)
-            .challaButtonBackground(variant: variant, size: size, isEnabled: isEnabled)
+            .challaButtonBackground(variant: variant, role: role, size: size, isEnabled: isEnabled)
         }
         .buttonStyle(.plain)
     }
 
     private var contentColor: Color {
-        variant.contentColor(isEnabled: isEnabled)
+        variant.contentColor(role: role, isEnabled: isEnabled)
     }
 }
 
@@ -75,6 +80,8 @@ public struct CHALLATextButton: View {
         CHALLATextButton("비활성 버튼", size: .medium) {}
             .disabled(true)
         CHALLATextButton("작은 버튼", variant: .neutral, size: .small, leadingIcon: .check) {}
+        CHALLATextButton("그래도 탈퇴하기", role: .destructive) {}
+        CHALLATextButton("프로필 사진 삭제", variant: .neutral, role: .destructive) {}
     }
     .padding()
     .background(CHALLAColor.Background.surface)
