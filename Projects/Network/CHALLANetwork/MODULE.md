@@ -53,6 +53,15 @@ Repository에 주입해도 안전하다. `Response`는 비-Sendable `HTTPURLResp
 - `protocol TokenProvider` — 구현은 `AuthData`
 - `enum NetworkError`
 
+### 서버 환경
+- `enum CHALLAAPIEnvironment` — `static let baseURL: URL`. 도메인마다 서버가 갈리지 않는 한
+  모든 Data 모듈(`AuthData`·`RoomData` 등)의 `Endpoint.baseURL`이 공유하는 단일 소스.
+  앱 타깃 Info.plist(`API_SCHEME`/`API_HOST`/`API_PORT`)에서 읽으며, 이 값은
+  `Configs/Shared.xcconfig`(gitignore) → `Project.makeAppProject(usesAPIEnvironment: true)`로 주입된다.
+  서버 주소는 공개하지 않는 값이라 git에 올리지 않으며, 신규 클론 시 `Shared.xcconfig.template`를
+  복사해 채운다. 서버 이전·HTTPS 전환 시 `Configs/Shared.xcconfig` 한 곳만 고치면
+  baseURL과 ATS 예외가 함께 바뀐다.
+
 ## 사용 예시 (Data 레이어)
 
 ```swift
@@ -62,7 +71,7 @@ enum RoomEndpoint: Endpoint {
     case rooms
     case create(RoomCreateRequest)
 
-    var baseURL: URL { URL(string: "https://api.challa.app")! }
+    var baseURL: URL { CHALLAAPIEnvironment.baseURL }   // 모든 Data가 공유하는 단일 소스
     var path: String {
         switch self {
         case .rooms, .create: return "/rooms"
@@ -83,7 +92,7 @@ enum RoomEndpoint: Endpoint {
 }
 
 struct DefaultRoomRepository: RoomRepository {   // 인터페이스는 RoomDomain
-    let client: HTTPClient                        // DIContainer가 DefaultHTTPClient 주입
+    let client: HTTPClient                        // 조립 지점이 DefaultHTTPClient 주입
 
     func fetchRooms() async throws -> [Room] {
         let dtos = try await client.request(RoomEndpoint.rooms, as: [RoomDTO].self)
@@ -92,7 +101,7 @@ struct DefaultRoomRepository: RoomRepository {   // 인터페이스는 RoomDomai
 }
 ```
 
-DIContainer 조립 예:
+조립 지점(앱 타깃의 `CompositionRoot`) 예:
 
 ```swift
 let client = DefaultHTTPClient(
@@ -107,7 +116,7 @@ let client = DefaultHTTPClient(
 
 - **이 모듈이 의존**: 없음 (`Foundation` · `os`만 사용, 외부 패키지 0)
 - **이 모듈에 의존**: `*Data` 모듈들 (RoomData · PhotoData · AuthData · UserData · SettingData 등) · 검수앱 `CHALLANetworkApp`
-- **연결**: `TokenProvider` 구현(`AuthData`)과 `HTTPClient` 주입은 DIContainer가 담당
+- **연결**: `TokenProvider` 구현(`AuthData`)과 `HTTPClient` 주입은 조립 지점(앱 타깃의 `CompositionRoot`)이 담당
 
 ## 검수앱 (CHALLANetworkApp)
 
@@ -127,9 +136,10 @@ mise exec -- tuist generate
 mise exec -- tuist test CHALLANetwork
 ```
 
-Swift Testing 기반 테스트 23개 (5 suite) — Swift 6 언어 모드에서 통과:
+Swift Testing 기반 테스트 29개 (6 suite) — Swift 6 언어 모드에서 통과:
 - `URLEncodingTests` — 쿼리 인코딩·이스케이프·빈 파라미터
 - `EndpointRequestTests` — Endpoint → URLRequest 변환 (plain·data·JSON·params·multipart)
 - `ResponseTests` — 상태 코드 필터·디코딩·오류 매핑
 - `AuthInterceptorTests` — 토큰 주입·`.none`/토큰 없음
 - `HTTPClientTests` — `URLProtocol` 스텁으로 전체 파이프라인 (성공·404·전송실패·인터셉터 반영·응답 헤더 노출)
+- `CHALLAAPIEnvironmentTests` — Info.plist 값으로 baseURL 조립 (port 생략·비숫자 무시)
