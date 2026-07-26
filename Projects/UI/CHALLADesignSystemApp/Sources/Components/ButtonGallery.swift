@@ -9,6 +9,7 @@ struct ButtonGallery: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 40) {
                 textButtonSection
+                destructiveSection
                 textButtonIconSection
                 iconButtonSection
             }
@@ -35,6 +36,41 @@ struct ButtonGallery: View {
                             Spacer()
                         }
                     }
+                }
+            }
+        }
+    }
+
+    /// Destructive role 조합. role은 variant와 별개 파라미터라 allCases 자동 나열이 없어 수동 나열한다.
+    /// 비활성 시 빨간 팔레트가 아니라 공통 비활성 팔레트로 떨어지는 것까지 검수 대상이다.
+    private var destructiveSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            galleryTitle("Text Button · Destructive")
+            VStack(alignment: .leading, spacing: 12) {
+                galleryCaption("Primary — 빨간 채움 (예: 그래도 탈퇴하기)")
+                HStack(spacing: 12) {
+                    CHALLATextButton("버튼명", role: .destructive) {}
+                    CHALLATextButton("버튼명", role: .destructive) {}
+                        .disabled(true)
+                    Spacer()
+                }
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                galleryCaption("Neutral — 빨간 글자 (예: 프로필 사진 삭제)")
+                HStack(spacing: 12) {
+                    CHALLATextButton("버튼명", variant: .neutral, role: .destructive) {}
+                    CHALLATextButton("버튼명", variant: .neutral, role: .destructive) {}
+                        .disabled(true)
+                    Spacer()
+                }
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                galleryCaption("Transparent — 빨간 글자 (Figma 예시 없음 · 확장 정의)")
+                HStack(spacing: 12) {
+                    CHALLATextButton("버튼명", variant: .transparent, role: .destructive) {}
+                    CHALLATextButton("버튼명", variant: .transparent, role: .destructive) {}
+                        .disabled(true)
+                    Spacer()
                 }
             }
         }
