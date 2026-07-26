@@ -1,5 +1,5 @@
-import SwiftUI
 import CHALLADesignSystem
+import SwiftUI
 
 /// Foundation > Typography 검수 화면.
 /// Figma 구조(그룹 > 크기 > 굵기)를 그대로 나열해 스펙과 1:1로 대조할 수 있게 한다.
