@@ -2,10 +2,10 @@
 import Testing
 
 /// 타이포 토큰의 불변식 검증.
-/// Figma 시안 값이 코드에 잘못 옮겨졌을 때(크기·행간 뒤바뀜 등) 컴파일은 통과하므로 테스트로 잡는다.
+/// 시안 값이 코드에 잘못 옮겨졌을 때(크기·행간 뒤바뀜 등) 컴파일은 통과하므로 테스트로 잡는다.
 struct CHALLATypographyTests {
 
-    /// Figma에 정의된 3굵기(WeightSet) 토큰 전체
+    /// 시안에 정의된 3굵기(WeightSet) 토큰 전체
     private let weightSets: [CHALLATypography.WeightSet] = [
         CHALLATypography.heading.large, CHALLATypography.heading.medium,
         CHALLATypography.heading.small, CHALLATypography.heading.xsmall,
@@ -25,11 +25,14 @@ struct CHALLATypographyTests {
         }
     }
 
-    @Test("WeightSet 토큰은 행간이 크기보다 작지 않다 — challaFont 행간 보정이 항상 0 이상")
+    @Test("모든 토큰은 행간이 크기보다 작지 않다 — challaFont 행간 보정이 항상 0 이상")
     func lineHeightIsNotSmallerThanSize() {
-        // Dirtyline 단일 토큰(heading.xlarge)은 의도적으로 lineHeight < size 라 제외
         for set in weightSets {
             #expect(set.regular.lineHeight >= set.regular.size)
+        }
+        // Dirtyline 단일 토큰도 예외가 아니다 (시안: home 36/60, xlarge 60/60)
+        for token in [CHALLATypography.heading.home, CHALLATypography.heading.xlarge] {
+            #expect(token.lineHeight >= token.size)
         }
     }
 
