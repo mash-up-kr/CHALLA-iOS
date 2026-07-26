@@ -26,7 +26,7 @@ public enum CHALLAColor {
 
     /// Background 팔레트 (표면/레이어 배경, 낮음 → 높음 순)
     public enum Background {
-        public static let surface = Color(hex: "1A1A1A")
+        public static let surface = Color(hex: "111111")
         public static let level1 = Color(hex: "1F1F1F")
         public static let level2 = Color(hex: "242424")
         public static let level3 = Color(hex: "2F2F2F")
