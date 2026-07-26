@@ -14,10 +14,11 @@ public enum CHALLAHitTarget {
     }
 }
 
-extension InsettableShape {
+public extension InsettableShape {
 
     /// 시각 크기는 그대로 두고, 히트 영역만 HIG 최소 터치 타깃(44)까지 넓힌 도형을 돌려준다.
     /// SwiftUI의 `inset(by:)`(양수 = 축소)에 음수를 넘기는 방향 반전을 이 안에 숨긴다.
+    /// 디자인 시스템 컴포넌트로 담기 애매한 Feature의 일회성 탭 요소(썸네일·커스텀 제스처 영역 등)에도 사용한다.
     ///
     /// ```swift
     /// .contentShape(Rectangle().expandedToHitTarget(from: 40))  // 히트 영역 40 → 44
