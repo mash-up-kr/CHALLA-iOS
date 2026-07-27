@@ -10,7 +10,6 @@ public extension TargetDependency {
     )
 
     // MARK: - Network
-    /// Data 레이어에서만 선언한다 (아키텍처 규칙 6).
     static let network = TargetDependency.project(
         target: "CHALLANetwork",
         path: .relativeToRoot("Projects/Network/CHALLANetwork")
@@ -21,7 +20,6 @@ public extension TargetDependency {
         target: "AuthDomain",
         path: .relativeToRoot("Projects/Auth/AuthDomain")
     )
-    /// 조립 지점(앱 · DIContainer · 데모앱)에서만 선언한다 (아키텍처 규칙 2).
     static let authData = TargetDependency.project(
         target: "AuthData",
         path: .relativeToRoot("Projects/Auth/AuthData")
@@ -37,7 +35,7 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Core/Keychain")
     )
 
-    // MARK: - External (Tuist/Package.swift 경유 — 변경 시 `tuist install` 재실행)
+    // MARK: - External
     static let composableArchitecture = TargetDependency.external(name: "ComposableArchitecture")
     /// TCA 전이 의존 — Domain이 `@DependencyClient` 키를 선언하는 데 쓴다.
     static let dependencies = TargetDependency.external(name: "Dependencies")
