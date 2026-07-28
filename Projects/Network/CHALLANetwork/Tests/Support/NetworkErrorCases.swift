@@ -6,25 +6,21 @@ import Foundation
 /// 던져진 오류를 `#require(throws:)`로 받아 이 접근자로 케이스를 확인한다.
 extension NetworkError {
 
-    /// `.invalidRequest`면 사유, 아니면 nil.
     var invalidRequestReason: String? {
         guard case let .invalidRequest(reason) = self else { return nil }
         return reason
     }
 
-    /// `.transport`면 감싼 원본 오류, 아니면 nil.
     var transportUnderlying: (any Error)? {
         guard case let .transport(underlying) = self else { return nil }
         return underlying
     }
 
-    /// `.unacceptableStatusCode`면 상태 코드, 아니면 nil.
     var unacceptableStatusCode: Int? {
         guard case let .unacceptableStatusCode(statusCode, _) = self else { return nil }
         return statusCode
     }
 
-    /// `.decoding`이면 함께 실린 응답, 아니면 nil.
     var decodingResponse: Response? {
         guard case let .decoding(_, response) = self else { return nil }
         return response

@@ -1,9 +1,6 @@
 import Foundation
 
-/// 요청 본문·쿼리를 어떻게 구성할지 기술한다. Moya의 `Task`에 대응하되,
-/// CHALLA에서 실제로 필요한 케이스만 추린 축소판이다.
-///
-/// 모든 연관값이 `Sendable`이라 `HTTPTask`·`Endpoint`도 `Sendable`이다.
+/// 요청 본문·쿼리를 어떻게 구성할지 기술한다. CHALLA에서 실제로 필요한 케이스만 추렸다.
 public enum HTTPTask: Sendable {
 
     /// 본문/쿼리 없이 전송 (주로 GET·DELETE).

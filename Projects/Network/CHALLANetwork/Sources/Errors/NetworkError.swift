@@ -1,6 +1,6 @@
 import Foundation
 
-/// 네트워크 계층에서 발생 가능한 오류. Moya의 `MoyaError`에 대응한다.
+/// 네트워크 계층에서 발생 가능한 오류.
 ///
 /// Data 레이어는 이 오류를 잡아 도메인 오류(`AppError` 등)로 매핑한다.
 /// Feature·Domain은 이 타입의 존재를 알 필요가 없다 (아키텍처 규칙 6).

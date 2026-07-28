@@ -1,10 +1,9 @@
 import Foundation
 import os
 
-/// 요청/응답을 `os.Logger`로 남기는 인터셉터. Moya의 `NetworkLoggerPlugin`에 대응한다.
+/// 요청/응답을 `os.Logger`로 남기는 인터셉터.
 public struct LoggingInterceptor: Interceptor {
 
-    /// 로깅 상세 수준.
     public enum Level: Sendable {
         /// 로깅하지 않음.
         case none

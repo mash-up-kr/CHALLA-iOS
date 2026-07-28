@@ -1,6 +1,6 @@
 import Foundation
 
-/// multipart/form-data 업로드의 파트 하나. Moya의 `MultipartFormData`에 대응한다.
+/// multipart/form-data 업로드의 파트 하나.
 public struct MultipartFormData: Sendable {
 
     /// 파트 데이터 (인코딩된 이미지 등).

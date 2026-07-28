@@ -1,7 +1,6 @@
 import Foundation
 
 /// `TokenProvider`가 준 토큰을 `Authorization: Bearer` 헤더에 실어주는 인터셉터.
-/// Moya의 `AccessTokenPlugin`에 대응한다.
 ///
 /// 엔드포인트가 `AccessTokenAuthorizable`를 채택하면 그 선언(`.none`/`.bearer`)을 따르고,
 /// 채택하지 않으면 기본값 `.bearer`로 동작한다. 토큰이 없으면(비로그인) 헤더를 붙이지 않는다.

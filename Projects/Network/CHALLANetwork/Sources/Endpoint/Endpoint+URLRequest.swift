@@ -2,8 +2,6 @@ import Foundation
 
 extension Endpoint {
 
-    /// 이 엔드포인트를 실제 전송 가능한 `URLRequest`로 변환한다.
-    /// Moya의 `Endpoint.urlRequest()` + `Task` 해석을 합친 역할.
     func asURLRequest() throws -> URLRequest {
         let url = path.isEmpty ? baseURL : baseURL.appendingPathComponent(path)
         var request = URLRequest(url: url)
@@ -79,7 +77,6 @@ extension Endpoint {
 // MARK: - 내부 유틸
 
 private extension Data {
-    /// UTF-8 문자열을 이어붙인다 (multipart 본문 조립용).
     mutating func appendString(_ string: String) {
         append(Data(string.utf8))
     }

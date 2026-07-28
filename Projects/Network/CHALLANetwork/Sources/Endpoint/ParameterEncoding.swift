@@ -4,7 +4,7 @@ import Foundation
 /// (배열·중첩 파라미터가 필요한 엔드포인트가 생기면 그때 **서버 관례**(`[]=`/반복키/콤마)에 맞춰 확장한다.)
 public typealias Parameters = [String: String]
 
-/// 파라미터를 `URLRequest`에 실어넣는 방식. Moya의 `ParameterEncoding`에 대응한다.
+/// 파라미터를 `URLRequest`에 실어넣는 방식.
 public protocol ParameterEncoding: Sendable {
     func encode(_ request: URLRequest, with parameters: Parameters?) throws -> URLRequest
 }
@@ -16,7 +16,6 @@ public struct URLEncoding: ParameterEncoding {
 
     public init() {}
 
-    /// 기본 인스턴스.
     public static var `default`: URLEncoding {
         URLEncoding()
     }

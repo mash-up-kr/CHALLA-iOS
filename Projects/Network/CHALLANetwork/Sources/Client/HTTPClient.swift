@@ -1,13 +1,12 @@
 import Foundation
 
-/// 엔드포인트를 실제로 전송하는 실행기의 추상. Moya의 `MoyaProviderType` 역할.
+/// 엔드포인트를 실제로 전송하는 실행기의 추상.
 ///
 /// Data 레이어(Repository 구현)는 이 프로토콜에만 의존하고,
 /// DIContainer가 `DefaultHTTPClient`(실제 구현) 혹은 Mock을 주입한다.
 /// `Sendable`이라 TCA `@Dependency` 등 동시성 경계 너머로 안전하게 주입·공유된다.
 public protocol HTTPClient: Sendable {
 
-    /// 엔드포인트를 전송하고 원본 `Response`를 반환한다.
     /// 상태 코드 필터링은 하지 않는다 — 호출부가 `filterSuccessfulStatusCodes()`로 결정한다.
     func request(_ endpoint: some Endpoint) async throws -> Response
 }

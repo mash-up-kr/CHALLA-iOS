@@ -13,7 +13,6 @@ final class StubURLProtocol: URLProtocol {
         var headers: [String: String]
     }
 
-    /// 다음 요청에 돌려줄 스텁.
     nonisolated(unsafe) static var stub: Stub?
     /// 마지막으로 가로챈 요청 (헤더 검증용).
     nonisolated(unsafe) static var lastRequest: URLRequest?
@@ -65,7 +64,6 @@ final class StubURLProtocol: URLProtocol {
 }
 
 extension URLSession {
-    /// `StubURLProtocol`을 끼운 격리 세션.
     static func stubbed() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubURLProtocol.self]

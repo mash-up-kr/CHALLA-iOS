@@ -1,11 +1,6 @@
 import Foundation
 
 /// 요청/응답 파이프라인에 끼어드는 관심사(인증·로깅 등)를 분리하는 훅.
-/// Moya의 `PluginType`에 대응한다.
-///
-/// - `adapt`   : 전송 직전 `URLRequest`를 가공 (헤더 주입 등).      ← Moya `prepare`
-/// - `willSend`: 전송 직전 사이드이펙트 (요청 로깅 등).             ← Moya `willSend`
-/// - `didReceive`: 응답/실패 수신 후 사이드이펙트 (응답 로깅 등).   ← Moya `didReceive`
 ///
 /// 모든 메서드에 기본 구현이 있어 필요한 것만 골라 채택하면 된다.
 /// `HTTPClient`가 `Sendable`이므로 인터셉터도 `Sendable`이어야 한다.
