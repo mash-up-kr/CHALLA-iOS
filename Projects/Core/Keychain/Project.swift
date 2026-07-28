@@ -10,7 +10,7 @@ let project = Project(
         defaultKnownRegions: ["en", "ko"],
         developmentRegion: "ko"
     ),
-    settings: .challaBase(), // Swift 6 언어 모드
+    settings: .challaBase(),
     targets: [
         .makeModuleTarget(name: "Keychain"), // 외부 의존 0 (Security는 시스템)
 
@@ -35,7 +35,7 @@ let project = Project(
             sources: ["Tests/**"],
             dependencies: [
                 .target(name: "Keychain"),
-                .target(name: "KeychainTestHost") // 앱에 호스트되어 키체인 접근 권한 획득
+                .target(name: "KeychainTestHost")
             ]
         )
     ]

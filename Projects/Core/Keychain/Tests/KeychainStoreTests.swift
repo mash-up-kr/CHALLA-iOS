@@ -65,7 +65,7 @@ struct KeychainStoreTests {
     func deleteMissingKeyDoesNotThrow() throws {
         let store = makeStore()
 
-        try store.delete(for: key) // errSecItemNotFound → 성공 간주
+        try store.delete(for: key)
     }
 
     @Test("같은 키에 두 번 저장하면 최신값으로 덮어쓴다")

@@ -6,22 +6,15 @@ import Security
 /// `service`가 항목의 네임스페이스가 되고, `key`는 `kSecAttrAccount`에 대응한다.
 /// 시뮬레이터·실기기 모두 동작한다 (키체인 공유 그룹 미사용).
 ///
-/// 저장 프로퍼티가 불변 `service` 하나뿐인 final class이므로 `Sendable`이 자연 성립한다
-/// (`@unchecked` 미사용). SecItem API 자체가 스레드 안전하다.
+/// SecItem API 자체가 스레드 안전해 `Sendable`을 그대로 만족한다.
 public final class KeychainStore: Keychain {
-
-    // MARK: - Properties
 
     /// 항목을 구분하는 서비스 식별자 (예: `"com.challa.auth"`).
     private let service: String
 
-    // MARK: - Initialization
-
     public init(service: String) {
         self.service = service
     }
-
-    // MARK: - Public Methods
 
     public func save(_ data: Data, for key: String) throws {
         // 기존 항목이 있으면 갱신, 없으면 추가한다 (upsert).
@@ -38,7 +31,7 @@ public final class KeychainStore: Keychain {
         case errSecSuccess:
             return
         case errSecItemNotFound:
-            try add(data, for: key) // 첫 저장
+            try add(data, for: key)
         default:
             throw KeychainError.unexpectedStatus(status)
         }
@@ -56,7 +49,7 @@ public final class KeychainStore: Keychain {
         case errSecSuccess:
             return result as? Data
         case errSecItemNotFound:
-            return nil // 미존재는 오류가 아니라 nil
+            return nil
         default:
             throw KeychainError.unexpectedStatus(status)
         }
@@ -70,8 +63,6 @@ public final class KeychainStore: Keychain {
             throw KeychainError.unexpectedStatus(status)
         }
     }
-
-    // MARK: - Private Methods
 
     /// 항목이 없을 때의 첫 저장.
     private func add(_ data: Data, for key: String) throws {
@@ -94,7 +85,7 @@ public final class KeychainStore: Keychain {
         ]
     }
 
-    /// 모든 SecItem 호출이 공유하는 기본 쿼리 (클래스 + 서비스 + 계정).
+    /// 모든 SecItem 호출이 공유하는 기본 쿼리.
     private func baseQuery(for key: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
