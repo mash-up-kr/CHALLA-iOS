@@ -27,7 +27,7 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
                     }
                 }
                 // isPresented가 바뀔 때만 스프링 (다른 상태 변화엔 안 걸림)
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isPresented)
+                .animation(DrawerPresentationMetric.spring, value: isPresented)
             }
             // 닫힘 시작과 동시에 키보드도 내린다 — 안 내리면 퇴장 애니메이션이 끝난 뒤에야
             // 텍스트필드가 포커스를 잃어 키보드가 순차로 내려가며 굼떠 보인다
@@ -77,7 +77,7 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
                     isPresented = false
                 } else {
                     // 복귀는 여기서 직접 애니메이션 (body의 것은 isPresented 전용)
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(DrawerPresentationMetric.spring) {
                         dragOffset = 0
                     }
                 }
@@ -91,6 +91,8 @@ private enum DrawerPresentationMetric {
     static let screenMargin: CGFloat = 12
     /// 이 거리(pt) 이상 끌어내리면 닫힘, 미만이면 제자리 복귀
     static let dismissThreshold: CGFloat = 120
+    /// 등장/퇴장·드래그 복귀 공통 스프링. 실기기 검수 후 이 값 하나만 조정하면 된다.
+    static let spring = Animation.spring(response: 0.35, dampingFraction: 0.85)
 }
 
 /// 기능은 위 Modifier에 있고, 이 extension은 다른 프레젠테이션 API(.sheet 등)처럼
