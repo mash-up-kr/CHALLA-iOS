@@ -38,7 +38,7 @@ public final class KeychainStore: Keychain {
         case errSecSuccess:
             return
         case errSecItemNotFound:
-            try add(data, for: key)      // 첫 저장
+            try add(data, for: key) // 첫 저장
         default:
             throw KeychainError.unexpectedStatus(status)
         }
@@ -56,7 +56,7 @@ public final class KeychainStore: Keychain {
         case errSecSuccess:
             return result as? Data
         case errSecItemNotFound:
-            return nil                    // 미존재는 오류가 아니라 nil
+            return nil // 미존재는 오류가 아니라 nil
         default:
             throw KeychainError.unexpectedStatus(status)
         }

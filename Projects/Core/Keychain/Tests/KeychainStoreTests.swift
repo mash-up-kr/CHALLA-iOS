@@ -1,7 +1,7 @@
-import Testing
+@testable import Keychain
 import Foundation
 import Security
-@testable import Keychain
+import Testing
 
 @Suite("KeychainStore")
 struct KeychainStoreTests {
@@ -65,7 +65,7 @@ struct KeychainStoreTests {
     func deleteMissingKeyDoesNotThrow() throws {
         let store = makeStore()
 
-        try store.delete(for: key)   // errSecItemNotFound → 성공 간주
+        try store.delete(for: key) // errSecItemNotFound → 성공 간주
     }
 
     @Test("같은 키에 두 번 저장하면 최신값으로 덮어쓴다")
@@ -139,7 +139,7 @@ struct KeychainStoreTests {
         let store = makeStore()
         defer { try? store.delete(for: key) }
 
-        try store.save(Data([0xFF, 0xFE, 0xFD]), for: key)   // 유효하지 않은 UTF-8
+        try store.save(Data([0xFF, 0xFE, 0xFD]), for: key) // 유효하지 않은 UTF-8
 
         #expect(throws: KeychainError.dataConversionFailed) {
             try store.loadString(for: key)
