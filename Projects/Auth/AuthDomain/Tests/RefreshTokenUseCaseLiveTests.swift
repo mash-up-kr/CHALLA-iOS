@@ -1,5 +1,5 @@
-import Testing
 import AuthDomain
+import Testing
 
 @Suite("RefreshTokenUseCase.live")
 struct RefreshTokenUseCaseLiveTests {
@@ -30,8 +30,8 @@ struct RefreshTokenUseCaseLiveTests {
         let token = try await useCase.run()
 
         #expect(token == Self.newToken)
-        #expect(repository.refreshRequestedTokens == ["old-refresh"])   // 저장돼 있던 토큰으로 요청
-        #expect(tokenStore.savedTokens.last == Self.newToken)           // 새 토큰 재저장
+        #expect(repository.refreshRequestedTokens == ["old-refresh"]) // 저장돼 있던 토큰으로 요청
+        #expect(tokenStore.savedTokens.last == Self.newToken) // 새 토큰 재저장
     }
 
     @Test("서버 갱신 실패는 그대로 전파되고 저장은 일어나지 않는다")
@@ -43,7 +43,7 @@ struct RefreshTokenUseCaseLiveTests {
         await #expect(throws: AuthError.unauthorized) {
             _ = try await useCase.run()
         }
-        #expect(tokenStore.savedTokens == [Self.oldToken])   // 기존 토큰 그대로 (새 저장 없음)
+        #expect(tokenStore.savedTokens == [Self.oldToken]) // 기존 토큰 그대로 (새 저장 없음)
     }
 
     @Test("새 토큰 저장 실패는 .unknown으로 정규화된다")

@@ -1,5 +1,5 @@
-import Foundation
 import AuthDomain
+import Foundation
 
 /// `SocialLoginService` 구현 — provider별 서비스로 라우팅한다.
 ///

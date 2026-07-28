@@ -1,11 +1,11 @@
-import SwiftUI
-import Foundation
-import ComposableArchitecture
-import LoginFeature
+import AuthData // 앱 조립 지점이라 Data를 직접 import 한다 (아키텍처 규칙 2의 예외)
 import AuthDomain
-import AuthData          // 앱 조립 지점이라 Data를 직접 import 한다 (아키텍처 규칙 2의 예외)
 import CHALLANetwork
+import ComposableArchitecture
+import Foundation
 import Keychain
+import LoginFeature
+import SwiftUI
 
 /// 데모 진입 화면 — 실서버 / Mock 두 구성으로 로그인 화면을 띄운다.
 struct DemoRootView: View {
@@ -20,11 +20,11 @@ struct DemoRootView: View {
         }
     }
 
-    // 구성 1: 실제 구체 어댑터를 직접 조립해 주입 — 카카오/애플 SDK · 실서버 · Keychain까지 실동작.
+    /// 구성 1: 실제 구체 어댑터를 직접 조립해 주입 — 카카오/애플 SDK · 실서버 · Keychain까지 실동작.
     @MainActor private var liveLogin: some View {
         LoginView(
             store: Store(initialState: LoginFeature.State()) {
-                LoginFeature()._printChanges()   // delegate 액션 로그로 성공 확인
+                LoginFeature()._printChanges() // delegate 액션 로그로 성공 확인
             } withDependencies: {
                 // TODO: [App/DIContainer 도입 시 이관] 데모앱이 임시로 떠맡은 Store별 override다.
                 //       실제 App에서는 앱 시작 시 DependencyAssembly가 prepareDependencies로 1회 주입한다.
@@ -33,14 +33,14 @@ struct DemoRootView: View {
         )
     }
 
-    // 구성 2: Mock 주입 — SDK/서버 없이 화면·리듀서 흐름만 검증.
+    /// 구성 2: Mock 주입 — SDK/서버 없이 화면·리듀서 흐름만 검증.
     @MainActor private var mockLogin: some View {
         LoginView(
             store: Store(initialState: LoginFeature.State()) {
                 LoginFeature()._printChanges()
             } withDependencies: {
                 $0.loginUseCase = LoginUseCase(run: { _ in
-                    try await Task.sleep(for: .seconds(1))   // 로딩 스피너 확인용 지연
+                    try await Task.sleep(for: .seconds(1)) // 로딩 스피너 확인용 지연
                     return LoginResult(isNewUser: true)
                 })
             }
@@ -49,6 +49,7 @@ struct DemoRootView: View {
 }
 
 // MARK: - 합성 루트 (임시)
+
 //
 // TODO: [App/DIContainer 도입 시 이관] 이 CompositionRoot 전체가 데모앱이 임시로 떠맡은 합성 루트다.
 //       Projects/App·Projects/DIContainer가 생기면:
@@ -74,7 +75,7 @@ private enum CompositionRoot {
         let client = DefaultHTTPClient(
             session: session,
             interceptors: [
-                AuthInterceptor(tokenProvider: tokenStore),   // login/refresh는 .none이라 미부착
+                AuthInterceptor(tokenProvider: tokenStore), // login/refresh는 .none이라 미부착
                 LoggingInterceptor(level: .basic)
             ]
         )

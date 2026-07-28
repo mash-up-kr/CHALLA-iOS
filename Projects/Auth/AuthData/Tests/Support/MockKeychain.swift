@@ -1,6 +1,6 @@
 import Foundation
-import os
 import Keychain
+import os
 
 /// 인메모리 딕셔너리로 동작하는 `Keychain` 목. 실제 SecItem을 건드리지 않아 순수 유닛테스트가 된다.
 ///

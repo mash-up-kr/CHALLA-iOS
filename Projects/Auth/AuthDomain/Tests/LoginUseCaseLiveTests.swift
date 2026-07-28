@@ -1,5 +1,5 @@
-import Testing
 import AuthDomain
+import Testing
 
 @Suite("LoginUseCase.live")
 struct LoginUseCaseLiveTests {

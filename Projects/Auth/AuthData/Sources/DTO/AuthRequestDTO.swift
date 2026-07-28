@@ -1,9 +1,9 @@
-import Foundation
 import AuthDomain
+import Foundation
 
 /// `POST /api/v1/auth/login` 요청 본문.
 struct LoginRequestDTO: Encodable, Sendable {
-    
+
     let provider: String // "KAKAO" | "APPLE"
     let idToken: String
     let authorizationCode: String?

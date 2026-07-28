@@ -1,5 +1,5 @@
-import Foundation
 import CHALLANetwork
+import Foundation
 
 /// 인증 서버 API 선언 (aggregate 단위 1개 enum — `Endpoint` 규약 참조).
 ///
@@ -11,30 +11,34 @@ enum AuthEndpoint: Endpoint, AccessTokenAuthorizable {
     case refresh(RefreshRequestDTO)
     case logout(LogoutRequestDTO)
 
-    var baseURL: URL { CHALLAAPIEnvironment.baseURL }
+    var baseURL: URL {
+        CHALLAAPIEnvironment.baseURL
+    }
 
     var path: String {
         switch self {
-        case .login:   return "/api/v1/auth/login"
+        case .login: return "/api/v1/auth/login"
         case .refresh: return "/api/v1/auth/refresh"
-        case .logout:  return "/api/v1/auth/logout"
+        case .logout: return "/api/v1/auth/logout"
         }
     }
 
-    var method: HTTPMethod { .post }   // 셋 다 POST
+    var method: HTTPMethod {
+        .post
+    } // 셋 다 POST
 
     var task: HTTPTask {
         switch self {
-        case .login(let dto):   return .requestJSONEncodable(dto)
-        case .refresh(let dto): return .requestJSONEncodable(dto)
-        case .logout(let dto):  return .requestJSONEncodable(dto)
+        case let .login(dto): return .requestJSONEncodable(dto)
+        case let .refresh(dto): return .requestJSONEncodable(dto)
+        case let .logout(dto): return .requestJSONEncodable(dto)
         }
     }
 
     var authorizationType: AuthorizationType {
         switch self {
         case .login, .refresh: return .none
-        case .logout:          return .bearer
+        case .logout: return .bearer
         }
     }
 }

@@ -1,5 +1,5 @@
-import Testing
 import AuthDomain
+import Testing
 
 @Suite("LogoutUseCase.live")
 struct LogoutUseCaseLiveTests {
@@ -55,6 +55,6 @@ struct LogoutUseCaseLiveTests {
         await #expect(throws: AuthError.unknown) {
             try await useCase.run()
         }
-        #expect(repository.logoutRequestedTokens == ["refresh"])   // 서버 로그아웃은 이미 수행됨
+        #expect(repository.logoutRequestedTokens == ["refresh"]) // 서버 로그아웃은 이미 수행됨
     }
 }

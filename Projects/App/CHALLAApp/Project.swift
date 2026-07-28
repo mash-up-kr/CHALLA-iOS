@@ -4,7 +4,7 @@ import ProjectDescriptionHelpers
 let project = Project.makeAppProject(
     name: "CHALLAApp",
     displayName: Environment.appName,
-    bundleId: "\(Environment.bundleIdPrefix).app",   // 실배포앱 = com.challa.app
+    bundleId: "\(Environment.bundleIdPrefix).app", // 실배포앱 = com.challa.app
     marketingVersion: "1.0.0",
     buildNumber: "1",
     additionalInfoPlist: [
@@ -20,13 +20,13 @@ let project = Project.makeAppProject(
         ])
     ],
     entitlements: .dictionary([
-        "com.apple.developer.applesignin": .array([.string("Default")])   // Sign in with Apple
+        "com.apple.developer.applesignin": .array([.string("Default")]) // Sign in with Apple
     ]),
     usesAPIEnvironment: true,
     dependencies: [
         .loginFeature, .authData, .authDomain,
         .network, .keychain,
         .composableArchitecture,
-        .kakaoSDKCommon, .kakaoSDKAuth      // initSDK · onOpenURL 처리용
+        .kakaoSDKCommon, .kakaoSDKAuth // initSDK · onOpenURL 처리용
     ]
 )

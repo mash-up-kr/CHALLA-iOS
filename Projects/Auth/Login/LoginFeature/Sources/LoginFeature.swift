@@ -17,7 +17,9 @@ public struct LoginFeature {
         @Presents public var alert: AlertState<Action.Alert>?
 
         /// 진행 중인 provider가 있으면 두 버튼을 모두 비활성화한다.
-        public var isLoading: Bool { inFlightProvider != nil }
+        public var isLoading: Bool {
+            inFlightProvider != nil
+        }
 
         public init() {}
     }
@@ -31,6 +33,7 @@ public struct LoginFeature {
             case kakaoLoginButtonTapped
             case appleLoginButtonTapped
         }
+
         case view(ViewAction)
 
         /// parent(App)에게만 알린다. `isNewUser`로 프로필설정/메인 분기 (분기 자체는 App 책임).
@@ -38,6 +41,7 @@ public struct LoginFeature {
         public enum Delegate: Equatable, Sendable {
             case loginSucceeded(isNewUser: Bool)
         }
+
         case delegate(Delegate)
 
         /// 내부 — 비동기 로그인 결과.
@@ -73,7 +77,9 @@ public struct LoginFeature {
 
             case let .loginResponse(.failure(error)):
                 state.inFlightProvider = nil
-                if case .cancelled = error { return .none }
+                if case .cancelled = error {
+                    return .none
+                }
                 // TODO: 얼럿 제목·버튼 문구는 임의 작성본 — 추후 기획 정책 확정 시 교체할 것.
                 state.alert = AlertState {
                     TextState("로그인 실패")
@@ -101,7 +107,7 @@ public struct LoginFeature {
     private func startLogin(_ state: inout State, provider: AuthProvider) -> Effect<Action> {
         guard state.inFlightProvider == nil else { return .none }
         state.inFlightProvider = provider
-        return .run { [loginUseCase] send in    // 비-Sendable self 대신 의존성 값만 캡처
+        return .run { [loginUseCase] send in // 비-Sendable self 대신 의존성 값만 캡처
             do {
                 let result = try await loginUseCase.run(provider)
                 await send(.loginResponse(.success(result)))

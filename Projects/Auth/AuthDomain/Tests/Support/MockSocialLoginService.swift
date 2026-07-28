@@ -1,6 +1,6 @@
+import AuthDomain
 import Foundation
 import os
-import AuthDomain
 
 /// 지정한 자격증명(또는 `AuthError`)을 돌려주고, 인증에 넘어온 provider를 기록하는 `SocialLoginService` 목.
 ///
@@ -16,7 +16,9 @@ final class MockSocialLoginService: SocialLoginService {
     }
 
     /// authenticate에 전달된 provider (호출 순서대로).
-    var authenticatedProviders: [AuthProvider] { requested.withLock { $0 } }
+    var authenticatedProviders: [AuthProvider] {
+        requested.withLock { $0 }
+    }
 
     func authenticate(_ provider: AuthProvider) async throws -> SocialCredential {
         requested.withLock { $0.append(provider) }

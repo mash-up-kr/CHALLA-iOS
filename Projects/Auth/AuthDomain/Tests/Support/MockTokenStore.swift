@@ -1,6 +1,6 @@
+import AuthDomain
 import Foundation
 import os
-import AuthDomain
 
 /// `save`/`clear` 호출을 캡처하는 `TokenStore` 목.
 ///
@@ -37,9 +37,13 @@ final class MockTokenStore: TokenStore {
     // MARK: - 검증용 프로퍼티
 
     /// 저장돼 있는 토큰 (시드 → save 순서대로).
-    var savedTokens: [AuthToken] { state.withLock { $0.savedTokens } }
+    var savedTokens: [AuthToken] {
+        state.withLock { $0.savedTokens }
+    }
 
-    var clearCallCount: Int { state.withLock { $0.clearCallCount } }
+    var clearCallCount: Int {
+        state.withLock { $0.clearCallCount }
+    }
 
     // MARK: - TokenStore
 

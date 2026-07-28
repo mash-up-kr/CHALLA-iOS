@@ -10,21 +10,26 @@ import Foundation
 /// 고치면 baseURL과 ATS 예외가 항상 같이 바뀐다 (`makeAppProject`가 소비).
 enum APIEnvironment {
 
-    static var scheme: String { value(for: "API_SCHEME") }
-    static var host: String { value(for: "API_HOST") }
+    static var scheme: String {
+        value(for: "API_SCHEME")
+    }
+
+    static var host: String {
+        value(for: "API_HOST")
+    }
 
     private static func value(for key: String) -> String {
         let xcconfigURL = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()   // APIEnvironment.swift → Environment/
-            .deletingLastPathComponent()   // Environment/ → ProjectDescriptionHelpers/
-            .deletingLastPathComponent()   // ProjectDescriptionHelpers/ → Tuist/
-            .deletingLastPathComponent()   // Tuist/ → 저장소 루트
+            .deletingLastPathComponent() // APIEnvironment.swift → Environment/
+            .deletingLastPathComponent() // Environment/ → ProjectDescriptionHelpers/
+            .deletingLastPathComponent() // ProjectDescriptionHelpers/ → Tuist/
+            .deletingLastPathComponent() // Tuist/ → 저장소 루트
             .appendingPathComponent("Configs/Shared.xcconfig")
 
         guard let content = try? String(contentsOf: xcconfigURL, encoding: .utf8) else {
             fatalError(
                 "Configs/Shared.xcconfig를 읽을 수 없습니다: \(xcconfigURL.path)\n"
-                + "Configs/Shared.xcconfig.template를 Shared.xcconfig로 복사한 뒤 값을 채우세요."
+                    + "Configs/Shared.xcconfig.template를 Shared.xcconfig로 복사한 뒤 값을 채우세요."
             )
         }
 
@@ -43,7 +48,7 @@ enum APIEnvironment {
 
         fatalError(
             "Configs/Shared.xcconfig에서 \(key)를 찾을 수 없습니다.\n"
-            + "Shared.xcconfig.template의 백엔드 서버 항목을 참고해 값을 채우세요."
+                + "Shared.xcconfig.template의 백엔드 서버 항목을 참고해 값을 채우세요."
         )
     }
 }

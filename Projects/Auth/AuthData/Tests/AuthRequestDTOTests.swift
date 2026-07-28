@@ -1,7 +1,7 @@
-import Testing
-import Foundation
-import AuthDomain
 @testable import AuthData
+import AuthDomain
+import Foundation
+import Testing
 
 /// 서버 enum 문자열 매핑(`"KAKAO"`/`"APPLE"`)은 Data 레이어의 계약이다 —
 /// Domain의 `AuthProvider`(kakao/apple)를 서버 표기로 바꾸는 유일한 지점이라 별도로 고정한다.

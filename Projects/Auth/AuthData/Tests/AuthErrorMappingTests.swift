@@ -1,8 +1,8 @@
-import Testing
-import Foundation
+@testable import AuthData
 import AuthDomain
 import CHALLANetwork
-@testable import AuthData
+import Foundation
+import Testing
 
 /// `NetworkError` → `AuthError` 매핑 전수 테이블 (`NetworkError` 5개 케이스 전부).
 /// 케이스가 추가되면 매핑 switch가 컴파일 오류로 잡고, 여기에 기대값을 추가한다.
@@ -25,7 +25,7 @@ struct AuthErrorMappingTests {
             AuthError.unauthorized,
             .server(message: "요청이 실패했어요. (HTTP 400)"),
             .server(message: "요청이 실패했어요. (HTTP 404)"),
-            .server(message: "요청이 실패했어요. (HTTP 500)"),
+            .server(message: "요청이 실패했어요. (HTTP 500)")
         ]
     ))
     func statusCodeMapping(statusCode: Int, expected: AuthError) {

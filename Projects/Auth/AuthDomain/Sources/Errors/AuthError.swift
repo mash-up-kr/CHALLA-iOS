@@ -24,16 +24,16 @@ public enum AuthError: Error, Equatable, Sendable {
     /// 그 외 분류 불가능한 오류.
     case unknown
 
-    /// 얼럿 메시지 (디자인에 상세 화면이 없으므로 최소 문구).
     // TODO: 아래 문구는 전부 임의 작성본 — 추후 기획 정책(에러 문구 가이드) 확정 시 일괄 교체할 것.
+    /// 얼럿 메시지 (디자인에 상세 화면이 없으므로 최소 문구).
     public var userMessage: String {
         switch self {
-        case .cancelled:            return ""   // 표시 안 함
-        case .network:              return "네트워크 연결을 확인해 주세요."
-        case .unauthorized:         return "인증에 실패했어요. 다시 시도해 주세요."
-        case .server(let message):  return message.isEmpty ? "로그인에 실패했어요." : message
-        case .social(let reason):   return reason.isEmpty ? "소셜 로그인에 실패했어요." : reason
-        case .unknown:              return "알 수 없는 오류가 발생했어요."
+        case .cancelled: return "" // 표시 안 함
+        case .network: return "네트워크 연결을 확인해 주세요."
+        case .unauthorized: return "인증에 실패했어요. 다시 시도해 주세요."
+        case let .server(message): return message.isEmpty ? "로그인에 실패했어요." : message
+        case let .social(reason): return reason.isEmpty ? "소셜 로그인에 실패했어요." : reason
+        case .unknown: return "알 수 없는 오류가 발생했어요."
         }
     }
 }

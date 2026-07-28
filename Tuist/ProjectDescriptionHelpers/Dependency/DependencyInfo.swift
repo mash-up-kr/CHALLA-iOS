@@ -4,18 +4,21 @@ import ProjectDescription
 public extension TargetDependency {
 
     // MARK: - UI
+
     static let designSystem = TargetDependency.project(
         target: "CHALLADesignSystem",
         path: .relativeToRoot("Projects/UI/CHALLADesignSystem")
     )
 
     // MARK: - Network
+
     static let network = TargetDependency.project(
         target: "CHALLANetwork",
         path: .relativeToRoot("Projects/Network/CHALLANetwork")
     )
 
     // MARK: - Auth
+
     static let authDomain = TargetDependency.project(
         target: "AuthDomain",
         path: .relativeToRoot("Projects/Auth/AuthDomain")
@@ -30,12 +33,14 @@ public extension TargetDependency {
     )
 
     // MARK: - Core
+
     static let keychain = TargetDependency.project(
         target: "Keychain",
         path: .relativeToRoot("Projects/Core/Keychain")
     )
 
     // MARK: - External
+
     static let composableArchitecture = TargetDependency.external(name: "ComposableArchitecture")
     /// TCA 전이 의존 — Domain이 `@DependencyClient` 키를 선언하는 데 쓴다.
     static let dependencies = TargetDependency.external(name: "Dependencies")

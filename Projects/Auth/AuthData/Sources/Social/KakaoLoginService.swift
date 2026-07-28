@@ -1,5 +1,5 @@
-import Foundation
 import AuthDomain
+import Foundation
 import KakaoSDKAuth
 import KakaoSDKCommon
 import KakaoSDKUser
@@ -21,7 +21,7 @@ struct KakaoLoginService {
                     continuation.resume(throwing: Self.mapError(error))
                     return
                 }
-                guard let idToken = token?.idToken else {   // OIDC 미설정 시 nil
+                guard let idToken = token?.idToken else { // OIDC 미설정 시 nil
                     // TODO: 임의 작성 문구 — 추후 기획 정책 확정 시 교체할 것.
                     continuation.resume(throwing: AuthError.social(reason: "Kakao idToken을 받지 못했어요."))
                     return

@@ -1,5 +1,5 @@
-import Foundation
 import AuthDomain
+import Foundation
 
 /// 서버 공통 응답 DTO `{ success, message, data }`.
 ///

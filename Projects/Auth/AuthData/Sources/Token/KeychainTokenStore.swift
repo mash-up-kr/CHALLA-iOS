@@ -1,6 +1,6 @@
-import Foundation
 import AuthDomain
 import CHALLANetwork
+import Foundation
 import Keychain
 
 /// 하나의 Keychain 위에서 Domain의 `TokenStore`와 Network의 `TokenProvider`를 동시에 만족시킨다.
@@ -44,7 +44,7 @@ public final class KeychainTokenStore: TokenStore, TokenProvider {
             accessToken: token.accessToken,
             refreshToken: token.refreshToken
         )
-        try keychain.save(try JSONEncoder().encode(stored), for: Self.tokenKey)
+        try keychain.save(JSONEncoder().encode(stored), for: Self.tokenKey)
     }
 
     public func loadAccessToken() -> String? {

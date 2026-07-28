@@ -1,8 +1,8 @@
 import ProjectDescription
 import ProjectDescriptionHelpers
 
-// 테스트 타깃을 함께 두기 위해 makeModule 대신 Project를 직접 구성한다.
-// (공용 makeModule(hasTests:) 헬퍼는 이슈 #8에서 진행 중 — 머지되면 이 파일도 그 형태로 정리한다.)
+/// 테스트 타깃을 함께 두기 위해 makeModule 대신 Project를 직접 구성한다.
+/// (공용 makeModule(hasTests:) 헬퍼는 이슈 #8에서 진행 중 — 머지되면 이 파일도 그 형태로 정리한다.)
 let project = Project(
     name: "LoginFeature",
     organizationName: Environment.organizationName,
@@ -10,7 +10,7 @@ let project = Project(
         defaultKnownRegions: ["en", "ko"],
         developmentRegion: "ko"
     ),
-    settings: .challaBase(),         // Swift 6 언어 모드
+    settings: .challaBase(), // Swift 6 언어 모드
     targets: [
         // 리소스(소셜 아이콘)가 있지만 makeModuleTarget의 "리소스=dynamic" 정책 대신 static framework로 선언한다.
         // dynamic으로 만들면 정적인 AuthDomain·Dependencies가 이 dylib과 앱 바이너리(AuthData 경유)에

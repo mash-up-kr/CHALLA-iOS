@@ -1,6 +1,6 @@
-import SwiftUI
-import KakaoSDKCommon
 import KakaoSDKAuth
+import KakaoSDKCommon
+import SwiftUI
 
 /// LoginFeature 데모앱 진입점.
 /// 카카오 SDK 초기화와 로그인 콜백 URL 처리는 앱 조립 지점의 책임이다.

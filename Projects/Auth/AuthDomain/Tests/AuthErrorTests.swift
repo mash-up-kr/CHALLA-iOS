@@ -1,5 +1,5 @@
-import Testing
 import AuthDomain
+import Testing
 
 // AuthError(networkError:) 매핑은 AuthData 소속이므로 여기서 다루지 않는다 (규칙 6).
 @Suite("AuthError")

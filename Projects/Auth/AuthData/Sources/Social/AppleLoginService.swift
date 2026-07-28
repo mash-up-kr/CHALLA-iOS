@@ -1,6 +1,6 @@
+import AuthDomain
 import AuthenticationServices
 import UIKit
-import AuthDomain
 
 /// Apple 소셜 로그인 (AuthenticationServices). `identityToken`을 `SocialCredential`로 반환한다.
 ///
@@ -33,7 +33,7 @@ final class AppleLoginService: NSObject {
             self.continuation = continuation
 
             let request = ASAuthorizationAppleIDProvider().createRequest()
-            request.requestedScopes = [.fullName, .email]      // 서버 요구에 맞춰 조정
+            request.requestedScopes = [.fullName, .email] // 서버 요구에 맞춰 조정
 
             let controller = ASAuthorizationController(authorizationRequests: [request])
             controller.delegate = self
@@ -48,9 +48,9 @@ final class AppleLoginService: NSObject {
     /// continuation을 정확히 1회 resume하고 상태를 비운다. 모든 종료 경로가 여기를 지난다.
     private func finish(with result: Result<SocialCredential, AuthError>) {
         switch result {
-        case .success(let credential):
+        case let .success(credential):
             continuation?.resume(returning: credential)
-        case .failure(let error):
+        case let .failure(error):
             continuation?.resume(throwing: error)
         }
         continuation = nil
@@ -63,7 +63,7 @@ final class AppleLoginService: NSObject {
 extension AppleLoginService: ASAuthorizationControllerDelegate {
 
     func authorizationController(
-        controller: ASAuthorizationController,
+        controller _: ASAuthorizationController,
         didCompleteWithAuthorization authorization: ASAuthorization
     ) {
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
@@ -82,7 +82,7 @@ extension AppleLoginService: ASAuthorizationControllerDelegate {
     }
 
     func authorizationController(
-        controller: ASAuthorizationController,
+        controller _: ASAuthorizationController,
         didCompleteWithError error: any Error
     ) {
         let mapped: AuthError = (error as? ASAuthorizationError)?.code == .canceled
@@ -96,7 +96,7 @@ extension AppleLoginService: ASAuthorizationControllerDelegate {
 
 extension AppleLoginService: ASAuthorizationControllerPresentationContextProviding {
 
-    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+    func presentationAnchor(for _: ASAuthorizationController) -> ASPresentationAnchor {
         // 활성 씬의 keyWindow를 우선으로, 없으면 단계적으로 폴백해 프레젠테이션 실패를 피한다.
         let windowScenes = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }

@@ -1,8 +1,8 @@
-import Testing
-import Foundation
-import AuthDomain
-import Keychain
 @testable import AuthData
+import AuthDomain
+import Foundation
+import Keychain
+import Testing
 
 /// `TokenStore`(Domain)와 `TokenProvider`(Network)를 한 Keychain 위에서 동시에 만족시키는 접점.
 /// Keychain 자체는 `MockKeychain`으로 대체해 저장/조회 로직만 검증한다.

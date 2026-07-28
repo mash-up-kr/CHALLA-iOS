@@ -21,7 +21,7 @@ struct LoginFeatureTests {
     func kakaoLoginSuccess() async {
         let store = makeStore(
             loginUseCase: LoginUseCase(run: { provider in
-                #expect(provider == .kakao)   // 탭된 provider가 useCase까지 그대로 전달되는지
+                #expect(provider == .kakao) // 탭된 provider가 useCase까지 그대로 전달되는지
                 return LoginResult(isNewUser: true)
             })
         )
@@ -108,7 +108,9 @@ struct LoginFeatureTests {
         let store = makeStore(
             loginUseCase: LoginUseCase(run: { _ in
                 callCount.withValue { $0 += 1 }
-                for await _ in stream { break }   // 완료를 보류시켜 "로딩 중" 유지
+                for await _ in stream {
+                    break
+                } // 완료를 보류시켜 "로딩 중" 유지
                 return LoginResult(isNewUser: false)
             })
         )
@@ -120,7 +122,7 @@ struct LoginFeatureTests {
         await store.send(.view(.kakaoLoginButtonTapped))
         await store.send(.view(.appleLoginButtonTapped))
 
-        continuation.yield()   // 보류 중이던 첫 요청 완료
+        continuation.yield() // 보류 중이던 첫 요청 완료
         await store.receive(\.loginResponse.success) {
             $0.inFlightProvider = nil
         }
@@ -134,8 +136,10 @@ struct LoginFeatureTests {
         let store = makeStore(
             loginUseCase: LoginUseCase(run: { _ in
                 callCount.withValue { $0 += 1 }
-                if callCount.value == 1 { throw AuthError.cancelled }   // 1차: 취소로 실패
-                return LoginResult(isNewUser: false)                    // 2차: 성공
+                if callCount.value == 1 {
+                    throw AuthError.cancelled
+                } // 1차: 취소로 실패
+                return LoginResult(isNewUser: false) // 2차: 성공
             })
         )
 
@@ -160,7 +164,7 @@ struct LoginFeatureTests {
 
     @Test("AuthError도 취소도 아닌 임의 오류는 .unknown으로 정규화되어 얼럿을 띄운다")
     func arbitraryErrorBecomesUnknown() async {
-        struct UnexpectedError: Error {}   // useCase 계약(AuthError 정규화) 밖의 임의 오류
+        struct UnexpectedError: Error {} // useCase 계약(AuthError 정규화) 밖의 임의 오류
         let store = makeStore(
             loginUseCase: LoginUseCase(run: { _ in throw UnexpectedError() })
         )
@@ -175,7 +179,7 @@ struct LoginFeatureTests {
             } actions: {
                 ButtonState(role: .cancel) { TextState("확인") }
             } message: {
-                TextState("알 수 없는 오류가 발생했어요.")   // AuthError.unknown.userMessage
+                TextState("알 수 없는 오류가 발생했어요.") // AuthError.unknown.userMessage
             }
         }
         await store.send(.alert(.dismiss)) {

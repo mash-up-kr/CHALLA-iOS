@@ -1,6 +1,6 @@
-import Foundation
 import AuthDomain
 import CHALLANetwork
+import Foundation
 
 /// `AuthRepository` 구현 — 인증 서버 호출 + DTO 언랩 + 오류 정규화.
 ///
@@ -62,7 +62,7 @@ public struct DefaultAuthRepository: AuthRepository {
                 AuthEndpoint.logout(requestDTO),
                 as: BaseResponseDTO<EmptyResponseDTO>.self
             )
-            try envelope.ensureSuccess()          // 페이로드는 무시, 실패만 매핑
+            try envelope.ensureSuccess() // 페이로드는 무시, 실패만 매핑
         } catch {
             throw Self.normalize(error)
         }
@@ -74,7 +74,7 @@ public struct DefaultAuthRepository: AuthRepository {
     private static func normalize(_ error: any Error) -> AuthError {
         switch error {
         case let authError as AuthError:
-            return authError                       // unwrap이 던진 도메인 오류 그대로
+            return authError // unwrap이 던진 도메인 오류 그대로
         case let networkError as NetworkError:
             return AuthError(networkError: networkError)
         default:

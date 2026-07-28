@@ -1,8 +1,8 @@
-import Testing
-import Foundation
+@testable import AuthData
 import AuthDomain
 import CHALLANetwork
-@testable import AuthData
+import Foundation
+import Testing
 
 @Suite("DefaultAuthRepository")
 struct DefaultAuthRepositoryTests {
@@ -106,7 +106,7 @@ struct DefaultAuthRepositoryTests {
         let client = MockHTTPClient.returning(json: json)
         let repository = DefaultAuthRepository(client: client)
 
-        try await repository.logout(refreshToken: "refresh")   // throw되면 테스트 실패
+        try await repository.logout(refreshToken: "refresh") // throw되면 테스트 실패
 
         #expect(client.requests == [.init(path: "/api/v1/auth/logout", method: .post)])
     }

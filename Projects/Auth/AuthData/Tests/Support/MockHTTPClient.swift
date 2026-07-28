@@ -1,6 +1,6 @@
+import CHALLANetwork
 import Foundation
 import os
-import CHALLANetwork
 
 /// 지정한 결과 하나를 돌려주고, 전달받은 엔드포인트의 경로·메서드를 기록하는 `HTTPClient` 목.
 ///
@@ -22,7 +22,9 @@ final class MockHTTPClient: HTTPClient {
     }
 
     /// 전송된 요청들 (호출 순서대로).
-    var requests: [CapturedRequest] { captured.withLock { $0 } }
+    var requests: [CapturedRequest] {
+        captured.withLock { $0 }
+    }
 
     func request(_ endpoint: some Endpoint) async throws -> Response {
         captured.withLock {

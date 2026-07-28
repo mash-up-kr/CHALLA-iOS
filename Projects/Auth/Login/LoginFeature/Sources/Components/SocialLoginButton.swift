@@ -26,7 +26,7 @@ struct SocialLoginButton: View {
                         .frame(width: 24, height: 24)
 
                     Text(title)
-                        .challaFont(CHALLAFont.Body.large.bold)
+                        .challaFont(.body.large.bold)
                 }
                 .opacity(isLoading ? 0 : 1)
 

@@ -1,7 +1,7 @@
-import Testing
-import Foundation
-import AuthDomain
 @testable import AuthData
+import AuthDomain
+import Foundation
+import Testing
 
 @Suite("BaseResponseDTO")
 struct BaseResponseDTOTests {
@@ -63,7 +63,7 @@ struct BaseResponseDTOTests {
             from: Data(json.utf8)
         )
 
-        try envelope.ensureSuccess()   // throw되면 테스트 실패
+        try envelope.ensureSuccess() // throw되면 테스트 실패
     }
 
     @Test("ensureSuccess는 success=false면 .server를 던진다")

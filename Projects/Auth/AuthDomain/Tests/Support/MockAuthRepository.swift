@@ -1,6 +1,6 @@
+import AuthDomain
 import Foundation
 import os
-import AuthDomain
 
 /// 호출을 캡처하고 지정한 결과를 돌려주는 `AuthRepository` 목.
 ///
@@ -33,13 +33,19 @@ final class MockAuthRepository: AuthRepository {
     // MARK: - 검증용 프로퍼티
 
     /// login에 전달된 자격증명 (호출 순서대로).
-    var loginCredentials: [SocialCredential] { state.withLock { $0.loginCredentials } }
+    var loginCredentials: [SocialCredential] {
+        state.withLock { $0.loginCredentials }
+    }
 
     /// refresh에 전달된 refreshToken (호출 순서대로).
-    var refreshRequestedTokens: [String] { state.withLock { $0.refreshRequestedTokens } }
+    var refreshRequestedTokens: [String] {
+        state.withLock { $0.refreshRequestedTokens }
+    }
 
     /// logout에 전달된 refreshToken (호출 순서대로).
-    var logoutRequestedTokens: [String] { state.withLock { $0.logoutRequestedTokens } }
+    var logoutRequestedTokens: [String] {
+        state.withLock { $0.logoutRequestedTokens }
+    }
 
     // MARK: - AuthRepository
 
