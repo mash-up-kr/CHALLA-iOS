@@ -26,6 +26,9 @@ struct RootView: View {
                     NavigationLink("Top Navigation") {
                         TopNavigationGallery()
                     }
+                    NavigationLink("Drawer") {
+                        DrawerGallery()
+                    }
                 }
 
                 // 아직 토큰이 아닌 것들의 체험·제안 공간. 디자이너 선택이 확정되면 토큰으로 승격한다.
