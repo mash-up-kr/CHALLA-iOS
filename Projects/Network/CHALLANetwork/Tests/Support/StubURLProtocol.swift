@@ -23,8 +23,13 @@ final class StubURLProtocol: URLProtocol {
         lastRequest = nil
     }
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override static func canInit(with _: URLRequest) -> Bool {
+        true
+    }
+
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
 
     override func startLoading() {
         StubURLProtocol.lastRequest = request
@@ -39,12 +44,18 @@ final class StubURLProtocol: URLProtocol {
             return
         }
 
-        let response = HTTPURLResponse(
-            url: request.url!,
-            statusCode: stub.statusCode,
-            httpVersion: "HTTP/1.1",
-            headerFields: stub.headers
-        )!
+        guard
+            let url = request.url,
+            let response = HTTPURLResponse(
+                url: url,
+                statusCode: stub.statusCode,
+                httpVersion: "HTTP/1.1",
+                headerFields: stub.headers
+            )
+        else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: stub.data)
         client?.urlProtocolDidFinishLoading(self)

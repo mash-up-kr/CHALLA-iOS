@@ -14,6 +14,7 @@ public extension TargetDependency {
     )
 
     // MARK: - Network
+
     /// CHALLANetwork 모듈에 대한 의존성. (Data 레이어만 선언 — 아키텍처 규칙 6)
     static let network = TargetDependency.project(
         target: "CHALLANetwork",

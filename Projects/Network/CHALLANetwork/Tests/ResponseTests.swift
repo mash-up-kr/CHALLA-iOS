@@ -1,6 +1,6 @@
-import Testing
-import Foundation
 @testable import CHALLANetwork
+import Foundation
+import Testing
 
 @Suite("Response")
 struct ResponseTests {
@@ -31,11 +31,11 @@ struct ResponseTests {
         let response = makeResponse(status: 302)
 
         let error = try #require(throws: NetworkError.self) {
-            try response.filter(statusCodes: 200..<300)
+            try response.filter(statusCodes: 200 ..< 300)
         }
 
         #expect(error.unacceptableStatusCode == 302)
-        #expect(try response.filter(statusCodes: 300..<400).statusCode == 302)
+        #expect(try response.filter(statusCodes: 300 ..< 400).statusCode == 302)
     }
 
     @Test("map은 JSON 본문을 모델로 디코딩한다")

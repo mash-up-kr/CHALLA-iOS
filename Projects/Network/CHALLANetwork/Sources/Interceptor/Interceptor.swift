@@ -23,7 +23,10 @@ public protocol Interceptor: Sendable {
 }
 
 public extension Interceptor {
-    func adapt(_ request: URLRequest, for endpoint: any Endpoint) async throws -> URLRequest { request }
-    func willSend(_ request: URLRequest, endpoint: any Endpoint) {}
-    func didReceive(_ result: Result<Response, NetworkError>, endpoint: any Endpoint) {}
+    func adapt(_ request: URLRequest, for _: any Endpoint) async throws -> URLRequest {
+        request
+    }
+
+    func willSend(_: URLRequest, endpoint _: any Endpoint) {}
+    func didReceive(_: Result<Response, NetworkError>, endpoint _: any Endpoint) {}
 }

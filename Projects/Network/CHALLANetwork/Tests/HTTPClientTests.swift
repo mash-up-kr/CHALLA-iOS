@@ -1,8 +1,8 @@
-import Testing
-import Foundation
 @testable import CHALLANetwork
+import Foundation
+import Testing
 
-// 전역 스텁 상태를 공유하므로 직렬 실행한다.
+/// 전역 스텁 상태를 공유하므로 직렬 실행한다.
 @Suite("DefaultHTTPClient", .serialized)
 struct HTTPClientTests {
 
@@ -122,7 +122,7 @@ private struct EmptyModel: Decodable {}
 private struct HeaderStampInterceptor: Interceptor {
     let value: String
 
-    func adapt(_ request: URLRequest, for endpoint: any Endpoint) async throws -> URLRequest {
+    func adapt(_ request: URLRequest, for _: any Endpoint) async throws -> URLRequest {
         var request = request
         request.setValue(value, forHTTPHeaderField: "X-Stamp")
         return request

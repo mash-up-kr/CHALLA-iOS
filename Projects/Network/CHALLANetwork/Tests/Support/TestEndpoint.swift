@@ -1,5 +1,5 @@
-import Foundation
 import CHALLANetwork
+import Foundation
 
 /// 테스트에서 각 속성을 자유롭게 바꿔가며 쓰는 범용 Endpoint.
 struct TestEndpoint: Endpoint {

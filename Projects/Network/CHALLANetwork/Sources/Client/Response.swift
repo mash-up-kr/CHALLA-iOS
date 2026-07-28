@@ -43,7 +43,7 @@ public extension Response {
 
     /// 2xx(성공) 상태 코드만 통과시킨다.
     func filterSuccessfulStatusCodes() throws -> Response {
-        try filter(statusCodes: 200..<300)
+        try filter(statusCodes: 200 ..< 300)
     }
 }
 

@@ -1,6 +1,6 @@
-import Testing
-import Foundation
 @testable import CHALLANetwork
+import Foundation
+import Testing
 
 @Suite("Endpoint → URLRequest 변환")
 struct EndpointRequestTests {

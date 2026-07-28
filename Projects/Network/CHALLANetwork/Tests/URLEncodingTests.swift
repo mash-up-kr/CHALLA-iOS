@@ -1,6 +1,6 @@
-import Testing
-import Foundation
 @testable import CHALLANetwork
+import Foundation
+import Testing
 
 @Suite("URLEncoding")
 struct URLEncodingTests {
@@ -32,7 +32,7 @@ struct URLEncodingTests {
 
     @Test("이미 쿼리가 있는 URL에는 &로 이어붙인다")
     func mergesWithExistingQuery() throws {
-        let request = URLRequest(url: URL(string: "https://a.com/x?page=1")!)
+        let request = try URLRequest(url: #require(URL(string: "https://a.com/x?page=1")))
         let encoded = try URLEncoding.default.encode(request, with: ["q": "film"])
         #expect(encoded.url?.query == "page=1&q=film")
     }

@@ -27,7 +27,7 @@ public struct LoggingInterceptor: Interceptor {
         self.logger = Logger(subsystem: subsystem, category: category)
     }
 
-    public func willSend(_ request: URLRequest, endpoint: any Endpoint) {
+    public func willSend(_ request: URLRequest, endpoint _: any Endpoint) {
         guard level != .none else { return }
         let method = request.httpMethod ?? "?"
         let url = request.url?.absoluteString ?? "?"
@@ -43,16 +43,16 @@ public struct LoggingInterceptor: Interceptor {
         }
     }
 
-    public func didReceive(_ result: Result<Response, NetworkError>, endpoint: any Endpoint) {
+    public func didReceive(_ result: Result<Response, NetworkError>, endpoint _: any Endpoint) {
         guard level != .none else { return }
         switch result {
-        case .success(let response):
+        case let .success(response):
             let url = response.request?.url?.absoluteString ?? "?"
             logger.debug("← \(response.statusCode, privacy: .public) \(url, privacy: .private)")
             if level == .verbose, let string = String(data: response.data, encoding: .utf8) {
                 logger.debug("  body: \(string, privacy: .private)")
             }
-        case .failure(let error):
+        case let .failure(error):
             // 오류 설명에 요청 URL이 포함될 수 있어 성공 경로와 동일하게 마스킹한다.
             logger.error("✕ \(String(describing: error), privacy: .private)")
         }

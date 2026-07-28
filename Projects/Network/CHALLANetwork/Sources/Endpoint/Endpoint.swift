@@ -52,7 +52,9 @@ public protocol Endpoint: Sendable {
 
 public extension Endpoint {
     /// 헤더는 선택 사항 — 미구현 시 nil.
-    var headers: [String: String]? { nil }
+    var headers: [String: String]? {
+        nil
+    }
 }
 
 // MARK: - AccessTokenAuthorizable

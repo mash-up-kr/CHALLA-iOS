@@ -17,7 +17,9 @@ public struct URLEncoding: ParameterEncoding {
     public init() {}
 
     /// 기본 인스턴스.
-    public static var `default`: URLEncoding { URLEncoding() }
+    public static var `default`: URLEncoding {
+        URLEncoding()
+    }
 
     public func encode(_ request: URLRequest, with parameters: Parameters?) throws -> URLRequest {
         var request = request

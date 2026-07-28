@@ -1,6 +1,6 @@
-import Testing
-import Foundation
 @testable import CHALLANetwork
+import Foundation
+import Testing
 
 @Suite("CHALLAAPIEnvironment")
 struct CHALLAAPIEnvironmentTests {

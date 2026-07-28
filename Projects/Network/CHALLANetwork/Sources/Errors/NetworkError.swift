@@ -26,15 +26,15 @@ public enum NetworkError: Error {
 extension NetworkError: LocalizedError {
     public var errorDescription: String? {
         switch self {
-        case .invalidRequest(let reason):
+        case let .invalidRequest(reason):
             return "요청을 만들 수 없습니다: \(reason)"
-        case .transport(let underlying):
+        case let .transport(underlying):
             return "네트워크 전송에 실패했습니다: \(underlying.localizedDescription)"
         case .nonHTTPResponse:
             return "HTTP 응답이 아닙니다."
-        case .unacceptableStatusCode(let statusCode, _):
+        case let .unacceptableStatusCode(statusCode, _):
             return "허용되지 않은 상태 코드입니다: \(statusCode)"
-        case .decoding(let underlying, _):
+        case let .decoding(underlying, _):
             return "응답을 해석할 수 없습니다: \(underlying.localizedDescription)"
         }
     }

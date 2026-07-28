@@ -14,16 +14,16 @@ extension Endpoint {
         case .requestPlain:
             break
 
-        case .requestData(let data):
+        case let .requestData(data):
             request.httpBody = data
 
-        case .requestParameters(let parameters, let encoding):
+        case let .requestParameters(parameters, encoding):
             request = try encoding.encode(request, with: parameters)
 
-        case .requestJSONEncodable(let value):
+        case let .requestJSONEncodable(value):
             request = try encodeJSON(value, into: request)
 
-        case .uploadMultipart(let forms):
+        case let .uploadMultipart(forms):
             request = encodeMultipart(forms, into: request)
         }
 
