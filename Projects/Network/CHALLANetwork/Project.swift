@@ -10,6 +10,7 @@ let project = Project(
         defaultKnownRegions: ["en", "ko"],
         developmentRegion: "ko"
     ),
+    settings: .challaBase(),
     targets: [
         .makeModuleTarget(name: "CHALLANetwork"),
         .target(
