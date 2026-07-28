@@ -1,5 +1,5 @@
-import SwiftUI
 import CHALLADesignSystem
+import SwiftUI
 
 /// Component > Drawer 검수 화면.
 /// 드로어는 떠 있는 상태가 실제 모습이므로 정적 나열 대신 Figma EXAMPLE 전부를
@@ -15,7 +15,9 @@ struct DrawerGallery: View {
         case createRoom
         case longTitle
 
-        var id: Self { self }
+        var id: Self {
+            self
+        }
 
         /// 목록 버튼에 표시할 문구.
         var label: String {
@@ -98,7 +100,7 @@ struct DrawerGallery: View {
             header: .handle,
             actions: [
                 CHALLADrawerAction("앨범에서 선택", variant: .neutral) { dismiss() },
-                CHALLADrawerAction("프로필 사진 삭제", variant: .neutral, role: .destructive) { dismiss() },
+                CHALLADrawerAction("프로필 사진 삭제", variant: .neutral, role: .destructive) { dismiss() }
             ],
             auxiliaryAction: CHALLADrawerAction("보조 액션") { dismiss() }
         )

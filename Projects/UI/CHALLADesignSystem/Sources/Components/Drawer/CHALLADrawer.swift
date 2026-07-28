@@ -78,7 +78,7 @@ public struct CHALLADrawer<Content: View>: View {
                 .fill(CHALLAColor.Fill.drawerHandle)
                 .frame(width: DrawerMetric.handleWidth, height: DrawerMetric.handleHeight)
                 .frame(maxWidth: .infinity, minHeight: DrawerMetric.handleAreaHeight, alignment: .bottom)
-                .accessibilityHidden(true)   // 장식 — 끌기 동작은 프레젠테이션 모디파이어가 제공
+                .accessibilityHidden(true) // 장식 — 끌기 동작은 프레젠테이션 모디파이어가 제공
 
         case let .title(title, onClose):
             VStack(spacing: 0) {
@@ -113,7 +113,9 @@ public struct CHALLADrawer<Content: View>: View {
 
     /// 버튼 스택 위 간격: 콘텐츠가 있으면 24, 없으면 핸들에서 24, 타이틀 구분선에서 8 (Figma 실측).
     private var buttonStackTopPadding: CGFloat {
-        if hasContent { return 24 }
+        if hasContent {
+            return 24
+        }
         switch header {
         case .handle: return 24
         case .title: return 8
@@ -147,7 +149,6 @@ public struct CHALLADrawer<Content: View>: View {
             }
         }
     }
-
 }
 
 /// Figma Drawer 실측값. 코너 32는 드로어 전용이라 공용 CHALLARadius에 넣지 않는다.
@@ -180,7 +181,7 @@ public extension CHALLADrawer where Content == EmptyView {
             header: .handle,
             actions: [
                 CHALLADrawerAction("앨범에서 선택", variant: .neutral) {},
-                CHALLADrawerAction("프로필 사진 삭제", variant: .neutral, role: .destructive) {},
+                CHALLADrawerAction("프로필 사진 삭제", variant: .neutral, role: .destructive) {}
             ],
             auxiliaryAction: CHALLADrawerAction("보조 액션") {}
         )

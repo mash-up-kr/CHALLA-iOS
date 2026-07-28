@@ -30,7 +30,7 @@ public struct CHALLADrawerMessage: View {
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
-        .padding(.top, 8)      // Figma 실측: 블록 자체 여백 (위 8 · 아래 4)
+        .padding(.top, 8) // Figma 실측: 블록 자체 여백 (위 8 · 아래 4)
         .padding(.bottom, 4)
     }
 }

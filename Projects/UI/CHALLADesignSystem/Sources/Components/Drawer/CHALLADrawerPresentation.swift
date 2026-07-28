@@ -1,5 +1,5 @@
 import SwiftUI
-import UIKit   // 키보드 내림(resignFirstResponder) 전용 — SwiftUI에는 대응 API가 없다
+import UIKit // 키보드 내림(resignFirstResponder) 전용 — SwiftUI에는 대응 API가 없다
 
 /// 드로어 프레젠테이션 — 딤 배경 위에 드로어를 띄우고 내리는 동작 전부를 담당한다.
 /// (드로어의 생김새는 CHALLADrawer 담당 — 역할 분리)
@@ -41,14 +41,14 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
 
     private var dim: some View {
         CHALLAColor.Material.dimmer
-            .ignoresSafeArea()   // 화면 끝까지 어둡게 (드로어는 안전 영역 안에 둠)
+            .ignoresSafeArea() // 화면 끝까지 어둡게 (드로어는 안전 영역 안에 둠)
             .transition(.opacity)
             .onTapGesture {
                 // 딤 탭으로 닫기. allowsInteractiveDismiss가 false면 동작하지 않는다
                 guard allowsInteractiveDismiss else { return }
                 isPresented = false
             }
-            .accessibilityHidden(true)   // VoiceOver 초점은 드로어(.isModal)가 가져간다
+            .accessibilityHidden(true) // VoiceOver 초점은 드로어(.isModal)가 가져간다
     }
 
     private var drawer: some View {
@@ -56,11 +56,11 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
             .padding(.horizontal, DrawerPresentationMetric.screenMargin)
             // 안전 영역 기준 여백이라 키보드가 올라오면 드로어도 자동으로 따라 올라간다
             .padding(.bottom, DrawerPresentationMetric.screenMargin)
-            .offset(y: max(0, dragOffset))   // 끌린 만큼 아래로 (위로는 안 끌림)
-            .gesture(dragToDismiss)          // 드로어 아무 데나 잡고 끌 수 있음
+            .offset(y: max(0, dragOffset)) // 끌린 만큼 아래로 (위로는 안 끌림)
+            .gesture(dragToDismiss) // 드로어 아무 데나 잡고 끌 수 있음
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .accessibilityAddTraits(.isModal)   // VoiceOver 탐색 범위를 드로어로 제한
-            .onDisappear { dragOffset = 0 }     // 다음 표시가 원위치에서 시작하도록 끌린 거리 초기화
+            .accessibilityAddTraits(.isModal) // VoiceOver 탐색 범위를 드로어로 제한
+            .onDisappear { dragOffset = 0 } // 다음 표시가 원위치에서 시작하도록 끌린 거리 초기화
     }
 
     private var dragToDismiss: some Gesture {
@@ -83,7 +83,6 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
                 }
             }
     }
-
 }
 
 /// 제네릭 타입(Modifier<DrawerContent>) 안에는 static 저장 프로퍼티를 둘 수 없어 파일 레벨에 둔다.
@@ -94,9 +93,9 @@ private enum DrawerPresentationMetric {
     static let dismissThreshold: CGFloat = 120
 }
 
-// 기능은 위 Modifier에 있고, 이 extension은 다른 프레젠테이션 API(.sheet 등)처럼
-// .challaDrawer(...) 점 문법으로 쓰게 하는 통로다.
-extension View {
+/// 기능은 위 Modifier에 있고, 이 extension은 다른 프레젠테이션 API(.sheet 등)처럼
+/// .challaDrawer(...) 점 문법으로 쓰게 하는 통로다.
+public extension View {
     /// 드로어를 화면 하단에 띄운다. 콘텐츠가 텍스트필드를 담으면 키보드에 맞춰 올라온다.
     ///
     /// - Parameters:
@@ -109,10 +108,10 @@ extension View {
     ///     CHALLADrawer(header: .handle, actions: [...])
     /// }
     /// ```
-    public func challaDrawer<DrawerContent: View>(
+    func challaDrawer(
         isPresented: Binding<Bool>,
         allowsInteractiveDismiss: Bool = true,
-        @ViewBuilder drawer: @escaping () -> DrawerContent
+        @ViewBuilder drawer: @escaping () -> some View
     ) -> some View {
         modifier(CHALLADrawerPresentationModifier(
             isPresented: isPresented,
@@ -137,7 +136,7 @@ extension View {
                     header: .handle,
                     actions: [
                         CHALLADrawerAction("앨범에서 선택", variant: .neutral) {},
-                        CHALLADrawerAction("프로필 사진 삭제", variant: .neutral, role: .destructive) {},
+                        CHALLADrawerAction("프로필 사진 삭제", variant: .neutral, role: .destructive) {}
                     ],
                     auxiliaryAction: CHALLADrawerAction("보조 액션") { isPresented = false }
                 )
