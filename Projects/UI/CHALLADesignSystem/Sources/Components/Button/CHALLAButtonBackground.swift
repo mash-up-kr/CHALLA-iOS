@@ -21,7 +21,7 @@ struct CHALLAButtonBackgroundModifier: ViewModifier {
             }
             .contentShape(
                 RoundedRectangle(cornerRadius: size.radius)
-                    .inset(by: -size.touchAreaInset)
+                    .expandedToHitTarget(from: size.height)
             )
     }
 }
