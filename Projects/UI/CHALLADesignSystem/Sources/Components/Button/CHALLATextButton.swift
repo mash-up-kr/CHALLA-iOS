@@ -57,7 +57,7 @@ public struct CHALLATextButton: View {
                 }
                 Text(title)
                     .challaFont(size.typography)
-                    .lineLimit(1)   // 고정 높이 안에서 줄바꿈되면 클리핑되므로 한 줄 고정
+                    .lineLimit(1) // 고정 높이 안에서 줄바꿈되면 클리핑되므로 한 줄 고정
                 if let trailingIcon {
                     trailingIcon.image(size: size.iconSize, color: contentColor)
                 }

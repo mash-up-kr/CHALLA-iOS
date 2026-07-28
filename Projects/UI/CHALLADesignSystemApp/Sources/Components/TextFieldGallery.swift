@@ -1,5 +1,5 @@
-import SwiftUI
 import CHALLADesignSystem
+import SwiftUI
 
 /// Component > TextField 검수 화면.
 /// Figma textfield의 상태 5가지 + customize(정렬·타이포·테두리 색)를 나열한다.

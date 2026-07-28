@@ -18,7 +18,7 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`) |
 | `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12) |
 | `CHALLAIcon` | 아이콘 토큰 20종 + `Size`(16~32pt) + `image(size:color:)` |
-| `CHALLAHitTarget` | HIG 최소 터치 타깃(44pt) 정책 — `minimum` + `inset(for:)`. 시각 크기 미달 컨트롤의 히트 영역 확장에 공용 사용 |
+| `CHALLAHitTarget` | HIG 최소 터치 타깃(44pt) 정책 — `minimum` + `inset(for:)` + 도형 확장 헬퍼 `expandedToHitTarget(from:)`. DS 컴포넌트로 담기 애매한 Feature의 일회성 탭 요소에도 사용 |
 | `CHALLAFontRegister` | 커스텀 폰트 등록. 앱 진입점(@main) init에서 1회 호출 |
 
 ### Components

@@ -1,5 +1,5 @@
-import SwiftUI
 import CHALLADesignSystem
+import SwiftUI
 
 /// Component > Top Navigation 검수 화면.
 /// Figma 예시 6조합을 전수 나열한다: main(기본/우측 아이콘), sub(없음/왼쪽/오른쪽/양쪽).

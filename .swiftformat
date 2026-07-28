@@ -1,0 +1,13 @@
+# SwiftFormat 설정 — ./Scripts/lint.sh 로 실행 (버전은 mise.toml에 고정)
+--swiftversion 6.0
+
+# 제외: 자동 생성물(Derived), 스텐실 템플릿 폴더, 외부 SPM 체크아웃
+--exclude Derived,**/Derived,Tuist/Templates,Tuist/.build
+
+# @testable import 는 항상 맨 위 — 기본값(alpha)은 모듈명 알파벳순이라
+# scaffold 생성 테스트 파일의 임포트 순서가 모듈명에 따라 달라지는 것을 방지
+--importgrouping testable-first
+
+# 팀 스타일이 확정되지 않았거나 코드 구조를 바꾸는 규칙은 끔 — 공백·정렬 등 안전한 규칙만 유지
+# (기존 코드 스타일 존중이 우선. 팀 컨벤션 확정 시 하나씩 활성화)
+--disable redundantReturn,redundantSelf,wrapMultilineStatementBraces,blankLinesAtStartOfScope,redundantSwiftUIGroup,redundantMemberwiseInit,trailingCommas

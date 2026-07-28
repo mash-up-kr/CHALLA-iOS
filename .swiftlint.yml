@@ -1,0 +1,21 @@
+# SwiftLint 설정 — ./Scripts/lint.sh 로 실행 (버전은 mise.toml에 고정)
+# 리뷰 봇(Claude-Code-PR-Review/convention.md)의 "필수 수정" 항목을 린트가 선행 차단한다.
+
+excluded:
+  - Derived
+  - "**/Derived"
+  - Tuist/Templates
+  - Tuist/.build # 외부 SPM 의존성 체크아웃 (tuist install 생성물)
+
+opt_in_rules:
+  - force_unwrapping        # convention.md 필수: 신규 force unwrap 금지
+
+disabled_rules:
+  - todo                    # TODO 주석은 이슈로 관리, 린트로 막지 않음
+
+line_length:
+  warning: 140
+  ignores_comments: true
+
+identifier_name:
+  min_length: 2             # x, y 등 좌표 변수 허용을 위해 1자만 금지
