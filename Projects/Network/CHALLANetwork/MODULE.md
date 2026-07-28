@@ -43,7 +43,7 @@ Repository에 주입해도 안전하다. `Response`는 비-Sendable `HTTPURLResp
 - `protocol AccessTokenAuthorizable` · `enum AuthorizationType`(`.none`/`.bearer`)
 
 ### 실행
-- `protocol HTTPClient` — `request(_:) async throws -> Response`, 편의 `request(_:as:using:)`(2xx 필터 + 디코딩)
+- `protocol HTTPClient` — `decoder: JSONDecoder`(구현체가 한 번 만들어 보관), `request(_:) async throws -> Response`, 편의 `request(_:as:)`(2xx 필터 + `decoder`로 디코딩)
 - `final class DefaultHTTPClient` — `URLSession` 기반 구현 (`init(session:interceptors:)`)
 - `struct Response` — `statusCode` · `data` · `request` · `headers` + `filter(statusCodes:)` · `filterSuccessfulStatusCodes()` · `map(_:using:)`
 

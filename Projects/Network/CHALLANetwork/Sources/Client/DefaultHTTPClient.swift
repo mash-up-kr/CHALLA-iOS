@@ -8,6 +8,8 @@ public final class DefaultHTTPClient: HTTPClient {
 
     private let session: URLSession
     private let interceptors: [any Interceptor]
+    private let encoder = JSONEncoder()
+    public let decoder = JSONDecoder()
 
     /// - Parameters:
     ///   - session: 전송에 쓸 `URLSession` (기본 `.shared`).
@@ -23,7 +25,7 @@ public final class DefaultHTTPClient: HTTPClient {
     public func request(_ endpoint: some Endpoint) async throws -> Response {
         var urlRequest: URLRequest
         do {
-            urlRequest = try endpoint.asURLRequest()
+            urlRequest = try endpoint.asURLRequest(encoder: encoder)
         } catch let error as NetworkError {
             throw error
         } catch {
