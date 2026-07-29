@@ -14,10 +14,10 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 
 | API | 설명 |
 | :-- | :-- |
-| `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material) |
-| `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`) |
+| `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material) + `defaultTheme` — 사용자가 고르는 테마 색의 기본값(레몬에이드=`Primary.yellow`). 강조 요소(리스트 값 글자·스위치 켜짐·텍스트필드 포커스 테두리)가 이 색을 따른다 |
+| `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`). `lineBoxInset`은 `challaFont`가 글자 상자 위아래에 더하는 여백 — 시안 간격을 옮길 때 이 값을 빼서 보정한다 |
 | `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12) |
-| `CHALLAIcon` | 아이콘 토큰 20종 + `Size`(16~32pt) + `image(size:color:)` |
+| `CHALLAIcon` | 아이콘 토큰 20종 + `Size`(16~32pt) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
 | `CHALLAHitTarget` | HIG 최소 터치 타깃(44pt) 정책 — `minimum` + `inset(for:)` + 도형 확장 헬퍼 `expandedToHitTarget(from:)`. DS 컴포넌트로 담기 애매한 Feature의 일회성 탭 요소에도 사용 |
 | `CHALLAFontRegister` | 커스텀 폰트 등록. 앱 진입점(@main) init에서 1회 호출 |
 
@@ -29,18 +29,45 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `CHALLAIconButton` | 아이콘 버튼. 정사각(54/40/32), variant·size는 텍스트 버튼과 공용 (role 미지원 — Figma에 destructive 아이콘 버튼 정의 없음) |
 | `CHALLAButtonVariant` / `CHALLAButtonSize` | 두 버튼이 공유하는 스타일·크기 enum |
 | `CHALLAButtonRole` | 버튼 의미 표시 — variant(생김새)와 조합해 쓴다 (SwiftUI `Button(role:)`과 동일 개념). 현재 `.destructive` 하나. destructive 비활성 디자인은 Figma에 없어 공통 비활성 팔레트로 표시 |
-| `CHALLATextField` | 텍스트필드. 상태 5가지(placeholder/focus/typing/typed/disabled)를 입력값·포커스·활성 여부로 자동 판별. customize: `textAlignment`(기본 중앙) · `typography`(기본 body.medium.medium) · `borderColor`(기본 Primary.yellow, 포커스 테두리+커서 색) |
+| `CHALLATextField` | 텍스트필드. 상태 5가지(placeholder/focus/typing/typed/disabled)를 입력값·포커스·활성 여부로 자동 판별. customize: `textAlignment`(기본 중앙) · `typography`(기본 body.medium.medium) · `borderColor`(기본 `CHALLAColor.defaultTheme`, 포커스 테두리+커서 색) |
 | `CHALLATopNavigation` | 탑 내비게이션 바 (높이 70, 상태바 제외). `.main(trailing:)` = 좌측 홈 로고 고정, `.sub(title:leading:trailing:)` = 중앙 타이틀. 슬롯은 `Item.icon(...)`으로 생성 (아이콘 24pt + 터치 40pt, accessibilityLabel 필수) |
 | `CHALLADrawer` | 하단 드로어 레이아웃. 헤더(`.handle` 손잡이 / `.title` 타이틀+닫기) × 콘텐츠 슬롯(@ViewBuilder, 선택) × 버튼(0~2개 + 푸터 액션). 버튼 크기·전체 폭·간격·개수는 드로어가 강제 |
 | `CHALLADrawerAction` | 드로어 버튼 한 자리의 내용(글자·variant·role·isEnabled·동작). 푸터 액션 자리는 variant 무시하고 항상 텍스트형 |
 | `CHALLADrawerMessage` | 드로어 콘텐츠 슬롯용 제목+설명 안내 블록 (회원 탈퇴류 반복 패턴 공용화) |
 | `challaDrawer(isPresented:allowsInteractiveDismiss:drawer:)` | 드로어 프레젠테이션 View 확장 — 딤·하단 등장/퇴장 스프링·끌어내려 닫기·딤 탭 닫기. `allowsInteractiveDismiss: false`면 닫기 버튼으로만 닫힘(입력 보호). 네이티브 .sheet 미사용(떠 있는 카드 모양이 안 나옴) |
+| `CHALLAListRow` | 리스트 행 (높이 52, 설명을 넣으면 74). 이니셜라이저 2종 — 탭 행 `init(_:description:icon:iconColor:accessory:themeColor:action:)` / 토글 행 `init(_:description:icon:iconColor:themeColor:isOn:)`. 아이콘 18pt, 이름 `.body.medium.medium`, 설명 `.body.xsmall.medium`. 제목·설명은 한 줄 고정(말줄임) |
+| `CHALLAListRowAccessory` | 탭 행의 우측 요소. `.arrow` · `.arrow(value:)` · `.check(isSelected:)` · `.empty` |
+| `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음 |
 
 버튼·텍스트필드 비활성화는 별도 파라미터 없이 SwiftUI 표준 `.disabled(_:)`로 제어한다
 (내부에서 `@Environment(\.isEnabled)`를 읽어 비활성 색을 적용).
 
-알려진 제약: `CHALLATextField`의 포커스는 내부에서만 관리된다 — 화면 진입 시 키보드 자동
-표시 같은 외부 프로그래밍 포커스는 아직 불가 (실사용 화면에서 필요해지면 API 추가 예정).
+알려진 제약:
+
+- `CHALLATextField`의 포커스는 내부에서만 관리된다 — 화면 진입 시 키보드 자동
+  표시 같은 외부 프로그래밍 포커스는 아직 불가 (실사용 화면에서 필요해지면 API 추가 예정).
+- `CHALLAListRow`는 비활성(`.disabled(_:)`) 상태를 지원하지 않는다 — 시안에 해당 상태가 없어
+  색을 임의로 정하지 않았다. **`.disabled(true)`를 걸면 시각 변화 없이 터치만 차단된다**
+  (토글도 눌리지 않는다). 비활성 표현이 필요하면 디자이너 확인 후 API를 추가한다.
+- 테마 색은 아직 **앱 전역 상태가 아니라 컴포넌트 파라미터**다 (`CHALLAListRow.themeColor`,
+  `CHALLATextField.borderColor`). 둘 다 `CHALLAColor.defaultTheme`을 기본값으로 쓰지만,
+  사용자가 고른 테마를 반영하려면 화면마다 값을 내려줘야 한다.
+  → 사용자 선택값을 Environment로 전달하는 테마 시스템은 별도 작업으로 남아 있다
+  (컴포넌트가 늘수록 배관 비용이 컴포넌트 수만큼 늘어난다).
+- `CHALLAListRow`는 눌림(pressed) 상태 시각 피드백이 없다 (`.buttonStyle(.plain)`) —
+  시안에 pressed 상태가 없어 만들지 않았다. 디자이너 확인 항목.
+- 카드 안쪽 여백이 왼쪽 24 / 오른쪽 16으로 비대칭인 것은 의도다 —
+  `List / Arrow` 컴포넌트 폭 318 + 카드 폭 358 규격에서 나온 값이고,
+  우측 아이콘이 32 상자 안에 16으로 들어가 눈에 보이는 여백은 좌우 모두 24가 된다.
+- **행 우측 화살표는 시안과 구조가 다르다.** 시안에서 화살표 자리는
+  `iconButton / Transparent / Small`(32×32) 인스턴스지만, 구현은 `CHALLAIcon.caretRight`를
+  32 상자에 넣어 그린다. 행 전체가 이미 버튼이라 그 안에 `CHALLAIconButton`을 넣으면
+  버튼이 중첩돼 VoiceOver가 두 번 멈춘다. **보이는 결과는 같다**(Transparent는 배경 없음) —
+  시안과 달라 보여도 되돌리지 말 것.
+- `challaFont`의 행간 보정(`lineBoxInset`)은 **`Text` 높이가 폰트 크기와 같다고 가정한다.**
+  실제 `Text`는 폰트의 자연 행높이로 잡히므로, 시안 간격을 그대로 재현한다는 보장은 없다
+  (예: 섹션 헤더 블록 44 = 16 + 16 + 12). 상수끼리 비교하는 유닛테스트로는 잡을 수 없고,
+  화면에서 실제 frame을 재야 확인된다.
 
 ## 의존 관계
 
@@ -61,5 +88,8 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 
 - **시각 검증(1차)**: `CHALLADesignSystemApp` 스킴 실행 → 갤러리에서 Figma와 대조.
   뷰(버튼·아이콘 렌더링)는 유닛테스트 대신 이 갤러리 검수가 테스트를 대신한다
-- **로직 테스트**: 버튼 색 매핑(`CHALLAButtonVariant`) 등 순수 로직의 Swift Testing 검증은
-  테스트 타깃 자동화(이슈 #8) 머지 후 추가 예정
+- **로직 테스트**: `mise exec -- tuist test CHALLADesignSystem`
+  - `CHALLATypographyTests` — 타이포 토큰의 크기·행간 불변식, `lineBoxInset` 계산,
+    리스트 행 높이가 전제하는 토큰 수치 고정
+  - `CHALLAListRowAccessoryTests` — 행 우측 요소가 값을 잃지 않는지
+  - 버튼 색 매핑(`CHALLAButtonVariant`) 등 나머지 순수 로직 검증은 추가 예정
