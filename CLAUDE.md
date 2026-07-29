@@ -28,14 +28,14 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme <스킴> \
 
 ## 아키텍처 (요약)
 
-레이어: `App → Feature → Domain ← Data → Network → Core·Shared` + UI(CHALLADesignSystem) + DIContainer
+레이어: `App → Feature → Domain ← Data → Network → Core·Shared` + UI(CHALLADesignSystem)
 
 > 이 구조는 목표 설계다. 현재 구현된 모듈은 `ls Projects/`로 확인할 것 (초기 단계라 일부 레이어는 아직 생성 전이다).
 
 핵심 규칙 6개 — 위반 금지 (상세: `.claude/rules/architecture.md`, 배경: `docs/ARCHITECTURE.md`):
 
 1. `Feature → Domain ← Data` (Data가 Domain 인터페이스 구현)
-2. Feature는 Data를 import 하지 않는다 (`@Dependency`가 주입 — 등록은 DIContainer 폴더)
+2. Feature는 Data를 import 하지 않는다 (`@Dependency`가 주입 — 등록은 실행 앱의 `CompositionRoot`)
 3. Feature끼리 직접 참조하지 않는다 (네비게이션은 App이 조립)
 4. Core · Shared는 누구나 import 가능
 5. `CHALLADesignSystem`은 Feature를 import 하지 않는다
@@ -67,7 +67,7 @@ Projects/Auth/                 # 그룹 폴더
 - `CHALLAApp` (`Projects/App/`) — 실배포앱. 모든 Feature를 조립한 최종 프로덕트
 - `CHALLADesignSystemApp` (`Projects/UI/`) — 디자인 시스템 검수앱. DS 컴포넌트를 Variant 단위로 검수, TestFlight 별도 배포
 - `XxxFeatureDemo` (대상 Feature 모듈 **옆**, 같은 `<피처명>` 폴더 안) — 피처 데모앱. **새 Feature를 만들면 Demo 앱도 함께 만들어** Mock 데이터로 그 화면만 단독 실행·검증한다.
-  데모앱은 앱 조립 지점이므로 예외적으로 Data(Mock)를 주입할 수 있다 (규칙 2의 유일한 예외)
+  데모앱은 앱 조립 지점이므로 예외적으로 Data(Mock·실 구현)를 주입할 수 있다 (규칙 2의 유일한 예외)
 
 ## 컨벤션 (요약)
 

@@ -5,8 +5,9 @@
 **Feature 레이어**. 로그인 화면의 TCA Feature 모듈이다 — 카카오/애플 버튼 탭을 받아
 `LoginUseCase` 하나로 로그인 전 과정(소셜 인증 → 서버 로그인 → 토큰 저장)을 실행하고,
 로딩(`inFlightProvider`)·실패 얼럿 상태를 관리한다. 소셜 SDK·서버·Keychain의 존재를 모르며
-(`AuthData` import 없음 — 아키텍처 규칙 2), 라이브 `LoginUseCase`는 조립 지점
-(Demo앱/추후 DIContainer)이 `withDependencies`/`prepareDependencies`로 주입한다.
+(`AuthData` import 없음 — 아키텍처 규칙 2), 라이브 `LoginUseCase`는 실행 앱의 `CompositionRoot`가 주입한다 —
+`CHALLAApp`은 시작 시 `prepareDependencies`로 1회, `LoginFeatureDemo`는 Mock 구성과 공존해야 해서
+Store별 `withDependencies`로.
 
 로그인 성공 후 화면 분기는 이 모듈이 하지 않는다 — `delegate` 액션으로 parent(App)에 위임한다
 (규칙 3: Feature 간 직접 참조 금지, 네비게이션은 App이 조립).
@@ -49,7 +50,8 @@
 
 - **이 모듈이 의존**: `AuthDomain`(엔티티·`AuthError`·`\.loginUseCase` 키) ·
   `ComposableArchitecture`(TCA 1.26) · `CHALLADesignSystem`(색·타이포 토큰)
-- **이 모듈에 의존**: `LoginFeatureDemo`(Mock/실 `LoginUseCase` 주입 지점) · 추후 `CHALLAApp`
+- **이 모듈에 의존**: `CHALLAApp`(live 주입) ·
+  `LoginFeatureDemo`(live는 자기 `CompositionRoot`, Mock은 `DemoRootView`가 인라인 스텁으로 주입)
 
 ## 테스트 실행 방법
 

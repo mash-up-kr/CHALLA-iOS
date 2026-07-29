@@ -13,7 +13,7 @@ Tuist 기반 모듈화 + 개발자 3명 협업을 전제로 설계되었습니�
 - **Feature는 화면 단위로 잘게** 유지 → 3명이 화면별로 나눠 작업, Git 충돌 최소화
 - **Domain · Data는 aggregate(방) 단위로 1벌** → 엔티티 중복 제거
 - **Feature → Domain ← Data** 단방향 의존
-- **Feature는 Data를 직접 import 하지 않음** → `@Dependency`로 주입 (구현체 등록은 DIContainer 폴더)
+- **Feature는 Data를 직접 import 하지 않음** → `@Dependency`로 주입 (구현체 등록은 실행 앱의 `CompositionRoot`)
 - **Feature끼리 직접 참조 금지** → 네비게이션은 App이 조립
 
 ### 왜 이렇게 나눴나 (핵심 의사결정)
@@ -37,14 +37,9 @@ Data는 aggregate 단위로 묶는 것이 자연스럽다.
 Projects/
 ├─ App/                              (폴더) 앱 실행 · 전체 흐름 조립
 │  ├─ CHALLAApp                      (앱)   실배포앱 — 모든 Feature 조립
-│  ├─ AppFeature                     (모듈) 로그인/프로필/메인 진입 분기 + 루트 네비게이션
-│  ├─ AppView                        (모듈) 최상위 SwiftUI View
-│  └─ DependencyAssembly             (모듈) DIContainer 실행
-│
-├─ DIContainer/                      (폴더) 의존성 조립 전용
-│  ├─ LiveDependency                 (모듈) 실제 구현체 등록
-│  ├─ TestDependency                 (모듈) 테스트용 Mock 등록
-│  └─ PreviewDependency              (모듈) 프리뷰용 더미 등록
+│  │   ├─ AppFeature                       로그인/프로필/메인 진입 분기 + 루트 네비게이션
+│  │   ├─ AppView                          최상위 SwiftUI View
+│  │   └─ CompositionRoot                  live 구현체 등록 (앱 시작 시 prepareDependencies로 1회)
 │
 ├─ Auth/                             (폴더) 인증
 │  ├─ Onboarding/                    (폴더) 온보딩 피처 묶음
@@ -175,11 +170,22 @@ Tuist/
 ### 규칙 요약
 
 1. `Feature → Domain ← Data` (Data가 Domain 인터페이스를 구현)
-2. Feature는 Data를 import 하지 않음 (`@Dependency`가 주입 — 등록은 DIContainer 폴더)
+2. Feature는 Data를 import 하지 않음 (`@Dependency`가 주입 — 등록은 실행 앱의 `CompositionRoot`)
 3. Feature끼리 직접 참조 금지 (네비게이션은 App이 조립)
 4. Core · Shared는 누구나 import 가능
 5. `CHALLADesignSystem`은 Feature를 import 하지 않음 (맨 아래 UI 레이어)
 6. `CHALLANetwork`는 Data만 import — Feature·Domain은 서버의 존재를 모름
+
+### 의존성 조립 지점
+
+**조립 전용 모듈(DIContainer)은 두지 않는다.** 구현체 등록은 실행 가능한 앱이 각자
+`Sources/CompositionRoot.swift`에서 수행하며, 이 파일이 그 앱에서 Data를 import 하는 유일한 곳이다.
+
+- `CHALLAApp` — 앱 시작 시 `prepareDependencies`로 1회 등록
+- `XxxFeatureDemo` — live/Mock 구성을 한 앱에서 골라 띄워야 하므로 Store별 `withDependencies`로 범위를 좁힌다
+
+대가는 같은 배선이 앱 수만큼 복제된다는 점이다. 어댑터 구성(인터셉터 구성·Keychain 서비스명 등)을
+바꿀 때는 실행 앱들의 `CompositionRoot`를 **함께** 고쳐야 한다.
 
 ---
 

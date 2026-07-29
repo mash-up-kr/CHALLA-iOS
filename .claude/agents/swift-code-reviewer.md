@@ -41,7 +41,7 @@ skills: modern-swift, swiftui-patterns, swift-diagnostics, swift-testing, compos
 
 기준: `.claude/rules/architecture.md`, `.claude/rules/design-system.md`
 
-- [ ] Feature가 Data를 import하지 않는가 (DIContainer 주입 원칙)
+- [ ] Feature가 Data를 import하지 않는가 (실행 앱의 `CompositionRoot`만 Data를 만진다)
 - [ ] Feature 모듈끼리 서로 import하지 않는가
 - [ ] CHALLADesignSystem이 Feature를 import하지 않는가
 - [ ] CHALLANetwork를 Data 외의 레이어가 import하지 않는가

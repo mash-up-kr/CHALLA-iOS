@@ -14,7 +14,7 @@ Feature-facing UseCase(키 + 라이브 오케스트레이션)를 정의한다. �
 의존성을 **인터페이스로만** 받아 소셜→서버→저장 순서를 조립한다(구체 타입 무의존).
 `.live(...)`는 `testValue`·`previewValue`와 같은 `TestDependencyKey` extension에 둔다 — 셋 다 "이 유스케이스를 얻는 방법"이다.
 `AuthData`의 public 어댑터를 만들어 이 팩토리에 넘기고 주입하는 일만 합성 루트
-(현재 Demo앱 / 추후 App·DIContainer)가 `withDependencies`/`prepareDependencies`로 담당한다.
+(`CHALLAApp`·`LoginFeatureDemo`의 `CompositionRoot`)가 `prepareDependencies`/`withDependencies`로 담당한다.
 주입 없이 라이브에서 접근하면 "no live implementation" 리포트가 뜨는데, 이는 버그가 아니라
 조립 지점 주입을 강제하는 의도된 설계다.
 

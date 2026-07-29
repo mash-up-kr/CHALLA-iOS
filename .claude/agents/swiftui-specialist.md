@@ -88,7 +88,7 @@ Projects/<그룹>/<피처명>/              ← 피처 모듈과 데모앱을 �
 ```
 
 - 공용 UI 컴포넌트·디자인 토큰은 CHALLADesignSystem 모듈에 위치합니다
-- Feature는 Data를 import하지 않습니다 (DIContainer 주입)
+- Feature는 Data를 import하지 않습니다 (실행 앱의 `CompositionRoot`가 주입)
 
 ## Apple 문서 확인
 

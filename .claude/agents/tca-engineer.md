@@ -30,7 +30,7 @@ skills: modern-swift, composable-architecture
 - 적절한 taxonomy(view/delegate/internal)를 갖춘 Action enum 정의
 - 적절한 cancellation을 갖춘 Effect 구현
 - `@DependencyClient` struct 생성
-- `DependencyValues` 접근자(computed property) 정의 — 단, 구현체 등록(liveValue/testValue/previewValue)은 DIContainer 폴더 담당이므로 Feature 모듈 안에서 하지 않는다
+- `DependencyValues` 접근자(computed property) 정의 — 단, 구현체 등록은 실행 앱의 `CompositionRoot` 담당이므로 Feature 모듈 안에서 하지 않는다
 - 모든 dependency에 대한 test 구현 제공
 
 ### MUST NOT Do
@@ -56,7 +56,7 @@ Projects/<그룹>/<피처명>/              ← 피처 모듈과 데모앱을 �
 └── <피처명>FeatureDemo/               ← 이 피처 전용 데모앱 (Mock 주입 · 단독 실행)
 ```
 
-**중요:** Feature는 Data를 import하지 않습니다(DIContainer 주입). Feature에서 @Dependency로 쓰는 Client는 인터페이스만 사용하고, 데이터 접근을 직접 구현하지 않습니다 — live 구현은 Domain 인터페이스(Repository/UseCase)를 거쳐 Data 레이어에 위치합니다.
+**중요:** Feature는 Data를 import하지 않습니다(실행 앱의 `CompositionRoot`가 주입). Feature에서 @Dependency로 쓰는 Client는 인터페이스만 사용하고, 데이터 접근을 직접 구현하지 않습니다 — live 구현은 Domain 인터페이스(Repository/UseCase)를 거쳐 Data 레이어에 위치합니다.
 
 ## Skill Usage (REQUIRED)
 

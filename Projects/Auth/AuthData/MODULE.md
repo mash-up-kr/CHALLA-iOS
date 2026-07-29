@@ -5,7 +5,8 @@
 **Data 레이어**. `AuthDomain`의 인터페이스 3개(`AuthRepository`·`SocialLoginService`·`TokenStore`)를 구현한
 **구체 어댑터**를 public으로 제공한다 (아키텍처 규칙 1: `Feature → Domain ← Data`).
 이 모듈은 **구현체만 내놓고, 조립·주입은 하지 않는다** — 어댑터를 모아 `LoginUseCase.live(...)`로 완성하는
-합성 루트는 상위(현재 Demo앱 / 추후 App·DIContainer)에 있다. 오케스트레이션(소셜→서버→저장 순서)도 Domain 소유다.
+합성 루트는 상위(`CHALLAApp`·`LoginFeatureDemo`의 `CompositionRoot`)에 있다.
+오케스트레이션(소셜→서버→저장 순서)도 Domain 소유다.
 
 담당 범위:
 - **서버 통신** — `AuthEndpoint`(login/refresh/logout, POST) + 공통 응답 래퍼 `BaseResponseDTO` 언랩 +
@@ -41,15 +42,17 @@ Feature가 볼 일 없는 세부 타입(Endpoint/DTO/Mapper)은 internal이고,
     조회 실패는 **nil로 삼킨다**(요청마다 호출되는 경로라 방어적 — 비로그인으로 간주)
 
 > 조립 자체(어댑터 그래프 → `LoginUseCase.live(...)`)는 이 모듈이 아니라 합성 루트가 수행한다.
-> 현재 조립 코드는 `LoginFeatureDemo`의 `CompositionRoot`에 임시로 있고, App·DIContainer 도입 시
-> `DIContainer/LiveDependency`로 이관된다 (해당 파일들의 `TODO: [App/DIContainer 도입 시 이관]` 참고).
+> 현재 합성 루트는 실행 앱마다 하나씩, 같은 배선을 두 벌 가진다 —
+> `App/CHALLAApp/Sources/CompositionRoot.swift`(앱 시작 시 `prepareDependencies`로 1회)와
+> `Auth/Login/LoginFeatureDemo/Sources/CompositionRoot.swift`(Mock 구성과 공존해야 해서 Store별 `withDependencies`).
+> 어댑터 구성을 바꿀 때는 두 파일을 함께 고쳐야 한다.
 
 ## 의존성
 
 - **이 모듈이 의존**: `AuthDomain`(인터페이스·엔티티·오류) · `CHALLANetwork`(HTTPClient·Endpoint·인터셉터) ·
   `Keychain`(Core, 보안 저장소) · `KakaoSDKCommon`/`KakaoSDKAuth`/`KakaoSDKUser`(2.28.0, Tuist/Package.swift 경유) ·
   `AuthenticationServices`/`UIKit`(시스템)
-- **이 모듈에 의존**: `LoginFeatureDemo`(조립 지점 — 규칙 2의 유일한 예외) · 추후 DIContainer
+- **이 모듈에 의존**: `CHALLAApp` · `LoginFeatureDemo`(둘 다 조립 지점 — 규칙 2의 예외)
 
 전제조건 (조립 지점 책임):
 - 카카오 개발자 콘솔 OpenID Connect 활성화 (미활성 시 idToken이 없어 `.social` 오류)
