@@ -14,6 +14,17 @@ public enum CHALLAColor {
         public static let purple = Color(hex: "C67AFF")
     }
 
+    /// 사용자가 설정에서 고르는 테마 색.
+    /// 강조 요소(리스트 값 글자·스위치 켜짐 배경·텍스트필드 포커스 테두리)가 이 색을 따른다.
+    ///
+    /// 테마 6종은 `Primary` 팔레트와 1:1이다 —
+    /// 레몬에이드=yellow · 라즈베리=pink · 오렌지=orange · 사이다=sky · 블루베리=blue · 아사이볼=purple.
+    /// 테마를 고르기 전 기본값은 시안의 첫 테마인 레몬에이드다.
+    ///
+    /// 테마 시스템(사용자 선택값을 앱 전역에 전달)이 생기기 전까지는
+    /// 컴포넌트가 이 값을 기본값으로 쓰고, 호출부가 필요할 때 덮어쓴다.
+    public static let defaultTheme = Primary.yellow
+
     /// Label 팔레트 (텍스트/아이콘 색상, 강조 → 비활성 순)
     public enum Label {
         public static let strong = Color(hex: "FFFFFF")
