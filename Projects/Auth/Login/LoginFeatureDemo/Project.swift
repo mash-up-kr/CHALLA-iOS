@@ -30,8 +30,7 @@ let project = Project.makeAppProject(
     usesAPIEnvironment: true,
     dependencies: [
         .loginFeature, .authData, .authDomain,
-        // 합성 루트(임시)가 구체 어댑터를 직접 조립하므로 Network·Keychain을 직접 의존한다.
-        // TODO: [App/DIContainer 도입 시 이관] 조립이 DIContainer로 옮겨가면 이 두 의존성은 그쪽으로 이동한다.
+        // 합성 루트가 구체 어댑터를 직접 조립하므로 Network·Keychain을 직접 의존한다.
         .network, .keychain,
         .composableArchitecture,
         .kakaoSDKCommon, .kakaoSDKAuth // 조립 지점의 initSDK · onOpenURL 처리용
