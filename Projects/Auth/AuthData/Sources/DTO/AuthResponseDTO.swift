@@ -4,7 +4,7 @@ import Foundation
 struct LoginResponseDTO: Decodable, Sendable {
     let accessToken: String
     let refreshToken: String
-    let isNewUser: Bool
+    let isNew: Bool
 }
 
 /// `POST /api/v1/auth/refresh` 응답 페이로드.

@@ -18,7 +18,7 @@ struct DefaultAuthRepositoryTests {
     @Test("로그인 성공: BaseResponseDTO를 벗겨 AuthSession으로 변환한다")
     func loginSuccess() async throws {
         let json = """
-        {"success": true, "message": "ok", "data": {"accessToken": "access", "refreshToken": "refresh", "isNewUser": true}}
+        {"success": true, "message": "ok", "data": {"accessToken": "access", "refreshToken": "refresh", "isNew": true}}
         """
         let client = MockHTTPClient.returning(json: json)
         let repository = DefaultAuthRepository(client: client)

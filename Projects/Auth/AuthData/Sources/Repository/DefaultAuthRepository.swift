@@ -31,7 +31,7 @@ public struct DefaultAuthRepository: AuthRepository {
             let payload = try envelope.unwrap()
             return AuthSession(
                 token: AuthToken(accessToken: payload.accessToken, refreshToken: payload.refreshToken),
-                isNewUser: payload.isNewUser
+                isNewUser: payload.isNew
             )
         } catch {
             throw Self.normalize(error)

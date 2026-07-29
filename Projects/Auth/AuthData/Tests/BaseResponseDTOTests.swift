@@ -9,7 +9,7 @@ struct BaseResponseDTOTests {
     @Test("success + data가 있으면 unwrap이 payload를 돌려준다")
     func unwrapSuccess() throws {
         let json = """
-        {"success": true, "message": "ok", "data": {"accessToken": "a", "refreshToken": "r", "isNewUser": true}}
+        {"success": true, "message": "ok", "data": {"accessToken": "a", "refreshToken": "r", "isNew": true}}
         """
         let envelope = try JSONDecoder().decode(
             BaseResponseDTO<LoginResponseDTO>.self,
@@ -20,7 +20,7 @@ struct BaseResponseDTOTests {
 
         #expect(payload.accessToken == "a")
         #expect(payload.refreshToken == "r")
-        #expect(payload.isNewUser == true)
+        #expect(payload.isNew == true)
     }
 
     @Test("success=false면 unwrap이 서버 메시지를 담은 .server를 던진다")
