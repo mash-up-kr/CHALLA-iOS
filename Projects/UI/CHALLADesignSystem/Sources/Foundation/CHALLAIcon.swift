@@ -39,11 +39,16 @@ public enum CHALLAIcon: String, CaseIterable, Sendable {
     /// 아이콘을 지정 크기·색으로 그린다.
     /// 기본 색은 Figma 아이콘 인벤토리 원본과 같은 Label.neutral.
     ///
+    /// **VoiceOver에는 읽히지 않는다(장식용).** 아이콘 자체가 뜻을 가지는 자리라면
+    /// 호출부에서 `.accessibilityLabel(_:)`을 붙여 이름을 준다
+    /// (`CHALLAIconButton`·`CHALLATopNavigation`이 그렇게 한다).
+    /// 그러지 않으면 에셋 이름("CaretRight")이 그대로 낭독된다.
+    ///
     /// ```swift
     /// CHALLAIcon.check.image(size: .size24, color: CHALLAColor.Label.normal)
     /// ```
     public func image(size: Size = .size24, color: Color = CHALLAColor.Label.neutral) -> some View {
-        Image(rawValue, bundle: .module)
+        Image(decorative: rawValue, bundle: .module)
             .resizable()
             .scaledToFit()
             .frame(width: size.rawValue, height: size.rawValue)
