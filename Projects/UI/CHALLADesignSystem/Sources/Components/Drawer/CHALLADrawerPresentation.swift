@@ -140,7 +140,7 @@ public extension View {
                         CHALLADrawerAction("앨범에서 선택", variant: .neutral) {},
                         CHALLADrawerAction("프로필 사진 삭제", variant: .neutral, role: .destructive) {}
                     ],
-                    auxiliaryAction: CHALLADrawerAction("보조 액션") { isPresented = false }
+                    footerAction: CHALLADrawerAction("푸터 액션") { isPresented = false }
                 )
             }
         }

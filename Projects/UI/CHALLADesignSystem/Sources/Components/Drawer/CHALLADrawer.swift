@@ -3,7 +3,7 @@ import SwiftUI
 /// 화면 하단에 떠 있는 드로어의 레이아웃 뷰.
 /// 생김새만 담당한다 — 뜨고 내려가는 동작(딤·애니메이션·드래그)은 프레젠테이션 모디파이어 담당.
 ///
-/// 구조: 헤더(핸들 또는 타이틀 바) → 콘텐츠 슬롯(선택) → 버튼 스택(0~2개 + 보조 액션)
+/// 구조: 헤더(핸들 또는 타이틀 바) → 콘텐츠 슬롯(선택) → 버튼 스택(0~2개 + 푸터 액션)
 ///
 /// ```swift
 /// CHALLADrawer(
@@ -25,23 +25,23 @@ public struct CHALLADrawer<Content: View>: View {
 
     private let header: Header
     private let actions: [CHALLADrawerAction]
-    private let auxiliaryAction: CHALLADrawerAction?
+    private let footerAction: CHALLADrawerAction?
     private let content: Content
     private let hasContent: Bool
 
     /// - Parameters:
     ///   - actions: 메인 버튼 0~2개. 배열 순서 = 위→아래 순서.
-    ///   - auxiliaryAction: 맨 아래 텍스트형 버튼. variant는 무시되고 항상 투명(transparent)으로 그린다.
+    ///   - footerAction: 맨 아래 텍스트형 버튼. variant는 무시되고 항상 투명(transparent)으로 그린다.
     public init(
         header: Header,
         actions: [CHALLADrawerAction] = [],
-        auxiliaryAction: CHALLADrawerAction? = nil,
+        footerAction: CHALLADrawerAction? = nil,
         @ViewBuilder content: () -> Content
     ) {
         assert(actions.count <= 2, "드로어 메인 버튼은 최대 2개 (Figma buttonCount 규칙)")
         self.header = header
         self.actions = actions
-        self.auxiliaryAction = auxiliaryAction
+        self.footerAction = footerAction
         self.content = content()
         self.hasContent = Content.self != EmptyView.self
     }
@@ -108,7 +108,7 @@ public struct CHALLADrawer<Content: View>: View {
     }
 
     private var hasButtons: Bool {
-        !actions.isEmpty || auxiliaryAction != nil
+        !actions.isEmpty || footerAction != nil
     }
 
     /// 버튼 스택 위 간격: 콘텐츠가 있으면 24, 없으면 핸들에서 24, 타이틀 구분선에서 8 (Figma 실측).
@@ -136,16 +136,16 @@ public struct CHALLADrawer<Content: View>: View {
                 )
                 .disabled(!action.isEnabled)
             }
-            if let auxiliaryAction {
+            if let footerAction {
                 CHALLATextButton(
-                    auxiliaryAction.title,
+                    footerAction.title,
                     variant: .transparent,
-                    role: auxiliaryAction.role,
+                    role: footerAction.role,
                     size: .medium,
                     isFullWidth: true,
-                    action: auxiliaryAction.action
+                    action: footerAction.action
                 )
-                .disabled(!auxiliaryAction.isEnabled)
+                .disabled(!footerAction.isEnabled)
             }
         }
     }
@@ -169,9 +169,9 @@ public extension CHALLADrawer where Content == EmptyView {
     init(
         header: Header,
         actions: [CHALLADrawerAction] = [],
-        auxiliaryAction: CHALLADrawerAction? = nil
+        footerAction: CHALLADrawerAction? = nil
     ) {
-        self.init(header: header, actions: actions, auxiliaryAction: auxiliaryAction) { EmptyView() }
+        self.init(header: header, actions: actions, footerAction: footerAction) { EmptyView() }
     }
 }
 
@@ -183,7 +183,7 @@ public extension CHALLADrawer where Content == EmptyView {
                 CHALLADrawerAction("앨범에서 선택", variant: .neutral) {},
                 CHALLADrawerAction("프로필 사진 삭제", variant: .neutral, role: .destructive) {}
             ],
-            auxiliaryAction: CHALLADrawerAction("보조 액션") {}
+            footerAction: CHALLADrawerAction("푸터 액션") {}
         )
         CHALLADrawer(
             header: .title("방 만들기", onClose: {}),

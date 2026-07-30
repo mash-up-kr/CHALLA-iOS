@@ -86,7 +86,7 @@ struct ButtonGallery: View {
             CHALLATextButton("버튼명") {}
             CHALLATextButton("버튼명", isFullWidth: true) {}
             CHALLATextButton("버튼명", variant: .neutral, isFullWidth: true) {}
-            CHALLATextButton("보조 액션", variant: .transparent, size: .medium, isFullWidth: true) {}
+            CHALLATextButton("푸터 액션", variant: .transparent, size: .medium, isFullWidth: true) {}
         }
     }
 
