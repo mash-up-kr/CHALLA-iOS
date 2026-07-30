@@ -25,8 +25,9 @@ public extension View {
     /// Text("안녕하세요").challaFont(.body.medium.regular)
     /// ```
     func challaFont(_ typography: CHALLATypography) -> some View {
-        // Figma 줄 높이와 폰트 크기의 차이만큼 여백을 만든다.
-        // (lineHeight < size 인 Dirtyline 계열은 음수가 되므로 0으로 제한)
+        // 시안 줄 높이와 폰트 크기의 차이만큼 여백을 만든다.
+        // max(0,)은 방어용 — 시안에는 lineHeight < size 인 토큰이 없다.
+        // 음수가 나오면 토큰 값이 잘못 옮겨졌다는 뜻이므로 CHALLATypographyTests가 잡는다.
         let extraLineSpace = max(0, typography.lineHeight - typography.size)
         return self
             .font(typography.font)

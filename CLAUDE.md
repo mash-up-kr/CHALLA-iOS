@@ -16,9 +16,12 @@ mise exec -- tuist build          # 전체 빌드
 mise exec -- tuist scaffold module --name <모듈명> --group <그룹>   # 새 모듈 생성 후 tuist generate
 
 # 시뮬레이터 빌드 (스킴 예: CHALLADesignSystemApp)
+xcrun simctl list devices available   # 먼저 설치된 기기 확인 — 기기 이름은 맥마다 다르다
 xcodebuild -workspace CHALLA.xcworkspace -scheme <스킴> \
-  -destination 'platform=iOS Simulator,name=iPhone 16' build
+  -destination 'platform=iOS Simulator,name=<위 목록의 기기>' build
 ```
+
+- **기기 이름을 문서에서 복붙하지 말 것.** 없는 기기를 지정하면 xcodebuild가 사용 가능 목록만 길게 뱉고 실패한다.
 
 - `*.xcodeproj` / `*.xcworkspace` / `Derived/`는 Tuist 생성물이라 gitignore 대상. 직접 수정 금지.
 - 로컬 서명값은 `Configs/Shared.xcconfig` (gitignore) — 없으면 `Shared.xcconfig.template` 복사해서 생성.
@@ -49,6 +52,10 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme <스킴> \
 - `XxxFeatureDemo` (각 Feature 모듈 안 `Demo/`) — 피처 데모앱. **새 Feature를 만들면 Demo 앱도 함께 만들어** Mock 데이터로 그 화면만 단독 실행·검증한다.
   데모앱은 앱 조립 지점이므로 예외적으로 Data(Mock)를 주입할 수 있다 (규칙 2의 유일한 예외)
 
+**데모앱은 실행 인자로 진입 지점을 받는다** — `--screen <화면>` · `--state <default|loading|empty|error>`.
+시뮬레이터를 탭으로 조작할 수 없어서, 인자로 바로 띄우지 못하는 화면·상태는 UI 검증에서 확인할 수 없다.
+데모앱을 만들 때 시안에 정의된 상태를 전부 인자로 띄울 수 있게 한다 (`zeplin-ui-verification` 스킬이 이 규약을 쓴다).
+
 ## 컨벤션 (요약)
 
 상세: `docs/CONVENTIONS.md`
@@ -67,16 +74,30 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme <스킴> \
 | :-- | :-- |
 | "OO 어디 있어?" 코드 위치 탐색 | `swift-search` (직접 grep 하지 말고 위임) |
 | 새 Feature 시작 — 구현 전 설계 | `tca-architect` (TCA) / `swift-architect` (일반) |
-| 디자인 시안·스크린샷 분석 | `swift-ui-design` |
+| 디자인 시안·스크린샷 분석 | `swift-ui-design` (Zeplin MCP로 시안 직접 조회) |
 | TCA 리듀서·액션·의존성 구현 | `tca-engineer` |
 | 모델·서비스·네트워킹 등 일반 Swift 구현 | `swift-engineer` |
 | SwiftUI 뷰 구현 (코어 로직 완료 후) | `swiftui-specialist` |
+| 뷰 구현 후 시안 대조 검증 | `zeplin-ui-verification` 스킬 |
 | 구현 완료 직후 리뷰 | `swift-code-reviewer` |
 | 리뷰 통과 후 테스트 작성 | `swift-test-creator` |
 | README·MODULE.md·주석 정리 | `swift-documenter` |
 
-표준 개발 순서: **설계(architect) → 구현(engineer) → 뷰(specialist) → 리뷰(reviewer) → 테스트(test-creator) → 문서(documenter)**.
+표준 개발 순서: **설계(architect) → 구현(engineer) → 뷰(specialist) → UI 검증 → 리뷰(reviewer) → 테스트(test-creator) → 문서(documenter)**.
 설계 없이 구현으로 직행하지 않는다.
+
+**시안을 주고 개발을 요청받으면 검증까지가 한 작업이다.** 스펙 추출 → 구현 → 시안 대조를 이어서 진행하고,
+사용자가 "검증해줘"라고 따로 말할 때까지 기다리지 않는다. 구현만 하고 완료 보고하지 않는다.
+
+### 디자인 시안 조회 (Zeplin MCP)
+
+`.mcp.json`에 zeplin MCP 서버가 등록돼 있어 시안 스펙(색상·타이포·간격·문구)을 직접 조회할 수 있다.
+
+- **동작하려면 개인 토큰 세팅이 1회 필요하다** — 절차는 `docs/AI_WORKFLOW.md` 1절
+- 시안의 원본은 Figma지만 **개발이 참조하는 창구는 Zeplin이다.** Figma에서 Zeplin으로 export한 뒤 조회한다
+  (Figma REST API는 무료 팀에서 월 6회 제한이라 실사용이 불가능하다 — 근거는 `docs/AI_WORKFLOW.md` 5절)
+- 디자인 시스템 토큰은 Zeplin의 `Theme`(색상) · `Typography`(타이포) 화면에 정리돼 있다
+- 추출한 색·폰트는 원시값으로 쓰지 않고 `CHALLAColor` · `CHALLATypography` 토큰으로 매핑한다 (`.claude/rules/design-system.md`)
 
 ## 테스트 · 모듈 문서 정책
 

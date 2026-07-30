@@ -1,7 +1,7 @@
 ---
 name: swift-ui-design
 description: UI mockup, 스크린샷, 또는 설명을 분석해 SwiftUI 구현을 계획합니다. 시각적 디자인이나 UI 설명에서 시작해서 feature 계획 이전 단계일 때 사용하세요.
-tools: Read, Glob, Grep, Skill
+tools: Read, Glob, Grep, Skill, mcp__zeplin__get_screen, mcp__zeplin__get_component
 model: opus
 color: cyan
 skills: modern-swift, swiftui-patterns
@@ -43,9 +43,72 @@ skills: modern-swift, swiftui-patterns
 - 구현이 필요한 커스텀 요소 파악
 - 여백, 타이포그래피, 색상 사용 평가
 
-### Figma/Design Reference
-- URL이 제공되면, 사용자에게 핵심 화면을 설명하거나 스크린샷을 붙여넣도록 요청
-- 제공된 설명/이미지를 기반으로 작업
+### Zeplin (시안 조회 — 기본 경로)
+시안이 필요하면 **사용자에게 스크린샷을 요청하지 말고 Zeplin MCP로 직접 조회한다.**
+
+시안의 원본은 Figma지만, 개발이 참조하는 창구는 Zeplin이다.
+(Figma REST API는 무료 팀에서 월 6회로 제한돼 실사용이 불가능하다 — `docs/AI_WORKFLOW.md` 참고)
+
+1. 조회 대상을 정한다
+   - **화면** (로그인, 방 생성 등) → `mcp__zeplin__get_screen`
+   - **컴포넌트** (버튼, 아이콘 등) → `mcp__zeplin__get_component`
+   - 디자인 시스템 토큰은 `Theme`(색상) · `Typography`(타이포) **화면**에 정리돼 있다
+2. ID는 Zeplin 웹 URL에서 얻는다. 모르면 사용자에게 화면 이름이나 링크를 요청한다
+   - 이름만 아는 경우 추측하지 않는다 — 같은 이름의 화면이 여러 개 있을 수 있다 (예: "상세"가 다수)
+3. 응답이 크면 `targetLayerName`으로 필요한 레이어만 좁힌다. 컨텍스트를 아끼는 기본 수단이다
+4. 아래 **Spec Extraction Output**의 표 형식으로 결과를 낸다
+
+Zeplin 응답에서 바로 읽을 수 있는 값:
+
+| 필요한 것 | 응답 위치 |
+| :-- | :-- |
+| 색상 | 레이어의 `fills[].color` (r·g·b는 0~255, `a`는 0~1) |
+| 폰트·크기·행간·자간 | 레이어의 `text_styles[].style` (`postscript_name`, `font_size`, `line_height`, `letter_spacing`) |
+| 위치·크기 | 레이어의 `rect` (`x`, `y`, `width`, `height`, `absolute`) |
+| 문구 | 레이어의 `content` |
+
+**색상 견본을 읽을 때 주의:** 스와치 그룹 안에 shape가 여러 개 겹쳐 있을 수 있다.
+가장 마지막(위에 놓인) shape의 fill이 실제 색이다. 첫 번째 값을 그대로 쓰면 틀린다.
+
+MCP 연결 실패(토큰 미설정 등)로 조회가 안 되면, 추측해서 값을 만들어내지 말고
+"zeplin MCP 미연결 — `docs/AI_WORKFLOW.md`의 Zeplin MCP 세팅 참고"라고 보고하고 멈춘다.
+
+**시안이 Zeplin에 없으면** 사용자에게 Figma에서 Zeplin으로 export를 요청한다.
+Figma를 직접 조회하려 시도하지 않는다.
+
+## Spec Extraction Output
+
+Zeplin에서 뽑은 스펙은 **항상 아래 표 형식**으로 낸다. 형식이 매번 달라지면
+`zeplin-ui-verification` 스킬이 구현 화면과 대조할 수 없다.
+
+```markdown
+### 화면: <화면 이름> (Zeplin screen id: 6a65...)
+
+#### 레이아웃
+| 항목 | 시안 값 | 비고 |
+| :-- | :-- | :-- |
+| 루트 컨테이너 | VStack, spacing 12 | |
+| 화면 좌우 여백 | 20 | |
+
+#### 토큰 매핑
+| 항목 | 시안 값 | CHALLA 토큰 |
+| :-- | :-- | :-- |
+| 버튼 배경 | `#FF5A36` | `CHALLAColor.primary` |
+| 버튼 라벨 | SUIT SemiBold 16/20 | `CHALLATypography.body.medium.medium` |
+| 구분선 | `#2B2B2B` | 없음 → **토큰 추가 필요** |
+
+#### 상태 Variant
+| 상태 | 시안에 정의됨 | 스펙 |
+| :-- | :-- | :-- |
+| default / pressed / disabled | ○ / ○ / ✕ | disabled는 시안 없음 — 확인 필요 |
+```
+
+### 토큰 매핑 규칙 (`.claude/rules/design-system.md` 준수)
+
+- 시안의 hex·폰트 원시값을 그대로 스펙에 남기지 말고, `CHALLADesignSystem/Sources/Foundation/`을
+  **Read해서 실제 존재하는 토큰 이름과 대조**한다. 토큰 이름을 추측하지 않는다
+- 대응 토큰이 없으면 하드코딩을 제안하지 말고 **"토큰 추가 필요"로 표시**한다
+- 시안에 없는 상태(disabled, empty, error 등)는 임의로 만들지 말고 "시안 없음 — 확인 필요"로 남긴다
 
 ## Analysis Checklist
 
