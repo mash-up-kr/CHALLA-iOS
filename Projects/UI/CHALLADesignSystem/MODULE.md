@@ -31,8 +31,8 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `CHALLAButtonRole` | 버튼 의미 표시 — variant(생김새)와 조합해 쓴다 (SwiftUI `Button(role:)`과 동일 개념). 현재 `.destructive` 하나. destructive 비활성 디자인은 Figma에 없어 공통 비활성 팔레트로 표시 |
 | `CHALLATextField` | 텍스트필드. 상태 5가지(placeholder/focus/typing/typed/disabled)를 입력값·포커스·활성 여부로 자동 판별. customize: `textAlignment`(기본 중앙) · `typography`(기본 body.medium.medium) · `borderColor`(기본 Primary.yellow, 포커스 테두리+커서 색) |
 | `CHALLATopNavigation` | 탑 내비게이션 바 (높이 70, 상태바 제외). `.main(trailing:)` = 좌측 홈 로고 고정, `.sub(title:leading:trailing:)` = 중앙 타이틀. 슬롯은 `Item.icon(...)`으로 생성 (아이콘 24pt + 터치 40pt, accessibilityLabel 필수) |
-| `CHALLADrawer` | 하단 드로어 레이아웃. 헤더(`.handle` 손잡이 / `.title` 타이틀+닫기) × 콘텐츠 슬롯(@ViewBuilder, 선택) × 버튼(0~2개 + 보조 액션). 버튼 크기·전체 폭·간격·개수는 드로어가 강제 |
-| `CHALLADrawerAction` | 드로어 버튼 한 자리의 내용(글자·variant·role·isEnabled·동작). 보조 액션 자리는 variant 무시하고 항상 텍스트형 |
+| `CHALLADrawer` | 하단 드로어 레이아웃. 헤더(`.handle` 손잡이 / `.title` 타이틀+닫기) × 콘텐츠 슬롯(@ViewBuilder, 선택) × 버튼(0~2개 + 푸터 액션). 버튼 크기·전체 폭·간격·개수는 드로어가 강제 |
+| `CHALLADrawerAction` | 드로어 버튼 한 자리의 내용(글자·variant·role·isEnabled·동작). 푸터 액션 자리는 variant 무시하고 항상 텍스트형 |
 | `CHALLADrawerMessage` | 드로어 콘텐츠 슬롯용 제목+설명 안내 블록 (회원 탈퇴류 반복 패턴 공용화) |
 | `challaDrawer(isPresented:allowsInteractiveDismiss:drawer:)` | 드로어 프레젠테이션 View 확장 — 딤·하단 등장/퇴장 스프링·끌어내려 닫기·딤 탭 닫기. `allowsInteractiveDismiss: false`면 닫기 버튼으로만 닫힘(입력 보호). 네이티브 .sheet 미사용(떠 있는 카드 모양이 안 나옴) |
 

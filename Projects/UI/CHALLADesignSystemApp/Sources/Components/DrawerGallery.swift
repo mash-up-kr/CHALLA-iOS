@@ -22,7 +22,7 @@ struct DrawerGallery: View {
         /// 목록 버튼에 표시할 문구.
         var label: String {
             switch self {
-            case .profilePhoto: "프로필 사진 — 버튼 2 + 보조 액션"
+            case .profilePhoto: "프로필 사진 — 버튼 2 + 푸터 액션"
             case .withdrawConfirm: "회원 탈퇴 확인 — 메시지 + destructive 채움"
             case .withdrawDone: "탈퇴 완료 — 메시지 + 버튼 1"
             case .buttonless: "버튼 0 — 콘텐츠만"
@@ -102,7 +102,7 @@ struct DrawerGallery: View {
                 CHALLADrawerAction("앨범에서 선택", variant: .neutral) { dismiss() },
                 CHALLADrawerAction("프로필 사진 삭제", variant: .neutral, role: .destructive) { dismiss() }
             ],
-            auxiliaryAction: CHALLADrawerAction("보조 액션") { dismiss() }
+            footerAction: CHALLADrawerAction("푸터 액션") { dismiss() }
         )
     }
 
@@ -110,7 +110,7 @@ struct DrawerGallery: View {
         CHALLADrawer(
             header: .handle,
             actions: [CHALLADrawerAction("그래도 탈퇴하기", role: .destructive) { dismiss() }],
-            auxiliaryAction: CHALLADrawerAction("닫기") { dismiss() }
+            footerAction: CHALLADrawerAction("닫기") { dismiss() }
         ) {
             CHALLADrawerMessage("모든 기록이 사라져요", description: "탈퇴 시 참여 중이던 방에서 나가져요")
         }

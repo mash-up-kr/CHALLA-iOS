@@ -39,7 +39,7 @@ public struct CHALLADrawerMessage: View {
     CHALLADrawer(
         header: .handle,
         actions: [CHALLADrawerAction("그래도 탈퇴하기", role: .destructive) {}],
-        auxiliaryAction: CHALLADrawerAction("닫기") {}
+        footerAction: CHALLADrawerAction("닫기") {}
     ) {
         CHALLADrawerMessage("모든 기록이 사라져요", description: "탈퇴 시 참여 중이던 방에서 나가져요")
     }
