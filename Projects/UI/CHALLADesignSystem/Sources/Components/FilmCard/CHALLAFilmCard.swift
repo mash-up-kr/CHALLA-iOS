@@ -80,13 +80,16 @@ public struct CHALLAFilmCard: View {
     /// 사진을 낱장 크기에 꽉 채운다.
     /// scaledToFill은 짧은 변을 맞추느라 긴 변이 카드 밖으로 넘치므로,
     /// Color.clear가 카드 크기를 잡고 사진은 overlay로 얹어 넘친 만큼 잘라낸다.
-    /// blur는 잘라내기 전에 걸어야 가장자리가 투명하게 번지지 않는다.
+    /// blur는 가장자리 픽셀을 바깥(빈 공간)과 섞어 투명하게 번지게 하므로,
+    /// blur일 땐 사진을 번짐 폭만큼 사방으로 키워 그려(음수 패딩) 번지는 가장자리를
+    /// 카드 밖으로 밀어낸 뒤 잘라낸다 — 카드 경계가 끝까지 불투명하게 유지된다.
     private func fillPhoto(_ photo: Image, blurred: Bool) -> some View {
         Color.clear
             .overlay {
                 photo
                     .resizable()
                     .scaledToFill()
+                    .padding(blurred ? -FilmCardMetric.blurEdgeBleed : 0)
                     .blur(radius: blurred ? FilmCardMetric.photoBlurRadius : 0)
             }
             .clipped()
@@ -164,6 +167,9 @@ private enum FilmCardMetric {
     /// 인화대기·더보기 사진의 blur 강도.
     /// Figma backdrop-blur 27px — SwiftUI blur와 수치 체계가 달라 시각 근사값. 디자이너 검수로 확정한다.
     static let photoBlurRadius: CGFloat = 13.5
+    /// blur의 가장자리 번짐 폭 — 이만큼 사진을 사방으로 키워 그린 뒤 잘라낸다.
+    /// 번짐은 시각적으로 blur 반경의 최대 2배까지 미치므로 ×2로 잡는다.
+    static let blurEdgeBleed: CGFloat = photoBlurRadius * 2
     /// blur 위에 얹는 흰색 막 (Figma rgba(255,255,255,0.05)).
     static let veilOpacity: Double = 0.05
     /// "+N" 글자 그림자 (Figma text-shadow 0 0 8 / 25%).
