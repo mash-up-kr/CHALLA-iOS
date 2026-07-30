@@ -80,12 +80,12 @@ public struct CHALLATopNavigation: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: Metric.barHeight)
+        .frame(height: TopNavigationMetric.barHeight)
     }
 
     /// main: 로고 왼쪽 정렬 + 우측 아이콘.
     private func mainBar(trailing: Item?) -> some View {
-        HStack(spacing: Metric.contentSpacing) {
+        HStack(spacing: TopNavigationMetric.contentSpacing) {
             // Dirtyline은 소문자를 스타일된 대문자꼴로 그린다 — Figma 원문도 "home"
             Text("home")
                 .challaFont(.heading.home)
@@ -96,7 +96,7 @@ public struct CHALLATopNavigation: View {
                 iconSlot(trailing)
             }
         }
-        .padding(.horizontal, Metric.horizontalPadding)
+        .padding(.horizontal, TopNavigationMetric.horizontalPadding)
     }
 
     /// sub: 타이틀은 좌우 슬롯 유무와 무관하게 항상 화면 중앙 (Figma도 절대 위치 중앙).
@@ -110,7 +110,7 @@ public struct CHALLATopNavigation: View {
                 .lineLimit(1)
                 // 타이틀 가용 폭에서 좌우의 아이콘 구역(가장자리 여백 16 + 터치 박스 40)을 제외한다
                 // — 긴 타이틀은 아이콘에 닿기 전에 말줄임으로 잘린다.
-                .padding(.horizontal, Metric.horizontalPadding + Metric.touchArea)
+                .padding(.horizontal, TopNavigationMetric.horizontalPadding + TopNavigationMetric.touchArea)
                 .accessibilityAddTraits(.isHeader) // 로터 헤더 탐색 대상
                 .accessibilitySortPriority(2)
             HStack {
@@ -124,7 +124,7 @@ public struct CHALLATopNavigation: View {
                         .accessibilitySortPriority(1)
                 }
             }
-            .padding(.horizontal, Metric.horizontalPadding)
+            .padding(.horizontal, TopNavigationMetric.horizontalPadding)
         }
     }
 
@@ -133,8 +133,8 @@ public struct CHALLATopNavigation: View {
     private func iconSlot(_ item: Item) -> some View {
         Button(action: item.action) {
             item.icon.image(size: .size24, color: CHALLAColor.Label.neutral) // Figma 실측 색
-                .frame(width: Metric.touchArea, height: Metric.touchArea)
-                .contentShape(Rectangle().expandedToHitTarget(from: Metric.touchArea))
+                .frame(width: TopNavigationMetric.touchArea, height: TopNavigationMetric.touchArea)
+                .contentShape(Rectangle().expandedToHitTarget(from: TopNavigationMetric.touchArea))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(item.accessibilityLabel)
@@ -143,7 +143,7 @@ public struct CHALLATopNavigation: View {
 
 // MARK: - Figma 실측값
 
-private enum Metric {
+private enum TopNavigationMetric {
     /// 바 높이 (상태바 제외).
     static let barHeight: CGFloat = 70
     /// 좌우 가장자리 패딩.

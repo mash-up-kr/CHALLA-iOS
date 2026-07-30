@@ -51,8 +51,8 @@ public struct CHALLATextField: View {
             .foregroundStyle(isEnabled ? CHALLAColor.Label.normal : CHALLAColor.Label.disabled)
             .tint(borderColor)
             .focused($isFocused)
-            .padding(.horizontal, Metric.contentPadding)
-            .frame(height: typography.lineHeight + Metric.contentPadding * 2)
+            .padding(.horizontal, TextFieldMetric.contentPadding)
+            .frame(height: typography.lineHeight + TextFieldMetric.contentPadding * 2)
             .background {
                 RoundedRectangle(cornerRadius: CHALLARadius.large)
                     .fill(CHALLAColor.Background.level2)
@@ -60,7 +60,7 @@ public struct CHALLATextField: View {
             .overlay {
                 if isFocused {
                     RoundedRectangle(cornerRadius: CHALLARadius.large)
-                        .strokeBorder(borderColor, lineWidth: Metric.focusBorderWidth)
+                        .strokeBorder(borderColor, lineWidth: TextFieldMetric.focusBorderWidth)
                 }
             }
             // 글자 영역 밖 패딩을 눌러도 포커스되도록 박스 전체를 탭 영역으로 만든다.
@@ -85,7 +85,7 @@ public struct CHALLATextField: View {
 
 // MARK: - Figma 실측값
 
-private enum Metric {
+private enum TextFieldMetric {
     /// inputbox 내부 패딩 (전방향 16).
     static let contentPadding: CGFloat = 16
     /// focus·typing 상태의 테두리 두께.

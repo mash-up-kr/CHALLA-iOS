@@ -40,6 +40,12 @@ public enum CHALLAColor {
         public static let destructive = Color(hex: "ED4C4C")
     }
 
+    /// Fill 팔레트 (채움 요소)
+    public enum Fill {
+        /// 드로어 상단의 손잡이 막대 — "끌어서 닫을 수 있음" 표시 (Figma: Fill/60)
+        public static let drawerHandle = Color(hex: "6C6F81")
+    }
+
     /// Line 팔레트 (구분선, 반투명)
     public enum Line {
         public static let normal = Color(hex: "818181", opacity: 0.22)

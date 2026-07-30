@@ -10,6 +10,8 @@ import SwiftUI
 ///     store.send(.nextTapped)
 /// }
 /// .disabled(!canProceed)
+///
+/// CHALLATextButton("그래도 탈퇴하기", role: .destructive) { store.send(.withdrawTapped) }
 /// ```
 public struct CHALLATextButton: View {
 
@@ -20,7 +22,9 @@ public struct CHALLATextButton: View {
 
     private let title: String
     private let variant: CHALLAButtonVariant
+    private let role: CHALLAButtonRole?
     private let size: CHALLAButtonSize
+    private let isFullWidth: Bool
     private let leadingIcon: CHALLAIcon?
     private let trailingIcon: CHALLAIcon?
     private let action: () -> Void
@@ -28,14 +32,18 @@ public struct CHALLATextButton: View {
     public init(
         _ title: String,
         variant: CHALLAButtonVariant = .primary,
+        role: CHALLAButtonRole? = nil,
         size: CHALLAButtonSize = .large,
+        isFullWidth: Bool = false,
         leadingIcon: CHALLAIcon? = nil,
         trailingIcon: CHALLAIcon? = nil,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.variant = variant
+        self.role = role
         self.size = size
+        self.isFullWidth = isFullWidth
         self.leadingIcon = leadingIcon
         self.trailingIcon = trailingIcon
         self.action = action
@@ -57,13 +65,15 @@ public struct CHALLATextButton: View {
             .foregroundStyle(contentColor)
             .padding(.horizontal, size.horizontalPadding)
             .frame(height: size.height)
-            .challaButtonBackground(variant: variant, size: size, isEnabled: isEnabled)
+            // 배경 모디파이어보다 앞에 있어야 배경·터치 영역이 함께 늘어난다
+            .frame(maxWidth: isFullWidth ? .infinity : nil)
+            .challaButtonBackground(variant: variant, role: role, size: size, isEnabled: isEnabled)
         }
         .buttonStyle(.plain)
     }
 
     private var contentColor: Color {
-        variant.contentColor(isEnabled: isEnabled)
+        variant.contentColor(role: role, isEnabled: isEnabled)
     }
 }
 
@@ -75,6 +85,8 @@ public struct CHALLATextButton: View {
         CHALLATextButton("비활성 버튼", size: .medium) {}
             .disabled(true)
         CHALLATextButton("작은 버튼", variant: .neutral, size: .small, leadingIcon: .check) {}
+        CHALLATextButton("그래도 탈퇴하기", role: .destructive) {}
+        CHALLATextButton("프로필 사진 삭제", variant: .neutral, role: .destructive) {}
     }
     .padding()
     .background(CHALLAColor.Background.surface)

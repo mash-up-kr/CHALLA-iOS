@@ -8,13 +8,14 @@ import SwiftUI
 /// - HIG 최소 터치 타깃(44pt) 미달 크기는 히트 영역만 보이지 않게 확장한다
 struct CHALLAButtonBackgroundModifier: ViewModifier {
     let variant: CHALLAButtonVariant
+    let role: CHALLAButtonRole?
     let size: CHALLAButtonSize
     let isEnabled: Bool
 
     func body(content: Content) -> some View {
         content
             .background {
-                if let background = variant.backgroundColor(isEnabled: isEnabled) {
+                if let background = variant.backgroundColor(role: role, isEnabled: isEnabled) {
                     RoundedRectangle(cornerRadius: size.radius)
                         .fill(background)
                 }
@@ -30,11 +31,13 @@ struct CHALLAButtonBackgroundModifier: ViewModifier {
 /// 다른 수정자들처럼 .challaButtonBackground(...) 점 문법으로 쓰게 하는 통로다.
 extension View {
     /// 버튼 배경과 터치 영역 규칙을 적용한다 (상세: CHALLAButtonBackgroundModifier).
+    /// role 기본값이 nil이라 destructive가 필요 없는 호출부(아이콘 버튼 등)는 기존 그대로 쓴다.
     func challaButtonBackground(
         variant: CHALLAButtonVariant,
+        role: CHALLAButtonRole? = nil,
         size: CHALLAButtonSize,
         isEnabled: Bool
     ) -> some View {
-        modifier(CHALLAButtonBackgroundModifier(variant: variant, size: size, isEnabled: isEnabled))
+        modifier(CHALLAButtonBackgroundModifier(variant: variant, role: role, size: size, isEnabled: isEnabled))
     }
 }
