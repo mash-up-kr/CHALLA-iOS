@@ -48,7 +48,7 @@ struct CHALLATypographyTests {
     @Test("lineBoxInset은 시안 행간과 크기 차이의 절반이다")
     func lineBoxInsetMatchesChallaFontPadding() {
         // challaFont는 (lineHeight - size)를 lineSpacing으로 주고, 그 절반씩을 위아래 패딩으로 넣는다.
-        // 리스트 행·섹션 헤더가 시안 간격에서 이 값을 빼서 보정하므로, 어긋나면 레이아웃이 조용히 밀린다.
+        // 리스트 행이 시안 간격에서 이 값을 빼서 보정하므로, 어긋나면 레이아웃이 조용히 밀린다.
         #expect(CHALLATypography.body.medium.medium.lineBoxInset == 2) // 16/20
         #expect(CHALLATypography.body.xsmall.bold.lineBoxInset == 1) // 14/16
         #expect(CHALLATypography.body.large.regular.lineBoxInset == 3) // 18/24

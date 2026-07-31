@@ -17,7 +17,7 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material) + `defaultTheme` — 사용자가 고르는 테마 색의 기본값(레몬에이드=`Primary.yellow`). 강조 요소(리스트 값 글자·스위치 켜짐·텍스트필드 포커스 테두리)가 이 색을 따른다 |
 | `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`). `lineBoxInset`은 `challaFont`가 글자 상자 위아래에 더하는 여백 — 시안 간격을 옮길 때 이 값을 빼서 보정한다 |
 | `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12) |
-| `CHALLAIcon` | 아이콘 토큰 20종 + `Size`(16~32pt) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
+| `CHALLAIcon` | 아이콘 토큰 21종 + `Size`(16~32pt) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
 | `CHALLAHitTarget` | HIG 최소 터치 타깃(44pt) 정책 — `minimum` + `inset(for:)` + 도형 확장 헬퍼 `expandedToHitTarget(from:)`. DS 컴포넌트로 담기 애매한 Feature의 일회성 탭 요소에도 사용 |
 | `CHALLAFontRegister` | 커스텀 폰트 등록. 앱 진입점(@main) init에서 1회 호출 |
 
@@ -37,7 +37,7 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `challaDrawer(isPresented:allowsInteractiveDismiss:drawer:)` | 드로어 프레젠테이션 View 확장 — 딤·하단 등장/퇴장 스프링·끌어내려 닫기·딤 탭 닫기. `allowsInteractiveDismiss: false`면 닫기 버튼으로만 닫힘(입력 보호). 네이티브 .sheet 미사용(떠 있는 카드 모양이 안 나옴) |
 | `CHALLAListRow` | 리스트 행 (높이 52, 설명을 넣으면 74). 이니셜라이저 2종 — 탭 행 `init(_:description:icon:iconColor:accessory:themeColor:action:)` / 토글 행 `init(_:description:icon:iconColor:themeColor:isOn:)`. 아이콘 18pt, 이름 `.body.medium.medium`, 설명 `.body.xsmall.medium`. 제목·설명은 한 줄 고정(말줄임) |
 | `CHALLAListRowAccessory` | 탭 행의 우측 요소. `.arrow` · `.arrow(value:)` · `.check(isSelected:)` · `.empty` |
-| `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음 |
+| `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음. 제목이 있으면 헤더 블록 44 고정(위 16 + 글자 상자 16 + 아래 12), 제목은 한 줄 고정(말줄임) |
 
 버튼·텍스트필드 비활성화는 별도 파라미터 없이 SwiftUI 표준 `.disabled(_:)`로 제어한다
 (내부에서 `@Environment(\.isEnabled)`를 읽어 비활성 색을 적용).
@@ -65,9 +65,16 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
   버튼이 중첩돼 VoiceOver가 두 번 멈춘다. **보이는 결과는 같다**(Transparent는 배경 없음) —
   시안과 달라 보여도 되돌리지 말 것.
 - `challaFont`의 행간 보정(`lineBoxInset`)은 **`Text` 높이가 폰트 크기와 같다고 가정한다.**
-  실제 `Text`는 폰트의 자연 행높이로 잡히므로, 시안 간격을 그대로 재현한다는 보장은 없다
-  (예: 섹션 헤더 블록 44 = 16 + 16 + 12). 상수끼리 비교하는 유닛테스트로는 잡을 수 없고,
-  화면에서 실제 frame을 재야 확인된다.
+  실제 `Text`는 폰트의 자연 행높이로 잡힌다 (SUIT 14pt는 토큰의 16이 아니라 약 17.7).
+  - **섹션 헤더는 이 가정을 더 이상 쓰지 않는다** — 글자 상자를 `lineHeight`로 못 박아
+    블록 44를 산술로 확정했다. 회귀는 `CHALLAListSectionLayoutTests`가 실제 레이아웃을 재서 막는다
+  - **`CHALLAListRow`의 제목–설명 간격(6)은 아직 이 가정을 쓴다.** 설명 토큰이 같은 14/16이라
+    실제로는 약 6.8로 벌어진다. 행 높이가 74로 고정이라 카드 높이에는 누적되지 않고
+    라벨이 행 안에서 약 0.4씩 어긋나는 정도라 그대로 뒀다
+  - 상수끼리 비교하는 유닛테스트로는 잡을 수 없다. 화면에서 실제 frame을 재야 확인된다
+- 리스트 행·섹션 헤더 높이는 시안 수치로 **고정**이라 Dynamic Type을 따라 늘어나지 않는다.
+  글자는 잘리지 않고 여백으로 번져 나가지만, 접근성 큰 글자에서는 시안대로 보이지 않는다.
+  → 확대 대응은 컴포넌트 하나가 아니라 DS 전체가 함께 정해야 할 별도 작업이다.
 
 ## 의존 관계
 
@@ -92,4 +99,6 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
   - `CHALLATypographyTests` — 타이포 토큰의 크기·행간 불변식, `lineBoxInset` 계산,
     리스트 행 높이가 전제하는 토큰 수치 고정
   - `CHALLAListRowAccessoryTests` — 행 우측 요소가 값을 잃지 않는지
+  - `CHALLAListSectionLayoutTests` — 섹션 카드를 실제로 레이아웃해서 헤더 블록 44 ·
+    설정 화면 첫 카드 168을 잰다 (폰트 고유 줄 높이에 밀려 카드가 부풀지 않는지)
   - 버튼 색 매핑(`CHALLAButtonVariant`) 등 나머지 순수 로직 검증은 추가 예정
