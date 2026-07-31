@@ -128,3 +128,9 @@ PR 생성 시 `pull_request_template`을 사용합니다.
 - `Screenshot` : UI 작업은 스크린샷을 첨부합니다. (특히 디자인 시스템/화면 작업)
 - `To Reviewers` : 리뷰어가 집중해서 봐야 할 지점을 명시합니다.
 - PR 제목은 커밋 컨벤션과 동일한 형식(`[Type] #n - 내용`)을 권장합니다.
+
+---
+
+## 5. 주석 컨벤션
+
+Swift 주석(doc comment · MARK · 인라인) 규칙은 [`.claude/rules/comment-style.md`](../.claude/rules/comment-style.md)를 따릅니다.
