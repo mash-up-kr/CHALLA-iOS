@@ -21,6 +21,8 @@ struct FilmCardGallery: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    // MARK: - Type 섹션
+
     /// Type 4종 검수 — 시안 기본 폭(82) 고정.
     private var typeSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -44,6 +46,8 @@ struct FilmCardGallery: View {
         }
     }
 
+    // MARK: - 필름 숫자 순서 섹션
+
     /// 필름 숫자 순서 true/false 검수 (Figma Bool 속성).
     private var slotNumberSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -64,6 +68,8 @@ struct FilmCardGallery: View {
         }
     }
 
+    // MARK: - Width 섹션
+
     /// 폭 대응 검수 — width를 넘기지 않으면 그리드가 나눠준 폭을 그대로 채운다 (방 상세 시뮬레이션).
     /// 기기·회전을 바꿔가며 낱장이 3:4를 유지하는지, 순번·+N이 어색하지 않은지 확인한다.
     private var widthSection: some View {
@@ -82,6 +88,8 @@ struct FilmCardGallery: View {
             }
         }
     }
+
+    // MARK: - 공통 헬퍼
 
     /// picsum 실사진을 받아 낱장에 주입한다. seed가 같으면 같은 사진이 온다.
     /// 로딩 중에도 낱장과 같은 크기 규칙의 자리를 잡아 레이아웃이 튀지 않게 한다.

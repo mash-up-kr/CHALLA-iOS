@@ -10,6 +10,8 @@ import SwiftUI
 /// ```
 public struct CHALLAAvatar: View {
 
+    // MARK: - 프로퍼티와 init
+
     private let photo: Image?
     private let size: CGFloat
 
@@ -20,6 +22,8 @@ public struct CHALLAAvatar: View {
         self.photo = photo
         self.size = size
     }
+
+    // MARK: - Body
 
     public var body: some View {
         CHALLAColor.Background.level2
@@ -46,7 +50,7 @@ public struct CHALLAAvatar: View {
     }
 }
 
-// MARK: - 수치
+// MARK: - Figma 실측값
 
 private enum AvatarMetric {
     /// 사진 없을 때 person 아이콘이 지름에서 차지하는 비율 (시안 육안 근사값 — 디자이너 검수로 확정).

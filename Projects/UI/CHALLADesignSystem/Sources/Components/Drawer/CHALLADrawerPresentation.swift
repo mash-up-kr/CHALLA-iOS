@@ -9,12 +9,16 @@ import UIKit // 키보드 내림(resignFirstResponder) 전용 — SwiftUI에는 
 /// 커스텀으로 가면서 시스템이 주던 딤·등장 애니메이션·끌어서 닫기를 여기서 직접 구현한다.
 struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
 
+    // MARK: - 프로퍼티
+
     @Binding var isPresented: Bool
     let allowsInteractiveDismiss: Bool
     @ViewBuilder let drawerContent: () -> DrawerContent
 
     /// 손가락으로 끌어내린 거리. 손을 떼면 0으로 복귀하거나(제자리) 닫힌다.
     @State private var dragOffset: CGFloat = 0
+
+    // MARK: - Body
 
     func body(content: Content) -> some View {
         content
@@ -38,6 +42,8 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
                 )
             }
     }
+
+    // MARK: - 딤 · 드로어 · 닫기 제스처
 
     private var dim: some View {
         CHALLAColor.Material.dimmer
@@ -85,6 +91,8 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
     }
 }
 
+// MARK: - Figma 실측값
+
 /// 제네릭 타입(Modifier<DrawerContent>) 안에는 static 저장 프로퍼티를 둘 수 없어 파일 레벨에 둔다.
 private enum DrawerPresentationMetric {
     /// 디바이스 기준 좌우·하단 여백 (Figma Drawer 명세)
@@ -94,6 +102,8 @@ private enum DrawerPresentationMetric {
     /// 등장/퇴장·드래그 복귀 공통 스프링. 실기기 검수 후 이 값 하나만 조정하면 된다.
     static let spring = Animation.spring(response: 0.35, dampingFraction: 0.85)
 }
+
+// MARK: - challaDrawer
 
 /// 기능은 위 Modifier에 있고, 이 extension은 다른 프레젠테이션 API(.sheet 등)처럼
 /// .challaDrawer(...) 점 문법으로 쓰게 하는 통로다.

@@ -13,6 +13,8 @@ import SwiftUI
 /// ```
 public struct CHALLAFilmCard: View {
 
+    // MARK: - 공개 타입
+
     /// 낱장 상태 (Figma Type 속성).
     public enum Variant {
         /// 촬영 전 — 사진이 없는 빈 슬롯. dashed 테두리만 그린다.
@@ -25,9 +27,13 @@ public struct CHALLAFilmCard: View {
         case more(photo: Image, count: Int)
     }
 
+    // MARK: - 표기 규칙
+
     /// 가로:세로 필름 비율. 세로를 직접 받지 않고 항상 가로 ÷ 이 값으로 계산해
     /// 어떤 폭에서도 필름 모양이 깨지지 않게 한다. (Figma 실측 82 × 109.33 = 3:4)
     public static let aspectRatio: CGFloat = 3.0 / 4.0
+
+    // MARK: - 프로퍼티와 init
 
     private let variant: Variant
     private let slotNumber: Int?
@@ -44,6 +50,8 @@ public struct CHALLAFilmCard: View {
         self.slotNumber = slotNumber
         self.width = width
     }
+
+    // MARK: - Body
 
     public var body: some View {
         if let width {
@@ -77,7 +85,6 @@ public struct CHALLAFilmCard: View {
         }
     }
 
-    /// 사진을 낱장 크기에 꽉 채운다.
     /// scaledToFill은 짧은 변을 맞추느라 긴 변이 카드 밖으로 넘치므로,
     /// Color.clear가 카드 크기를 잡고 사진은 overlay로 얹어 넘친 만큼 잘라낸다.
     /// blur는 가장자리 픽셀을 바깥(빈 공간)과 섞어 투명하게 번지게 하므로,
@@ -100,7 +107,7 @@ public struct CHALLAFilmCard: View {
             }
     }
 
-    /// 필름 순번 (왼쪽 아래). 촬영 전엔 빈 슬롯이라 어두운 색을 쓴다.
+    /// 촬영 전엔 빈 슬롯이라 순번을 어두운 색으로 쓴다.
     @ViewBuilder
     private var numberLabel: some View {
         if let slotNumber, !isMore {
@@ -111,7 +118,6 @@ public struct CHALLAFilmCard: View {
         }
     }
 
-    /// 더보기의 "+N" (중앙).
     @ViewBuilder
     private var moreLabel: some View {
         if case .more(_, let count) = variant {
@@ -148,6 +154,7 @@ public struct CHALLAFilmCard: View {
         return false
     }
 
+    /// VoiceOver가 읽을 한 문장.
     private var accessibilityDescription: String {
         let order = slotNumber.map { "\($0)번 " } ?? ""
         return switch variant {

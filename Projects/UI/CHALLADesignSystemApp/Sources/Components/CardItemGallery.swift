@@ -22,6 +22,8 @@ struct CardItemGallery: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    // MARK: - Photo 섹션
+
     /// 사진 유무 검수 — 딤 그라데이션 위 글자 가독성과 사진 없는 바닥색 확인.
     private var photoSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -34,6 +36,8 @@ struct CardItemGallery: View {
             CHALLACardItem(title: "이제 막 만든 방", memberCount: 1, photoCount: 0, photo: nil)
         }
     }
+
+    // MARK: - Text 섹션
 
     /// 제목 길이·숫자 자릿수 검수 — 줄바꿈과 뱃지 폭 변화 확인.
     private var textSection: some View {
@@ -50,6 +54,8 @@ struct CardItemGallery: View {
             }
         }
     }
+
+    // MARK: - 공통 헬퍼
 
     /// picsum 실사진을 받아 카드에 주입한다. seed가 같으면 같은 사진이 온다.
     /// 로딩 중에도 카드와 같은 크기(200×266)로 자리를 잡아 레이아웃이 튀지 않게 한다.

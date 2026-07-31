@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - CHALLATypography
-
 /// 타이포 토큰 하나의 스펙: 폰트 + 크기 + 줄 높이.
 /// SwiftUI Font에는 줄 높이(lineHeight) 개념이 없어서 별도 타입으로 함께 관리한다.
 public struct CHALLATypography: Sendable {
@@ -15,7 +13,7 @@ public struct CHALLATypography: Sendable {
     public let lineHeight: CGFloat
 }
 
-// MARK: - View Modifier
+// MARK: - challaFont
 
 public extension View {
 

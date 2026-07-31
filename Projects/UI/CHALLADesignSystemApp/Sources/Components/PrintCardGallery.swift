@@ -21,6 +21,8 @@ struct PrintCardGallery: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    // MARK: - Status 섹션
+
     /// 상태 2종 검수 — 칩 색과 낱장 blur/선명이 함께 바뀌는지 확인.
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -38,6 +40,8 @@ struct PrintCardGallery: View {
         }
     }
 
+    // MARK: - Photo Count 섹션
+
     /// 사진 장수 엣지 검수 — 전체 4장 이하(+N 없음), 슬롯보다 적을 때(빈 슬롯).
     private var countSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -54,6 +58,8 @@ struct PrintCardGallery: View {
             }
         }
     }
+
+    // MARK: - 공통 헬퍼
 
     /// picsum 실사진 여러 장을 받아 카드에 주입한다. seed가 같으면 같은 사진이 온다.
     /// 전부 로드될 때까지 스트립 높이만큼 자리를 잡아 레이아웃이 튀지 않게 한다.

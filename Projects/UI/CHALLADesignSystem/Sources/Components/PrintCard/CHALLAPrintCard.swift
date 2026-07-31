@@ -14,6 +14,8 @@ import SwiftUI
 /// ```
 public struct CHALLAPrintCard: View {
 
+    // MARK: - 공개 타입
+
     /// 인화 상태 (Figma 시안의 두 행).
     public enum Status {
         /// 인화 대기 — 칩 회색톤, 낱장 blur.
@@ -21,6 +23,8 @@ public struct CHALLAPrintCard: View {
         /// 인화 완료 — 칩 노랑톤, 낱장 선명.
         case printed
     }
+
+    // MARK: - 프로퍼티와 init
 
     private let status: Status
     private let title: String
@@ -49,6 +53,8 @@ public struct CHALLAPrintCard: View {
         self.totalPhotoCount = totalPhotoCount
     }
 
+    // MARK: - 표기 규칙
+
     /// 전체 장수가 슬롯 수를 넘을 때 마지막 슬롯에 표시할 "+N" 값. 넘지 않으면 nil.
     /// 슬롯 4칸 중 사진 3칸 + 더보기 1칸이 되므로 N = 전체 - 3.
     /// (홈 시안 예: 전체 24장 → 사진 3장 + "+21")
@@ -57,6 +63,8 @@ public struct CHALLAPrintCard: View {
         guard totalPhotoCount > slotCount else { return nil }
         return totalPhotoCount - (slotCount - 1)
     }
+
+    // MARK: - Body
 
     public var body: some View {
         VStack(alignment: .leading, spacing: PrintCardMetric.headerStripGap) {
@@ -148,6 +156,7 @@ public struct CHALLAPrintCard: View {
         return status == .printing ? .printing(photo: photo) : .printed(photo: photo)
     }
 
+    /// VoiceOver가 읽을 한 문장.
     private var accessibilityDescription: String {
         let statusName = status == .printing ? "인화 대기" : "인화 완료"
         return "\(title), \(statusName), \(memberCount)명 참여, 사진 \(totalPhotoCount)장"

@@ -20,6 +20,8 @@ import SwiftUI
 /// ```
 public struct CHALLATopNavigation: View {
 
+    // MARK: - 공개 타입
+
     /// 좌우 슬롯에 들어가는 액션.
     public struct Item {
         fileprivate let icon: CHALLAIcon
@@ -44,6 +46,8 @@ public struct CHALLATopNavigation: View {
             Item(icon: icon, accessibilityLabel: accessibilityLabel, action: action)
         }
     }
+
+    // MARK: - 프로퍼티와 init
 
     private enum Variant {
         case main(trailing: Item?)
@@ -70,6 +74,8 @@ public struct CHALLATopNavigation: View {
         Self(variant: .sub(title: title, leading: leading, trailing: trailing))
     }
 
+    // MARK: - Body
+
     public var body: some View {
         Group {
             switch variant {
@@ -82,6 +88,8 @@ public struct CHALLATopNavigation: View {
         .frame(maxWidth: .infinity)
         .frame(height: TopNavigationMetric.barHeight)
     }
+
+    // MARK: - 바 레이아웃
 
     /// main: 로고 왼쪽 정렬 + 우측 아이콘.
     private func mainBar(trailing: Item?) -> some View {

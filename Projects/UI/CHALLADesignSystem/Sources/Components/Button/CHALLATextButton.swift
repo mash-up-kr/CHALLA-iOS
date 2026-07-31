@@ -15,6 +15,8 @@ import SwiftUI
 /// ```
 public struct CHALLATextButton: View {
 
+    // MARK: - 프로퍼티와 init
+
     /// 부모가 건 `.disabled(_:)`가 환경에 기록한 활성 여부를 물려받는다.
     /// 터치 차단(SwiftUI 담당)과 비활성 색 적용(이 뷰 담당)이 항상 같은 상태를 보도록
     /// 별도 isDisabled 파라미터 대신 표준 환경값을 읽는다.
@@ -29,6 +31,15 @@ public struct CHALLATextButton: View {
     private let trailingIcon: CHALLAIcon?
     private let action: () -> Void
 
+    /// - Parameters:
+    ///   - title: 버튼 문구. 한 줄로 고정된다 (넘치면 클리핑).
+    ///   - variant: 배경·글자 색 조합.
+    ///   - role: .destructive면 위험 동작 색으로 바뀐다. nil이면 variant 기본 색.
+    ///   - size: 높이·타이포·패딩 묶음.
+    ///   - isFullWidth: true면 부모가 주는 폭을 가득 채운다 (드로어 버튼처럼 가로를 채우는 자리).
+    ///   - leadingIcon: 문구 앞 아이콘. nil이면 숨긴다.
+    ///   - trailingIcon: 문구 뒤 아이콘. nil이면 숨긴다.
+    ///   - action: 탭했을 때 실행할 동작.
     public init(
         _ title: String,
         variant: CHALLAButtonVariant = .primary,
@@ -48,6 +59,8 @@ public struct CHALLATextButton: View {
         self.trailingIcon = trailingIcon
         self.action = action
     }
+
+    // MARK: - Body
 
     public var body: some View {
         Button(action: action) {

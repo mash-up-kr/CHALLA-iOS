@@ -12,6 +12,8 @@ import SwiftUI
 /// ```
 public struct CHALLACardItem: View {
 
+    // MARK: - 프로퍼티와 init
+
     private let title: String
     private let memberCount: Int
     private let photoCount: Int
@@ -29,6 +31,8 @@ public struct CHALLACardItem: View {
         self.photo = photo
     }
 
+    // MARK: - Body
+
     public var body: some View {
         ZStack {
             background
@@ -42,7 +46,6 @@ public struct CHALLACardItem: View {
 
     // MARK: - 배경
 
-    /// 바닥색 → 사진 → 딤 순서로 쌓는다.
     /// 사진 채움은 FilmCard와 같은 방식 — Color가 크기를 잡고 사진은 overlay로 얹어 넘친 만큼 잘라낸다.
     private var background: some View {
         CHALLAColor.Background.level2
@@ -108,7 +111,6 @@ public struct CHALLACardItem: View {
         }
     }
 
-    /// 촬영 장수 뱃지 (하단 중앙).
     private var badge: some View {
         HStack(spacing: CardItemMetric.badgeContentGap) {
             CHALLAIcon.camera.image(size: .size22, color: CHALLAColor.Static.black)
