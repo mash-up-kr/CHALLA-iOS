@@ -127,10 +127,10 @@ let client = DefaultHTTPClient(
 mise exec -- tuist test CHALLANetwork
 ```
 
-Swift Testing 기반 테스트 29개 (6 suite) — Swift 6 언어 모드에서 통과:
+Swift Testing 기반 테스트 32개 (6 suite) — Swift 6 언어 모드에서 통과:
 - `URLEncodingTests` — 쿼리 인코딩·이스케이프·빈 파라미터
 - `EndpointRequestTests` — Endpoint → URLRequest 변환 (plain·data·JSON·params·multipart)
 - `ResponseTests` — 상태 코드 필터·디코딩·오류 매핑
 - `AuthInterceptorTests` — 토큰 주입·`.none`/토큰 없음
-- `HTTPClientTests` — `URLProtocol` 스텁으로 전체 파이프라인 (성공·404·전송실패·인터셉터 반영·응답 헤더 노출)
-- `CHALLAAPIEnvironmentTests` — Info.plist 값으로 baseURL 조립 (port 생략·비숫자 무시)
+- `HTTPClientTests` — `URLProtocol` 스텁으로 전체 파이프라인 (성공·404·전송실패·취소·인터셉터 반영·응답 헤더 노출)
+- `CHALLAAPIEnvironmentTests` — Info.plist 값으로 baseURL 조립 (port 생략·비숫자 무시·scheme 형식 검사)

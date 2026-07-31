@@ -9,4 +9,5 @@ public enum Environment {
     public static let bundleIdPrefix: String = "com.challa"
     public static let destinations: Destinations = [.iPhone]
     public static let deploymentTarget: DeploymentTargets = .iOS("17.0")
+    public static let swiftVersion: String = "6.0"
 }
