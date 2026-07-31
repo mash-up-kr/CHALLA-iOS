@@ -33,7 +33,7 @@ public struct CHALLATextField: View {
         placeholder: String,
         textAlignment: TextAlignment = .center,
         typography: CHALLATypography = .body.medium.medium,
-        borderColor: Color = CHALLAColor.Primary.yellow
+        borderColor: Color = CHALLAColor.defaultTheme
     ) {
         self._text = text
         self.placeholder = placeholder
