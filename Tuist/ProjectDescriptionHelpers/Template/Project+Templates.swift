@@ -9,6 +9,7 @@ public extension Project {
     ///   - hasResource: 리소스(폰트/애셋) 유무
     ///   - hasTests: 테스트 타깃(<모듈명>Tests, Tests/** 규약) 포함 여부
     ///   - dependencies: 이 모듈(타깃)이 의존하는 대상 (호출부에서 헬퍼로 명시)
+    /// - Swift 언어 모드는 `.challaBase()`가 6.0으로 고정한다 (프로젝트별로 낮출 수 없다).
     static func makeModule(
         name: String,
         hasResource: Bool = false,
@@ -33,6 +34,7 @@ public extension Project {
                 defaultKnownRegions: ["en", "ko"],
                 developmentRegion: "ko"
             ),
+            settings: .challaBase(),
             targets: targets,
             // 리소스가 있을 때만 폰트 접근자/등록 코드를 자동 생성한다.
             // (otf/ttf 폴더를 스캔해 <모듈>FontFamily + registerAllCustomFonts() 를 Derived에 생성)
@@ -50,16 +52,24 @@ public extension Project {
     ///   - marketingVersion: 사용자에게 보이는 버전 (앱마다 독립 — 디자인 시스템 앱과 서비스앱은 별개 앱)
     ///   - buildNumber: 빌드 번호 — 로컬 기본값. CI(Xcode Cloud)에서는 TUIST_BUILD_NUMBER 환경변수가 우선
     ///     (ci_post_clone.sh가 CI_BUILD_NUMBER를 넘겨 업로드마다 자동 증가 — 수동 +1 커밋 불필요)
+    ///   - additionalInfoPlist: 앱별 추가 Info.plist 항목 (URL 스킴 등). 기본 항목과 겹치면 이 값이 이긴다
+    ///   - entitlements: 앱 엔타이틀먼트 (예: Sign in with Apple). 없으면 nil
+    ///   - usesAPIEnvironment: true면 백엔드 서버 Info.plist 값(`API_SCHEME`/`API_HOST`/`API_PORT`)과
+    ///     필요 시 ATS 예외를 자동으로 주입한다 (`Configs/Shared.xcconfig` 기준). 서버를 호출하는 앱만 켠다.
     ///   - dependencies: 앱이 의존하는 대상 (디자인 시스템 앱=DS 모듈, 데모앱=피처+데이터 등)
+    /// - Swift 언어 모드는 `Environment.swiftVersion`(6.0)으로 고정한다 (앱별로 낮출 수 없다).
     static func makeAppProject(
         name: String,
         displayName: String,
         bundleId: String,
         marketingVersion: String,
         buildNumber: String,
+        additionalInfoPlist: [String: Plist.Value] = [:],
+        entitlements: Entitlements? = nil,
+        usesAPIEnvironment: Bool = false,
         dependencies: [TargetDependency] = []
     ) -> Project {
-        let infoPlist: [String: Plist.Value] = [
+        var infoPlist: [String: Plist.Value] = [
             "CFBundleDisplayName": .string(displayName),
             "UILaunchScreen": .dictionary([:]),
             "UISupportedInterfaceOrientations": .array([
@@ -67,18 +77,23 @@ public extension Project {
             ]),
             "ITSAppUsesNonExemptEncryption": .boolean(false)
         ]
+        if usesAPIEnvironment {
+            infoPlist.merge(apiEnvironmentInfoPlist) { _, new in new }
+        }
+        infoPlist.merge(additionalInfoPlist) { _, new in new }
 
         // 빌드 번호: TUIST_BUILD_NUMBER 환경변수가 있으면(CI) 그 값, 없으면(로컬) 파라미터 값.
         // xcconfig 주입이 아닌 generate 시점 결정이라 빌드 설정 우선순위(base > xcconfig)에 안 밀린다.
         // (ProjectDescription. 명시: 우리 헬퍼의 Environment enum과 이름이 겹침)
         let resolvedBuildNumber = ProjectDescription.Environment.buildNumber.getString(default: buildNumber)
 
-        // 서명·버전 빌드 설정. DEVELOPMENT_TEAM은 Configs/Shared.xcconfig에서 주입.
+        // 서명·버전 빌드 설정. DEVELOPMENT_TEAM과 백엔드 서버 값은 Configs/Shared.xcconfig에서 주입.
         let settings: Settings = .settings(
             base: [
                 "CODE_SIGN_STYLE": "Automatic",
                 "MARKETING_VERSION": .string(marketingVersion),
-                "CURRENT_PROJECT_VERSION": .string(resolvedBuildNumber)
+                "CURRENT_PROJECT_VERSION": .string(resolvedBuildNumber),
+                "SWIFT_VERSION": .string(Environment.swiftVersion)
             ],
             configurations: [
                 .debug(name: .debug, xcconfig: .relativeToRoot("Configs/Shared.xcconfig")),
@@ -103,10 +118,34 @@ public extension Project {
                     infoPlist: .extendingDefault(with: infoPlist),
                     sources: ["Sources/**"],
                     resources: ["Resources/**"],
+                    entitlements: entitlements,
                     dependencies: dependencies,
                     settings: settings
                 )
             ]
         )
+    }
+
+    /// 백엔드 서버를 호출하는 앱 타깃 공통 Info.plist 조각.
+    /// `API_SCHEME`/`API_HOST`/`API_PORT` 값은 `Configs/Shared.xcconfig`(gitignore) → `$(API_HOST)` 형태로
+    /// 빌드 타임에 주입된다.
+    /// ATS 예외는 scheme이 `http`일 때만 붙는다 — `Shared.xcconfig`를 `https`로 바꾸면 다음 generate부터 자동으로 사라진다.
+    private static var apiEnvironmentInfoPlist: [String: Plist.Value] {
+        var plist: [String: Plist.Value] = [
+            "API_SCHEME": .string("$(API_SCHEME)"),
+            "API_HOST": .string("$(API_HOST)"),
+            "API_PORT": .string("$(API_PORT)")
+        ]
+        if APIEnvironment.scheme == "http" {
+            plist["NSAppTransportSecurity"] = .dictionary([
+                "NSExceptionDomains": .dictionary([
+                    APIEnvironment.host: .dictionary([
+                        "NSExceptionAllowsInsecureHTTPLoads": .boolean(true),
+                        "NSIncludesSubdomains": .boolean(true)
+                    ])
+                ])
+            ])
+        }
+        return plist
     }
 }

@@ -63,6 +63,14 @@ public enum CHALLAColor {
     public enum Material {
         public static let dimmer = Color(hex: "171719", opacity: 0.52)
     }
+
+    /// Social 팔레트 (소셜 로그인 버튼 브랜드 색)
+    public enum Social {
+        public static let kakao = Color(hex: "FEE503") // 카카오 버튼 배경(신규 원시값)
+        public static let kakaoLabel = Static.black // 카카오 텍스트/아이콘(= #000000)
+        public static let apple = Label.normal // 애플 버튼 배경(= #F7F7F8, 기존 재사용)
+        public static let appleLabel = Static.black // 애플 텍스트/아이콘
+    }
 }
 
 // MARK: - Color(hex:)

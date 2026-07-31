@@ -130,7 +130,7 @@ Zeplin에서 뽑은 스펙은 **항상 아래 표 형식**으로 낸다. 형식�
 ### HIG Compliance
 - [ ] 표준 iOS pattern이 적절히 사용되었는가
 - [ ] 시스템 색상과 material
-- [ ] 타이포그래피 (시스템 폰트, Dynamic Type 지원)
+- [ ] 타이포그래피 (시스템 폰트)
 - [ ] 터치 타겟 크기 (최소 44pt)
 - [ ] 플랫폼 관례 (navigation, gesture)
 
@@ -154,7 +154,6 @@ Zeplin에서 뽑은 스펙은 **항상 아래 표 형식**으로 낸다. 형식�
 - [ ] 접근성 action
 - [ ] Reduce Motion 대안
 - [ ] 색상 대비 관련 고려사항
-- [ ] Dynamic Type 스케일링
 
 ## Apple 문서 확인
 

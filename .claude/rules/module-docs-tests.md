@@ -6,7 +6,7 @@ paths: Projects/**
 
 모든 모듈은 코드와 함께 다음 두 가지를 유지한다.
 
-## MODULE.md (모듈 루트, 예: Projects/Room/RoomDomain/MODULE.md)
+## MODULE.md (모듈 루트, 예: Projects/Room/RoomDomain/MODULE.md · 피처는 Projects/Room/RoomCreate/RoomCreateFeature/MODULE.md)
 
 - 새 모듈을 만들면 MODULE.md를 함께 만든다. 최소 구성:
   - 소속 레이어와 책임 (한두 문단)

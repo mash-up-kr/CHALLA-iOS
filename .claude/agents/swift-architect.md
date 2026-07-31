@@ -54,7 +54,7 @@ feature를 다음 원칙에 따라 평가하세요:
 - [ ] 필요한 feature에 대한 native API 가용성
 - [ ] 권한 요구사항 및 privacy manifest 항목
 - [ ] App Store Review Guidelines 고려사항
-- [ ] 접근성 요구사항 (VoiceOver, Dynamic Type, Reduce Motion)
+- [ ] 접근성 요구사항 (VoiceOver, Reduce Motion)
 
 ## Architecture Decision
 
