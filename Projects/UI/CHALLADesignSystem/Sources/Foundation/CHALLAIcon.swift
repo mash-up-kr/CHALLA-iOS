@@ -20,6 +20,7 @@ public enum CHALLAIcon: String, CaseIterable, Sendable {
     case lightningOff = "LightningOff"
     case lightningOn = "LightningOn"
     case palette = "Palette"
+    case pencilSimple = "PencilSimple"
     case profile = "Profile"
     case setting = "Setting"
     case signOut = "SignOut"
