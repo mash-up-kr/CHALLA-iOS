@@ -49,6 +49,11 @@ jobs:
       - name: Lint
         run: ./Scripts/lint.sh
 
+      # Tuist/Package.swift의 외부 의존성(TCA·카카오 SDK)을 받아둔다.
+      # Tuist/.build는 gitignore라 러너에는 없고, 없으면 generate가 바로 실패한다.
+      - name: Install dependencies
+        run: tuist install
+
       - name: Generate workspace
         run: |
           # 시뮬레이터 빌드는 서명이 필요 없어 팀 ID는 더미로 충분
