@@ -81,9 +81,7 @@ public struct CHALLAProfileBar: View {
             .accessibilityLabel("참여자 \(members.count)명")
             .accessibilityHint(isPresented ? "멤버 목록 닫기" : "멤버 목록 열기")
             .overlay {
-                // 바깥 탭 닫기 (디자이너 확정 스펙) — overlay는 레이아웃 밖이라 바보다
-                // 훨씬 큰 투명 판을 깔 수 있다. 판 탭 = 팝오버 바깥 탭 = 닫기.
-                // 팝오버는 다음 overlay(더 위층)에 있어서 눌러도 여기까지 안 내려온다.
+                // 팝오버 바깥 탭 닫기용 투명 판 (디자이너 확정 스펙)
                 if isPresented {
                     Color.clear
                         .contentShape(Rectangle())
@@ -204,7 +202,7 @@ public struct CHALLAProfileBar: View {
                 }
             }
         }
-        // 내용이 팝오버 최대 높이 안에 들어가면 스크롤·바운스가 저절로 꺼진다.
+        // 내용이 팝오버 최대 높이 이내면 스크롤·바운스를 비활성화한다
         .scrollBounceBehavior(.basedOnSize)
     }
 

@@ -23,18 +23,15 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay {
-                // 켜지면 딤·드로어가 생기고, 꺼지면 각자의 transition대로 사라진다
                 ZStack(alignment: .bottom) {
                     if isPresented {
                         dim
                         drawer
                     }
                 }
-                // isPresented가 바뀔 때만 스프링 (다른 상태 변화엔 안 걸림)
                 .animation(DrawerPresentationMetric.spring, value: isPresented)
             }
-            // 닫힘 시작과 동시에 키보드도 내린다 — 안 내리면 퇴장 애니메이션이 끝난 뒤에야
-            // 텍스트필드가 포커스를 잃어 키보드가 순차로 내려가며 굼떠 보인다
+            // 닫힐 때 키보드를 함께 내린다. 두지 않으면 퇴장 애니메이션이 끝난 뒤에야 키보드가 내려간다.
             .onChange(of: isPresented) { _, isPresented in
                 guard !isPresented else { return }
                 UIApplication.shared.sendAction(
@@ -47,7 +44,7 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
 
     private var dim: some View {
         CHALLAColor.Material.dimmer
-            .ignoresSafeArea() // 화면 끝까지 어둡게 (드로어는 안전 영역 안에 둠)
+            .ignoresSafeArea() // 딤은 safe area 밖까지 덮는다 (드로어는 안전 영역 안)
             .transition(.opacity)
             .onTapGesture {
                 // 딤 탭으로 닫기. allowsInteractiveDismiss가 false면 동작하지 않는다
@@ -62,7 +59,7 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
             .padding(.horizontal, DrawerPresentationMetric.screenMargin)
             // 안전 영역 기준 여백이라 키보드가 올라오면 드로어도 자동으로 따라 올라간다
             .padding(.bottom, DrawerPresentationMetric.screenMargin)
-            .offset(y: max(0, dragOffset)) // 끌린 만큼 아래로 (위로는 안 끌림)
+            .offset(y: max(0, dragOffset)) // 아래 방향 드래그만 반영한다
             .gesture(dragToDismiss) // 드로어 아무 데나 잡고 끌 수 있음
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .accessibilityAddTraits(.isModal) // VoiceOver 탐색 범위를 드로어로 제한

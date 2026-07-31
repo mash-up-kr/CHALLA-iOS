@@ -70,7 +70,7 @@ public struct CHALLATextField: View {
             // 글자 영역 밖 패딩을 눌러도 포커스되도록 박스 전체를 탭 영역으로 만든다.
             .contentShape(RoundedRectangle(cornerRadius: CHALLARadius.large))
             .onTapGesture {
-                // 비활성 상태에선 탭해도 포커스를 주지 않는다 (키보드가 올라오면 안 됨).
+                // 비활성 상태에선 탭해도 포커스를 주지 않는다.
                 // .disabled(_:)는 TextField 입력만 막고, 뷰에 붙인 이 제스처까지는 막아주지 않아서 직접 차단한다.
                 guard isEnabled else { return }
                 isFocused = true
