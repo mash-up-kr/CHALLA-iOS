@@ -28,4 +28,16 @@ struct CHALLAAPIEnvironmentTests {
         let url = CHALLAAPIEnvironment.makeBaseURL(scheme: "https", host: "api.challa.app", port: "not-a-number")
         #expect(url.absoluteString == "https://api.challa.app")
     }
+
+    @Test("RFC 3986 형식을 만족하는 scheme만 통과시킨다")
+    func schemeValidation() {
+        #expect(CHALLAAPIEnvironment.isValidScheme("http"))
+        #expect(CHALLAAPIEnvironment.isValidScheme("https"))
+        #expect(CHALLAAPIEnvironment.isValidScheme("challa-app.v2+x"))
+
+        #expect(!CHALLAAPIEnvironment.isValidScheme(""))
+        #expect(!CHALLAAPIEnvironment.isValidScheme("1http")) // 숫자로 시작
+        #expect(!CHALLAAPIEnvironment.isValidScheme("http://")) // 구분자 포함
+        #expect(!CHALLAAPIEnvironment.isValidScheme("ht tp")) // 공백 포함
+    }
 }

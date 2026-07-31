@@ -60,6 +60,9 @@ public final class DefaultHTTPClient: HTTPClient {
             notifyDidReceive(.failure(error), endpoint: endpoint)
             throw error
         } catch {
+            if error is CancellationError || (error as? URLError)?.code == .cancelled {
+                throw CancellationError()
+            }
             let networkError = NetworkError.transport(underlying: error)
             notifyDidReceive(.failure(networkError), endpoint: endpoint)
             throw networkError
