@@ -45,7 +45,7 @@ public extension Response {
 public extension Response {
 
     /// 응답 본문을 `Decodable` 모델로 디코딩한다.
-    func map<D: Decodable>(_ type: D.Type, using decoder: JSONDecoder = JSONDecoder()) throws -> D {
+    func map<D: Decodable>(_ type: D.Type, using decoder: JSONDecoder) throws -> D {
         do {
             return try decoder.decode(type, from: data)
         } catch {

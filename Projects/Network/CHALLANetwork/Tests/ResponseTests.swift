@@ -5,6 +5,8 @@ import Testing
 @Suite("Response")
 struct ResponseTests {
 
+    private let decoder = JSONDecoder()
+
     private func makeResponse(status: Int, data: Data = Data()) -> Response {
         Response(statusCode: status, data: data)
     }
@@ -42,7 +44,7 @@ struct ResponseTests {
     func mapDecodes() throws {
         struct Model: Decodable, Equatable { let id: Int }
         let response = makeResponse(status: 200, data: Data(#"{"id": 7}"#.utf8))
-        #expect(try response.map(Model.self) == Model(id: 7))
+        #expect(try response.map(Model.self, using: decoder) == Model(id: 7))
     }
 
     @Test("map 실패는 원본 응답을 실은 decoding 오류로 감싼다")
@@ -51,7 +53,7 @@ struct ResponseTests {
         let response = makeResponse(status: 200, data: Data("not json".utf8))
 
         let error = try #require(throws: NetworkError.self) {
-            try response.map(Model.self)
+            try response.map(Model.self, using: decoder)
         }
 
         // 디버깅에 쓰이도록 원문이 오류에 함께 실려야 한다.

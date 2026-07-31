@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "zeplin": {
+      "command": "npx",
+      "args": ["-y", "@zeplin/mcp-server@latest"],
+      "env": {
+        "ZEPLIN_ACCESS_TOKEN": "${ZEPLIN_ACCESS_TOKEN}"
+      }
+    }
+  }
+}

@@ -43,7 +43,7 @@ Repository에 주입해도 안전하다. `Response`는 비-Sendable `HTTPURLResp
 - `protocol AccessTokenAuthorizable` · `enum AuthorizationType`(`.none`/`.bearer`)
 
 ### 실행
-- `protocol HTTPClient` — `request(_:) async throws -> Response`, 편의 `request(_:as:using:)`(2xx 필터 + 디코딩)
+- `protocol HTTPClient` — `decoder: JSONDecoder`(구현체가 한 번 만들어 보관), `request(_:) async throws -> Response`, 편의 `request(_:as:)`(2xx 필터 + `decoder`로 디코딩)
 - `final class DefaultHTTPClient` — `URLSession` 기반 구현 (`init(session:interceptors:)`)
 - `struct Response` — `statusCode` · `data` · `request` · `headers` + `filter(statusCodes:)` · `filterSuccessfulStatusCodes()` · `map(_:using:)`
 
@@ -51,12 +51,15 @@ Repository에 주입해도 안전하다. `Response`는 비-Sendable `HTTPURLResp
 - `protocol Interceptor` — `adapt` · `willSend` · `didReceive` (모두 기본 구현 있음)
 - `struct AuthInterceptor` · `struct LoggingInterceptor`
 - `protocol TokenProvider` — 구현은 `AuthData`
-- `enum NetworkError`
+- `enum NetworkError` — 취소는 여기에 포함되지 않는다. 전송이 취소되면 `NetworkError`로 감싸지 않고
+  `CancellationError`를 그대로 던지며, `Interceptor.didReceive`에도 실패로 통보하지 않는다
+  (취소를 서버 장애로 오인해 재시도·로깅이 잘못 도는 것을 막는다)
 
 ### 서버 환경
 - `enum CHALLAAPIEnvironment` — `static let baseURL: URL`. 도메인마다 서버가 갈리지 않는 한
   모든 Data 모듈(`AuthData`·`RoomData` 등)의 `Endpoint.baseURL`이 공유하는 단일 소스.
-  앱 타깃 Info.plist(`API_SCHEME`/`API_HOST`/`API_PORT`)에서 읽으며, 이 값은
+  앱 타깃 Info.plist(`API_SCHEME`/`API_HOST`/`API_PORT`)에서 읽으며, scheme·host가 비었거나
+  형식이 어긋나면 어느 키가 문제인지 밝힌 `fatalError`로 즉시 중단한다. 이 값은
   `Configs/Shared.xcconfig`(gitignore) → `Project.makeAppProject(usesAPIEnvironment: true)`로 주입된다.
   서버 주소는 공개하지 않는 값이라 git에 올리지 않으며, 신규 클론 시 `Shared.xcconfig.template`를
   복사해 채운다. 서버 이전·HTTPS 전환 시 `Configs/Shared.xcconfig` 한 곳만 고치면
