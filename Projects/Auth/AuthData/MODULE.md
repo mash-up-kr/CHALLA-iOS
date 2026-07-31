@@ -13,7 +13,9 @@
   `NetworkError`와 서버 실패 응답(`success=false`)을 `AuthError`로 정규화 (`DefaultAuthRepository`).
   baseURL은 이 모듈 전용이 아니라 `CHALLANetwork`의 `CHALLAAPIEnvironment.baseURL`(앱 전역 서버 값)을 그대로 쓴다.
 - **소셜 인증** — KakaoSDK(OIDC idToken, 카카오톡 미설치 시 계정 로그인 폴백)와
-  AuthenticationServices(Apple)를 `@MainActor` 서비스로 감싸고, 사용자 취소를 `.cancelled`로 매핑
+  AuthenticationServices(Apple)를 `@MainActor` 서비스로 감싸고, 사용자 취소를 `.cancelled`로 매핑.
+  Task 취소도 함께 처리한다 — 콜백 기반 SDK를 감싼 continuation이 취소 후에도 매달리지 않도록
+  `withTaskCancellationHandler`로 풀어주고(Apple은 시트도 닫는다), 뒤늦게 오는 SDK 콜백은 무시한다
 - **토큰 저장** — `KeychainTokenStore`가 Domain의 `TokenStore`와 Network의 `TokenProvider`를
   동시에 구현해, 로그인이 저장한 토큰을 `AuthInterceptor`가 요청마다 읽어가게 연결
   (단, 이 두 접점에 **같은 인스턴스**를 꽂는 배선은 합성 루트의 책임이다)
