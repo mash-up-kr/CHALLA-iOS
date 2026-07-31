@@ -26,7 +26,7 @@ public enum CHALLAColor {
 
     /// Background 팔레트 (표면/레이어 배경, 낮음 → 높음 순)
     public enum Background {
-        public static let surface = Color(hex: "1A1A1A")
+        public static let surface = Color(hex: "111111")
         public static let level1 = Color(hex: "1F1F1F")
         public static let level2 = Color(hex: "242424")
         public static let level3 = Color(hex: "2F2F2F")
@@ -38,6 +38,12 @@ public enum CHALLAColor {
         public static let positive = Color(hex: "00E467")
         public static let cautionary = Color(hex: "FFB200")
         public static let destructive = Color(hex: "ED4C4C")
+    }
+
+    /// Fill 팔레트 (채움 요소)
+    public enum Fill {
+        /// 드로어 상단의 손잡이 막대 — "끌어서 닫을 수 있음" 표시 (Figma: Fill/60)
+        public static let drawerHandle = Color(hex: "6C6F81")
     }
 
     /// Line 팔레트 (구분선, 반투명)
