@@ -6,4 +6,6 @@ public enum CHALLARadius {
     public static let small: CGFloat = 8
     public static let medium: CGFloat = 10
     public static let large: CGFloat = 12
+    /// 프로필 바 멤버 팝오버 실측값.
+    public static let xlarge: CGFloat = 16
 }

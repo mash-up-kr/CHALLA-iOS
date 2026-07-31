@@ -15,6 +15,7 @@ public enum CHALLAIcon: String, CaseIterable, Sendable {
     case check = "Check"
     case circle = "Circle"
     case close = "Close"
+    case copy = "Copy"
     case error = "Error"
     case kakaoTalk = "KakaoTalk"
     case lightningOff = "LightningOff"
