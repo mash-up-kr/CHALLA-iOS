@@ -14,6 +14,9 @@ final class MockHTTPClient: HTTPClient {
         let method: HTTPMethod
     }
 
+    /// `HTTPClient` 요구사항 — 편의 `request(_:as:)`가 디코딩에 쓴다.
+    let decoder = JSONDecoder()
+
     private let result: Result<Response, any Error>
     private let captured = OSAllocatedUnfairLock<[CapturedRequest]>(initialState: [])
 
