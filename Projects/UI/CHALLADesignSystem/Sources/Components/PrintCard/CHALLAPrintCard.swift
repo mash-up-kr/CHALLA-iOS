@@ -177,7 +177,7 @@ private enum PrintCardMetric {
         Slot(center: CGPoint(x: 56.1, y: 65.8), angle: -5.05),
         Slot(center: CGPoint(x: 139.9, y: 64.3), angle: 5.85),
         Slot(center: CGPoint(x: 223.5, y: 65.3), angle: -5.99),
-        Slot(center: CGPoint(x: 306.7, y: 64.2), angle: 0),
+        Slot(center: CGPoint(x: 306.7, y: 64.2), angle: 0)
     ]
 
     /// 홈 스트립의 낱장 폭 (검수 기본 82와 다른 실측값 — 세로 120은 FilmCard가 계산).

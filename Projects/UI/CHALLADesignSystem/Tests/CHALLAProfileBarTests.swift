@@ -12,7 +12,7 @@ struct CHALLAProfileBarTests {
         #expect(CHALLAProfileBar.overflowCount(totalMemberCount: totalMemberCount) == nil)
     }
 
-    // 10명은 경계 직후, 13명은 방 상세 시안 검산값(+4), 100명은 정원 무관 일반화 확인용이다.
+    /// 10명은 경계 직후, 13명은 방 상세 시안 검산값(+4), 100명은 정원 무관 일반화 확인용이다.
     @Test("표기 한도를 넘으면 칩 수는 전체 - 9다", arguments: zip([10, 13, 100], [1, 4, 91]))
     func overflowBeyondLimit(totalMemberCount: Int, expected: Int) {
         #expect(CHALLAProfileBar.overflowCount(totalMemberCount: totalMemberCount) == expected)

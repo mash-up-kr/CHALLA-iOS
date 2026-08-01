@@ -67,7 +67,7 @@ public struct CHALLACardItem: View {
             LinearGradient(
                 stops: [
                     .init(color: CHALLAColor.Static.black.opacity(CardItemMetric.scrimOpacity), location: 0),
-                    .init(color: .clear, location: 1),
+                    .init(color: .clear, location: 1)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -75,7 +75,7 @@ public struct CHALLACardItem: View {
             LinearGradient(
                 stops: [
                     .init(color: CHALLAColor.Primary.yellow.opacity(CardItemMetric.tintOpacity), location: 0),
-                    .init(color: CHALLAColor.Primary.yellow.opacity(0), location: CardItemMetric.tintEnd),
+                    .init(color: CHALLAColor.Primary.yellow.opacity(0), location: CardItemMetric.tintEnd)
                 ],
                 startPoint: .top,
                 endPoint: .bottom

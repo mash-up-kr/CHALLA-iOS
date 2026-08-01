@@ -59,7 +59,7 @@ struct ProfileBarGallery: View {
                 )
             }
             galleryCaption("13명 — 9명 + '+4' 칩")
-            sampleImages(seeds: (1...9).map { "m\($0)" }) { photos in
+            sampleImages(seeds: (1 ... 9).map { "m\($0)" }) { photos in
                 CHALLAProfileBar(
                     members: makeMembers(count: 13, photos: photos),
                     inviteCode: "1928121",
@@ -90,7 +90,7 @@ struct ProfileBarGallery: View {
             // 열린 팝오버가 뒤(아래)에 선언된 형제 뷰에 가려지지 않게 띄운다.
             .zIndex(isFewPresented ? 1 : 0)
             galleryCaption("13명 — 최대 450에서 잘리고 리스트 스크롤")
-            sampleImages(seeds: (1...9).map { "m\($0)" }) { photos in
+            sampleImages(seeds: (1 ... 9).map { "m\($0)" }) { photos in
                 CHALLAProfileBar(
                     members: makeMembers(count: 13, photos: photos),
                     inviteCode: "1928121",
@@ -106,10 +106,14 @@ struct ProfileBarGallery: View {
         // 실제 화면엔 ProfileBar가 하나뿐이다 — 갤러리에서 두 팝오버가 동시에 열려
         // 겹치지 않도록, 하나가 열리면 다른 하나를 닫는다.
         .onChange(of: isFewPresented) { _, isOpen in
-            if isOpen { isManyPresented = false }
+            if isOpen {
+                isManyPresented = false
+            }
         }
         .onChange(of: isManyPresented) { _, isOpen in
-            if isOpen { isFewPresented = false }
+            if isOpen {
+                isFewPresented = false
+            }
         }
     }
 
@@ -117,7 +121,7 @@ struct ProfileBarGallery: View {
 
     /// 앞쪽 멤버는 받은 사진을 쓰고, 모자라면 placeholder(nil).
     private func makeMembers(count: Int, photos: [Image]) -> [CHALLAProfileBar.Member] {
-        (0..<count).map { index in
+        (0 ..< count).map { index in
             CHALLAProfileBar.Member(
                 id: "\(index)",
                 name: sampleNames[index % sampleNames.count],
@@ -128,7 +132,7 @@ struct ProfileBarGallery: View {
 
     private let sampleNames = [
         "부리부리자에몽", "멋쟁이 토마토", "해피하우스", "아이스크림",
-        "다람쥐가방에들어가심", "네가지치즈불닭", "사리곰탕면", "꿀아메리카노", "엄성현",
+        "다람쥐가방에들어가심", "네가지치즈불닭", "사리곰탕면", "꿀아메리카노", "엄성현"
     ]
 
     /// picsum 실사진 여러 장을 받아 뷰에 주입한다 (PrintCardGallery와 같은 방식 — 정사각 100px).

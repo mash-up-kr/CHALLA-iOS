@@ -7,7 +7,7 @@ import Testing
 /// 터치만 어긋나므로, 경계값과 확장 후 최종 크기를 테스트로 고정한다.
 struct CHALLAHitTargetTests {
 
-    // 40은 버튼 small 시각 높이, 43은 홀수 부족분(0.5pt 인셋) 확인용이다.
+    /// 40은 버튼 small 시각 높이, 43은 홀수 부족분(0.5pt 인셋) 확인용이다.
     @Test("44 미만이면 모자란 만큼의 절반씩 인셋한다", arguments: zip(
         [28, 36, 40, 43] as [CGFloat],
         [8, 4, 2, 0.5] as [CGFloat]
