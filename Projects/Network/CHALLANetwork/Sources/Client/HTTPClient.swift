@@ -3,7 +3,7 @@ import Foundation
 /// 엔드포인트를 실제로 전송하는 실행기의 추상.
 ///
 /// Data 레이어(Repository 구현)는 이 프로토콜에만 의존하고,
-/// DIContainer가 `DefaultHTTPClient`(실제 구현) 혹은 Mock을 주입한다.
+/// 합성 루트가 `DefaultHTTPClient`(실제 구현) 혹은 Mock을 주입한다.
 /// `Sendable`이라 TCA `@Dependency` 등 동시성 경계 너머로 안전하게 주입·공유된다.
 public protocol HTTPClient: Sendable {
 

@@ -11,6 +11,19 @@ public struct CHALLATypography: Sendable {
 
     /// Figma에 정의된 줄 높이(pt).
     public let lineHeight: CGFloat
+
+    /// `challaFont(_:)`가 글자 상자 위아래에 각각 더하는 여백.
+    ///
+    /// 시안에 적힌 간격을 코드로 그대로 옮기면 이 여백만큼 벌어져 보인다.
+    /// 시안 값에서 이 값을 빼야 화면에서 시안대로 나온다.
+    ///
+    /// ```swift
+    /// // 시안 간격 6 → 실제로 6으로 보이게
+    /// let spacing = 6 - CHALLATypography.body.medium.medium.lineBoxInset
+    /// ```
+    public var lineBoxInset: CGFloat {
+        max(0, lineHeight - size) / 2
+    }
 }
 
 // MARK: - challaFont

@@ -19,3 +19,6 @@ line_length:
 
 identifier_name:
   min_length: 2             # x, y 등 좌표 변수 허용을 위해 1자만 금지
+
+nesting:
+  type_level: 2              # TCA @ViewAction 패턴: Action 안에 ViewAction/Delegate/Alert 중첩

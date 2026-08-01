@@ -26,14 +26,16 @@ skills: modern-swift, swift-diagnostics
 Tuist 기반 모듈 구조를 따릅니다:
 
 ```
-Projects/<그룹>/<모듈명>/
+Projects/<그룹>/<모듈명>/          # 피처 모듈이면 Projects/<그룹>/<피처명>/<피처명>Feature/
 ├── Project.swift
 ├── Sources/
 ├── Tests/
 └── MODULE.md
 ```
 
-- Feature는 Data를 import하지 않습니다 (DIContainer 주입)
+- 피처 모듈과 그 데모앱(`<피처명>FeatureDemo`)은 `<피처명>` 폴더 하나에 형제로 묶습니다
+
+- Feature는 Data를 import하지 않습니다 (실행 앱의 `CompositionRoot`가 주입)
 - @Dependency 클라이언트의 실제 구현은 Domain 인터페이스(Repository/UseCase)를 거쳐 Data 레이어에 위치합니다
 
 ## Skill Usage (REQUIRED)

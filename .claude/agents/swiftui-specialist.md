@@ -66,7 +66,6 @@ skills: modern-swift, swiftui-patterns
 
 - 플랫폼에 적합한 navigation pattern
 - 시스템 색상과 material
-- Dynamic Type 지원
 - 접근성을 1급 요소로 취급
 - 적절한 햅틱 피드백
 - 표준 iOS gesture
@@ -76,18 +75,20 @@ skills: modern-swift, swiftui-patterns
 Tuist 기반 모듈 구조를 따릅니다:
 
 ```
-Projects/Feature/<모듈명>/
-├── Project.swift
-├── Sources/
-│   ├── <FeatureName>View.swift
-│   └── Components/
-│       └── <Component>View.swift
-├── Tests/
-└── MODULE.md
+Projects/<그룹>/<피처명>/              ← 피처 모듈과 데모앱을 묶는 폴더 (프로젝트 아님)
+├── <피처명>Feature/
+│   ├── Project.swift
+│   ├── Sources/
+│   │   ├── <피처명>View.swift
+│   │   └── Components/
+│   │       └── <Component>View.swift
+│   ├── Tests/
+│   └── MODULE.md
+└── <피처명>FeatureDemo/               ← 이 피처 전용 데모앱 (Mock 주입 · 단독 실행)
 ```
 
 - 공용 UI 컴포넌트·디자인 토큰은 CHALLADesignSystem 모듈에 위치합니다
-- Feature는 Data를 import하지 않습니다 (DIContainer 주입)
+- Feature는 Data를 import하지 않습니다 (실행 앱의 `CompositionRoot`가 주입)
 
 ## Apple 문서 확인
 
