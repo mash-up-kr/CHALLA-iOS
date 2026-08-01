@@ -11,7 +11,7 @@ public struct DefaultAuthRepository: AuthRepository {
     // MARK: - Properties
 
     /// 라이브는 `DefaultHTTPClient`, 테스트는 Mock을 주입한다.
-    let client: any HTTPClient
+    private let client: any HTTPClient
 
     // MARK: - Init
 

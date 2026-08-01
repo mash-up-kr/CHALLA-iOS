@@ -5,6 +5,8 @@ import Testing
 @Suite("Endpoint → URLRequest 변환")
 struct EndpointRequestTests {
 
+    private let encoder = JSONEncoder()
+
     @Test("baseURL·path·method·headers를 반영한다")
     func basicConversion() throws {
         var endpoint = TestEndpoint()
@@ -12,7 +14,7 @@ struct EndpointRequestTests {
         endpoint.method = .get
         endpoint.headers = ["X-Trace": "abc"]
 
-        let request = try endpoint.asURLRequest()
+        let request = try endpoint.asURLRequest(encoder: encoder)
 
         #expect(request.url?.absoluteString == "https://api.example.com/v1/rooms")
         #expect(request.httpMethod == "GET")
@@ -21,7 +23,7 @@ struct EndpointRequestTests {
 
     @Test("requestPlain은 본문이 없다")
     func requestPlain() throws {
-        let request = try TestEndpoint().asURLRequest()
+        let request = try TestEndpoint().asURLRequest(encoder: encoder)
         #expect(request.httpBody == nil)
     }
 
@@ -31,7 +33,7 @@ struct EndpointRequestTests {
         endpoint.method = .post
         endpoint.task = .requestData(Data("raw".utf8))
 
-        let request = try endpoint.asURLRequest()
+        let request = try endpoint.asURLRequest(encoder: encoder)
 
         #expect(request.httpBody == Data("raw".utf8))
     }
@@ -43,7 +45,7 @@ struct EndpointRequestTests {
         endpoint.method = .post
         endpoint.task = .requestJSONEncodable(Body(name: "challa", count: 3))
 
-        let request = try endpoint.asURLRequest()
+        let request = try endpoint.asURLRequest(encoder: encoder)
 
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
         let body = try JSONDecoder().decode(Body.self, from: #require(request.httpBody))
@@ -56,7 +58,7 @@ struct EndpointRequestTests {
         endpoint.path = "/search"
         endpoint.task = .requestParameters(parameters: ["q": "film"], encoding: URLEncoding.default)
 
-        let request = try endpoint.asURLRequest()
+        let request = try endpoint.asURLRequest(encoder: encoder)
 
         #expect(request.url?.absoluteString == "https://api.example.com/search?q=film")
     }
@@ -73,7 +75,7 @@ struct EndpointRequestTests {
         )
         endpoint.task = .uploadMultipart([part])
 
-        let request = try endpoint.asURLRequest()
+        let request = try endpoint.asURLRequest(encoder: encoder)
 
         let contentType = try #require(request.value(forHTTPHeaderField: "Content-Type"))
         #expect(contentType.hasPrefix("multipart/form-data; boundary="))

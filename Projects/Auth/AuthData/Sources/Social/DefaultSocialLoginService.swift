@@ -12,10 +12,9 @@ public struct DefaultSocialLoginService: SocialLoginService {
     public func authenticate(_ provider: AuthProvider) async throws -> SocialCredential {
         switch provider {
         case .kakao:
-            return try await KakaoLoginService().login()
+            let service = await KakaoLoginService()
+            return try await service.login()
         case .apple:
-            // 델리게이트 콜백까지 인스턴스가 살아 있어야 하므로
-            // await 동안 로컬 상수로 강참조를 유지한다.
             let service = await AppleLoginService()
             return try await service.login()
         }

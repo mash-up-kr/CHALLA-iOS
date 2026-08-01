@@ -2,7 +2,7 @@ import Foundation
 
 extension Endpoint {
 
-    func asURLRequest() throws -> URLRequest {
+    func asURLRequest(encoder: JSONEncoder) throws -> URLRequest {
         let url = path.isEmpty ? baseURL : baseURL.appendingPathComponent(path)
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
@@ -19,7 +19,7 @@ extension Endpoint {
             request = try encoding.encode(request, with: parameters)
 
         case let .requestJSONEncodable(value):
-            request = try encodeJSON(value, into: request)
+            request = try encodeJSON(value, into: request, using: encoder)
 
         case let .uploadMultipart(forms):
             request = encodeMultipart(forms, into: request)
@@ -30,10 +30,14 @@ extension Endpoint {
 
     // MARK: - Task별 인코딩
 
-    private func encodeJSON(_ value: any Encodable & Sendable, into request: URLRequest) throws -> URLRequest {
+    private func encodeJSON(
+        _ value: any Encodable & Sendable,
+        into request: URLRequest,
+        using encoder: JSONEncoder
+    ) throws -> URLRequest {
         var request = request
         do {
-            request.httpBody = try JSONEncoder().encode(value)
+            request.httpBody = try encoder.encode(value)
         } catch {
             throw NetworkError.invalidRequest(reason: "JSON 인코딩에 실패했습니다: \(error.localizedDescription)")
         }

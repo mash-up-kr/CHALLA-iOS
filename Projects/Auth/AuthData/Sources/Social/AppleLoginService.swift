@@ -24,22 +24,34 @@ final class AppleLoginService: NSObject {
 
     /// 실패는 전부 `AuthError`로 정규화한다 (사용자 취소 → `.cancelled`).
     func login() async throws -> SocialCredential {
-        try await withCheckedThrowingContinuation { continuation in
-            guard self.continuation == nil else {
-                // TODO: 임의 작성 문구 — 추후 기획 정책 확정 시 교체할 것.
-                continuation.resume(throwing: AuthError.social(reason: "이미 Apple 로그인이 진행 중이에요."))
-                return
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                guard self.continuation == nil else {
+                    // TODO: 임의 작성 문구 — 추후 기획 정책 확정 시 교체할 것.
+                    continuation.resume(throwing: AuthError.social(reason: "이미 Apple 로그인이 진행 중이에요."))
+                    return
+                }
+                self.continuation = continuation
+
+                guard !Task.isCancelled else {
+                    finish(with: .failure(.cancelled))
+                    return
+                }
+
+                let request = ASAuthorizationAppleIDProvider().createRequest()
+                request.requestedScopes = [.fullName, .email] // 서버 요구에 맞춰 조정
+
+                let controller = ASAuthorizationController(authorizationRequests: [request])
+                controller.delegate = self
+                controller.presentationContextProvider = self
+                self.controller = controller
+                controller.performRequests()
             }
-            self.continuation = continuation
-
-            let request = ASAuthorizationAppleIDProvider().createRequest()
-            request.requestedScopes = [.fullName, .email] // 서버 요구에 맞춰 조정
-
-            let controller = ASAuthorizationController(authorizationRequests: [request])
-            controller.delegate = self
-            controller.presentationContextProvider = self
-            self.controller = controller
-            controller.performRequests()
+        } onCancel: {
+            Task { @MainActor in
+                controller?.cancel()
+                finish(with: .failure(.cancelled))
+            }
         }
     }
 
