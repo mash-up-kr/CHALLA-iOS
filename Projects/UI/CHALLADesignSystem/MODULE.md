@@ -61,5 +61,7 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 
 - **시각 검증(1차)**: `CHALLADesignSystemApp` 스킴 실행 → 갤러리에서 Figma와 대조.
   뷰(버튼·아이콘 렌더링)는 유닛테스트 대신 이 갤러리 검수가 테스트를 대신한다
-- **로직 테스트**: 버튼 색 매핑(`CHALLAButtonVariant`) 등 순수 로직의 Swift Testing 검증은
-  테스트 타깃 자동화(이슈 #8) 머지 후 추가 예정
+- **로직 테스트**: 순수 로직은 Swift Testing으로 검증한다 (`CHALLADesignSystem` 스킴 ⌘U).
+  대상은 화면 검수로 못 잡는 계산 — 타이포 행간 보정(`CHALLATypographyTests`),
+  버튼 색 매핑(`CHALLAButtonVariantTests`), hex 파싱(`CHALLAColorHexTests`),
+  히트 타깃 인셋(`CHALLAHitTargetTests`), 더보기·넘침 수량(`CHALLAPrintCardTests`·`CHALLAProfileBarTests`)
