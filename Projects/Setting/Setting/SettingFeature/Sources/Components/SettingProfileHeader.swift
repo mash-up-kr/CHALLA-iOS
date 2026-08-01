@@ -21,7 +21,7 @@ struct SettingProfileHeader: View {
         // 줄 높이를 68로 고정하면 세로 중앙 정렬만으로 나머지도 시안과 맞는다:
         // 아바타 68 → 오프셋 8, 텍스트 44 → 8+12=20(시안 y134), 편집 버튼 54 → 8+7=15(시안 y129).
         HStack(spacing: 0) {
-            avatar
+            ProfileAvatar()
             texts
                 .padding(.leading, Metric.avatarToTextSpacing)
             Spacer(minLength: 0)
@@ -32,23 +32,6 @@ struct SettingProfileHeader: View {
         .padding(.trailing, Metric.trailingPadding)
         .padding(.top, Metric.contentTopInset)
         .padding(.bottom, Metric.blockHeight - Metric.contentTopInset - Metric.contentRowHeight)
-    }
-
-    // MARK: - 아바타
-
-    /// 프로필 사진이 없을 때는 시안의 기본 아바타(회색 원 + 실루엣)를 그린다.
-    /// 사진이 있을 때의 로딩은 이미지 모듈(#25 `CHALLAImageKit`)이 들어온 뒤에 붙인다.
-    private var avatar: some View {
-        Circle()
-            .fill(Metric.avatarBackground)
-            .frame(width: Metric.avatarSize, height: Metric.avatarSize)
-            .overlay {
-                CHALLAIcon.profile.image(
-                    size: .size32,
-                    color: Metric.avatarSilhouette
-                )
-            }
-            .accessibilityHidden(true) // 닉네임이 바로 옆에서 읽히므로 중복 낭독을 막는다
     }
 
     // MARK: - 닉네임 · 이메일
@@ -90,26 +73,14 @@ private enum Metric {
     /// 시안 실측 — 프로필 블록 390×100.
     static let blockHeight: CGFloat = 100
     /// 블록 안의 내용 줄 높이 = 아바타 높이. 시안에서 아바타·텍스트·편집 버튼이 이 줄에 세로 중앙 정렬된다.
-    static let contentRowHeight: CGFloat = 68
+    static let contentRowHeight = ProfileAvatar.size
     /// 블록 위에서 내용 줄까지의 여백 (시안 아바타 y122 − 블록 y114).
     static let contentTopInset: CGFloat = 8
-    static let avatarSize: CGFloat = 68
     /// 아바타 왼쪽 여백. 카드(16)보다 넓다 — 시안 실측값.
     static let leadingPadding: CGFloat = 28
     /// 편집 버튼 터치 영역 오른쪽 여백.
     static let trailingPadding: CGFloat = 20
     static let avatarToTextSpacing: CGFloat = 16
-    /// 닉네임과 이메일 사이. 시안 간격은 4지만 그대로 주면 안 된다 —
-    /// `challaFont`가 두 글자 상자에 각각 위아래 여백(`lineBoxInset`)을 더하므로 그만큼 빼야
-    /// 화면에서 4로 보인다 (`CHALLAListRow`의 제목–설명 간격과 같은 보정).
-    static let nicknameToEmailSpacing: CGFloat = max(
-        0,
-        4 - CHALLATypography.body.medium.bold.lineBoxInset
-            - CHALLATypography.body.medium.regular.lineBoxInset
-    )
+    static let nicknameToEmailSpacing = ProfileTextSpacing.nicknameToEmail
     static let editTouchArea: CGFloat = 54
-
-    /// 기본 아바타 색 — 시안 실측 `#242424` 원 + `#3B3B3B` 실루엣이 각각 토큰과 일치한다.
-    static let avatarBackground = CHALLAColor.Background.level2
-    static let avatarSilhouette = CHALLAColor.Background.level4
 }

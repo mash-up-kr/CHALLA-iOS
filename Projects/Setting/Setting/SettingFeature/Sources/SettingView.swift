@@ -3,6 +3,10 @@ import ComposableArchitecture
 import SwiftUI
 
 /// 설정 화면 — 프로필 헤더 + 설정 항목 카드 3장.
+///
+/// 하위 화면(테마·알림·계정 관리)의 `NavigationStack`을 여기서 소유한다.
+/// 따라서 **App은 이 뷰를 다른 `NavigationStack` 안으로 push 하면 안 된다** —
+/// 중첩 `NavigationStack`은 SwiftUI에서 동작이 깨진다 (`MODULE.md` 참고).
 @ViewAction(for: SettingFeature.self)
 public struct SettingView: View {
 
@@ -13,6 +17,29 @@ public struct SettingView: View {
     }
 
     public var body: some View {
+        NavigationStack(path: $store.scope(state: \.path, action: \.path)) {
+            settingRoot
+        } destination: { store in
+            Group {
+                switch store.case {
+                case let .theme(store):
+                    ThemeView(store: store)
+                case let .notification(store):
+                    NotificationSettingView(store: store)
+                case let .account(store):
+                    AccountView(store: store)
+                }
+            }
+            // 세 화면 모두 `CHALLATopNavigation`을 직접 그리므로 시스템 바를 숨긴다.
+            // 부작용으로 시스템 스와이프 백 제스처가 사라진다 — 뒤로가기는 CaretLeft 버튼으로만 한다
+            // (`MODULE.md`의 "시안 대비 알려진 차이").
+            .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    // MARK: - 루트
+
+    private var settingRoot: some View {
         VStack(spacing: 0) {
             // 시안에 타이틀이 없다 — 뒤로가기 버튼만 있는 sub 바.
             CHALLATopNavigation.sub(
@@ -26,22 +53,27 @@ public struct SettingView: View {
                 // 헤더는 화면 폭을 그대로 쓰고(자체 여백 28/20), 카드만 좌우 16으로 들여쓴다.
                 // 헤더와 첫 카드 사이 간격은 0이다 — 헤더 블록(100)이 끝나는 지점에서 카드가 바로 시작한다.
                 VStack(spacing: 0) {
-                    SettingProfileHeader(profile: store.snapshot?.profile) {
+                    SettingProfileHeader(profile: store.profile) {
                         send(.editProfileButtonTapped)
                     }
 
-                    VStack(spacing: Metric.cardSpacing) {
+                    VStack(spacing: SettingLayout.cardSpacing) {
                         appSettingCard
                         accountCard
                         feedbackCard
                     }
-                    .padding(.horizontal, Metric.horizontalPadding)
+                    .padding(.horizontal, SettingLayout.horizontalPadding)
                 }
-                .padding(.bottom, Metric.bottomPadding)
+                .padding(.bottom, SettingLayout.bottomPadding)
             }
+            // 내용이 화면보다 짧을 때 이유 없이 튀지 않게 한다.
+            .scrollBounceBehavior(.basedOnSize)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .dynamicTypeSize(...SettingLayout.maxDynamicTypeSize)
         .background(CHALLAColor.Background.surface)
+        // 루트도 자기 탑바를 그린다 — 시스템 바를 남겨두면 그 높이만큼 아래로 밀린다.
+        .toolbar(.hidden, for: .navigationBar)
         .onAppear { send(.onAppear) }
         .alert($store.scope(state: \.alert, action: \.alert))
     }
@@ -50,23 +82,20 @@ public struct SettingView: View {
 
     private var appSettingCard: some View {
         CHALLAListSection("앱 설정") {
-            // TODO: 값 글자가 항상 `CHALLAColor.defaultTheme`(yellow)로 그려진다 —
-            // `CHALLAListRow`가 `themeColor`로 칠하는데 여기서 넘기지 않기 때문이다.
-            // 지금은 저장된 테마가 늘 기본값(레몬에이드=yellow)이라 결과가 맞지만,
-            // 테마 선택 화면이 생기면 어긋난다. `AppTheme` → `Primary` 매핑 6쌍이
-            // 확정되면 `themeColor:`를 함께 넘길 것 (`AppTheme.swift` 주석 참고).
+            // 값 글자는 고른 테마 색으로 칠한다 — 테마 화면에서 바꾸면 delegate로 돌아와 함께 바뀐다.
             CHALLAListRow(
                 "테마",
                 icon: .palette,
-                iconColor: Metric.rowIconColor,
-                accessory: .arrow(value: store.themeDisplayName)
+                iconColor: SettingLayout.rowIconColor,
+                accessory: .arrow(value: store.themeDisplayName),
+                themeColor: store.currentTheme.themeColor
             ) {
                 send(.themeRowTapped)
             }
             CHALLAListRow(
                 "알림",
                 icon: .bellSimple,
-                iconColor: Metric.rowIconColor
+                iconColor: SettingLayout.rowIconColor
             ) {
                 send(.notificationRowTapped)
             }
@@ -78,7 +107,7 @@ public struct SettingView: View {
             CHALLAListRow(
                 "계정 관리",
                 icon: .profile,
-                iconColor: Metric.rowIconColor
+                iconColor: SettingLayout.rowIconColor
             ) {
                 send(.accountRowTapped)
             }
@@ -90,35 +119,17 @@ public struct SettingView: View {
             CHALLAListRow(
                 "찰나 응원하기",
                 icon: .carrot,
-                iconColor: Metric.rowIconColor
+                iconColor: SettingLayout.rowIconColor
             ) {
                 send(.supportRowTapped)
             }
             CHALLAListRow(
                 "피드백 보내기",
                 icon: .chatTeardropDots,
-                iconColor: Metric.rowIconColor
+                iconColor: SettingLayout.rowIconColor
             ) {
                 send(.feedbackRowTapped)
             }
         }
     }
-}
-
-// MARK: - Metric
-
-private enum Metric {
-    /// 카드 사이 세로 간격 — 시안 실측 16.
-    static let cardSpacing: CGFloat = 16
-    /// 카드 좌우 여백 — 390 기준 카드 폭 358.
-    static let horizontalPadding: CGFloat = 16
-    static let bottomPadding: CGFloat = 24
-
-    /// 행 leading 아이콘 색.
-    ///
-    /// Zeplin `List / Arrow` 컴포넌트 정의는 `Label.neutral`(#AEAFB4)인데
-    /// 설정 화면 인스턴스는 `Label.alternative`(#74767B)를 쓴다. 시안 대조 검증이
-    /// 화면 기준이라 화면을 따르고, 컴포넌트 기본값은 건드리지 않는다.
-    /// TODO: 어느 쪽이 맞는지 디자이너 확정 필요.
-    static let rowIconColor = CHALLAColor.Label.alternative
 }
