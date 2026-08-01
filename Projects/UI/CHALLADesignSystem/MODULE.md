@@ -16,8 +16,8 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | :-- | :-- |
 | `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material) + `defaultTheme` — 사용자가 고르는 테마 색의 기본값(레몬에이드=`Primary.yellow`). 강조 요소(리스트 값 글자·스위치 켜짐·텍스트필드 포커스 테두리)가 이 색을 따른다 |
 | `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`). `lineBoxInset`은 `challaFont`가 글자 상자 위아래에 더하는 여백 — 시안 간격을 옮길 때 이 값을 빼서 보정한다 |
-| `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12) |
-| `CHALLAIcon` | 아이콘 토큰 21종 + `Size`(16~32pt) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
+| `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12 / xlarge 16) |
+| `CHALLAIcon` | 아이콘 토큰 23종 + `Size`(14~32pt — 14는 방 카드 person 실측 예외) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
 | `CHALLAHitTarget` | HIG 최소 터치 타깃(44pt) 정책 — `minimum` + `inset(for:)` + 도형 확장 헬퍼 `expandedToHitTarget(from:)`. DS 컴포넌트로 담기 애매한 Feature의 일회성 탭 요소에도 사용 |
 | `CHALLAFontRegister` | 커스텀 폰트 등록. 앱 진입점(@main) init에서 1회 호출 |
 
@@ -38,6 +38,11 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `CHALLAListRow` | 리스트 행 (높이 52, 설명을 넣으면 74). 이니셜라이저 2종 — 탭 행 `init(_:description:icon:iconColor:accessory:themeColor:action:)` / 토글 행 `init(_:description:icon:iconColor:themeColor:isOn:)`. 아이콘 18pt, 이름 `.body.medium.medium`, 설명 `.body.xsmall.medium`. 제목·설명은 한 줄 고정(말줄임) |
 | `CHALLAListRowAccessory` | 탭 행의 우측 요소. `.arrow` · `.arrow(value:)` · `.check(isSelected:)` · `.empty` |
 | `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음. 제목이 있으면 헤더 블록 44 고정(위 16 + 글자 상자 16 + 아래 12), 제목은 한 줄 고정(말줄임) |
+| `CHALLAFilmCard` | 필름 낱장 카드 (3:4 고정 비율). Variant 4종(촬영 전 dashed / 인화대기 blur / 인화완료 / 더보기 `+N`) × 순번(`slotNumber`) 옵션. `width` 지정 시 고정(홈 82·인화 카드 90), nil이면 부모 폭 채움(방 상세 그리드) — 세로는 내부 계산. `aspectRatio` 공개(placeholder 크기 계산용) |
+| `CHALLACardItem` | 촬영 중 방 카드 (시안 고정 200×266). 대표 사진 + 딤 2겹(검정 스크림·노랑 틴트) + 제목·인원 + 카메라 카운트 뱃지. 사진은 로드된 `Image?` — nil이면 바닥색. 탭은 호출부가 Button으로 감쌈 |
+| `CHALLAPrintCard` | 촬영 완료 방 카드. `Status`(printing/printed) 하나가 상태 칩 색과 낱장 blur/선명을 동시 결정. 낱장 스택은 실측 좌표·회전각 4슬롯에 `CHALLAFilmCard(width: 90)` 재사용, 전체 장수가 4를 넘으면 마지막 슬롯이 `+N` |
+| `CHALLAAvatar` | 원형 아바타. `photo: Image?`(nil이면 person placeholder) + `size` 지름 (실측: 프로필 바 30 / 상세·채팅 22 / 팝오버 행 20) |
+| `CHALLAProfileBar` | 프로필 바. 아바타 입장 순 최대 9명 + `+N` 칩, 탭 시 멤버 팝오버(초대 코드 + 복사 콜백 + 전체 리스트, maxHeight 450 초과 시 스크롤). 열림 상태는 `isPresented` 바인딩(호출부 소유 — 드로어와 동일), 바 배경 흰(닫힘)↔검정(열림), 바깥 탭 닫기. 바를 화면 가로 중앙에 두는 배치 전제 |
 
 버튼·텍스트필드 비활성화는 별도 파라미터 없이 SwiftUI 표준 `.disabled(_:)`로 제어한다
 (내부에서 `@Environment(\.isEnabled)`를 읽어 비활성 색을 적용).
@@ -95,10 +100,13 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 
 - **시각 검증(1차)**: `CHALLADesignSystemApp` 스킴 실행 → 갤러리에서 Figma와 대조.
   뷰(버튼·아이콘 렌더링)는 유닛테스트 대신 이 갤러리 검수가 테스트를 대신한다
-- **로직 테스트**: `mise exec -- tuist test CHALLADesignSystem`
+- **로직 테스트**: `mise exec -- tuist test CHALLADesignSystem` — 화면 검수로 못 잡는 계산을 고정한다
   - `CHALLATypographyTests` — 타이포 토큰의 크기·행간 불변식, `lineBoxInset` 계산,
     리스트 행 높이가 전제하는 토큰 수치 고정
   - `CHALLAListRowAccessoryTests` — 행 우측 요소가 값을 잃지 않는지
   - `CHALLAListSectionLayoutTests` — 섹션 카드를 실제로 레이아웃해서 헤더 블록 44 ·
     설정 화면 첫 카드 168을 잰다 (폰트 고유 줄 높이에 밀려 카드가 부풀지 않는지)
-  - 버튼 색 매핑(`CHALLAButtonVariant`) 등 나머지 순수 로직 검증은 추가 예정
+  - `CHALLAButtonVariantTests` — 버튼 variant×role 색 매핑 전수
+  - `CHALLAColorHexTests` — hex 파싱과 잘못된 입력의 검정 fallback
+  - `CHALLAHitTargetTests` — 44pt 터치 타깃 인셋 계산
+  - `CHALLAPrintCardTests` · `CHALLAProfileBarTests` — 더보기·넘침 수량(`+N`) 경계값

@@ -32,6 +32,18 @@ struct RootView: View {
                     NavigationLink("List") {
                         ListGallery()
                     }
+                    NavigationLink("Film Card") {
+                        FilmCardGallery()
+                    }
+                    NavigationLink("Card Item") {
+                        CardItemGallery()
+                    }
+                    NavigationLink("Print Card") {
+                        PrintCardGallery()
+                    }
+                    NavigationLink("Profile Bar") {
+                        ProfileBarGallery()
+                    }
                 }
 
                 // 아직 토큰이 아닌 것들의 체험·제안 공간. 디자이너 선택이 확정되면 토큰으로 승격한다.

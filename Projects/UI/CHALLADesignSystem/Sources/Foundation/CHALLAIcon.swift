@@ -15,19 +15,23 @@ public enum CHALLAIcon: String, CaseIterable, Sendable {
     case check = "Check"
     case circle = "Circle"
     case close = "Close"
+    case copy = "Copy"
     case error = "Error"
     case kakaoTalk = "KakaoTalk"
     case lightningOff = "LightningOff"
     case lightningOn = "LightningOn"
     case palette = "Palette"
     case pencilSimple = "PencilSimple"
+    case person = "Person"
     case profile = "Profile"
     case setting = "Setting"
     case signOut = "SignOut"
     case unfoldMore = "UnfoldMore"
 
     /// 아이콘 크기 토큰(pt). Figma 아이콘 사이즈 프레임(16~32) 기준.
+    /// size14는 프레임 밖 예외 — 방 카드 인원 표시의 person 아이콘 실측값.
     public enum Size: CGFloat, CaseIterable, Sendable {
+        case size14 = 14
         case size16 = 16
         case size18 = 18
         case size20 = 20

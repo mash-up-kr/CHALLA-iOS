@@ -10,6 +10,8 @@ import SwiftUI
 /// ```
 public struct CHALLATextField: View {
 
+    // MARK: - 프로퍼티와 init
+
     /// 부모가 건 `.disabled(_:)`가 환경에 기록한 활성 여부를 물려받는다.
     /// 입력 차단(SwiftUI 담당)과 비활성 색 적용(이 뷰 담당)이 항상 같은 상태를 보도록
     /// 별도 isDisabled 파라미터 대신 표준 환경값을 읽는다.
@@ -42,6 +44,8 @@ public struct CHALLATextField: View {
         self.borderColor = borderColor
     }
 
+    // MARK: - Body
+
     public var body: some View {
         // 첫 인자(title)는 prompt가 있으면 화면에 그려지지 않고 VoiceOver 이름표로만 쓰인다
         // — 입력 후에도 이 필드의 용도가 낭독되도록 placeholder를 재사용한다.
@@ -66,7 +70,7 @@ public struct CHALLATextField: View {
             // 글자 영역 밖 패딩을 눌러도 포커스되도록 박스 전체를 탭 영역으로 만든다.
             .contentShape(RoundedRectangle(cornerRadius: CHALLARadius.large))
             .onTapGesture {
-                // 비활성 상태에선 탭해도 포커스를 주지 않는다 (키보드가 올라오면 안 됨).
+                // 비활성 상태에선 탭해도 포커스를 주지 않는다.
                 // .disabled(_:)는 TextField 입력만 막고, 뷰에 붙인 이 제스처까지는 막아주지 않아서 직접 차단한다.
                 guard isEnabled else { return }
                 isFocused = true

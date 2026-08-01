@@ -9,6 +9,8 @@ import UIKit // 키보드 내림(resignFirstResponder) 전용 — SwiftUI에는 
 /// 커스텀으로 가면서 시스템이 주던 딤·등장 애니메이션·끌어서 닫기를 여기서 직접 구현한다.
 struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
 
+    // MARK: - 프로퍼티
+
     @Binding var isPresented: Bool
     let allowsInteractiveDismiss: Bool
     @ViewBuilder let drawerContent: () -> DrawerContent
@@ -16,21 +18,20 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
     /// 손가락으로 끌어내린 거리. 손을 떼면 0으로 복귀하거나(제자리) 닫힌다.
     @State private var dragOffset: CGFloat = 0
 
+    // MARK: - Body
+
     func body(content: Content) -> some View {
         content
             .overlay {
-                // 켜지면 딤·드로어가 생기고, 꺼지면 각자의 transition대로 사라진다
                 ZStack(alignment: .bottom) {
                     if isPresented {
                         dim
                         drawer
                     }
                 }
-                // isPresented가 바뀔 때만 스프링 (다른 상태 변화엔 안 걸림)
                 .animation(DrawerPresentationMetric.spring, value: isPresented)
             }
-            // 닫힘 시작과 동시에 키보드도 내린다 — 안 내리면 퇴장 애니메이션이 끝난 뒤에야
-            // 텍스트필드가 포커스를 잃어 키보드가 순차로 내려가며 굼떠 보인다
+            // 닫힐 때 키보드를 함께 내린다. 두지 않으면 퇴장 애니메이션이 끝난 뒤에야 키보드가 내려간다.
             .onChange(of: isPresented) { _, isPresented in
                 guard !isPresented else { return }
                 UIApplication.shared.sendAction(
@@ -39,9 +40,11 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
             }
     }
 
+    // MARK: - 딤 · 드로어 · 닫기 제스처
+
     private var dim: some View {
         CHALLAColor.Material.dimmer
-            .ignoresSafeArea() // 화면 끝까지 어둡게 (드로어는 안전 영역 안에 둠)
+            .ignoresSafeArea() // 딤은 safe area 밖까지 덮는다 (드로어는 안전 영역 안)
             .transition(.opacity)
             .onTapGesture {
                 // 딤 탭으로 닫기. allowsInteractiveDismiss가 false면 동작하지 않는다
@@ -56,7 +59,7 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
             .padding(.horizontal, DrawerPresentationMetric.screenMargin)
             // 안전 영역 기준 여백이라 키보드가 올라오면 드로어도 자동으로 따라 올라간다
             .padding(.bottom, DrawerPresentationMetric.screenMargin)
-            .offset(y: max(0, dragOffset)) // 끌린 만큼 아래로 (위로는 안 끌림)
+            .offset(y: max(0, dragOffset)) // 아래 방향 드래그만 반영한다
             .gesture(dragToDismiss) // 드로어 아무 데나 잡고 끌 수 있음
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .accessibilityAddTraits(.isModal) // VoiceOver 탐색 범위를 드로어로 제한
@@ -85,6 +88,8 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
     }
 }
 
+// MARK: - Figma 실측값
+
 /// 제네릭 타입(Modifier<DrawerContent>) 안에는 static 저장 프로퍼티를 둘 수 없어 파일 레벨에 둔다.
 private enum DrawerPresentationMetric {
     /// 디바이스 기준 좌우·하단 여백 (Figma Drawer 명세)
@@ -94,6 +99,8 @@ private enum DrawerPresentationMetric {
     /// 등장/퇴장·드래그 복귀 공통 스프링. 실기기 검수 후 이 값 하나만 조정하면 된다.
     static let spring = Animation.spring(response: 0.35, dampingFraction: 0.85)
 }
+
+// MARK: - challaDrawer
 
 /// 기능은 위 Modifier에 있고, 이 extension은 다른 프레젠테이션 API(.sheet 등)처럼
 /// .challaDrawer(...) 점 문법으로 쓰게 하는 통로다.

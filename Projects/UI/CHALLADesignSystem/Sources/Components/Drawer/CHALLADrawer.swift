@@ -15,6 +15,8 @@ import SwiftUI
 /// ```
 public struct CHALLADrawer<Content: View>: View {
 
+    // MARK: - 공개 타입
+
     /// 드로어 상단 모양.
     public enum Header {
         /// 손잡이 막대 — 끌어서 닫는 가벼운 드로어 (선택지 목록·확인 안내)
@@ -22,6 +24,8 @@ public struct CHALLADrawer<Content: View>: View {
         /// 타이틀 + 닫기 버튼 — 명시적으로 닫는 드로어 (입력이 있는 화면)
         case title(String, onClose: () -> Void)
     }
+
+    // MARK: - 프로퍼티와 init
 
     private let header: Header
     private let actions: [CHALLADrawerAction]
@@ -45,6 +49,8 @@ public struct CHALLADrawer<Content: View>: View {
         self.content = content()
         self.hasContent = Content.self != EmptyView.self
     }
+
+    // MARK: - Body
 
     public var body: some View {
         VStack(spacing: 0) {
@@ -150,6 +156,8 @@ public struct CHALLADrawer<Content: View>: View {
         }
     }
 }
+
+// MARK: - Figma 실측값
 
 /// Figma Drawer 실측값. 코너 32는 드로어 전용이라 공용 CHALLARadius에 넣지 않는다.
 /// 제네릭 타입(CHALLADrawer<Content>) 안에는 static 저장 프로퍼티를 둘 수 없어 파일 레벨에 둔다.

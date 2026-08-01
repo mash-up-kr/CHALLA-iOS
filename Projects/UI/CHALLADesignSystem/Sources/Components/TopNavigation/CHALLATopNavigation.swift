@@ -7,7 +7,7 @@ import SwiftUI
 /// `CHALLAIconButton` medium(아이콘 20pt)과 달라 내비 전용으로 그린다
 /// (드로어 닫기 버튼과 같은 규격 — Drawer 구현 시 재사용 후보).
 ///
-/// 상태바 영역(safe area)은 포함하지 않는다 — 화면 최상단에 붙이면 SwiftUI가 알아서 비켜준다.
+/// 상태바 영역(safe area)은 포함하지 않는다 — 화면 최상단에 두면 시스템이 safe area 아래로 배치한다.
 ///
 /// ```swift
 /// CHALLATopNavigation.main(trailing: .icon(.setting, accessibilityLabel: "설정") { ... })
@@ -19,6 +19,8 @@ import SwiftUI
 /// )
 /// ```
 public struct CHALLATopNavigation: View {
+
+    // MARK: - 공개 타입
 
     /// 좌우 슬롯에 들어가는 액션.
     public struct Item {
@@ -45,6 +47,8 @@ public struct CHALLATopNavigation: View {
         }
     }
 
+    // MARK: - 프로퍼티와 init
+
     private enum Variant {
         case main(trailing: Item?)
         case sub(title: String, leading: Item?, trailing: Item?)
@@ -70,6 +74,8 @@ public struct CHALLATopNavigation: View {
         Self(variant: .sub(title: title, leading: leading, trailing: trailing))
     }
 
+    // MARK: - Body
+
     public var body: some View {
         Group {
             switch variant {
@@ -82,6 +88,8 @@ public struct CHALLATopNavigation: View {
         .frame(maxWidth: .infinity)
         .frame(height: TopNavigationMetric.barHeight)
     }
+
+    // MARK: - 바 레이아웃
 
     /// main: 로고 왼쪽 정렬 + 우측 아이콘.
     private func mainBar(trailing: Item?) -> some View {

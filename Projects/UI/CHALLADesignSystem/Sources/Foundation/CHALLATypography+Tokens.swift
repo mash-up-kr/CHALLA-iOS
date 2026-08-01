@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - 타이포 토큰
-
 /// CHALLA 디자인 시스템의 타이포 토큰. Figma Typography 구조를 그대로 반영한다.
 /// 본문은 SUIT, 포인트(heading.home / xlarge)는 Dirtyline.
 ///
