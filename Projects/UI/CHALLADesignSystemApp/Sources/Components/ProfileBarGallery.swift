@@ -169,8 +169,8 @@ private struct SampleImagesLoader<Content: View>: View {
             .task {
                 var loaded: [Image] = []
                 for seed in seeds {
-                    let url = URL(string: "https://picsum.photos/seed/\(seed)/100")!
-                    guard let (data, _) = try? await URLSession.shared.data(from: url),
+                    guard let url = URL(string: "https://picsum.photos/seed/\(seed)/100"),
+                          let (data, _) = try? await URLSession.shared.data(from: url),
                           let uiImage = UIImage(data: data) else { continue }
                     loaded.append(Image(uiImage: uiImage))
                 }
