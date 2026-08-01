@@ -39,11 +39,13 @@ public struct CHALLAProfileBar: View {
     // MARK: - 표기 규칙
 
     /// 바에 그리는 아바타 최대 수 (Figma: "방 입장 순으로 9명까지만 표기").
-    static let maxVisibleAvatars = 9
+    nonisolated static let maxVisibleAvatars = 9
 
     /// 최대 표기 수를 넘을 때 "+N" 칩에 표시할 값. 넘지 않으면 nil (칩 없음).
     /// 방 정원과 무관하게 동작한다 — 정원 10명 vs 시안 "+4" 불일치는 디자이너 확인 예정.
-    static func overflowCount(totalMemberCount: Int) -> Int? {
+    /// 순수 계산이라 MainActor 격리가 불필요하다 — View 타입의 static은 기본이
+    /// MainActor라서, nonisolated가 없으면 테스트(메인 스레드 밖)에서 호출하지 못한다.
+    nonisolated static func overflowCount(totalMemberCount: Int) -> Int? {
         guard totalMemberCount > maxVisibleAvatars else { return nil }
         return totalMemberCount - maxVisibleAvatars
     }
