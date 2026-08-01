@@ -39,6 +39,12 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `CHALLAListRowAccessory` | 탭 행의 우측 요소. `.arrow` · `.arrow(value:)` · `.check(isSelected:)` · `.empty` |
 | `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음. 제목이 있으면 헤더 블록 44 고정(위 16 + 글자 상자 16 + 아래 12), 제목은 한 줄 고정(말줄임) |
 
+> **우측 여백이 행 종류마다 다르다** — 시안 안여백이 화살표 행 16, 체크·토글 행 20이다.
+> 카드는 16으로 통일하고 체크·토글 행이 각각 4를 더한다(`ListRowMetric.accessoryTrailingInset`).
+> 화살표 행만 다른 이유는 우측 32 상자 안에 16 아이콘이 놓여 상자가 4만큼 더 파고들기 때문이다.
+> 체크 행은 컴포넌트 정의(`List / Check`)가 21이지만 화면 인스턴스(테마·알림)가 20이다 —
+> 배포되는 건 화면이라 화면을 따른다.
+
 버튼·텍스트필드 비활성화는 별도 파라미터 없이 SwiftUI 표준 `.disabled(_:)`로 제어한다
 (내부에서 `@Environment(\.isEnabled)`를 읽어 비활성 색을 적용).
 
