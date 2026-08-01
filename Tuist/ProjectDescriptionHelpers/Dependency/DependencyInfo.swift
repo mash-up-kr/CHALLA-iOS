@@ -32,6 +32,21 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Auth/Login/LoginFeature")
     )
 
+    // MARK: - Room
+
+    static let roomDomain = TargetDependency.project(
+        target: "RoomDomain",
+        path: .relativeToRoot("Projects/Room/RoomDomain")
+    )
+    static let roomData = TargetDependency.project(
+        target: "RoomData",
+        path: .relativeToRoot("Projects/Room/RoomData")
+    )
+    static let homeFeature = TargetDependency.project(
+        target: "HomeFeature",
+        path: .relativeToRoot("Projects/Room/Home/HomeFeature")
+    )
+
     // MARK: - Core
 
     static let keychain = TargetDependency.project(
