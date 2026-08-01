@@ -5,11 +5,8 @@ import Foundation
 /// 여섯 종은 기획이 정한 고정 집합이다 — 사용자가 새로 만들 수 없다.
 /// `displayName`은 제품에서 부르는 이름이라 여기에 둔다.
 ///
-/// **색 매핑은 아직 없다.** Domain은 색을 모르므로(규칙상 UI를 import 하지 않는다)
-/// `AppTheme` → `CHALLAColor.Primary` 매핑은 UI 레이어가 가져야 하는데,
-/// 시안에 근거가 있는 건 레몬에이드=yellow · 라즈베리=pink 둘뿐이다
-/// (`CHALLAListRow` 프리뷰). 나머지 넷은 디자이너 확인이 필요해 매핑을 만들지 않았다.
-/// 테마 선택 화면 이슈에서 여섯 쌍을 확정한 뒤 추가한다.
+/// 색은 여기 없다 — Domain은 UI를 import 하지 않는다.
+/// `AppTheme` → `CHALLAColor.Primary` 매핑은 `SettingFeature/Sources/Support/AppTheme+ThemeColor.swift`에 있다.
 public enum AppTheme: String, Sendable, Equatable, CaseIterable, Codable {
     case lemonade
     case raspberry

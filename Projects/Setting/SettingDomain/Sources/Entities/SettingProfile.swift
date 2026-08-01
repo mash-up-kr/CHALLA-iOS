@@ -9,7 +9,7 @@ public struct SettingProfile: Sendable, Equatable {
 
     public let nickname: String
 
-    /// 시안에 `juy***@naver,com`처럼 마스킹된 형태로 나온다.
+    /// 시안에 `hap****@naver.com`처럼 마스킹된 형태로 나온다.
     /// 마스킹 주체가 서버인지 클라이언트인지 정해지지 않아, 받은 문자열을 그대로 표시한다.
     public let email: String
 
