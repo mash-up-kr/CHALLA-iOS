@@ -11,13 +11,19 @@ final class MockRoomRepository: RoomRepository {
 
     private struct State {
         var roomsCallCount = 0
+        var createdDrafts: [RoomDraft] = []
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
     private let roomsResult: Result<[Room], RoomError>
+    private let createResult: Result<Room, RoomError>
 
-    init(roomsResult: Result<[Room], RoomError> = .failure(.unknown)) {
+    init(
+        roomsResult: Result<[Room], RoomError> = .failure(.unknown),
+        createResult: Result<Room, RoomError> = .failure(.unknown)
+    ) {
         self.roomsResult = roomsResult
+        self.createResult = createResult
     }
 
     // MARK: - 검증용 프로퍼티
@@ -27,10 +33,20 @@ final class MockRoomRepository: RoomRepository {
         state.withLock { $0.roomsCallCount }
     }
 
+    /// createRoom에 전달된 draft (호출 순서대로).
+    var createdDrafts: [RoomDraft] {
+        state.withLock { $0.createdDrafts }
+    }
+
     // MARK: - RoomRepository
 
     func rooms() async throws -> [Room] {
         state.withLock { $0.roomsCallCount += 1 }
         return try roomsResult.get()
+    }
+
+    func createRoom(_ draft: RoomDraft) async throws -> Room {
+        state.withLock { $0.createdDrafts.append(draft) }
+        return try createResult.get()
     }
 }

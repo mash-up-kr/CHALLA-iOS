@@ -10,4 +10,7 @@ public protocol RoomRepository: Sendable {
 
     /// 내가 속한 방 전부. 촬영 중·인화 대기·인화 완료가 한 배열로 온다.
     func rooms() async throws -> [Room]
+
+    /// 방을 만들고 만들어진 방을 돌려준다. id·상태·인원수는 구현체가 채운다.
+    func createRoom(_ draft: RoomDraft) async throws -> Room
 }
