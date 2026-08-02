@@ -2,10 +2,9 @@ import Dependencies
 import DependenciesMacros
 
 /// 초대 코드를 정규화해 방에 입장하고 입장한 방을 돌려준다.
+/// 홈의 두 진입점(빈 상태 버튼, 상단 + 메뉴)이 같은 이 UseCase를 부른다.
 ///
-/// 홈의 두 진입점(빈 상태의 "초대 코드로 입장하기", 상단 + 메뉴의 "방 입장하기")이
-/// 같은 이 UseCase를 부른다. 코드 형식 검사는 하지 않는다 — 형식이 미확정이라
-/// 틀린 코드는 저장소가 `RoomError.roomNotFound`로 알려준다.
+/// 코드 형식 검사는 하지 않는다 — 형식이 미확정이라 틀린 코드는 저장소가 알려준다.
 @DependencyClient
 public struct JoinRoomUseCase: Sendable {
     public var run: @Sendable (_ inviteCode: String) async throws -> Room

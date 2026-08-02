@@ -12,8 +12,6 @@ public struct CreateRoomUseCase: Sendable {
 
 extension CreateRoomUseCase: TestDependencyKey {
 
-    /// 이름 규칙(자르기·빈 이름)을 여기서 한 번 더 적용한다.
-    /// 버튼 비활성으로 이미 막히지만, UseCase가 도메인 경계라 진입점이 늘어도 규칙이 새지 않는다.
     public static func live(repository: any RoomRepository) -> CreateRoomUseCase {
         CreateRoomUseCase(run: { draft in
             let name = RoomNameRule.sanitize(draft.name)
@@ -26,6 +24,7 @@ extension CreateRoomUseCase: TestDependencyKey {
 
     public static let testValue = CreateRoomUseCase()
 
+    /// 입력한 이름이 그대로 보여야 프리뷰에서 화면을 확인할 수 있다.
     public static let previewValue = CreateRoomUseCase(
         run: { draft in
             Room(
