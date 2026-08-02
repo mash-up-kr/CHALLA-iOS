@@ -13,4 +13,8 @@ public protocol RoomRepository: Sendable {
 
     /// 방을 만들고 만들어진 방을 돌려준다. id·상태·인원수는 구현체가 채운다.
     func createRoom(_ draft: RoomDraft) async throws -> Room
+
+    /// 초대 코드로 방에 입장하고 그 방을 돌려준다.
+    /// 코드에 해당하는 방이 없으면 `RoomError.roomNotFound`를 던진다.
+    func joinRoom(inviteCode: String) async throws -> Room
 }

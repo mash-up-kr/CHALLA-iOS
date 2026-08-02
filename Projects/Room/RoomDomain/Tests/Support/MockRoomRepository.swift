@@ -12,18 +12,22 @@ final class MockRoomRepository: RoomRepository {
     private struct State {
         var roomsCallCount = 0
         var createdDrafts: [RoomDraft] = []
+        var joinedCodes: [String] = []
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
     private let roomsResult: Result<[Room], RoomError>
     private let createResult: Result<Room, RoomError>
+    private let joinResult: Result<Room, RoomError>
 
     init(
         roomsResult: Result<[Room], RoomError> = .failure(.unknown),
-        createResult: Result<Room, RoomError> = .failure(.unknown)
+        createResult: Result<Room, RoomError> = .failure(.unknown),
+        joinResult: Result<Room, RoomError> = .failure(.unknown)
     ) {
         self.roomsResult = roomsResult
         self.createResult = createResult
+        self.joinResult = joinResult
     }
 
     // MARK: - 검증용 프로퍼티
@@ -38,6 +42,11 @@ final class MockRoomRepository: RoomRepository {
         state.withLock { $0.createdDrafts }
     }
 
+    /// joinRoom에 전달된 초대 코드 (호출 순서대로).
+    var joinedCodes: [String] {
+        state.withLock { $0.joinedCodes }
+    }
+
     // MARK: - RoomRepository
 
     func rooms() async throws -> [Room] {
@@ -48,5 +57,10 @@ final class MockRoomRepository: RoomRepository {
     func createRoom(_ draft: RoomDraft) async throws -> Room {
         state.withLock { $0.createdDrafts.append(draft) }
         return try createResult.get()
+    }
+
+    func joinRoom(inviteCode: String) async throws -> Room {
+        state.withLock { $0.joinedCodes.append(inviteCode) }
+        return try joinResult.get()
     }
 }
