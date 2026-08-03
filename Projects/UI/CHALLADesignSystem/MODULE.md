@@ -17,7 +17,7 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material) + `defaultTheme` — 사용자가 고르는 테마 색의 기본값(레몬에이드=`Primary.yellow`). 강조 요소(리스트 값 글자·스위치 켜짐·텍스트필드 포커스 테두리)가 이 색을 따른다 |
 | `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`). `lineBoxInset`은 `challaFont`가 글자 상자 위아래에 더하는 여백 — 시안 간격을 옮길 때 이 값을 빼서 보정한다 |
 | `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12 / xlarge 16) |
-| `CHALLAIcon` | 아이콘 토큰 23종 + `Size`(14~32pt — 14는 방 카드 person 실측 예외) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
+| `CHALLAIcon` | 아이콘 토큰 24종 + `Size`(14~32pt — 14는 방 카드 person 실측 예외) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
 | `CHALLAHitTarget` | HIG 최소 터치 타깃(44pt) 정책 — `minimum` + `inset(for:)` + 도형 확장 헬퍼 `expandedToHitTarget(from:)`. DS 컴포넌트로 담기 애매한 Feature의 일회성 탭 요소에도 사용 |
 | `CHALLAFontRegister` | 커스텀 폰트 등록. 앱 진입점(@main) init에서 1회 호출 |
 
@@ -30,7 +30,7 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `CHALLAButtonVariant` / `CHALLAButtonSize` | 두 버튼이 공유하는 스타일·크기 enum |
 | `CHALLAButtonRole` | 버튼 의미 표시 — variant(생김새)와 조합해 쓴다 (SwiftUI `Button(role:)`과 동일 개념). 현재 `.destructive` 하나. destructive 비활성 디자인은 Figma에 없어 공통 비활성 팔레트로 표시 |
 | `CHALLATextField` | 텍스트필드. 상태 5가지(placeholder/focus/typing/typed/disabled)를 입력값·포커스·활성 여부로 자동 판별. customize: `textAlignment`(기본 중앙) · `typography`(기본 body.medium.medium) · `borderColor`(기본 `CHALLAColor.defaultTheme`, 포커스 테두리+커서 색) |
-| `CHALLATopNavigation` | 탑 내비게이션 바 (높이 70, 상태바 제외). `.main(trailing:)` = 좌측 홈 로고 고정, `.sub(title:leading:trailing:)` = 중앙 타이틀. 슬롯은 `Item.icon(...)`으로 생성 (아이콘 24pt + 터치 40pt, accessibilityLabel 필수) |
+| `CHALLATopNavigation` | 탑 내비게이션 바 (높이 70, 상태바 제외). `.main(trailing:)` = 좌측 홈 로고 고정 + 우측 아이콘 **배열**(순서대로 왼쪽부터, 시안 기준 최대 2개), `.sub(title:leading:trailing:)` = 중앙 타이틀 + 좌우 슬롯 각 1개. 슬롯은 `Item.icon(...)`으로 생성 (아이콘 24pt + 터치 40pt, accessibilityLabel 필수) |
 | `CHALLADrawer` | 하단 드로어 레이아웃. 헤더(`.handle` 손잡이 / `.title` 타이틀+닫기) × 콘텐츠 슬롯(@ViewBuilder, 선택) × 버튼(0~2개 + 푸터 액션). 버튼 크기·전체 폭·간격·개수는 드로어가 강제 |
 | `CHALLADrawerAction` | 드로어 버튼 한 자리의 내용(글자·variant·role·isEnabled·동작). 푸터 액션 자리는 variant 무시하고 항상 텍스트형 |
 | `CHALLADrawerMessage` | 드로어 콘텐츠 슬롯용 제목+설명 안내 블록 (회원 탈퇴류 반복 패턴 공용화) |
