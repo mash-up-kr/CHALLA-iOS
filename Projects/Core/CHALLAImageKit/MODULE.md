@@ -3,13 +3,14 @@
 ## 책임 (레이어: Core)
 
 자체 구현 이미지 로딩 스택. 원본 이미지 바이트를 뷰에 필요한 픽셀 크기로만 디코딩해
-(다운샘플링) 그리드·셀 표시 시 메모리 사용량을 줄인다.
+(다운샘플링) 그리드·셀 표시 시 메모리 사용량을 줄이고, 메모리·디스크 2단 캐시로
+재디코딩·재다운로드를 피한다.
 
-시스템 프레임워크(Foundation · CoreGraphics · ImageIO · UIKit)만 사용하며,
+시스템 프레임워크(Foundation · CoreGraphics · ImageIO · UIKit · CryptoKit)만 사용하며,
 CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetwork`와도 무관하다
 (아키텍처 규칙 6 저촉 없음 — "OS를 만지면 Core").
 
-> 현재는 1단계(다운샘플러)만 구현됨. 캐시(`MemoryImageCache`/`DiskImageCache`),
+> 현재 다운샘플러 + 2단 캐시(메모리·디스크)까지 구현됨.
 > 로더(`ImageLoader`), DS 뷰(`CHALLAAsyncImage`)는 후속 단계 (설계: 이슈 #25).
 
 ## 공개 API
@@ -18,6 +19,13 @@ CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetw
 | :-- | :-- |
 | `ImageDownsampler` | `Sendable` 값 타입. ImageIO 썸네일 디코딩으로 타깃 픽셀 크기만큼만 디코딩 |
 | `ImageDownsamplingError` | `invalidData` / `thumbnailCreationFailed` / `invalidTargetSize` |
+| `PixelSize` | pt·scale을 정수 픽셀로 환산·보관. 캐시 키의 크기 성분 |
+| `ImageCacheKey` | `URL + PixelSize` 조합 키. 디스크 파일명용 `storageIdentifier`(SHA256) |
+| `ImageCacheConfiguration` | 메모리/디스크 용량·경로 설정. `.default`(메모리 100MB / 디스크 500MB) |
+| `MemoryImageCache` | NSCache 래핑. 다운샘플 `UIImage`를 메모리 보관, cost 기반 자동 방출 |
+| `DiskImageCache` | `actor`. 다운샘플 바이트를 디스크 저장, 용량 초과 시 LRU 삭제 |
+
+### 다운샘플링
 
 ```swift
 public struct ImageDownsampler: Sendable {
@@ -36,6 +44,57 @@ public enum ImageDownsamplingError: Error, Sendable, Equatable {
 
 동기 CPU 작업이므로 호출부(로더)가 백그라운드(`@concurrent`)에서 실행할 책임을 진다.
 
+### 캐시 키
+
+```swift
+public struct PixelSize: Hashable, Sendable {
+    public init(width: Int, height: Int)             // 음수는 0으로 보정
+    public init(pointSize: CGSize, scale: CGFloat)   // ceil(pt * scale)
+    public let width: Int
+    public let height: Int
+}
+
+public struct ImageCacheKey: Hashable, Sendable {
+    public init(url: URL, pixelSize: PixelSize)
+    public let url: URL
+    public let pixelSize: PixelSize
+    public var storageIdentifier: String   // SHA256 16진수 64자 (디스크 파일명)
+}
+```
+
+키에는 pt·scale이 아니라 **최종 픽셀 크기**가 들어간다. `100pt@3x`와 `150pt@2x`는 둘 다
+300px라 같은 항목으로 합쳐져 중복 저장을 막는다. 같은 URL이라도 크기가 다르면
+(그리드 300px vs 상세 1200px) 다른 키다.
+
+### 캐시
+
+```swift
+public struct ImageCacheConfiguration: Sendable {
+    public init(memoryCostLimitBytes: Int, diskDirectory: URL, diskCapacityBytes: Int)
+    public static var `default`: ImageCacheConfiguration   // 메모리 100MB / 디스크 500MB
+}
+
+public final class MemoryImageCache: @unchecked Sendable {
+    public init(costLimit: Int)
+    public func image(for key: ImageCacheKey) -> UIImage?
+    public func insert(_ image: UIImage, for key: ImageCacheKey, cost: Int)
+    public func removeAll()
+}
+
+public actor DiskImageCache {
+    public init(directory: URL, capacityBytes: Int) throws
+    public func data(for key: ImageCacheKey) -> Data?     // 조회 시 접근 시각 갱신(LRU)
+    public func store(_ data: Data, for key: ImageCacheKey)
+    public func removeAll()
+    public func totalBytes() -> Int
+}
+```
+
+- 메모리 캐시는 디코딩된 `UIImage`(즉시 표시용), 디스크 캐시는 다운샘플 바이트(`Data`)를 저장한다.
+- 메모리 방출은 NSCache에, 디스크 방출은 파일 수정일 기반 LRU에 위임한다.
+- `URLCache`(HTTP 캐시)는 사용하지 않는다 — 원본만 캐싱돼 다운샘플·크기별 캐싱과 맞지 않고
+  이중 저장을 유발한다.
+
 ## 의존 관계
 
 - 이 모듈이 의존하는 모듈: 없음 (외부 패키지 0개, CHALLA 모듈 0개 — 시스템 프레임워크만)
@@ -43,7 +102,8 @@ public enum ImageDownsamplingError: Error, Sendable, Equatable {
 
 ## 테스트 실행 방법
 
-픽스처는 번들 리소스 없이 `Tests/Support/TestImageFactory.swift`가 런타임 생성한다.
+이미지 픽스처는 번들 리소스 없이 `Tests/Support/TestImageFactory.swift`가 런타임 생성한다.
+디스크 캐시 테스트는 테스트마다 고유한 임시 디렉터리를 만들어 서로 격리한다.
 
 ```bash
 mise exec -- tuist generate --no-open
