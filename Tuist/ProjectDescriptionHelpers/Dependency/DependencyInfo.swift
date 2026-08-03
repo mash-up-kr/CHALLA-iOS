@@ -5,6 +5,14 @@ import ProjectDescription
 /// (새 모듈이 생기면 여기에 case/프로퍼티를 추가해 나간다.)
 public extension TargetDependency {
 
+    // MARK: - Core
+
+    /// CHALLAImageKit 모듈에 대한 의존성.
+    static let imageKit = TargetDependency.project(
+        target: "CHALLAImageKit",
+        path: .relativeToRoot("Projects/Core/CHALLAImageKit")
+    )
+
     // MARK: - UI
 
     /// CHALLADesignSystem 모듈에 대한 의존성.
