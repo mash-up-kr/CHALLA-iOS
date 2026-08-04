@@ -25,7 +25,7 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 
 | API | 설명 |
 | :-- | :-- |
-| `CHALLATextButton` | 텍스트 버튼. variant(primary/neutral/transparent) × size(large/medium/small), leading/trailing 아이콘 옵션, `role: .destructive` 옵션(위험 액션 — primary는 빨간 채움, neutral·transparent는 빨간 글자), `isFullWidth` 옵션(부모 폭 채움 — 드로어 등) |
+| `CHALLATextButton` | 텍스트 버튼. variant(theme/primary/neutral/transparent — theme은 테마 색 배경 + 검정 글자로 화면의 최상위 액션) × size(large/medium/small), leading/trailing 아이콘 옵션, `role: .destructive` 옵션(위험 액션 — primary는 빨간 채움, neutral·transparent는 빨간 글자, theme은 무시), `isFullWidth` 옵션(부모 폭 채움 — 드로어 등) |
 | `CHALLAIconButton` | 아이콘 버튼. 정사각(54/40/32), variant·size는 텍스트 버튼과 공용 (role 미지원 — Figma에 destructive 아이콘 버튼 정의 없음) |
 | `CHALLAButtonVariant` / `CHALLAButtonSize` | 두 버튼이 공유하는 스타일·크기 enum |
 | `CHALLAButtonRole` | 버튼 의미 표시 — variant(생김새)와 조합해 쓴다 (SwiftUI `Button(role:)`과 동일 개념). 현재 `.destructive` 하나. destructive 비활성 디자인은 Figma에 없어 공통 비활성 팔레트로 표시 |
