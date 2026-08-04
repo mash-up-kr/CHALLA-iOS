@@ -6,12 +6,12 @@
 (다운샘플링) 그리드·셀 표시 시 메모리 사용량을 줄이고, 메모리·디스크 2단 캐시로
 재디코딩·재다운로드를 피한다.
 
-시스템 프레임워크(Foundation · CoreGraphics · ImageIO · UIKit · CryptoKit)만 사용하며,
+시스템 프레임워크(Foundation · CoreGraphics · ImageIO · UIKit · CryptoKit · UniformTypeIdentifiers)만 사용하며,
 CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetwork`와도 무관하다
 (아키텍처 규칙 6 저촉 없음 — "OS를 만지면 Core").
 
-> 현재 다운샘플러 + 2단 캐시(메모리·디스크)까지 구현됨.
-> 로더(`ImageLoader`), DS 뷰(`CHALLAAsyncImage`)는 후속 단계 (설계: 이슈 #25).
+> 현재 다운샘플러 + 2단 캐시(메모리·디스크) + 로더(`ImageLoader`)까지 구현됨.
+> DS 뷰(`CHALLAAsyncImage`)는 후속 단계 (설계: 이슈 #25).
 
 ## 공개 API
 
@@ -24,6 +24,9 @@ CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetw
 | `ImageCacheConfiguration` | 메모리/디스크 용량·경로 설정. `.default`(메모리 100MB / 디스크 500MB) |
 | `MemoryImageCache` | NSCache 래핑. 다운샘플 `UIImage`를 메모리 보관, cost 기반 자동 방출 |
 | `DiskImageCache` | `actor`. 다운샘플 바이트를 디스크 저장, 용량 초과 시 LRU 삭제 |
+| `ImageLoader` | `actor`. 메모리→디스크→네트워크 조회 오케스트레이터. 같은 키 dedup, 캐시 승격 |
+| `ImageDataFetching` | 네트워크 페치 추상화(주입 지점). 기본 구현 `URLSessionImageDataFetcher`(URLCache 끈 세션) |
+| `ImageLoadingError` | `invalidResponse` / `httpStatus` / `emptyData` / `downsampling` / `encodingFailed` / `networkFailed` / `cancelled` |
 
 ### 다운샘플링
 
@@ -95,6 +98,41 @@ public actor DiskImageCache {
 - `URLCache`(HTTP 캐시)는 사용하지 않는다 — 원본만 캐싱돼 다운샘플·크기별 캐싱과 맞지 않고
   이중 저장을 유발한다.
 
+### 로더
+
+```swift
+public protocol ImageDataFetching: Sendable {
+    func fetch(_ url: URL) async throws -> (Data, URLResponse)   // 실패 시 URLError
+}
+public struct URLSessionImageDataFetcher: ImageDataFetching {
+    public init(session: URLSession = ...)   // 기본값: URLCache를 끈 전용 세션
+}
+
+public enum ImageLoadingError: Error, Sendable, Equatable {
+    case invalidResponse          // HTTPURLResponse 아님
+    case httpStatus(Int)          // 2xx 벗어남
+    case emptyData                // 0바이트 응답
+    case downsampling(ImageDownsamplingError)
+    case encodingFailed           // 디스크 저장용 HEIC 재인코딩 실패
+    case networkFailed(URLError.Code)  // 서버 응답 전 전송 실패(오프라인·타임아웃)
+    case cancelled
+}
+
+public actor ImageLoader {
+    public init(configuration: ImageCacheConfiguration = .default,
+                fetcher: ImageDataFetching = URLSessionImageDataFetcher()) throws
+    public func image(from url: URL, pointSize: CGSize, scale: CGFloat) async throws -> UIImage
+    public func removeAll() async   // 진행 중 작업 취소 + 메모리·디스크 비우기
+}
+```
+
+- 조회 순서: **메모리 히트 → dedup(진행 중 동일 요청 공유) → 디스크 히트(디코딩·메모리 승격,
+  실패 시 조용히 네트워크 폴백) → 네트워크(다운샘플·HEIC 인코딩 후 디스크·메모리 저장)**.
+- 무거운 CPU 작업(다운샘플·인코딩·디코딩)은 `Task.detached(.utility)`로 액터 밖에서 실행한다
+  (iOS 17이라 `@concurrent` 대신 detached). 비-Sendable `CGImage`는 detached 클로저 안에 가둔다.
+- 같은 URL이라도 표시 크기(픽셀)가 다르면 별도 항목이다. `scale`은 호출부(뷰)가 넘긴다 —
+  Core는 `UIScreen`을 만지지 않는다. 반환 `UIImage`에는 `scale`을 실어 표시 크기를 논리 pt로 맞춘다.
+
 ## 의존 관계
 
 - 이 모듈이 의존하는 모듈: 없음 (외부 패키지 0개, CHALLA 모듈 0개 — 시스템 프레임워크만)
@@ -104,6 +142,8 @@ public actor DiskImageCache {
 
 이미지 픽스처는 번들 리소스 없이 `Tests/Support/TestImageFactory.swift`가 런타임 생성한다.
 디스크 캐시 테스트는 테스트마다 고유한 임시 디렉터리를 만들어 서로 격리한다.
+로더 테스트는 `Tests/Support/MockImageDataFetcher.swift`(호출 횟수 계수)를 주입해 네트워크 없이
+캐시 히트·dedup·에러 매핑을 검증한다 — 시뮬레이터 위에서 돌지만 실제 서버에 붙지 않는다.
 
 ```bash
 mise exec -- tuist generate --no-open
