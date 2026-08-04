@@ -118,7 +118,7 @@ public actor ImageLoader {
         // 디스크 히트: 이미 다운샘플된 바이트이므로 다운샘플 없이 디코딩만 한다.
         // 디코딩에 실패해도 hard-fail 하지 않고 조용히 네트워크로 폴백한다.
         if let diskData = await disk.data(for: key),
-           let decoded = await Self.decodeCachedData(diskData) {
+           let decoded = await Self.decodeCachedData(diskData, scale: scale) {
             memory.insert(decoded.image, for: key, cost: decoded.cost)
             return decoded.image
         }
@@ -177,7 +177,8 @@ public actor ImageLoader {
 
             let encodedData = try encoder.encode(cgImage)
             let cost = cgImage.bytesPerRow * cgImage.height
-            let image = UIImage(cgImage: cgImage)
+            // 다운샘플은 pt×scale 픽셀을 만든다. scale을 실어야 UIImage.size가 논리 pt로 잡힌다.
+            let image = UIImage(cgImage: cgImage, scale: scale, orientation: .up)
             return ProcessedImage(image: image, encodedData: encodedData, cost: cost)
         }.value
     }
@@ -186,7 +187,7 @@ public actor ImageLoader {
     ///
     /// 다운샘플은 불필요하다 — 저장 시점에 이미 타깃 픽셀로 줄여 두었기 때문이다.
     /// 실패 시 `nil`을 반환해 상위에서 네트워크로 폴백하게 한다.
-    private static func decodeCachedData(_ data: Data) async -> CachedImage? {
+    private static func decodeCachedData(_ data: Data, scale: CGFloat) async -> CachedImage? {
         await Task.detached(priority: .utility) {
             let options = [kCGImageSourceShouldCacheImmediately: true] as CFDictionary
             guard let source = CGImageSourceCreateWithData(data as CFData, nil),
@@ -195,7 +196,8 @@ public actor ImageLoader {
                 return nil
             }
             let cost = cgImage.bytesPerRow * cgImage.height
-            let image = UIImage(cgImage: cgImage)
+            // 요청 컨텍스트의 scale을 실어 표시 크기를 논리 pt로 맞춘다(네트워크 경로와 동일).
+            let image = UIImage(cgImage: cgImage, scale: scale, orientation: .up)
             return CachedImage(image: image, cost: cost)
         }.value
     }
