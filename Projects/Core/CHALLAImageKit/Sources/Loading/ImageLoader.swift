@@ -80,7 +80,9 @@ public actor ImageLoader {
             try await load(url: url, key: key, pointSize: pointSize, scale: scale)
         }
         inFlight[key] = task
-        defer { inFlight[key] = nil }
+        // 자기 task일 때만 제거한다. removeAll()이 맵을 비운 사이 다른 요청이
+        // 같은 키로 새 task를 등록했을 수 있으므로, 무조건 지우면 남의 등록을 오염시킨다.
+        defer { if inFlight[key] == task { inFlight[key] = nil } }
 
         do {
             return try await task.value
