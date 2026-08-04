@@ -120,7 +120,8 @@ public enum ImageLoadingError: Error, Sendable, Equatable {
 
 public actor ImageLoader {
     public init(configuration: ImageCacheConfiguration = .default,
-                fetcher: ImageDataFetching = URLSessionImageDataFetcher()) throws
+                fetcher: ImageDataFetching = URLSessionImageDataFetcher(),
+                retryDelays: [Duration] = [.seconds(1), .seconds(2), .seconds(4)]) throws
     public func image(from url: URL, pointSize: CGSize, scale: CGFloat) async throws -> UIImage
     public func removeAll() async   // 진행 중 작업 취소 + 메모리·디스크 비우기
 }
@@ -132,6 +133,10 @@ public actor ImageLoader {
   (iOS 17이라 `@concurrent` 대신 detached). 비-Sendable `CGImage`는 detached 클로저 안에 가둔다.
 - 같은 URL이라도 표시 크기(픽셀)가 다르면 별도 항목이다. `scale`은 호출부(뷰)가 넘긴다 —
   Core는 `UIScreen`을 만지지 않는다. 반환 `UIImage`에는 `scale`을 실어 표시 크기를 논리 pt로 맞춘다.
+- 네트워크는 **일시적 전송 실패**(타임아웃·연결 끊김·DNS 등)만 `retryDelays` 간격으로 지수 백오프 재시도한다.
+  `.cancelled`·재시도 불가 코드(`.badURL` 등)·HTTP 상태 오류(404 등)는 재시도하지 않는다.
+- **메모리 경고 대응**은 별도 알림 구독 없이 `NSCache`(메모리 캐시)의 시스템 압박 시 자동 방출로 충족한다
+  (Core가 `UIApplication` 알림을 구독하면 레이어 위반). 강제 정리가 필요하면 상위가 `removeAll()`을 호출한다.
 
 ## 의존 관계
 
