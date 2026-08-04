@@ -85,7 +85,12 @@ public actor ImageLoader {
         defer { if inFlight[key] == task { inFlight[key] = nil } }
 
         do {
-            return try await task.value
+            let image = try await task.value
+            // 이 호출(뷰)이 취소돼도 위의 await task.value는 에러 없이 이미지를 돌려준다.
+            // 그래서 여기서 "내가 취소됐는지"를 직접 확인해, 취소된 호출에는 이미지 대신 .cancelled를 던진다.
+            // (다운로드 작업은 일부러 취소하지 않는다 — 끝까지 받아 캐시에 넣어두면 다음 요청이 재사용)
+            try Task.checkCancellation()
+            return image
         } catch is CancellationError {
             throw ImageLoadingError.cancelled
         }
