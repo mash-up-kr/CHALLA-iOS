@@ -23,6 +23,9 @@ public actor ImageLoader {
     private let encoder: ImageDataEncoder
     private let fetcher: ImageDataFetching
 
+    /// 일시적 전송 실패 시 재시도 간격(지수 백오프). 원소 개수 = 최대 재시도 횟수.
+    private let retryDelays: [Duration]
+
     /// 같은 키에 대한 중복 다운로드를 막기 위한 진행 중 작업 맵(dedup).
     private var inFlight: [ImageCacheKey: Task<UIImage, Error>] = [:]
 
@@ -31,10 +34,12 @@ public actor ImageLoader {
     /// - Parameters:
     ///   - configuration: 메모리·디스크 캐시 용량과 저장 위치.
     ///   - fetcher: 원격 바이트 취득기. 기본값은 URLCache를 끈 세션 기반 구현.
+    ///   - retryDelays: 일시적 전송 실패 시 재시도 간격(지수 백오프). 기본 1→2→4초, 빈 배열이면 재시도 안 함.
     /// - Throws: 디스크 캐시 디렉터리 생성 실패 시 던진다.
     public init(
         configuration: ImageCacheConfiguration = .default,
-        fetcher: ImageDataFetching = URLSessionImageDataFetcher()
+        fetcher: ImageDataFetching = URLSessionImageDataFetcher(),
+        retryDelays: [Duration] = [.seconds(1), .seconds(2), .seconds(4)]
     ) throws {
         self.memory = MemoryImageCache(costLimit: configuration.memoryCostLimitBytes)
         self.disk = try DiskImageCache(
@@ -44,6 +49,7 @@ public actor ImageLoader {
         self.downsampler = ImageDownsampler()
         self.encoder = ImageDataEncoder()
         self.fetcher = fetcher
+        self.retryDelays = retryDelays
     }
 
     // MARK: - Public Methods
@@ -123,16 +129,8 @@ public actor ImageLoader {
             return decoded.image
         }
 
-        // 네트워크.
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await fetcher.fetch(url)
-        } catch let error as URLError {
-            // 취소로 인한 전송 중단은 취소로 표면화한다.
-            if error.code == .cancelled { throw ImageLoadingError.cancelled }
-            throw ImageLoadingError.networkFailed(error.code)
-        }
+        // 네트워크. 일시적 전송 실패는 지수 백오프로 재시도한다.
+        let (data, response) = try await fetchWithRetry(url)
 
         guard let http = response as? HTTPURLResponse else {
             throw ImageLoadingError.invalidResponse
@@ -152,6 +150,36 @@ public actor ImageLoader {
         await disk.store(processed.encodedData, for: key)
         memory.insert(processed.image, for: key, cost: processed.cost)
         return processed.image
+    }
+
+    /// 재시도해도 소용 있는(일시적) 전송 실패 코드. 이 외의 URLError는 재시도 없이 즉시 실패한다.
+    private static let retryableURLErrorCodes: Set<URLError.Code> = [
+        .timedOut, .cannotConnectToHost, .cannotFindHost,
+        .networkConnectionLost, .notConnectedToInternet,
+        .dnsLookupFailed, .badServerResponse
+    ]
+
+    /// `fetcher.fetch`를 감싸 일시적 실패 시 `retryDelays` 간격으로 재시도한다.
+    ///
+    /// - 취소(`.cancelled`)는 재시도하지 않고 `.cancelled`로 종료한다.
+    /// - 재시도 불가 코드(예: `.badURL`)거나 재시도 횟수를 소진하면 `.networkFailed`로 실패한다.
+    /// - 백오프 대기 중 취소되면 `Task.sleep`이 취소를 던져 상위에서 `.cancelled`로 매핑된다.
+    private func fetchWithRetry(_ url: URL) async throws -> (Data, URLResponse) {
+        var attempt = 0
+        while true {
+            do {
+                return try await fetcher.fetch(url)
+            } catch let error as URLError {
+                if error.code == .cancelled { throw ImageLoadingError.cancelled }
+                guard Self.retryableURLErrorCodes.contains(error.code),
+                      attempt < retryDelays.count
+                else {
+                    throw ImageLoadingError.networkFailed(error.code)
+                }
+                try await Task.sleep(for: retryDelays[attempt]) // 1초 → 2초 → 4초
+                attempt += 1
+            }
+        }
     }
 
     /// 원본 바이트를 다운샘플하고 HEIC로 재인코딩한다. (액터 밖 유틸리티 우선순위)
