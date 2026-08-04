@@ -147,11 +147,61 @@ struct ImageLoaderTests {
     @Test("전송 실패면 networkFailed(코드)")
     func transportErrorThrowsNetworkFailed() async throws {
         let fetcher = MockImageDataFetcher { _ in throw URLError(.timedOut) }
-        let loader = try ImageLoader(configuration: makeConfiguration(), fetcher: fetcher)
+        // 재시도를 꺼서(빈 배열) 즉시 실패를 확인한다.
+        let loader = try ImageLoader(configuration: makeConfiguration(), fetcher: fetcher, retryDelays: [])
 
         await #expect(throws: ImageLoadingError.networkFailed(.timedOut)) {
             try await loader.image(from: url, pointSize: pointSize, scale: scale)
         }
+    }
+
+    // MARK: - 재시도
+
+    @Test("일시적 실패 후 재시도로 성공한다")
+    func retriesTransientFailureThenSucceeds() async throws {
+        // 2번 실패 후 성공. 간격은 테스트라 아주 짧게 준다.
+        let fetcher = MockImageDataFetcher.failing(times: 2, thenReturn: try validJPEG())
+        let loader = try ImageLoader(
+            configuration: makeConfiguration(),
+            fetcher: fetcher,
+            retryDelays: [.milliseconds(1), .milliseconds(1), .milliseconds(1)]
+        )
+
+        let image = try await loader.image(from: url, pointSize: pointSize, scale: scale)
+
+        #expect(image.size.width > 0)
+        #expect(fetcher.callCount == 3) // 실패 2 + 성공 1
+    }
+
+    @Test("재시도를 소진하면 networkFailed로 실패한다")
+    func exhaustsRetriesThenFails() async throws {
+        let fetcher = MockImageDataFetcher { _ in throw URLError(.timedOut) }
+        let loader = try ImageLoader(
+            configuration: makeConfiguration(),
+            fetcher: fetcher,
+            retryDelays: [.milliseconds(1), .milliseconds(1)] // 재시도 2회
+        )
+
+        await #expect(throws: ImageLoadingError.networkFailed(.timedOut)) {
+            try await loader.image(from: url, pointSize: pointSize, scale: scale)
+        }
+        #expect(fetcher.callCount == 3) // 최초 1 + 재시도 2
+    }
+
+    @Test("재시도 불가한 전송 오류는 즉시 실패한다")
+    func doesNotRetryNonTransientError() async throws {
+        let fetcher = MockImageDataFetcher { _ in throw URLError(.unsupportedURL) }
+        // 재시도가 일어나면 10초 지연되므로, 재시도 안 함을 callCount로 확인한다.
+        let loader = try ImageLoader(
+            configuration: makeConfiguration(),
+            fetcher: fetcher,
+            retryDelays: [.seconds(10)]
+        )
+
+        await #expect(throws: ImageLoadingError.networkFailed(.unsupportedURL)) {
+            try await loader.image(from: url, pointSize: pointSize, scale: scale)
+        }
+        #expect(fetcher.callCount == 1) // 재시도 안 함
     }
 
     // MARK: - removeAll

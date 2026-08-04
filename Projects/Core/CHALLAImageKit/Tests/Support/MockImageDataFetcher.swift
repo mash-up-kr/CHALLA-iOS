@@ -31,14 +31,6 @@ final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
         self.handler = handler
     }
 
-    /// 200 OK로 고정 바이트를 돌려주는 간편 생성기.
-    static func ok(_ data: Data, delayNanoseconds: UInt64 = 0) -> MockImageDataFetcher {
-        MockImageDataFetcher(delayNanoseconds: delayNanoseconds) { url in
-            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
-            return (data, response)
-        }
-    }
-
     func fetch(_ url: URL) async throws -> (Data, URLResponse) {
         lock.lock()
         _callCount += 1
@@ -48,5 +40,43 @@ final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
             try? await Task.sleep(nanoseconds: delayNanoseconds)
         }
         return try await handler(url)
+    }
+
+    /// 200 OK로 고정 바이트를 돌려주는 간편 생성기.
+    static func ok(_ data: Data, delayNanoseconds: UInt64 = 0) -> MockImageDataFetcher {
+        MockImageDataFetcher(delayNanoseconds: delayNanoseconds) { url in
+            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (data, response)
+        }
+    }
+
+    /// 처음 `times`번은 지정 코드로 실패하고, 그 뒤부터 200 OK로 `data`를 돌려주는 생성기.
+    /// 재시도 로직(일시적 실패 후 복구)을 검증할 때 쓴다.
+    static func failing(
+        times: Int,
+        thenReturn data: Data,
+        errorCode: URLError.Code = .timedOut
+    ) -> MockImageDataFetcher {
+        let counter = CallCounter()
+        return MockImageDataFetcher { url in
+            if counter.next() <= times {
+                throw URLError(errorCode)
+            }
+            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (data, response)
+        }
+    }
+}
+
+/// 클로저가 캡처해 호출 순번을 세는 스레드 안전 카운터.
+private final class CallCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    func next() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        value += 1
+        return value
     }
 }
