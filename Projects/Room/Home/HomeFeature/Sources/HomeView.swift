@@ -49,6 +49,14 @@ public struct HomeView: View {
             ProgressView()
                 .tint(CHALLAColor.Label.neutral)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if store.showsEmptyState {
+            // 두 버튼의 동작은 드로어를 만드는 다음 단계에서 연결한다.
+            HomeEmptyView(
+                nickname: store.nickname,
+                profileImageURL: store.profileImageURL,
+                onCreateRoom: {},
+                onJoinRoom: {}
+            )
         } else {
             roomList
         }
@@ -214,7 +222,7 @@ private enum PreviewRooms {
 
 #Preview("목록 (사진)") {
     HomeView(
-        store: Store(initialState: HomeFeature.State()) {
+        store: Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
             HomeFeature()
         } withDependencies: {
             $0.fetchRoomsUseCase = FetchRoomsUseCase(run: { PreviewRooms.all })
@@ -224,7 +232,7 @@ private enum PreviewRooms {
 
 #Preview("목록 (사진 없음)") {
     HomeView(
-        store: Store(initialState: HomeFeature.State()) {
+        store: Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
             HomeFeature()
         } withDependencies: {
             $0.fetchRoomsUseCase = .previewValue
@@ -232,9 +240,19 @@ private enum PreviewRooms {
     )
 }
 
+#Preview("빈 상태") {
+    HomeView(
+        store: Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
+            HomeFeature()
+        } withDependencies: {
+            $0.fetchRoomsUseCase = FetchRoomsUseCase(run: { [] })
+        }
+    )
+}
+
 #Preview("로딩") {
     HomeView(
-        store: Store(initialState: HomeFeature.State()) {
+        store: Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
             HomeFeature()
         } withDependencies: {
             $0.fetchRoomsUseCase = FetchRoomsUseCase(run: {
@@ -247,7 +265,7 @@ private enum PreviewRooms {
 
 #Preview("조회 실패") {
     HomeView(
-        store: Store(initialState: HomeFeature.State()) {
+        store: Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
             HomeFeature()
         } withDependencies: {
             $0.fetchRoomsUseCase = FetchRoomsUseCase(run: { throw RoomError.network })
