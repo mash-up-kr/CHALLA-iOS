@@ -141,7 +141,7 @@ public actor ImageLoader {
 ## 의존 관계
 
 - 이 모듈이 의존하는 모듈: 없음 (외부 패키지 0개, CHALLA 모듈 0개 — 시스템 프레임워크만)
-- 이 모듈에 의존하는 모듈: (예정) `CHALLADesignSystem` — `CHALLAAsyncImage`가 로더를 사용
+- 이 모듈에 의존하는 모듈: `CHALLADesignSystem` — `CHALLAAsyncImage`가 로더를 사용 (이슈 #43)
 
 ## 테스트 실행 방법
 

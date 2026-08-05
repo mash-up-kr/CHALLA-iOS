@@ -4,8 +4,10 @@
 
 찰나의 디자인 토큰(색·타이포그래피·둥글기·아이콘)과 공용 SwiftUI 컴포넌트를 제공한다.
 
-이 모듈은 SwiftUI 외에 아무것도 import하지 않는다. Feature가 이 모듈을 가져다 쓰는
-것이며, 역방향(디자인 시스템 → Feature) 참조는 금지다 (아키텍처 규칙 5).
+이 모듈은 SwiftUI와 `CHALLAImageKit`(Core — `CHALLAAsyncImage`의 이미지 로딩용)만
+import한다. Feature가 이 모듈을 가져다 쓰는 것이며, 역방향(디자인 시스템 → Feature)
+참조는 금지다 (아키텍처 규칙 5). 네트워크·디스크를 만지는 로딩 로직은 전부 Core에 있고,
+이 모듈의 뷰는 로더를 주입받아 소비만 한다 (순수성 유지).
 
 ## 공개 API
 
@@ -26,13 +28,39 @@
 | `CHALLATextButton` | 텍스트 버튼. variant(primary/neutral/transparent) × size(large/medium/small), leading/trailing 아이콘 옵션 |
 | `CHALLAIconButton` | 아이콘 버튼. 정사각(54/40/32), variant·size는 텍스트 버튼과 공용 |
 | `CHALLAButtonVariant` / `CHALLAButtonSize` | 두 버튼이 공유하는 스타일·크기 enum |
+| `CHALLAAsyncImage` | 원격 이미지 뷰. 자기 크기·배율을 측정해 `ImageLoader`로 로드(다운샘플+2단 캐시), 성공 시 페이드인 |
+| `CHALLAAsyncImagePhase` | 로딩 상태 enum (`empty`/`success(Image)`/`failure(Error)`) + `image`/`error` 편의 접근 |
+| `EnvironmentValues.challaImageLoader` | 로더 주입 통로. 기본값은 `.default` 설정의 공유 로더 — 주입 없이 동작 |
 
 버튼 비활성화는 별도 파라미터 없이 SwiftUI 표준 `.disabled(_:)`로 제어한다
 (내부에서 `@Environment(\.isEnabled)`를 읽어 비활성 색을 적용).
 
+### CHALLAAsyncImage 사용법
+
+```swift
+// 기본형 — 로딩 중·실패 시 DS 배경 박스, 성공 시 페이드인
+CHALLAAsyncImage(url: photo.url)
+    .scaledToFill()
+    .frame(width: 160, height: 160)
+
+// 커스텀형 — content·placeholder 지정 (SwiftUI AsyncImage와 같은 모양)
+CHALLAAsyncImage(url: photo.url) { image in
+    image.resizable().scaledToFill()
+} placeholder: {
+    CHALLAColor.Background.level2
+}
+
+// 커스텀 로더가 필요하면(로그아웃 removeAll 연결 등) 앱 루트에서 교체
+RootView().environment(\.challaImageLoader, myLoader)
+```
+
+- 크기(`pointSize`)와 배율(`displayScale`)은 뷰가 스스로 측정해 로더에 넘긴다.
+- url·크기 변경 시 이전 로드를 취소하고 재로드하며, 뷰가 사라지면 자동 취소된다.
+- 실패 시 별도 UI 없이 placeholder를 유지한다 (#25 결정). 재등장 시 자연 재시도.
+
 ## 의존 관계
 
-- 이 모듈이 의존하는 모듈: 없음 (SwiftUI만 사용)
+- 이 모듈이 의존하는 모듈: `CHALLAImageKit` (Core — 규칙 4에 따라 허용)
 - 이 모듈에 의존하는 모듈: 모든 Feature, `CHALLADesignSystemApp`
 
 ## 사용 규칙
