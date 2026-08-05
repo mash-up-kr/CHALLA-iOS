@@ -13,7 +13,7 @@ struct HomeFeatureTests {
     private nonisolated static let rooms = [Room.previewShooting, .previewPrintWaiting, .previewPrinted]
 
     private static func makeStore(
-        initialState: HomeFeature.State = HomeFeature.State(),
+        initialState: HomeFeature.State = HomeFeature.State(nickname: "찰나"),
         fetchRooms: FetchRoomsUseCase = .testValue
     ) -> TestStoreOf<HomeFeature> {
         TestStore(initialState: initialState) {
@@ -50,6 +50,22 @@ struct HomeFeatureTests {
         }
     }
 
+    @Test("조회를 마쳤는데 방이 없으면 빈 상태를 그린다")
+    func emptyResultShowsEmptyState() async {
+        let store = Self.makeStore(fetchRooms: FetchRoomsUseCase(run: { [] }))
+
+        await store.send(.view(.task)) {
+            $0.loadState = .loading
+        }
+        // 조회 중에는 아직 빈 상태가 아니다 — 빈 화면이 보였다 목록으로 바뀌는 걸 막는 조건이다.
+        #expect(!store.state.showsEmptyState)
+
+        await store.receive(\.roomsResponse.success) {
+            $0.loadState = .loaded
+        }
+        #expect(store.state.showsEmptyState)
+    }
+
     @Test("조회 실패는 얼럿을 띄우고, 다시 시도가 성공하면 목록이 채워진다")
     func failureThenRetrySucceeds() async {
         // 첫 호출은 실패, 두 번째는 성공 — 재시도가 실제로 재조회하는지 본다.
@@ -79,7 +95,7 @@ struct HomeFeatureTests {
 
     @Test("조회 중에는 다시 조회하지 않는다")
     func ignoresDuplicateFetchWhileLoading() async {
-        var state = HomeFeature.State()
+        var state = HomeFeature.State(nickname: "찰나")
         state.loadState = .loading
         // 의존성을 주입하지 않는다 — 가드를 뚫고 조회가 실행되면 testValue가 테스트를 실패시킨다.
         let store = Self.makeStore(initialState: state)
@@ -91,7 +107,7 @@ struct HomeFeatureTests {
 
     @Test("카드를 탭하면 해당 방을 delegate로 알린다")
     func roomTappedDelegates() async {
-        var state = HomeFeature.State()
+        var state = HomeFeature.State(nickname: "찰나")
         state.rooms = IdentifiedArray(uniqueElements: Self.rooms)
         state.loadState = .loaded
         let store = Self.makeStore(initialState: state)

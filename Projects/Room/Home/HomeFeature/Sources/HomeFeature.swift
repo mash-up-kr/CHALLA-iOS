@@ -1,9 +1,11 @@
 import ComposableArchitecture
+import Foundation
 import RoomDomain
 
 /// 홈 화면의 TCA Feature.
 ///
 /// 화면이 뜨면 방 목록을 한 번 가져오고, 그 결과 하나에서 촬영 중·촬영 완료 두 섹션이 파생된다.
+/// 방이 하나도 없으면 목록 대신 빈 상태를 그린다.
 /// 방 상세와 설정 화면은 다른 Feature 소관이라 `delegate`로 부모에게 넘긴다.
 @Reducer
 public struct HomeFeature {
@@ -12,6 +14,11 @@ public struct HomeFeature {
 
     @ObservableState
     public struct State: Equatable {
+        /// 빈 상태 인사말에 쓰는 값들. 사용자 정보를 다루는 Domain이 아직 없어
+        /// 부모(App·데모앱)가 넣어 준다. 이슈 #33이 프로필 정본을 만들면 UseCase 주입으로 바꾼다.
+        public let nickname: String
+        public let profileImageURL: URL?
+
         public var rooms: IdentifiedArrayOf<Room> = []
         public var loadState: LoadState = .notRequested
         @Presents public var alert: AlertState<Action.Alert>?
@@ -19,7 +26,14 @@ public struct HomeFeature {
         /// 섹션 분류는 Domain 규칙에 맡긴다. 저장하면 `rooms`와 어긋날 수 있어 매번 계산한다.
         public var board: RoomBoard { RoomBoard(rooms: rooms.elements) }
 
-        public init() {}
+        /// 조회를 마쳤는데 방이 없을 때만 참이다.
+        /// 첫 조회 중에는 거짓이라 빈 상태가 잠깐 보였다 목록으로 바뀌는 일이 없다.
+        public var showsEmptyState: Bool { loadState == .loaded && board.isEmpty }
+
+        public init(nickname: String, profileImageURL: URL? = nil) {
+            self.nickname = nickname
+            self.profileImageURL = profileImageURL
+        }
     }
 
     /// 조회를 요청했는지, 받았는지로 갈리는 네 상태.
