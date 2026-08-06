@@ -32,9 +32,8 @@ final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
     }
 
     func fetch(_ url: URL) async throws -> (Data, URLResponse) {
-        lock.lock()
-        _callCount += 1
-        lock.unlock()
+        // async 컨텍스트에서 lock()/unlock() 직접 호출은 금지(noasync) — 스코프 잠금으로 대체.
+        lock.withLock { _callCount += 1 }
 
         if delayNanoseconds > 0 {
             try? await Task.sleep(nanoseconds: delayNanoseconds)
