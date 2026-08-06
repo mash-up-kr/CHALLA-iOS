@@ -40,7 +40,7 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
         ZStack {
             if let image = phase.image {
                 content(image)
-                    .transition(.opacity)   // 성공 전환 시 불투명도 교차(페이드인)
+                    .transition(.opacity) // 성공 전환 시 불투명도 교차(페이드인)
             } else {
                 placeholder()
             }
@@ -48,10 +48,10 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
         .onGeometryChange(for: CGSize.self) { proxy in
             proxy.size
         } action: { newSize in
-            measuredSize = newSize   // 배치된 크기가 확정·변경되면 기록 → LoadInput 변경 → 재로드
+            measuredSize = newSize // 배치된 크기가 확정·변경되면 기록 → LoadInput 변경 → 재로드
         }
         .task(id: LoadInput(url: url, size: measuredSize, scale: displayScale)) {
-            await load()   // 입력이 바뀌면 이전 로드를 취소하고 다시 로드. 뷰 소멸 시 자동 취소.
+            await load() // 입력이 바뀌면 이전 로드를 취소하고 다시 로드. 뷰 소멸 시 자동 취소.
         }
     }
 

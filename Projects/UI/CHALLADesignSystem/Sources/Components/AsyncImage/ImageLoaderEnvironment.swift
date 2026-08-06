@@ -1,6 +1,15 @@
 import CHALLAImageKit
 import SwiftUI
 
+// 이 파일은 @Entry 매크로로 바꾸지 않는다. 맨 아래 swiftformat 줄은 사람용 주석이 아니라
+// 자동 변환(environmentEntry 규칙)을 끄는 명령어다 — 지우면 다음 린트 교정 때 @Entry로 바뀐다.
+//
+// 바꾸지 않는 이유: 기본 로더는 앱 전체가 하나를 공유해야 한다. 로더마다 메모리 캐시가
+// 따로라서 로더가 여러 개 생기면 같은 사진을 그 수만큼 다시 받는다. 아래의 static let은
+// "최초 접근 때 한 번만 생성"을 언어 차원에서 보장하지만, @Entry가 자동 생성하는 기본값은
+// 그 보장이 확인되지 않아 수동 구현을 유지한다.
+// swiftformat:disable environmentEntry
+
 /// `ImageLoader`를 뷰 트리에 공급하는 Environment 키.
 ///
 /// 로더는 앱당 1개를 공유해야 한다 — 인스턴스마다 메모리 캐시가 따로라서,

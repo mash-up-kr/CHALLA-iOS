@@ -17,13 +17,13 @@ public enum CHALLAAsyncImagePhase {
 
     /// 성공 상태면 이미지, 아니면 nil. (간편 접근용)
     public var image: Image? {
-        guard case .success(let image) = self else { return nil }
+        guard case let .success(image) = self else { return nil }
         return image
     }
 
     /// 실패 상태면 에러, 아니면 nil. (간편 접근용)
     public var error: Error? {
-        guard case .failure(let error) = self else { return nil }
+        guard case let .failure(error) = self else { return nil }
         return error
     }
 }

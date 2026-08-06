@@ -68,7 +68,7 @@ struct AsyncImageGallery: View {
             galleryTitle("그리드")
             galleryCaption("셀 9장 — 스크롤로 나갔다 돌아오면 캐시에서 즉시 표시")
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                ForEach(0..<9, id: \.self) { index in
+                ForEach(0 ..< 9, id: \.self) { index in
                     CHALLAAsyncImage(url: URL(string: "https://picsum.photos/seed/challa-grid-\(index)/600/600"))
                         .scaledToFill()
                         .aspectRatio(1, contentMode: .fit)
