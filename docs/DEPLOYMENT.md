@@ -42,7 +42,8 @@ PR:     GitHub Actions CI — lint → tuist generate → tuist test
 ### 사전 준비 (최초 1회)
 
 - App Store Connect에 두 번들 ID로 각각 앱 등록
-- `DEVELOPMENT_TEAM`은 `Configs/Shared.xcconfig`(gitignore)로 주입 — template 복사 후 값 채우기
+- `DEVELOPMENT_TEAM`·카카오 키·백엔드 서버 값(`API_SCHEME`/`API_HOST`/`API_PORT`)은
+  `Configs/Shared.xcconfig`(gitignore)로 주입 — template 복사 후 값 채우기
 - 앱 아이콘 1024pt (TestFlight 필수)
 
 ## 남은 결정 사항 (팀 논의)

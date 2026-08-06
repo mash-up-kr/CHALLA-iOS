@@ -16,7 +16,8 @@ public actor DiskImageCache {
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
-    /// 캐시에 있으면 바이트를 반환하고, 없으면 nil. 조회 시 접근 시각을 갱신한다(LRU).
+    /// 캐시에 있으면 바이트를 반환하고, 없으면 nil. 적중 시 수정일을 지금으로 갱신해
+    /// LRU 삭제 순서에서 뒤로 밀리게 한다.
     public func data(for key: ImageCacheKey) -> Data? {
         let url = fileURL(for: key)
         guard let data = try? Data(contentsOf: url) else { return nil }
@@ -44,11 +45,14 @@ public actor DiskImageCache {
 
     // MARK: - Private
 
+    /// 키의 SHA256 식별자를 파일명으로 써서 캐시 파일 경로를 만든다.
+    /// 저장과 조회가 같은 규칙을 쓰므로 별도 색인 없이 키만으로 파일을 찾는다.
     private func fileURL(for key: ImageCacheKey) -> URL {
         directory.appendingPathComponent(key.storageIdentifier)
     }
 
-    /// 용량 초과 시 수정일이 오래된 파일부터 상한 이하가 될 때까지 삭제한다.
+    /// 용량 초과 시 수정일이 오래된 파일부터 상한 이하가 될 때까지 삭제한다(LRU).
+    /// 개별 삭제 실패는 무시한다 — 다음 방출 때 디렉터리를 다시 읽으므로 그때 재시도된다.
     private func evictIfNeeded() {
         var files = entries()
         var total = files.reduce(0) { $0 + $1.size }
@@ -62,7 +66,8 @@ public actor DiskImageCache {
         }
     }
 
-    /// 캐시 디렉터리의 파일별 (경로, 크기, 수정일) 목록.
+    /// 캐시 디렉터리의 파일별 (경로, 크기, 수정일) 목록 추출
+    /// 크기·수정일을 못 읽은 파일은 용량 합산·LRU 정렬을 할 수 없으므로 제외한다.
     private func entries() -> [FileInfo] {
         let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
         guard let urls = try? fileManager.contentsOfDirectory(
@@ -79,6 +84,7 @@ public actor DiskImageCache {
         }
     }
 
+    /// 방출 계산에 쓰는 파일 정보.
     private struct FileInfo {
         let url: URL
         let size: Int

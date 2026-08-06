@@ -1,0 +1,746 @@
+<title>CHALLAImageKit 도해 — 로더 파이프라인 · 캐시 정책 · 테스트</title>
+<style>
+  :root {
+    --bg: #FAF9F7; --surface: #FFFFFF; --ink: #221E1A; --muted: #6F6760;
+    --line: #E5E0D8; --accent: #B4531F; --accent-soft: #F6E8DD;
+    --hit: #2F7D4F; --hit-soft: #E4F0E8; --warn: #9A6A1B; --warn-soft: #F5ECD9;
+    --err: #B3352C; --err-soft: #F6E3E1; --code-bg: #F1EDE7;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151210; --surface: #1E1A17; --ink: #EDE7DF; --muted: #A29888;
+      --line: #342D27; --accent: #E0894A; --accent-soft: #3A2A1D;
+      --hit: #5CB97E; --hit-soft: #21301F; --warn: #D9A84E; --warn-soft: #34290F;
+      --err: #E06C5C; --err-soft: #3A1F1B; --code-bg: #262019;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #FAF9F7; --surface: #FFFFFF; --ink: #221E1A; --muted: #6F6760;
+    --line: #E5E0D8; --accent: #B4531F; --accent-soft: #F6E8DD;
+    --hit: #2F7D4F; --hit-soft: #E4F0E8; --warn: #9A6A1B; --warn-soft: #F5ECD9;
+    --err: #B3352C; --err-soft: #F6E3E1; --code-bg: #F1EDE7;
+  }
+  :root[data-theme="dark"] {
+    --bg: #151210; --surface: #1E1A17; --ink: #EDE7DF; --muted: #A29888;
+    --line: #342D27; --accent: #E0894A; --accent-soft: #3A2A1D;
+    --hit: #5CB97E; --hit-soft: #21301F; --warn: #D9A84E; --warn-soft: #34290F;
+    --err: #E06C5C; --err-soft: #3A1F1B; --code-bg: #262019;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.7 -apple-system, system-ui, "Apple SD Gothic Neo", sans-serif;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  h1 { font-size: 30px; line-height: 1.3; margin: 0 0 8px; letter-spacing: -0.02em; text-wrap: balance; }
+  h2 { font-size: 21px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h3 { font-size: 16px; margin: 0 0 8px; }
+  section { margin-top: 64px; }
+  .lede { color: var(--muted); margin: 0; }
+  .eyebrow {
+    font: 600 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 10px;
+  }
+  .section-note { color: var(--muted); font-size: 14.5px; margin: 4px 0 20px; }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+  p { margin: 0 0 12px; }
+
+  /* ── 구성 요소 지도 ─────────────────────────── */
+  .map { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  .comp {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .comp .name { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+  .comp .role { color: var(--muted); font-size: 13.5px; line-height: 1.55; margin-top: 4px; }
+  .kind {
+    display: inline-block; font: 600 11px/1 var(--mono); padding: 3px 7px;
+    border-radius: 999px; margin-left: 6px; vertical-align: 2px;
+  }
+  .kind.actor  { background: var(--accent-soft); color: var(--accent); }
+  .kind.struct { background: var(--hit-soft); color: var(--hit); }
+  .kind.klass  { background: var(--warn-soft); color: var(--warn); }
+  .kind.proto  { background: var(--code-bg); color: var(--muted); }
+
+  /* ── 시나리오 버튼 ─────────────────────────── */
+  .scenarios { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+  .scenarios button {
+    font: 600 14px/1 -apple-system, system-ui, sans-serif; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+    padding: 9px 16px; cursor: pointer;
+  }
+  .scenarios button:hover { border-color: var(--accent); }
+  .scenarios button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .scenarios button[aria-pressed="true"] {
+    background: var(--accent); border-color: var(--accent); color: var(--bg);
+  }
+  .scenario-hint { font-size: 13.5px; color: var(--muted); margin: 0 0 16px; min-height: 1.5em; }
+
+  /* ── 파이프라인 단계 ─────────────────────────── */
+  .pipe { display: flex; flex-direction: column; }
+  .step { position: relative; padding-left: 34px; }
+  .step::before {  /* 세로 연결선 */
+    content: ""; position: absolute; left: 11px; top: 0; bottom: 0;
+    width: 2px; background: var(--line);
+  }
+  .step:first-child::before { top: 14px; }
+  .step:last-child::before { bottom: auto; height: 14px; }
+  .dot {
+    position: absolute; left: 4px; top: 8px; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--surface); border: 2px solid var(--muted);
+    font: 700 9px/12px var(--mono); text-align: center; color: var(--muted);
+  }
+  .step details {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    margin: 0 0 10px; transition: border-color 0.15s, opacity 0.15s;
+  }
+  .step summary {
+    cursor: pointer; padding: 10px 14px; list-style: none;
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  }
+  .step summary::-webkit-details-marker { display: none; }
+  .step summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+  .step summary::after { content: "펼치기"; font-size: 11.5px; color: var(--muted); margin-left: auto; }
+  .step details[open] summary::after { content: "접기"; }
+  .step .t { font-weight: 650; font-size: 15.5px; }
+  .step .s { color: var(--muted); font-size: 13.5px; }
+  .step .body {
+    padding: 2px 14px 14px; font-size: 14.5px; color: var(--ink);
+    border-top: 1px dashed var(--line); padding-top: 10px; margin: 0 0 0;
+  }
+  .step .body p { margin: 0 0 8px; }
+  .step .body p:last-child { margin-bottom: 0; }
+  .tag {
+    display: inline-block; font: 600 11px/1 var(--mono); padding: 3px 7px; border-radius: 4px;
+  }
+  .tag.hit  { background: var(--hit-soft); color: var(--hit); }
+  .tag.err  { background: var(--err-soft); color: var(--err); }
+  .tag.off  { background: var(--code-bg); color: var(--muted); }
+
+  /* 시나리오 하이라이트 상태 */
+  .pipe.play .step.on  details { border-color: var(--accent); }
+  .pipe.play .step.on  .dot { border-color: var(--accent); color: var(--accent); }
+  .pipe.play .step.off details { opacity: 0.38; }
+  .pipe.play .step.stop details { border-color: var(--hit); box-shadow: 0 0 0 1px var(--hit); }
+  .pipe.play .step.stop .dot { border-color: var(--hit); color: var(--hit); }
+  .stop-badge {
+    display: none; font: 700 11px/1 var(--mono); color: var(--hit);
+    background: var(--hit-soft); padding: 3px 7px; border-radius: 4px;
+  }
+  .pipe.play .step.stop .stop-badge { display: inline-block; }
+
+  /* ── 타입 변환 레인 ─────────────────────────── */
+  .lane { margin-bottom: 20px; }
+  .lane-title { font-size: 14px; font-weight: 650; margin-bottom: 8px; }
+  .lane-flow {
+    display: flex; align-items: center; gap: 6px; overflow-x: auto;
+    padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .chip {
+    flex-shrink: 0; font-family: var(--mono); font-size: 13px; font-weight: 600;
+    background: var(--code-bg); border-radius: 6px; padding: 8px 12px; white-space: nowrap;
+  }
+  .chip small { display: block; font: 400 11px/1.4 -apple-system, system-ui, sans-serif; color: var(--muted); }
+  .arrow { flex-shrink: 0; color: var(--muted); font-size: 12px; text-align: center; line-height: 1.3; white-space: nowrap; }
+  .arrow b { display: block; font-size: 11px; color: var(--accent); font-weight: 600; }
+  .aside {
+    border-left: 3px solid var(--accent); background: var(--surface);
+    padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 14px; color: var(--muted); margin-top: 16px;
+  }
+  .aside b { color: var(--ink); }
+
+  /* ── 정책 카드 ─────────────────────────── */
+  .policies { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  .policy { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .policy h3 { display: flex; align-items: center; gap: 8px; }
+  .policy p { font-size: 14px; color: var(--muted); margin: 0; }
+  .policy p b { color: var(--ink); font-weight: 600; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── 테스트 표 ─────────────────────────── */
+  .tests h3 { margin-top: 28px; font-family: var(--mono); font-size: 14.5px; }
+  .tests h3 span { font-family: -apple-system, system-ui, sans-serif; font-weight: 400; color: var(--muted); font-size: 13.5px; }
+  .twrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 12px 7px 0; vertical-align: top; border-bottom: 1px solid var(--line); }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
+  td:first-child { width: 46%; min-width: 220px; }
+  td .why { color: var(--muted); }
+
+  /* ── 최상단 전체 구조도 ─────────────────────────── */
+  .ov-wrap { overflow-x: auto; margin-top: 28px; background: var(--surface);
+             border: 1px solid var(--line); border-radius: 10px; }
+  .ov { display: block; min-width: 740px; width: 100%; height: auto; }
+  .ov .node { cursor: pointer; transition: opacity 0.15s; }
+  .ov .node rect { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; rx: 8; }
+  .ov .node:focus { outline: none; }
+  .ov .node:focus rect { stroke: var(--accent); stroke-dasharray: 3 3; }
+  .ov .node .nt { font: 600 14.5px -apple-system, system-ui, sans-serif; fill: var(--ink); }
+  .ov .node .ns { font: 400 11px -apple-system, system-ui, sans-serif; fill: var(--muted); }
+  .ov .edge { stroke: var(--muted); stroke-width: 1.4; fill: none; opacity: 0.55;
+              marker-end: url(#ov-arrow); transition: opacity 0.15s, stroke 0.15s; }
+  .ov .elabel { font: 500 10.5px -apple-system, system-ui, sans-serif; fill: var(--muted);
+                transition: opacity 0.15s; }
+  .ov.lit .edge.on { stroke: var(--accent); stroke-width: 2.4; opacity: 1; marker-end: url(#ov-arrow-on); }
+  .ov.lit .edge.dim { opacity: 0.14; }
+  .ov.lit .elabel.on { fill: var(--accent); }
+  .ov.lit .elabel.dim { opacity: 0.18; }
+  .ov.lit .node.on rect { stroke: var(--accent); stroke-width: 2; }
+  .ov.lit .node.dim { opacity: 0.3; }
+  .ov-hint { font-size: 13px; color: var(--muted); margin: 8px 2px 0; }
+
+  /* ── 수치 예시 블록 ─────────────────────────── */
+  pre.figure {
+    font-family: var(--mono); font-size: 13px; line-height: 1.7; color: var(--ink);
+    background: var(--code-bg); border-radius: 8px; padding: 12px 16px;
+    overflow-x: auto; margin: 10px 0;
+  }
+  pre.figure em { font-style: normal; color: var(--accent); font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<main>
+  <p class="eyebrow">CHALLA iOS · Core · 이슈 #25</p>
+  <h1>CHALLAImageKit — 이미지 로딩 파이프라인 도해</h1>
+  <p class="lede">원격 사진 한 장이 <code>URL</code>에서 화면의 <code>UIImage</code>가 되기까지:
+  조회 순서, 타입 변환, 캐시 삭제 정책, 그리고 테스트 43개가 각각 증명하는 것.</p>
+
+  <div class="ov-wrap">
+    <svg class="ov" id="ov" viewBox="0 0 860 512" role="img" aria-label="CHALLAImageKit 전체 구조도">
+      <defs>
+        <marker id="ov-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)" opacity="0.55"/>
+        </marker>
+        <marker id="ov-arrow-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+
+      <!-- 간선 -->
+      <path class="edge" data-f="mem disk net" d="M430,68 L430,126"/>
+      <text class="elabel" data-f="mem disk net" x="440" y="102">image(from:pointSize:scale:)</text>
+
+      <path class="edge" data-f="mem" d="M368,192 L172,266"/>
+      <text class="elabel" data-f="mem" x="180" y="222">① 조회 — 히트면 즉시 반환</text>
+
+      <path class="edge" data-f="disk" d="M430,192 L430,266"/>
+      <text class="elabel" data-f="disk" x="440" y="235">② 조회 — 수정일 갱신</text>
+
+      <path class="edge" data-f="net" d="M540,192 L688,266"/>
+      <text class="elabel" data-f="net" x="596" y="218">③ 다운로드 + 재시도</text>
+
+      <path class="edge" data-f="disk" d="M318,300 L262,300"/>
+      <text class="elabel" data-f="disk" x="291" y="256" text-anchor="middle">디코딩 후 승격</text>
+
+      <path class="edge" data-f="net" d="M710,334 L710,404"/>
+      <text class="elabel" data-f="net" x="720" y="374">검증 통과한 원본 바이트</text>
+
+      <path class="edge" data-f="net" d="M598,436 C 490,436 442,390 433,336"/>
+      <text class="elabel" data-f="net" x="470" y="420">HEIC 바이트 저장</text>
+
+      <path class="edge" data-f="net" d="M598,456 C 330,486 158,420 150,336"/>
+      <text class="elabel" data-f="net" x="200" y="452">UIImage + cost 저장</text>
+
+      <!-- 구성 요소 -->
+      <g class="node" data-f="mem disk net" data-play="" tabindex="0">
+        <rect x="310" y="16" width="240" height="52"/>
+        <text class="nt" x="430" y="38" text-anchor="middle">뷰</text>
+        <text class="ns" x="430" y="56" text-anchor="middle">CHALLAAsyncImage — #43에서 구현</text>
+      </g>
+      <g class="node" data-f="mem disk net" data-play="" tabindex="0">
+        <rect x="250" y="126" width="360" height="66"/>
+        <text class="nt" x="430" y="152" text-anchor="middle">ImageLoader (actor)</text>
+        <text class="ns" x="430" y="172" text-anchor="middle">캐시 키 생성 · 같은 키 요청 병합(inFlight)</text>
+      </g>
+      <g class="node" data-f="mem disk net" data-play="mem" tabindex="0">
+        <rect x="40" y="266" width="222" height="68"/>
+        <text class="nt" x="151" y="292" text-anchor="middle">메모리 캐시</text>
+        <text class="ns" x="151" y="312" text-anchor="middle">NSCache · cost 상한 100MB</text>
+      </g>
+      <g class="node" data-f="disk net" data-play="disk" tabindex="0">
+        <rect x="320" y="266" width="222" height="68"/>
+        <text class="nt" x="431" y="292" text-anchor="middle">디스크 캐시</text>
+        <text class="ns" x="431" y="312" text-anchor="middle">LRU 500MB · Caches/ 폴더</text>
+      </g>
+      <g class="node" data-f="net" data-play="net" tabindex="0">
+        <rect x="600" y="266" width="222" height="68"/>
+        <text class="nt" x="711" y="292" text-anchor="middle">네트워크</text>
+        <text class="ns" x="711" y="312" text-anchor="middle">fetcher · 백오프 1→2→4초</text>
+      </g>
+      <g class="node" data-f="net" data-play="net" tabindex="0">
+        <rect x="600" y="404" width="222" height="68"/>
+        <text class="nt" x="711" y="430" text-anchor="middle">다운샘플 + HEIC 인코딩</text>
+        <text class="ns" x="711" y="450" text-anchor="middle">Task.detached(.utility) — 액터 밖</text>
+      </g>
+    </svg>
+  </div>
+  <p class="ov-hint">구성 요소에 마우스를 올리면(모바일은 터치) 그 계층이 답하는 경로만 강조됩니다 —
+  메모리 캐시 = 가장 싼 경로, 디스크 캐시 = 재실행 후 첫 조회, 네트워크 = 처음 보는 이미지.</p>
+
+  <!-- ═══════════ 1. 기초 개념 ═══════════ -->
+  <section>
+    <p class="eyebrow">1</p>
+    <h2>기초 개념 — pt · px · 다운샘플링</h2>
+    <p class="section-note">이 모듈의 모든 숫자가 딛고 서 있는 개념 넷. 아는 내용이면 건너뛰어도 된다.</p>
+    <div class="policies">
+      <div class="policy">
+        <h3>pt (포인트) — 논리 단위</h3>
+        <p>레이아웃이 쓰는 단위. "셀 폭 120pt"는 기기와 무관한 <b>설계상의 크기</b>다.
+        SwiftUI의 frame, CGSize가 전부 pt.</p>
+      </div>
+      <div class="policy">
+        <h3>px (픽셀) — 물리 단위</h3>
+        <p>화면의 실제 발광점. 같은 120pt라도 <b>@2x 기기는 240px, @3x 기기는 360px</b>로 그린다.
+        환산식: <code>px = pt × scale</code>. 이미지가 실제로 채워야 하는 건 px 쪽이다.</p>
+      </div>
+      <div class="policy">
+        <h3>비트맵 — 펼쳐진 픽셀</h3>
+        <p>파일(JPEG/HEIC)은 압축본이고, 화면에 그리려면 픽셀 격자로 펼쳐야(디코딩) 한다.
+        펼친 크기는 <b>가로px × 세로px × 4바이트</b>(픽셀당 RGBA) — 파일 용량과 무관하다.</p>
+      </div>
+      <div class="policy">
+        <h3>다운샘플링 — 작게 "디코딩"</h3>
+        <p>원본을 다 펼친 뒤 줄이는 게 아니라, <b>디코딩 단계에서부터 타깃 px 크기로만</b> 펼치는 것.
+        원본 크기의 비트맵이 메모리에 생기는 순간 자체가 없다.</p>
+      </div>
+    </div>
+    <pre class="figure">4000×3000 사진 한 장을 120pt 셀(@3x = 360px)에 띄울 때
+
+전부 펼치면(UIImage(data:))   4000 × 3000 × 4 = <em>48,000,000바이트 ≈ 45.8MB</em>
+셀에 필요한 만큼만(다운샘플)     360 ×  360 × 4 = <em>   518,400바이트 ≈ 0.5MB</em>  (약 90분의 1)</pre>
+    <p class="aside"><b>pt → px 환산에서 소수가 나오면 올림(ceil)한다</b> —
+    레이아웃 나눗셈으로 119.666pt 같은 값이 흔한데, 내림하면 뷰보다 1px 모자란 비트맵을 늘려 그리게 되어 흐려진다.
+    이 올림 규칙을 다운샘플러(<code>ImageDownsampler</code>)와 캐시 키(<code>PixelSize</code>)가 공유해야
+    "만든 크기"와 "찾는 크기"가 어긋나지 않는다.</p>
+  </section>
+
+  <!-- ═══════════ 2. 구성 요소 ═══════════ -->
+  <section>
+    <p class="eyebrow">2</p>
+    <h2>구성 요소 지도</h2>
+    <p class="section-note">동시성 타입 선택 기준 — 이미 스레드 안전한 것을 감싸면 class, 여러 단계짜리 가변 작업을 스스로 지켜야 하면 actor, 상태가 없으면 struct.</p>
+    <div class="map">
+      <div class="comp"><span class="name">ImageLoader</span><span class="kind actor">actor</span>
+        <div class="role">전체 오케스트레이터. 메모리 → 디스크 → 네트워크 순서로 해결하고, 진행 중 작업 맵(<code>inFlight</code>)으로 같은 키 요청을 병합한다.</div></div>
+      <div class="comp"><span class="name">MemoryImageCache</span><span class="kind klass">final class</span>
+        <div class="role"><code>NSCache</code> 래핑. NSCache가 자체로 스레드 안전해서 actor가 필요 없다. cost(바이트) 상한 기반.</div></div>
+      <div class="comp"><span class="name">DiskImageCache</span><span class="kind actor">actor</span>
+        <div class="role">파일 저장 + 용량 합산 + LRU 삭제가 여러 단계로 이어지는 작업이라 직렬화가 필요하다. 파일명은 키의 SHA256.</div></div>
+      <div class="comp"><span class="name">ImageDownsampler</span><span class="kind struct">struct</span>
+        <div class="role">ImageIO 썸네일 디코딩으로 타깃 픽셀만큼만 디코딩. 상태 없는 동기 CPU 작업 — 실행 위치는 호출부 책임.</div></div>
+      <div class="comp"><span class="name">ImageDataEncoder</span><span class="kind struct">struct</span>
+        <div class="role">다운샘플된 <code>CGImage</code>를 HEIC 바이트로 재인코딩(디스크 저장용). 포맷 정책 교체 지점.</div></div>
+      <div class="comp"><span class="name">ImageCacheKey · PixelSize</span><span class="kind struct">struct</span>
+        <div class="role"><code>PixelSize</code>는 pt·scale을 <code>ceil(pt × scale)</code> 픽셀로 환산해 보관 — 캐시 키의 크기 성분이자 다운샘플 타깃.
+        <code>ImageCacheKey</code>(URL + PixelSize)는 세 곳의 키다: 로더의 <code>inFlight</code> 맵(중복 제거),
+        메모리 캐시의 NSCache 키(상자로 감싸서), 디스크 캐시의 파일명(SHA256).</div></div>
+      <div class="comp"><span class="name">ImageDataFetching</span><span class="kind proto">protocol</span>
+        <div class="role">네트워크 주입 지점. 기본 구현 <code>URLSessionImageDataFetcher</code>는 URLCache를 끈 세션 사용(이중 저장 방지). 테스트는 목으로 대체.</div></div>
+      <div class="comp"><span class="name">ImageCacheConfiguration</span><span class="kind struct">struct</span>
+        <div class="role">용량·경로 설정. 기본값: 메모리 100MB · 디스크 500MB · <code>Caches/CHALLAImageCache</code>.</div></div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 3. 파이프라인 ═══════════ -->
+  <section>
+    <p class="eyebrow">3</p>
+    <h2>로더 파이프라인</h2>
+    <p class="section-note">시나리오를 누르면 그 경우에 실행되는 단계만 밝게 표시됩니다. 각 단계를 누르면 상세가 펼쳐집니다.</p>
+
+    <div class="scenarios" role="group" aria-label="시나리오 선택">
+      <button data-sc="mem"  aria-pressed="false">메모리 히트</button>
+      <button data-sc="dedup" aria-pressed="false">진행 중 요청에 합류</button>
+      <button data-sc="disk" aria-pressed="false">디스크 히트</button>
+      <button data-sc="net"  aria-pressed="false">첫 요청 (네트워크)</button>
+    </div>
+    <p class="scenario-hint" id="hint">시나리오를 선택하지 않으면 전체 단계가 표시됩니다.</p>
+
+    <div class="pipe" id="pipe">
+      <div class="step" data-id="key">
+        <span class="dot">0</span>
+        <details>
+          <summary><span class="t">캐시 키 생성</span><span class="s">(URL, pt, scale) → ImageCacheKey</span><span class="stop-badge">여기서 반환</span></summary>
+          <div class="body">
+            <p><code>PixelSize(pointSize:scale:)</code>가 <code>ceil(pt × scale)</code>로 타깃 픽셀을 확정하고, URL과 묶어 키가 된다.
+            같은 URL이라도 표시 크기가 다르면 다른 키 — 그리드 셀용과 상세 화면용은 별개 항목으로 캐시된다.</p>
+            <p>올림(ceil)인 이유: 내림하면 뷰보다 1px 모자란 비트맵을 늘려 그리게 되어 전체가 미세하게 흐려진다.
+            다운샘플러도 같은 식을 쓰므로 만드는 쪽·찾는 쪽의 키가 항상 일치한다.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="step" data-id="mem">
+        <span class="dot">1</span>
+        <details>
+          <summary><span class="t">메모리 조회</span><span class="s">NSCache · 로더 내부 추가 대기 없음</span><span class="stop-badge">여기서 반환</span></summary>
+          <div class="body">
+            <p><span class="tag hit">히트</span> 디코딩까지 끝난 <code>UIImage</code>가 그대로 나온다 — 파이프라인에서 가장 싼 경로, 즉시 반환.</p>
+            <p><span class="tag off">미스</span> 다음 단계로. NSCache는 cost 상한 초과나 시스템 메모리 압박 시 항목을 자동 방출하므로(순서 비보장), 넣었던 것이 없을 수 있다.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="step" data-id="dedup">
+        <span class="dot">2</span>
+        <details>
+          <summary><span class="t">중복 제거 — 진행 중 작업 확인</span><span class="s">inFlight: [ImageCacheKey: Task]</span><span class="stop-badge">기존 작업 결과 공유</span></summary>
+          <div class="body">
+            <p>같은 키의 다운로드가 이미 진행 중이면 새 작업을 만들지 않고 그 <code>Task</code>의 결과를 <code>await</code>로 같이 기다린다.
+            같은 셀이 화면에 여러 번 뜨거나 빠른 스크롤로 요청이 겹쳐도 <b>네트워크는 키당 1회</b>.</p>
+            <p>없으면 새 Task를 등록하고 3단계로. 작업 종료 시 맵 정리는 "내가 등록한 task일 때만" 지운다 —
+            잠든 사이 <code>removeAll()</code> 후 다른 요청이 같은 키로 새 task를 등록했을 수 있어서다(actor 재진입 가드).</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="step" data-id="disk">
+        <span class="dot">3</span>
+        <details>
+          <summary><span class="t">디스크 조회</span><span class="s">DiskImageCache(actor) · SHA256 파일명</span><span class="stop-badge">여기서 반환</span></summary>
+          <div class="body">
+            <p><span class="tag hit">히트</span> 파일을 읽고 <b>수정일을 지금으로 갱신</b>한다 — LRU 삭제 순서에서 뒤로 밀린다.
+            저장된 바이트는 이미 다운샘플된 HEIC라 다운샘플 없이 디코딩만 하면 된다 — <code>Task.detached</code>(utility)에서 디코딩 후
+            메모리 캐시로 승격하고 반환.</p>
+            <p><span class="tag off">미스 / 디코딩 실패</span> 조용히 네트워크로 폴백한다. 파일이 없거나 손상돼도 에러를 내지 않는다 —
+            OS가 Caches 폴더를 언제든 지울 수 있다는 전제로 짠 코드다.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="step" data-id="net">
+        <span class="dot">4</span>
+        <details>
+          <summary><span class="t">네트워크 다운로드 + 재시도</span><span class="s">fetchWithRetry · 백오프 1 → 2 → 4초</span></summary>
+          <div class="body">
+            <p>일시적 전송 실패(타임아웃, 연결 끊김, DNS 실패 등 <b>화이트리스트 7종</b>)만 재시도한다.
+            목록 밖 오류(잘못된 URL 등)는 재시도해도 소용없으므로 즉시 <code>.networkFailed</code>.</p>
+            <p>응답 검증 3종을 통과해야 다음 단계로: HTTP 응답인가(<code>invalidResponse</code>) →
+            2xx인가(<code>httpStatus</code>) → 본문이 비어 있지 않은가(<code>emptyData</code>).
+            404 같은 HTTP 오류는 서버의 확정 답변이므로 재시도하지 않는다.</p>
+            <p><b>취소 정책</b>: 호출자(셀)가 사라져도 공유 다운로드는 죽이지 않고 끝까지 받아 캐시를 채운다.
+            취소된 호출자에게만 <code>.cancelled</code>를 던진다 — 다음 스크롤에서 같은 이미지가 캐시 히트가 되도록.
+            전송 계층에서 올라온 <code>URLError(.cancelled)</code>도 <code>.networkFailed</code>가 아닌 <code>.cancelled</code>로 매핑한다.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="step" data-id="process">
+        <span class="dot">5</span>
+        <details>
+          <summary><span class="t">다운샘플 + HEIC 인코딩</span><span class="s">Task.detached(.utility) — 액터 밖 CPU 작업</span></summary>
+          <div class="body">
+            <p><code>CGImageSourceCreateThumbnailAtIndex</code>로 원본 바이트를 <b>타깃 픽셀 크기로만</b> 디코딩한다.
+            4000×3000 원본을 전부 펼치면 45MB(4000×3000×4바이트)지만, 360×360 셀에 필요한 건 0.5MB — 원본 비트맵은 메모리에 아예 생기지 않는다.</p>
+            <p>디코딩 시 EXIF 회전을 반영해 세로 사진이 눕지 않게 하고, 같은 클로저에서 HEIC로 재인코딩까지 마친다
+            (디스크 저장용 — 같은 화질에서 JPEG보다 작다. 인코딩 실패는 <code>encodingFailed</code>.
+            HEIC 경로에서 알파 채널은 손실될 수 있는데, 불투명한 필름 사진 중심이라 v1에서 수용한 결정).
+            무거운 CPU 작업이라 액터 밖(<code>detached</code>, utility 우선순위)에서 실행해 로더가 다른 요청을 계속 받게 한다.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="step" data-id="store">
+        <span class="dot">6</span>
+        <details>
+          <summary><span class="t">저장 후 반환</span><span class="s">디스크 store(+LRU 방출) · 메모리 insert(cost)</span><span class="stop-badge">여기서 반환</span></summary>
+          <div class="body">
+            <p>HEIC 바이트는 디스크에(저장 직후 용량 초과분을 LRU로 방출), <code>UIImage</code>는 cost(<code>bytesPerRow × height</code>)와 함께
+            메모리에 넣는다. 다음 요청부터는 1단계에서 끝난다.</p>
+            <p><b>저장이 두 캐시에 각각인 이유</b> — "디스크에만 넣고 메모리는 승격으로 채우면 되지 않나" 싶지만,
+            디스크가 가진 건 HEIC 압축 바이트라 그 경로로 올리려면 방금 만든 이미지를 <b>다시 디코딩</b>해야 한다.
+            지금 손에 있는 <code>UIImage</code>를 바로 메모리에 넣으면 그 비용이 0이다.
+            승격 경로는 "앱 재실행 뒤 디스크에서 처음 꺼낼 때"를 위한 것이다.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 4. 타입 변환 ═══════════ -->
+  <section>
+    <p class="eyebrow">4</p>
+    <h2>타입 변환 흐름</h2>
+    <p class="section-note">경로마다 데이터가 어떤 타입으로 옮겨가는지. 변환 이름은 실제 담당 타입이다.</p>
+
+    <div class="lane">
+      <div class="lane-title">네트워크 경로 (첫 요청)</div>
+      <div class="lane-flow">
+        <span class="chip">Data<small>원본 바이트 (JPEG/HEIC…)</small></span>
+        <span class="arrow"><b>ImageDownsampler</b>타깃 픽셀만 디코딩</span>
+        <span class="chip">CGImage<small>다운샘플된 비트맵</small></span>
+        <span class="arrow"><b>UIImage(cgImage:scale:)</b>scale을 실어 pt 보정</span>
+        <span class="chip">UIImage<small>표시용</small></span>
+        <span class="arrow"><b>MemoryImageCache.insert</b>cost 신고와 함께</span>
+        <span class="chip">메모리 캐시 항목<small>NSCache · 다음 요청은 1단계 히트</small></span>
+      </div>
+    </div>
+    <div class="lane">
+      <div class="lane-title">&nbsp;&nbsp;&nbsp;&nbsp;└ 같은 CGImage에서 갈라지는 저장 경로</div>
+      <div class="lane-flow">
+        <span class="chip">CGImage<small>다운샘플된 비트맵</small></span>
+        <span class="arrow"><b>ImageDataEncoder</b>HEIC 인코딩</span>
+        <span class="chip">Data<small>HEIC 바이트</small></span>
+        <span class="arrow"><b>DiskImageCache.store</b>SHA256 파일명</span>
+        <span class="chip">디스크 캐시 파일<small>Caches/CHALLAImageCache/ · 저장 직후 용량 검사 → 초과분 LRU 삭제</small></span>
+      </div>
+    </div>
+    <div class="lane">
+      <div class="lane-title">디스크 경로 (재실행 후 첫 조회)</div>
+      <div class="lane-flow">
+        <span class="chip">디스크 캐시 파일<small>이미 다운샘플된 HEIC</small></span>
+        <span class="arrow"><b>DiskImageCache.data(for:)</b>파일 읽기 + 수정일 갱신(LRU)</span>
+        <span class="chip">Data<small>HEIC 바이트</small></span>
+        <span class="arrow"><b>CGImageSource</b>디코딩만 (다운샘플 불필요)</span>
+        <span class="chip">CGImage</span>
+        <span class="arrow"><b>UIImage(cgImage:scale:)</b></span>
+        <span class="chip">UIImage<small>표시용</small></span>
+        <span class="arrow"><b>MemoryImageCache.insert</b>메모리 승격 · cost 재계산</span>
+        <span class="chip">메모리 캐시 항목<small>다음 요청은 1단계 히트</small></span>
+      </div>
+    </div>
+    <p class="aside"><b>왜 디스크에는 UIImage가 아니라 HEIC 바이트를 저장하나</b> —
+    메모리 캐시는 디코딩 비용이 0인 <code>UIImage</code>를, 디스크는 앱 재실행에도 살아남아야 하는 파일(<code>Data</code>)을 담는다.
+    층마다 저장 타입이 다른 이유다. 디스크의 바이트는 저장 시점에 이미 타깃 크기라, 다시 읽을 때 다운샘플이 필요 없다.</p>
+  </section>
+
+  <!-- ═══════════ 5. cost ═══════════ -->
+  <section>
+    <p class="eyebrow">5</p>
+    <h2>cost — 메모리 캐시가 용량을 세는 단위</h2>
+    <p class="section-note">화면 표시에 쓰는 값이 아니다. NSCache에게 "이 이미지가 메모리를 이만큼 차지한다"를 알려주는 관리용 숫자다.</p>
+
+    <h3>어떻게 계산하나</h3>
+    <pre class="figure">let cost = cgImage.bytesPerRow * cgImage.height
+
+한 줄의 픽셀 데이터:  1,200바이트   (bytesPerRow)
+이미지 높이:            300줄      (height)
+cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대략적인 메모리 크기</pre>
+    <p>디스크의 파일 용량과는 전혀 다른 값이다. 같은 이미지라도:</p>
+    <pre class="figure">디스크의 HEIC 파일         50KB   (압축된 크기 — DiskImageCache가 세는 값)
+디코딩 후 메모리 비트맵    360KB   (펼쳐진 픽셀 크기 — NSCache가 세는 값 = cost)</pre>
+
+    <h3>어디로 흘러가나</h3>
+    <pre class="figure">① 상한 설정 — <em>로더 생성 시 한 번</em>
+   MemoryImageCache(costLimit: 100MB) → 내부에서 cache.totalCostLimit = 100MB
+
+② 비용 신고 — <em>메모리 캐시에 이미지가 들어가는 두 시점마다</em>
+   (네트워크 다운로드 직후 저장할 때 · 디스크 히트를 메모리로 승격할 때)
+   memory.insert(image, for: key, cost: 360_000)
+   → cache.setObject(image, forKey: box, <em>cost: 360_000</em>)
+
+③ 합산 — <em>넣고 뺄 때마다 NSCache가 자동으로</em>
+   이미지 A 10MB + B 15MB + C 20MB = 총 45MB
+
+④ 자동 방출 — <em>합계가 totalCostLimit을 넘었을 때 + 시스템 메모리 압박 시</em>
+   (무엇을 언제 지울지는 NSCache 재량 — 상한은 엄격한 보장이 아니라 관리 힌트)</pre>
+
+    <h3>왜 ProcessedImage · CachedImage가 cost를 담아 오나</h3>
+    <p><code>CGImage</code>는 액터 밖 <code>Task.detached</code> 클로저 안에서만 존재한다.
+    cost의 재료(<code>bytesPerRow</code>, <code>height</code>)가 그 안에 있으니 <b>만든 자리에서 바로 계산해</b>,
+    결과 구조체에 화면용·저장용 값과 함께 묶어 액터로 돌려보낸다:</p>
+    <pre class="figure">네트워크 경로 — 파이프라인 5단계(다운샘플 직후)에서 계산
+              ProcessedImage(image, encodedData, cost)
+                              │        │           └ memory.insert의 비용 신고
+                              │        └ 디스크 저장 (HEIC 바이트)
+                              └ 화면 반환 + 메모리 캐시
+
+디스크 경로   — 파이프라인 3단계(디스크 히트를 디코딩한 직후)에서 계산
+              CachedImage(image, cost)
+              — 디스크의 HEIC를 다시 펼쳤으니 메모리 비용도 다시 계산해서 승격에 사용</pre>
+    <p class="aside"><b>정리</b> — cost는 나중에 꺼내 쓰는 값이 아니라, 만들자마자 <code>memory.insert</code>로 넘겨
+    NSCache의 용량 관리(합산 → 상한 초과 시 방출)에 바로 쓰이는 값이다.
+    우리가 정하는 건 상한(<code>memoryCostLimitBytes</code>, 기본 100MB)과 이미지별 신고값(cost)까지고, 방출 시점·순서는 NSCache가 정한다.</p>
+  </section>
+
+  <!-- ═══════════ 6. 삭제 정책 ═══════════ -->
+  <section>
+    <p class="eyebrow">6</p>
+    <h2>캐시는 언제, 누가 비우나</h2>
+    <p class="section-note">지우는 주체가 넷이고 조건이 전부 다르다. 어느 층이 비어 있어도 파이프라인이 다음 층으로 넘어가므로 기능은 항상 동작한다.</p>
+    <div class="policies">
+      <div class="policy">
+        <h3><span class="swatch" style="background: var(--warn)"></span>메모리 — NSCache 자동 방출</h3>
+        <p>cost 총합이 상한(기본 <b>100MB</b>)을 넘거나 <b>시스템 메모리 압박</b> 시 NSCache가 스스로 방출한다.
+        방출 순서는 비보장. 앱 생명주기 알림(<code>UIApplication</code>) 구독 없이 이 자동 동작만으로 충족한다 —
+        Core 모듈이 앱 실행 상태를 관찰하지 않게 유지하고, 강제 정리는 상위가 <code>removeAll()</code>로 한다.</p>
+      </div>
+      <div class="policy">
+        <h3><span class="swatch" style="background: var(--accent)"></span>디스크 — 자체 LRU</h3>
+        <p>저장할 때마다 총 용량을 재고, 상한(기본 <b>500MB</b>) 초과분을 <b>수정일이 오래된 파일부터</b> 삭제한다.
+        조회 적중 시 수정일을 갱신하므로 자주 보는 사진은 뒤로 밀린다. 평상시 용량 관리는 전적으로 이 알고리즘 몫.</p>
+      </div>
+      <div class="policy">
+        <h3><span class="swatch" style="background: var(--err)"></span>OS — Caches 폴더 청소</h3>
+        <p>기기 저장 공간이 부족하면 iOS가 <code>Caches/</code> 파일을 지울 수 있다.
+        <b>우리가 디스크 캐시를 일부러 여기에 둔 이유다</b> — iOS 파일 배치 규칙이
+        "지워지면 안 되는 사용자 데이터는 <code>Documents/</code>, 다시 만들 수 있는 파일은 <code>Caches/</code>"인데,
+        이미지 캐시는 재다운로드하면 그만이라 후자다. <code>Documents/</code>에 두면 지워지지도 않고
+        설정 → 저장 공간에서 앱 용량으로만 쌓인다. OS 청소는 시점 보장이 없어 관리 수단으로 쓰지 않고,
+        <b>언제 지워져도 동작하는 것</b>(미스 처리 → 재다운로드)으로 견딘다.</p>
+      </div>
+      <div class="policy">
+        <h3><span class="swatch" style="background: var(--hit)"></span>상위 계층 — removeAll()</h3>
+        <p>로그아웃 등에서 상위가 명시적으로 호출한다. 진행 중 다운로드를 전부 취소하고 메모리·디스크를 모두 비운다.
+        유일하게 "지금 당장, 전부"를 보장하는 경로.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ 5. 테스트 ═══════════ -->
+  <section class="tests">
+    <p class="eyebrow">7</p>
+    <h2>테스트 카탈로그 — 43개가 각각 증명하는 것</h2>
+    <p class="section-note">검증의 공통 관점: 캐시·중복 제거의 목적이 "불필요한 네트워크 회피"이므로, 목 페처의 <code>callCount</code>(네트워크를 몇 번 탔나)가 핵심 증거다.</p>
+
+    <h3>ImageLoaderTests <span>— 13개 · 파이프라인 전체를 목 페처로 검증</span></h3>
+    <div class="twrap"><table>
+      <tr><th>테스트</th><th>증명하려는 것</th></tr>
+      <tr><td>메모리 히트: 두 번째 요청은 네트워크를 타지 않는다</td><td class="why">1단계가 실제로 파이프라인을 끝내는가 — callCount가 1에 머무는지로 확인</td></tr>
+      <tr><td>디스크 히트: 새 로더도 네트워크 없이 디스크에서 가져온다</td><td class="why">디스크 캐시가 로더 인스턴스(=앱 재실행)를 넘어 살아남는가</td></tr>
+      <tr><td>네트워크 미스 후 다운샘플 바이트가 디스크에 저장된다</td><td class="why">6단계 저장이 실제로 일어나는가 — 다음 조회를 위한 준비</td></tr>
+      <tr><td>중복 제거: 같은 키 동시 요청 시 네트워크는 한 번만 탄다</td><td class="why">2단계 병합 검증 — 지연을 준 목으로 요청을 겹치게 만들어 callCount 1을 확인</td></tr>
+      <tr><td>HTTPURLResponse가 아니면 invalidResponse</td><td class="why">응답 검증 1: HTTP가 아닌 응답을 걸러내는가</td></tr>
+      <tr><td>2xx가 아니면 httpStatus(코드)</td><td class="why">응답 검증 2: 상태 코드가 에러에 실려 상위에 전달되는가</td></tr>
+      <tr><td>빈 데이터면 emptyData</td><td class="why">응답 검증 3: 200이어도 본문이 비면 실패로 취급하는가</td></tr>
+      <tr><td>이미지가 아닌 바이트면 downsampling(.invalidData)</td><td class="why">다운샘플 실패가 원인 에러를 감싼 채 상위로 전달되는가</td></tr>
+      <tr><td>전송 실패면 networkFailed(코드)</td><td class="why">URLError가 도메인 에러로 매핑되는가</td></tr>
+      <tr><td>일시적 실패 후 재시도로 성공한다</td><td class="why">화이트리스트 오류에서 재시도가 실제로 도는가 — n번 실패 후 성공하는 목 사용</td></tr>
+      <tr><td>재시도를 소진하면 networkFailed로 실패한다</td><td class="why">재시도가 무한 루프가 아니라 retryDelays 개수에서 멈추는가</td></tr>
+      <tr><td>재시도 불가한 전송 오류는 즉시 실패한다</td><td class="why">화이트리스트 밖 오류에 헛된 재시도(와 대기 시간)를 쓰지 않는가</td></tr>
+      <tr><td>removeAll 후에는 캐시가 비어 다시 네트워크를 탄다</td><td class="why">전체 초기화가 메모리·디스크 양쪽에 실제로 미치는가</td></tr>
+    </table></div>
+
+    <h3>ImageDownsamplerTests <span>— 6개 · 픽셀 수 계약 검증</span></h3>
+    <div class="twrap"><table>
+      <tr><th>테스트</th><th>증명하려는 것</th></tr>
+      <tr><td>타깃보다 큰 이미지는 긴 변이 타깃 픽셀 이하이면서 근접하게 다운샘플된다</td><td class="why">핵심 계약 — 요청한 크기 "이하 + 근접"으로 나오는가(과소·과대 디코딩 모두 실패)</td></tr>
+      <tr><td>세로로 긴 이미지는 종횡비를 유지한 채 다운샘플된다</td><td class="why">긴 변 기준 축소가 비율을 왜곡하지 않는가</td></tr>
+      <tr><td>이미지가 아닌 손상 데이터는 invalidData를 던진다</td><td class="why">손상 입력이 크래시가 아니라 타입 있는 에러로 끝나는가</td></tr>
+      <tr><td>pointSize가 .zero면 invalidTargetSize를 던진다</td><td class="why">잘못된 타깃 크기를 사전 차단하는가</td></tr>
+      <tr><td>scale이 0 이하면 invalidTargetSize를 던진다 (0, -1)</td><td class="why">위와 동일 — 배율 축 경계값</td></tr>
+      <tr><td>타깃보다 작은 원본은 업스케일하지 않고 원본 픽셀 크기 그대로 반환한다</td><td class="why">MaxPixelSize가 "상한"임을 확정 — 없는 픽셀을 지어내지 않는가</td></tr>
+    </table></div>
+
+    <h3>DiskImageCacheTests <span>— 6개 · 파일 왕복과 LRU</span></h3>
+    <div class="twrap"><table>
+      <tr><th>테스트</th><th>증명하려는 것</th></tr>
+      <tr><td>저장한 바이트는 같은 키로 조회하면 그대로 나온다</td><td class="why">저장↔조회가 같은 파일 경로 규칙(SHA256)을 쓰는가</td></tr>
+      <tr><td>저장하지 않은 키를 조회하면 nil이다</td><td class="why">미스가 에러가 아닌 nil로 조용히 끝나는가(폴백 전제)</td></tr>
+      <tr><td>같은 URL이라도 크기가 다르면 별도 파일로 취급한다</td><td class="why">키의 픽셀 크기 성분이 파일 단위까지 반영되는가</td></tr>
+      <tr><td>removeAll 후에는 조회하면 nil이고 총량이 0이다</td><td class="why">전체 삭제가 파일과 용량 집계 모두에 미치는가</td></tr>
+      <tr><td>totalBytes는 저장한 바이트 수를 반영한다</td><td class="why">LRU 판단의 입력값인 용량 집계가 정확한가</td></tr>
+      <tr><td>용량 초과 시 가장 오래된 파일부터 삭제한다(LRU)</td><td class="why">핵심 정책 — 작은 상한을 주입해 삭제 순서가 수정일 순인지 확인</td></tr>
+    </table></div>
+
+    <h3>MemoryImageCacheTests <span>— 4개 · NSCache 래핑의 키 동작</span></h3>
+    <div class="twrap"><table>
+      <tr><th>테스트</th><th>증명하려는 것</th></tr>
+      <tr><td>저장한 이미지는 같은 키로 조회하면 그대로 나온다</td><td class="why">CacheKeyBox의 hash/isEqual 위임이 동작하는가 — 다른 상자 인스턴스로도 히트</td></tr>
+      <tr><td>저장하지 않은 키를 조회하면 nil이다</td><td class="why">미스가 nil로 끝나는가</td></tr>
+      <tr><td>같은 URL이라도 크기가 다르면 별도 항목으로 취급한다</td><td class="why">픽셀 크기가 메모리 캐시 키에도 반영되는가</td></tr>
+      <tr><td>removeAll 후에는 조회하면 nil이다</td><td class="why">상위 계층의 강제 정리 경로가 동작하는가</td></tr>
+    </table></div>
+
+    <h3>ImageCacheKeyTests <span>— 6개 · 키의 동등성과 파일명 안전성</span></h3>
+    <div class="twrap"><table>
+      <tr><th>테스트</th><th>증명하려는 것</th></tr>
+      <tr><td>같은 URL·크기면 같은 키다</td><td class="why">키가 같아야 하는 경우 — 캐시 히트의 전제</td></tr>
+      <tr><td>같은 URL이라도 크기가 다르면 다른 키다</td><td class="why">키가 달라야 하는 경우 1 — 크기가 다를 때</td></tr>
+      <tr><td>URL이 다르면 다른 키다</td><td class="why">키가 달라야 하는 경우 2 — URL이 다를 때</td></tr>
+      <tr><td>같은 키의 storageIdentifier는 항상 동일하다</td><td class="why">저장 때와 조회 때 파일명이 같은가 — 디스크 캐시의 전제</td></tr>
+      <tr><td>다른 키의 storageIdentifier는 충돌하지 않는다</td><td class="why">다른 이미지가 같은 파일을 덮어쓰지 않는가</td></tr>
+      <tr><td>storageIdentifier는 파일명에 안전한 16진수 문자만 포함한다</td><td class="why">URL의 특수문자가 파일 시스템에 새지 않는가</td></tr>
+    </table></div>
+
+    <h3>PixelSizeTests <span>— 5개 · ceil 반올림 규칙</span></h3>
+    <div class="twrap"><table>
+      <tr><th>테스트</th><th>증명하려는 것</th></tr>
+      <tr><td>정수 생성자는 값을 그대로 보관한다</td><td class="why">기본 보관 동작</td></tr>
+      <tr><td>포인트×배율이 딱 떨어지면 그대로 픽셀이 된다</td><td class="why">올림이 정수 입력을 건드리지 않는가</td></tr>
+      <tr><td>포인트×배율이 소수면 올림한다</td><td class="why">핵심 규칙 — 내림이면 1px 모자라 흐려지는 그 지점</td></tr>
+      <tr><td>음수 픽셀은 0으로 보정한다</td><td class="why">잘못된 입력의 하한 처리</td></tr>
+      <tr><td>같은 값이면 동등하고 Set에서 하나로 취급된다</td><td class="why">Hashable 계약 — 생성 경로가 달라도(정수 vs pt×scale) 값이 같으면 같은 키</td></tr>
+    </table></div>
+
+    <h3>ImageCacheConfigurationTests <span>— 3개 · 설정값 보관과 기본값</span></h3>
+    <div class="twrap"><table>
+      <tr><th>테스트</th><th>증명하려는 것</th></tr>
+      <tr><td>커스텀 생성자에 넣은 메모리·디스크 용량과 디렉터리가 그대로 보관된다</td><td class="why">테스트가 작은 용량을 주입하는 경로가 왜곡 없이 전달되는가</td></tr>
+      <tr><td>기본 설정(.default)의 메모리·디스크 용량 상한이 0보다 크다</td><td class="why">기본값 오타(0 등)로 캐시가 통째로 꺼지는 사고 방지</td></tr>
+      <tr><td>기본 설정의 디스크 경로는 Caches 아래 CHALLAImageCache 폴더를 가리킨다</td><td class="why">전용 폴더명이 고정되는가 — 실제 검증 범위는 폴더명까지(Caches 하위 여부는 미검증)</td></tr>
+    </table></div>
+  </section>
+</main>
+
+<script>
+  // ── 최상단 구조도: 호버/터치 시 해당 계층이 답하는 경로 강조 ──
+  const ov = document.getElementById("ov");
+  const ovParts = ov.querySelectorAll(".edge, .elabel");
+  const ovNodes = ov.querySelectorAll(".node");
+  let ovLocked = null;   // 터치 토글 상태
+
+  function ovLight(flow) {
+    if (flow === null) { ov.classList.remove("lit"); clearParts(); return; }
+    ov.classList.add("lit");
+    const test = el => flow === "" || el.dataset.f.split(" ").includes(flow);
+    ovParts.forEach(el => { el.classList.toggle("on", test(el)); el.classList.toggle("dim", !test(el)); });
+    ovNodes.forEach(el => { el.classList.toggle("on", test(el)); el.classList.toggle("dim", !test(el)); });
+  }
+  function clearParts() {
+    ovParts.forEach(el => el.classList.remove("on", "dim"));
+    ovNodes.forEach(el => el.classList.remove("on", "dim"));
+  }
+  ovNodes.forEach(node => {
+    const flow = node.dataset.play;   // "" = 전체, mem/disk/net = 해당 경로
+    node.addEventListener("mouseenter", () => { if (!ovLocked) ovLight(flow); });
+    node.addEventListener("mouseleave", () => { if (!ovLocked) ovLight(null); });
+    node.addEventListener("focus", () => ovLight(flow));
+    node.addEventListener("blur", () => { if (!ovLocked) ovLight(null); });
+    node.addEventListener("click", () => {           // 터치 대응: 탭으로 고정/해제
+      if (ovLocked === node) { ovLocked = null; ovLight(null); }
+      else { ovLocked = node; ovLight(flow); }
+    });
+  });
+
+  const SCENARIOS = {
+    mem:   { on: ["key", "mem"], stop: "mem",
+             hint: "키를 만들고 메모리에서 바로 찾았다. 디스크·네트워크를 건드리지 않는 가장 흔하고 가장 싼 경로." },
+    dedup: { on: ["key", "mem", "dedup"], stop: "dedup",
+             hint: "메모리엔 없지만 같은 키의 다운로드가 진행 중이다. 새 작업 없이 그 결과를 같이 기다린다 — 네트워크는 여전히 1회." },
+    disk:  { on: ["key", "mem", "dedup", "disk"], stop: "disk",
+             hint: "앱 재실행 후 첫 조회 등. 디스크의 HEIC를 디코딩해 반환하고 메모리로 승격 — 다음부턴 메모리 히트." },
+    net:   { on: ["key", "mem", "dedup", "disk", "net", "process", "store"], stop: "store",
+             hint: "처음 보는 이미지. 재시도까지 포함한 다운로드 → 다운샘플·인코딩 → 두 캐시에 저장 후 반환 — 가장 비싼 경로는 키당 한 번만." }
+  };
+  const pipe = document.getElementById("pipe");
+  const hint = document.getElementById("hint");
+  const buttons = document.querySelectorAll(".scenarios button");
+  const steps = pipe.querySelectorAll(".step");
+  const DEFAULT_HINT = hint.textContent;
+
+  buttons.forEach(btn => btn.addEventListener("click", () => {
+    const alreadyOn = btn.getAttribute("aria-pressed") === "true";
+    buttons.forEach(b => b.setAttribute("aria-pressed", "false"));
+    steps.forEach(s => s.classList.remove("on", "off", "stop"));
+    if (alreadyOn) {           // 같은 버튼을 다시 누르면 해제
+      pipe.classList.remove("play");
+      hint.textContent = DEFAULT_HINT;
+      return;
+    }
+    btn.setAttribute("aria-pressed", "true");
+    const sc = SCENARIOS[btn.dataset.sc];
+    pipe.classList.add("play");
+    hint.textContent = sc.hint;
+    steps.forEach(s => {
+      const id = s.dataset.id;
+      if (id === sc.stop) s.classList.add("on", "stop");
+      else if (sc.on.includes(id)) s.classList.add("on");
+      else s.classList.add("off");
+    });
+  }));
+</script>

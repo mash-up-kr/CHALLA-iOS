@@ -1,10 +1,10 @@
-import Foundation
 @testable import CHALLAImageKit
+import Foundation
 
 /// 테스트용 네트워크 페처. 반환값을 주입하고 호출 횟수를 센다.
 ///
 /// 실제 `URLSession` 대신 이걸 `ImageLoader`에 주입하면 네트워크 없이(시뮬레이터에서) 검증할 수 있고,
-/// `callCount`로 "캐시 히트 시 네트워크를 안 탔는가", "dedup으로 한 번만 탔는가"를 확인한다.
+/// `callCount`로 "캐시 히트 시 네트워크를 안 탔는가", "중복 제거로 한 번만 탔는가"를 확인한다.
 final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
 
     private let lock = NSLock()
@@ -21,7 +21,7 @@ final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
     private let handler: @Sendable (URL) async throws -> (Data, URLResponse)
 
     /// - Parameters:
-    ///   - delayNanoseconds: 응답 전 지연. dedup 테스트에서 요청들이 겹치도록 강제할 때 쓴다.
+    ///   - delayNanoseconds: 응답 전 지연. 중복 제거 테스트에서 요청들이 겹치도록 강제할 때 쓴다.
     ///   - handler: URL을 받아 (바이트, 응답)을 돌려주거나 던지는 클로저.
     init(
         delayNanoseconds: UInt64 = 0,
@@ -32,9 +32,8 @@ final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
     }
 
     func fetch(_ url: URL) async throws -> (Data, URLResponse) {
-        lock.lock()
-        _callCount += 1
-        lock.unlock()
+        // async 컨텍스트에서 lock()/unlock() 직접 호출은 금지(noasync) — 스코프 잠금으로 대체.
+        lock.withLock { _callCount += 1 }
 
         if delayNanoseconds > 0 {
             try? await Task.sleep(nanoseconds: delayNanoseconds)
@@ -42,10 +41,18 @@ final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
         return try await handler(url)
     }
 
+    /// 지정 상태 코드의 HTTP 응답을 만든다. 생성 실패는 `badServerResponse`로 던진다.
+    static func makeHTTPResponse(url: URL, statusCode: Int) throws -> HTTPURLResponse {
+        guard let response = HTTPURLResponse(url: url, statusCode: statusCode, httpVersion: nil, headerFields: nil) else {
+            throw URLError(.badServerResponse)
+        }
+        return response
+    }
+
     /// 200 OK로 고정 바이트를 돌려주는 간편 생성기.
     static func ok(_ data: Data, delayNanoseconds: UInt64 = 0) -> MockImageDataFetcher {
         MockImageDataFetcher(delayNanoseconds: delayNanoseconds) { url in
-            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let response = try makeHTTPResponse(url: url, statusCode: 200)
             return (data, response)
         }
     }
@@ -62,7 +69,7 @@ final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
             if counter.next() <= times {
                 throw URLError(errorCode)
             }
-            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let response = try makeHTTPResponse(url: url, statusCode: 200)
             return (data, response)
         }
     }

@@ -10,7 +10,7 @@ import UIKit
 ///
 /// 파이프라인:
 /// 1. 메모리 히트 → 즉시 반환
-/// 2. 같은 키의 진행 중 작업이 있으면 그 결과를 공유(dedup)
+/// 2. 같은 키의 진행 중 작업이 있으면 그 결과를 공유(중복 제거)
 /// 3. 디스크 히트 → 디코딩·메모리 승격 후 반환 (디코딩 실패 시 조용히 네트워크로 폴백)
 /// 4. 네트워크 → 다운샘플 → HEIC 인코딩 → 디스크 저장 + 메모리 저장 후 반환
 public actor ImageLoader {
@@ -26,7 +26,7 @@ public actor ImageLoader {
     /// 일시적 전송 실패 시 재시도 간격(지수 백오프). 원소 개수 = 최대 재시도 횟수.
     private let retryDelays: [Duration]
 
-    /// 같은 키에 대한 중복 다운로드를 막기 위한 진행 중 작업 맵(dedup).
+    /// 같은 키에 대한 중복 다운로드를 막는 진행 중 작업 맵.
     private var inFlight: [ImageCacheKey: Task<UIImage, Error>] = [:]
 
     // MARK: - Initialization
@@ -70,7 +70,7 @@ public actor ImageLoader {
             return cached
         }
 
-        // 3. dedup: 같은 키가 이미 진행 중이면 그 결과를 기다려 공유한다.
+        // 3. 중복 제거: 같은 키가 이미 진행 중이면 그 결과를 기다려 공유한다.
         if let existing = inFlight[key] {
             do {
                 let image = try await existing.value
@@ -86,9 +86,14 @@ public actor ImageLoader {
             try await load(url: url, key: key, pointSize: pointSize, scale: scale)
         }
         inFlight[key] = task
+
         // 자기 task일 때만 제거한다. removeAll()이 맵을 비운 사이 다른 요청이
         // 같은 키로 새 task를 등록했을 수 있으므로, 무조건 지우면 남의 등록을 오염시킨다.
-        defer { if inFlight[key] == task { inFlight[key] = nil } }
+        defer {
+            if inFlight[key] == task {
+                inFlight[key] = nil
+            }
+        }
 
         do {
             let image = try await task.value
@@ -135,7 +140,7 @@ public actor ImageLoader {
         guard let http = response as? HTTPURLResponse else {
             throw ImageLoadingError.invalidResponse
         }
-        guard (200..<300).contains(http.statusCode) else {
+        guard (200 ..< 300).contains(http.statusCode) else {
             throw ImageLoadingError.httpStatus(http.statusCode)
         }
         guard !data.isEmpty else {
@@ -170,7 +175,9 @@ public actor ImageLoader {
             do {
                 return try await fetcher.fetch(url)
             } catch let error as URLError {
-                if error.code == .cancelled { throw ImageLoadingError.cancelled }
+                if error.code == .cancelled {
+                    throw ImageLoadingError.cancelled
+                }
                 guard Self.retryableURLErrorCodes.contains(error.code),
                       attempt < retryDelays.count
                 else {

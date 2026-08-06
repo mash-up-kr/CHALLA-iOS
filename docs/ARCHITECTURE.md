@@ -13,7 +13,7 @@ Tuist 기반 모듈화 + 개발자 3명 협업을 전제로 설계되었습니�
 - **Feature는 화면 단위로 잘게** 유지 → 3명이 화면별로 나눠 작업, Git 충돌 최소화
 - **Domain · Data는 aggregate(방) 단위로 1벌** → 엔티티 중복 제거
 - **Feature → Domain ← Data** 단방향 의존
-- **Feature는 Data를 직접 import 하지 않음** → `@Dependency`로 주입 (구현체 등록은 DIContainer 폴더)
+- **Feature는 Data를 직접 import 하지 않음** → `@Dependency`로 주입 (구현체 등록은 실행 앱의 `CompositionRoot`)
 - **Feature끼리 직접 참조 금지** → 네비게이션은 App이 조립
 
 ### 왜 이렇게 나눴나 (핵심 의사결정)
@@ -30,24 +30,26 @@ Data는 aggregate 단위로 묶는 것이 자연스럽다.
 
 표기: **(폴더)** = 그룹용 디렉터리(프로젝트 아님) · **(모듈)** = Tuist 프로젝트(프레임워크 타깃) · **(앱)** = 실행 가능한 앱 타깃
 
+> 피처는 `<피처명>` 폴더로 한 겹 묶는다: `Projects/<그룹>/<피처명>/{<피처명>Feature, <피처명>FeatureDemo}`.
+> 아래 트리는 레이어 관계를 보여주는 것이 목적이라 피처 폴더를 생략한 곳이 있다 — 실제 배치는 "앱 · 데모앱 배치 전략" 참고.
+
 ```
 Projects/
 ├─ App/                              (폴더) 앱 실행 · 전체 흐름 조립
 │  ├─ CHALLAApp                      (앱)   실배포앱 — 모든 Feature 조립
-│  ├─ AppFeature                     (모듈) 로그인/프로필/메인 진입 분기 + 루트 네비게이션
-│  ├─ AppView                        (모듈) 최상위 SwiftUI View
-│  └─ DependencyAssembly             (모듈) DIContainer 실행
-│
-├─ DIContainer/                      (폴더) 의존성 조립 전용
-│  ├─ LiveDependency                 (모듈) 실제 구현체 등록
-│  ├─ TestDependency                 (모듈) 테스트용 Mock 등록
-│  └─ PreviewDependency              (모듈) 프리뷰용 더미 등록
+│  │   ├─ AppFeature                       로그인/프로필/메인 진입 분기 + 루트 네비게이션
+│  │   ├─ AppView                          최상위 SwiftUI View
+│  │   └─ CompositionRoot                  live 구현체 등록 (앱 시작 시 prepareDependencies로 1회)
 │
 ├─ Auth/                             (폴더) 인증
-│  ├─ OnboardingFeature              (모듈) 온보딩 화면
-│  ├─ LoginFeature                   (모듈) 로그인 화면 (카카오/애플)
-│  │   └─ Demo/                      (앱)   피처 데모앱 — Mock 주입 · 로컬 실행 전용
-│  │                                        ※ 모든 XxxFeature가 같은 패턴으로 Demo/를 가질 수 있음
+│  ├─ Onboarding/                    (폴더) 온보딩 피처 묶음
+│  │  ├─ OnboardingFeature           (모듈) 온보딩 화면
+│  │  └─ OnboardingFeatureDemo       (앱)   피처 데모앱
+│  ├─ Login/                         (폴더) 로그인 피처 묶음
+│  │  ├─ LoginFeature                (모듈) 로그인 화면 (카카오/애플)
+│  │  └─ LoginFeatureDemo            (앱)   피처 데모앱 — Mock 주입 · 로컬 실행 전용
+│  │                                        ※ 피처 모듈과 데모앱은 <피처명> 폴더 안에서 형제로 둔다.
+│  │                                          모든 XxxFeature가 XxxFeatureDemo를 가질 수 있음
 │  ├─ AuthDomain                     (모듈) AuthToken · 로그인 규칙 · AuthRepository(interface)
 │  └─ AuthData                       (모듈) 소셜 SDK · 로그인 API · TokenProvider 구현(Keychain 사용)
 │
@@ -101,9 +103,12 @@ Projects/
 │
 ├─ Core/                             (폴더) OS/디바이스 래핑 인프라 (Network 제외)
 │  ├─ Keychain                       (모듈) 범용 보안 저장소 — 토큰은 손님 중 하나
+│  ├─ CHALLAImageKit                 (모듈) 이미지 로더 · 메모리/디스크 2단 캐시 · 다운샘플링 (#25)
+│  │                                        URLSession·ImageIO만 사용, CHALLANetwork와 무관
+│  │                                        → 상세: 모듈 MODULE.md · 도해: docs/imagekit-map.html
 │  ├─ Camera                         (모듈) AVFoundation 래핑
 │  ├─ Permission                     (모듈) 카메라/사진첩/푸시 권한
-│  ├─ FileStorage                    (모듈) 임시 파일 · 캐시
+│  ├─ FileStorage                    (모듈) 임시 파일 · 캐시 (이미지 캐시는 CHALLAImageKit이 자체 보유)
 │  ├─ Logger                         (모듈) os.log 래핑 — Core여도 전 레이어 공용
 │  └─ Share                          (모듈) iOS 공유하기
 │
@@ -168,11 +173,22 @@ Tuist/
 ### 규칙 요약
 
 1. `Feature → Domain ← Data` (Data가 Domain 인터페이스를 구현)
-2. Feature는 Data를 import 하지 않음 (`@Dependency`가 주입 — 등록은 DIContainer 폴더)
+2. Feature는 Data를 import 하지 않음 (`@Dependency`가 주입 — 등록은 실행 앱의 `CompositionRoot`)
 3. Feature끼리 직접 참조 금지 (네비게이션은 App이 조립)
 4. Core · Shared는 누구나 import 가능
 5. `CHALLADesignSystem`은 Feature를 import 하지 않음 (맨 아래 UI 레이어)
 6. `CHALLANetwork`는 Data만 import — Feature·Domain은 서버의 존재를 모름
+
+### 의존성 조립 지점
+
+**조립 전용 모듈(DIContainer)은 두지 않는다.** 구현체 등록은 실행 가능한 앱이 각자
+`Sources/CompositionRoot.swift`에서 수행하며, 이 파일이 그 앱에서 Data를 import 하는 유일한 곳이다.
+
+- `CHALLAApp` — 앱 시작 시 `prepareDependencies`로 1회 등록
+- `XxxFeatureDemo` — live/Mock 구성을 한 앱에서 골라 띄워야 하므로 Store별 `withDependencies`로 범위를 좁힌다
+
+대가는 같은 배선이 앱 수만큼 복제된다는 점이다. 어댑터 구성(인터셉터 구성·Keychain 서비스명 등)을
+바꿀 때는 실행 앱들의 `CompositionRoot`를 **함께** 고쳐야 한다.
 
 ---
 
@@ -243,7 +259,7 @@ camera.capture()                   // 하드웨어 작동 · 파일 생성
 | :-- | :-- | :-- |
 | **실배포앱** (`CHALLAApp`) | `Projects/App/` | 최종 프로덕트. 모든 Feature를 조립한 독립 앱 |
 | **디자인시스템 검수앱** (`CHALLADesignSystemApp`) | `Projects/UI/` (DesignSystem 옆) | 디자인시스템 전용 카탈로그. DS에 종속되므로 같은 세트로 묶음 |
-| **피처 데모앱** (`XxxFeatureDemo`) | 각 피처 모듈 안 `Demo/` | 해당 피처만 단독 실행/검증. Mock 데이터로 구동 |
+| **피처 데모앱** (`XxxFeatureDemo`) | 대상 피처 모듈 **옆**(같은 `<피처명>` 폴더 안) | 해당 피처만 단독 실행/검증. Mock 데이터로 구동 |
 
 ```
 Projects/
@@ -252,16 +268,39 @@ Projects/
 ├─ UI/
 │  ├─ CHALLADesignSystem/           # 디자인시스템 모듈
 │  └─ CHALLADesignSystemApp/        # 검수앱 (DS 옆에 세트로) — TestFlight 별도 배포
-└─ Room/
-   └─ RoomFeature/
-      ├─ Sources/                   # 피처 구현
-      └─ Demo/                      # 피처 데모앱 (이 피처만 단독 실행)
+└─ Room/                            # 그룹 폴더
+   ├─ RoomDomain/                   # 피처가 아닌 모듈은 그룹 폴더 바로 아래
+   ├─ RoomData/
+   └─ RoomCreate/                   # 피처 폴더 (프로젝트 아님 — 피처 한 벌을 묶는 디렉터리)
+      ├─ RoomCreateFeature/         # 피처 모듈 프로젝트
+      │  ├─ Project.swift
+      │  ├─ Sources/
+      │  ├─ Tests/
+      │  └─ MODULE.md
+      └─ RoomCreateFeatureDemo/     # 피처 데모앱 프로젝트 (모듈과 형제 — 이 피처만 단독 실행)
+         ├─ Project.swift
          ├─ Sources/
          └─ Resources/
 ```
 
+### 피처 폴더 원칙
+- **묶음 단위**: 피처 모듈과 데모앱은 항상 `<피처명>/` 폴더 한 벌로 함께 움직인다.
+  피처가 늘어날수록 그룹 폴더에 `XxxFeature`·`XxxFeatureDemo`가 번갈아 쌓여 짝을 눈으로 찾기 어려워지므로,
+  한 겹 묶어 "이 피처에 속한 것"을 폴더 경계로 드러낸다.
+- **폴더 이름**: `Feature` 접미사를 뺀 피처 이름(`Login`, `RoomCreate`). 폴더에는 `Project.swift`를 두지 않는다.
+- **피처가 아닌 모듈**(Domain·Data·Core·Shared)은 그대로 그룹 폴더 바로 아래에 둔다 — 특정 피처 소유가 아니기 때문.
+
 ### 데모앱 원칙
-- **위치**: 데모는 "대상 모듈에 붙인다". 피처 데모 → 그 피처 폴더 안 `Demo/`.
+- **위치**: 데모는 "대상 모듈 옆에" 둔다. 피처 데모 → 같은 `<피처명>` 폴더 안 `<피처명>FeatureDemo/`.
+  검수앱(`CHALLADesignSystemApp`)이 대상 모듈의 형제인 것과 **완전히 동일한 배치**다.
+  데모를 모듈 하위(`<피처명>Feature/Demo/…`)에 두지 않는 이유: Tuist 워크스페이스는 디스크 구조를 그대로 반영하는데,
+  `Project.swift`가 있는 폴더는 그룹이 아니라 프로젝트 참조로 접히기 때문에, 하위에 두면
+  모듈이 자기 이름 폴더로 한 겹 더 감싸여 내비게이터에 `LoginFeature ▸ LoginFeature`처럼 이중으로 보인다.
+  묶음용 `<피처명>/` 폴더는 `Project.swift`가 없어 그냥 그룹으로 펼쳐지므로 이 문제가 없다.
+- **생성**: 새 피처는 `tuist scaffold feature --name <피처명> --group <그룹>` 하나로 모듈 + 데모앱이 함께 생성된다
+  (템플릿: `Tuist/Templates/feature/`). 이미 있는 피처에 데모만 붙일 때는
+  `tuist scaffold demo --name <피처명> --group <그룹>` (템플릿: `Tuist/Templates/demo/`).
+  둘 다 `--name`에는 `Feature` 접미사를 뺀 피처 이름을 넘긴다.
 - **정의**: 데모앱은 그 모듈이 의존하는 실제 코드 + 필요한 Data(Mock 주입용)만 의존한다.
   Feature는 자기 Data를 직접 import 하지 않지만(규칙 2), **데모앱만은 예외로**
   Mock/실 Data를 주입해 단독 실행할 수 있게 한다. (앱 조립 지점이므로)

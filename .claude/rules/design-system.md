@@ -14,7 +14,9 @@ paths: Projects/**/*.swift
 
 ## 디자인 시스템 모듈 순수성
 
-- `CHALLADesignSystem`은 순수 SwiftUI 모듈로 유지한다 — Feature import 금지, 서비스 로직 금지.
+- `CHALLADesignSystem`은 SwiftUI 기반으로 유지한다 — Feature import 금지, 서비스 로직 금지.
+  SwiftUI에 대응 API가 없는 시스템 동작에 한해 UIKit을 제한적으로 허용한다
+  (현재 유일: 드로어 닫힘 시 키보드 내림 — 상세는 CHALLADesignSystem/MODULE.md).
 - 검수 카탈로그 화면(갤러리)은 `CHALLADesignSystemApp`에 만든다. DS 모듈 안에 검수 전용 코드를 섞지 않는다.
   (개발용 `#Preview`는 DS 모듈 안에 둬도 됨)
 - 새 컴포넌트/토큰을 추가하면 검수앱 갤러리에 해당 Variant(상태 조합)를 수동으로 나열한다 — 누락 시 디자이너 검수가 불가능해진다.

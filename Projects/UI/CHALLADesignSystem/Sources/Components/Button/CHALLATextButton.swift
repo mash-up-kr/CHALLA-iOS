@@ -10,8 +10,12 @@ import SwiftUI
 ///     store.send(.nextTapped)
 /// }
 /// .disabled(!canProceed)
+///
+/// CHALLATextButton("그래도 탈퇴하기", role: .destructive) { store.send(.withdrawTapped) }
 /// ```
 public struct CHALLATextButton: View {
+
+    // MARK: - 프로퍼티와 init
 
     /// 부모가 건 `.disabled(_:)`가 환경에 기록한 활성 여부를 물려받는다.
     /// 터치 차단(SwiftUI 담당)과 비활성 색 적용(이 뷰 담당)이 항상 같은 상태를 보도록
@@ -20,26 +24,43 @@ public struct CHALLATextButton: View {
 
     private let title: String
     private let variant: CHALLAButtonVariant
+    private let role: CHALLAButtonRole?
     private let size: CHALLAButtonSize
+    private let isFullWidth: Bool
     private let leadingIcon: CHALLAIcon?
     private let trailingIcon: CHALLAIcon?
     private let action: () -> Void
 
+    /// - Parameters:
+    ///   - title: 버튼 문구. 한 줄로 고정된다 (넘치면 클리핑).
+    ///   - variant: 배경·글자 색 조합.
+    ///   - role: .destructive면 위험 동작 색으로 바뀐다. nil이면 variant 기본 색.
+    ///   - size: 높이·타이포·패딩 묶음.
+    ///   - isFullWidth: true면 부모가 주는 폭을 가득 채운다 (드로어 버튼처럼 가로를 채우는 자리).
+    ///   - leadingIcon: 문구 앞 아이콘. nil이면 숨긴다.
+    ///   - trailingIcon: 문구 뒤 아이콘. nil이면 숨긴다.
+    ///   - action: 탭했을 때 실행할 동작.
     public init(
         _ title: String,
         variant: CHALLAButtonVariant = .primary,
+        role: CHALLAButtonRole? = nil,
         size: CHALLAButtonSize = .large,
+        isFullWidth: Bool = false,
         leadingIcon: CHALLAIcon? = nil,
         trailingIcon: CHALLAIcon? = nil,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.variant = variant
+        self.role = role
         self.size = size
+        self.isFullWidth = isFullWidth
         self.leadingIcon = leadingIcon
         self.trailingIcon = trailingIcon
         self.action = action
     }
+
+    // MARK: - Body
 
     public var body: some View {
         Button(action: action) {
@@ -57,13 +78,15 @@ public struct CHALLATextButton: View {
             .foregroundStyle(contentColor)
             .padding(.horizontal, size.horizontalPadding)
             .frame(height: size.height)
-            .challaButtonBackground(variant: variant, size: size, isEnabled: isEnabled)
+            // 배경 모디파이어보다 앞에 있어야 배경·터치 영역이 함께 늘어난다
+            .frame(maxWidth: isFullWidth ? .infinity : nil)
+            .challaButtonBackground(variant: variant, role: role, size: size, isEnabled: isEnabled)
         }
         .buttonStyle(.plain)
     }
 
     private var contentColor: Color {
-        variant.contentColor(isEnabled: isEnabled)
+        variant.contentColor(role: role, isEnabled: isEnabled)
     }
 }
 
@@ -75,6 +98,8 @@ public struct CHALLATextButton: View {
         CHALLATextButton("비활성 버튼", size: .medium) {}
             .disabled(true)
         CHALLATextButton("작은 버튼", variant: .neutral, size: .small, leadingIcon: .check) {}
+        CHALLATextButton("그래도 탈퇴하기", role: .destructive) {}
+        CHALLATextButton("프로필 사진 삭제", variant: .neutral, role: .destructive) {}
     }
     .padding()
     .background(CHALLAColor.Background.surface)

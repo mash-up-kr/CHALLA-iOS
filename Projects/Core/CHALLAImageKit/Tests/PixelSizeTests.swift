@@ -39,10 +39,10 @@ struct PixelSizeTests {
 
     @Test("같은 값이면 동등하고 Set에서 하나로 취급된다")
     func isHashableForCacheKey() {
-        let a = PixelSize(width: 300, height: 300)
-        let b = PixelSize(pointSize: CGSize(width: 100, height: 100), scale: 3)
+        let fromPixels = PixelSize(width: 300, height: 300)
+        let fromPoints = PixelSize(pointSize: CGSize(width: 100, height: 100), scale: 3)
 
-        #expect(a == b)
-        #expect(Set([a, b]).count == 1)
+        #expect(fromPixels == fromPoints)
+        #expect(Set([fromPixels, fromPoints]).count == 1)
     }
 }

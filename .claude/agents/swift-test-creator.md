@@ -43,7 +43,7 @@ skills: modern-swift, swift-testing, composable-architecture
 테스트는 각 모듈 내부의 `Tests/` 디렉터리에 위치합니다:
 
 ```
-Projects/<그룹>/<모듈명>/
+Projects/<그룹>/<모듈명>/          # 피처 모듈이면 Projects/<그룹>/<피처명>/<피처명>Feature/
 ├── Sources/
 └── Tests/
     └── <FeatureName>Tests.swift

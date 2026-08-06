@@ -1,0 +1,11 @@
+import SwiftUI
+
+@main
+struct {{ name }}DemoApp: App {
+    var body: some Scene {
+        WindowGroup {
+            // TODO: {{ name }}View(store:)로 교체하고 withDependencies로 Mock을 주입한다.
+            Text("{{ name }} Demo")
+        }
+    }
+}

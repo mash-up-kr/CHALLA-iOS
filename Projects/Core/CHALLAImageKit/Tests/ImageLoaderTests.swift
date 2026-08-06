@@ -29,7 +29,7 @@ struct ImageLoaderTests {
 
     @Test("메모리 히트: 두 번째 요청은 네트워크를 타지 않는다")
     func memoryHitSkipsNetwork() async throws {
-        let fetcher = MockImageDataFetcher.ok(try validJPEG())
+        let fetcher = try MockImageDataFetcher.ok(validJPEG())
         let loader = try ImageLoader(configuration: makeConfiguration(), fetcher: fetcher)
 
         _ = try await loader.image(from: url, pointSize: pointSize, scale: scale)
@@ -43,7 +43,7 @@ struct ImageLoaderTests {
         let configuration = makeConfiguration()
 
         // 1) 워밍 로더가 네트워크로 받아 디스크에 저장한다.
-        let warmFetcher = MockImageDataFetcher.ok(try validJPEG())
+        let warmFetcher = try MockImageDataFetcher.ok(validJPEG())
         let warmLoader = try ImageLoader(configuration: configuration, fetcher: warmFetcher)
         _ = try await warmLoader.image(from: url, pointSize: pointSize, scale: scale)
 
@@ -60,7 +60,7 @@ struct ImageLoaderTests {
     @Test("네트워크 미스 후 다운샘플 바이트가 디스크에 저장된다")
     func storesToDiskAfterNetwork() async throws {
         let configuration = makeConfiguration()
-        let fetcher = MockImageDataFetcher.ok(try validJPEG())
+        let fetcher = try MockImageDataFetcher.ok(validJPEG())
         let loader = try ImageLoader(configuration: configuration, fetcher: fetcher)
 
         _ = try await loader.image(from: url, pointSize: pointSize, scale: scale)
@@ -73,19 +73,19 @@ struct ImageLoaderTests {
         #expect(await disk.data(for: key) != nil)
     }
 
-    // MARK: - dedup
+    // MARK: - 중복 제거
 
-    @Test("dedup: 같은 키 동시 요청 시 네트워크는 한 번만 탄다")
+    @Test("중복 제거: 같은 키 동시 요청 시 네트워크는 한 번만 탄다")
     func deduplicatesConcurrentRequests() async throws {
         // 지연을 줘서 요청들이 확실히 겹치게 한다.
-        let fetcher = MockImageDataFetcher.ok(try validJPEG(), delayNanoseconds: 50_000_000)
+        let fetcher = try MockImageDataFetcher.ok(validJPEG(), delayNanoseconds: 50_000_000)
         let loader = try ImageLoader(configuration: makeConfiguration(), fetcher: fetcher)
 
         let url = url
         let pointSize = pointSize
         let scale = scale
         try await withThrowingTaskGroup(of: UIImage.self) { group in
-            for _ in 0..<5 {
+            for _ in 0 ..< 5 {
                 group.addTask {
                     try await loader.image(from: url, pointSize: pointSize, scale: scale)
                 }
@@ -114,7 +114,7 @@ struct ImageLoaderTests {
     @Test("2xx가 아니면 httpStatus(코드)")
     func non2xxThrowsHTTPStatus() async throws {
         let fetcher = MockImageDataFetcher { url in
-            let response = HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!
+            let response = try MockImageDataFetcher.makeHTTPResponse(url: url, statusCode: 404)
             return (Data([0x01]), response)
         }
         let loader = try ImageLoader(configuration: makeConfiguration(), fetcher: fetcher)
@@ -160,7 +160,7 @@ struct ImageLoaderTests {
     @Test("일시적 실패 후 재시도로 성공한다")
     func retriesTransientFailureThenSucceeds() async throws {
         // 2번 실패 후 성공. 간격은 테스트라 아주 짧게 준다.
-        let fetcher = MockImageDataFetcher.failing(times: 2, thenReturn: try validJPEG())
+        let fetcher = try MockImageDataFetcher.failing(times: 2, thenReturn: validJPEG())
         let loader = try ImageLoader(
             configuration: makeConfiguration(),
             fetcher: fetcher,
@@ -208,7 +208,7 @@ struct ImageLoaderTests {
 
     @Test("removeAll 후에는 캐시가 비어 다시 네트워크를 탄다")
     func removeAllForcesRefetch() async throws {
-        let fetcher = MockImageDataFetcher.ok(try validJPEG())
+        let fetcher = try MockImageDataFetcher.ok(validJPEG())
         let loader = try ImageLoader(configuration: makeConfiguration(), fetcher: fetcher)
 
         _ = try await loader.image(from: url, pointSize: pointSize, scale: scale)
