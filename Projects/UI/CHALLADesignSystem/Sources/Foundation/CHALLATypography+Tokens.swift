@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - 타이포 토큰
-
 /// CHALLA 디자인 시스템의 타이포 토큰. Figma Typography 구조를 그대로 반영한다.
 /// 본문은 SUIT, 포인트(heading.home / xlarge)는 Dirtyline.
 ///
@@ -27,8 +25,8 @@ public extension CHALLATypography {
     struct Heading: Sendable {
         /// Dirtyline 36/60 (홈 화면 로고 타이틀 전용, 굵기 변형 없음)
         public let home = token(.dirtyline, size: 36, lineHeight: 60)
-        /// Dirtyline 60/42 (포인트 전용, bold 단일)
-        public let xlarge = token(.dirtyline, size: 60, lineHeight: 42)
+        /// Dirtyline 60/60 (포인트 전용, bold 단일)
+        public let xlarge = token(.dirtyline, size: 60, lineHeight: 60)
         public let large = WeightSet(size: 28, lineHeight: 36)
         public let medium = WeightSet(size: 24, lineHeight: 32)
         public let small = WeightSet(size: 22, lineHeight: 30)

@@ -51,6 +51,13 @@ struct ColorGallery: View {
             colorSection("Material", colors: [
                 ("Dimmer", CHALLAColor.Material.dimmer)
             ])
+
+            colorSection("Social", colors: [
+                ("Kakao", CHALLAColor.Social.kakao),
+                ("Kakao Label", CHALLAColor.Social.kakaoLabel),
+                ("Apple", CHALLAColor.Social.apple),
+                ("Apple Label", CHALLAColor.Social.appleLabel)
+            ])
         }
         .navigationTitle("Color")
         .navigationBarTitleDisplayMode(.inline)

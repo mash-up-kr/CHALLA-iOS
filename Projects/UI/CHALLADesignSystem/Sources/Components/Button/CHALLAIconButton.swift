@@ -10,6 +10,8 @@ import SwiftUI
 /// ```
 public struct CHALLAIconButton: View {
 
+    // MARK: - 프로퍼티와 init
+
     /// 부모가 건 `.disabled(_:)`가 환경에 기록한 활성 여부를 물려받는다.
     /// 터치 차단(SwiftUI 담당)과 비활성 색 적용(이 뷰 담당)이 항상 같은 상태를 보도록
     /// 별도 isDisabled 파라미터 대신 표준 환경값을 읽는다.
@@ -22,8 +24,12 @@ public struct CHALLAIconButton: View {
     private let action: () -> Void
 
     /// - Parameters:
+    ///   - icon: 버튼에 담을 아이콘.
     ///   - accessibilityLabel: VoiceOver가 읽을 한국어 라벨 (예: "닫기").
     ///     글자가 없는 버튼이라 필수 — 없으면 에셋 이름("Close")이 영문으로 낭독된다.
+    ///   - variant: 배경·아이콘 색 조합.
+    ///   - size: 정사각형 한 변 길이·아이콘 크기 묶음.
+    ///   - action: 탭했을 때 실행할 동작.
     public init(
         _ icon: CHALLAIcon,
         accessibilityLabel: String,
@@ -37,6 +43,8 @@ public struct CHALLAIconButton: View {
         self.size = size
         self.action = action
     }
+
+    // MARK: - Body
 
     public var body: some View {
         Button(action: action) {

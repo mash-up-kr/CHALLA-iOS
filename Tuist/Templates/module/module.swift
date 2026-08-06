@@ -2,8 +2,9 @@ import ProjectDescription
 
 // 사용법: tuist scaffold module --name <모듈명> --group <그룹폴더>
 //   예)  tuist scaffold module --name RoomDomain --group Room
-//   → Projects/<그룹>/<모듈명>/{Project.swift, Sources/<모듈명>.swift, Tests/<모듈명>Tests.swift} 생성
-//   (Workspace가 Projects/** 글롭이라 자동 등록됨 — 생성 후 tuist generate만 하면 워크스페이스에 뜬다)
+//   생성 후 tuist generate만 하면 워크스페이스에 뜬다 (Workspace가 Projects/** 글롭이라 수동 등록 불필요).
+//
+// 피처 모듈은 데모앱과 한 세트라 전용 템플릿을 쓴다: tuist scaffold feature --name <피처명> --group <그룹>
 
 /// 모듈 이름 (= 프로젝트/타깃/폴더 이름). 예: RoomDomain
 private let nameAttribute: Template.Attribute = .required("name")

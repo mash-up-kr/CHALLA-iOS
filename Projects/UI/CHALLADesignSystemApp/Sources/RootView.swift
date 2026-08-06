@@ -20,6 +20,30 @@ struct RootView: View {
                     NavigationLink("Button") {
                         ButtonGallery()
                     }
+                    NavigationLink("TextField") {
+                        TextFieldGallery()
+                    }
+                    NavigationLink("Top Navigation") {
+                        TopNavigationGallery()
+                    }
+                    NavigationLink("Drawer") {
+                        DrawerGallery()
+                    }
+                    NavigationLink("List") {
+                        ListGallery()
+                    }
+                    NavigationLink("Film Card") {
+                        FilmCardGallery()
+                    }
+                    NavigationLink("Card Item") {
+                        CardItemGallery()
+                    }
+                    NavigationLink("Print Card") {
+                        PrintCardGallery()
+                    }
+                    NavigationLink("Profile Bar") {
+                        ProfileBarGallery()
+                    }
                 }
 
                 // 아직 토큰이 아닌 것들의 체험·제안 공간. 디자이너 선택이 확정되면 토큰으로 승격한다.
@@ -31,8 +55,6 @@ struct RootView: View {
             }
             .navigationTitle("CHALLA 디자인 시스템")
         }
-        // 토큰이 다크 기준 고정 hex라 검수 화면도 다크로 고정한다 (본 앱 정책과는 별개)
-        .preferredColorScheme(.dark)
     }
 }
 

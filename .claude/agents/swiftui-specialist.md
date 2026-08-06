@@ -66,7 +66,6 @@ skills: modern-swift, swiftui-patterns
 
 - 플랫폼에 적합한 navigation pattern
 - 시스템 색상과 material
-- Dynamic Type 지원
 - 접근성을 1급 요소로 취급
 - 적절한 햅틱 피드백
 - 표준 iOS gesture
@@ -76,18 +75,20 @@ skills: modern-swift, swiftui-patterns
 Tuist 기반 모듈 구조를 따릅니다:
 
 ```
-Projects/Feature/<모듈명>/
-├── Project.swift
-├── Sources/
-│   ├── <FeatureName>View.swift
-│   └── Components/
-│       └── <Component>View.swift
-├── Tests/
-└── MODULE.md
+Projects/<그룹>/<피처명>/              ← 피처 모듈과 데모앱을 묶는 폴더 (프로젝트 아님)
+├── <피처명>Feature/
+│   ├── Project.swift
+│   ├── Sources/
+│   │   ├── <피처명>View.swift
+│   │   └── Components/
+│   │       └── <Component>View.swift
+│   ├── Tests/
+│   └── MODULE.md
+└── <피처명>FeatureDemo/               ← 이 피처 전용 데모앱 (Mock 주입 · 단독 실행)
 ```
 
 - 공용 UI 컴포넌트·디자인 토큰은 CHALLADesignSystem 모듈에 위치합니다
-- Feature는 Data를 import하지 않습니다 (DIContainer 주입)
+- Feature는 Data를 import하지 않습니다 (실행 앱의 `CompositionRoot`가 주입)
 
 ## Apple 문서 확인
 
@@ -101,6 +102,16 @@ API 조사가 필요하면 Apple 공식 문서를 확인하세요:
 `modern-swift` skill은 다음의 경우에만 로드하세요:
 - 잘 알려지지 않은 Swift/SwiftUI 문법을 확인할 때
 - 새로운 SwiftUI API를 확인할 때
+
+## 완료 보고 규칙
+
+**시안(Zeplin 스펙 표)을 근거로 구현했다면, 보고에 다음을 반드시 포함하세요.**
+
+- 어떤 시안 스펙 표를 근거로 삼았는지 (화면 이름 · Zeplin id)
+- 스펙과 다르게 구현한 부분과 그 이유 (있다면)
+- **"UI 검증 필요"** — 호출한 쪽이 `zeplin-ui-verification` 스킬로 시뮬레이터 화면과 대조해야 합니다
+
+구현만으로 작업이 끝났다고 보고하지 마세요. 시안 기반 UI 작업은 **검증까지가 완료 조건**입니다.
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: swiftui-patterns
 description: >-
-  iOS 17+ SwiftUI patterns를 구현할 때 사용합니다: @Observable/@Bindable, MVVM architecture, NavigationStack, lazy loading, UIKit interop, accessibility (VoiceOver/Dynamic Type), 비동기 작업(.task/.refreshable), 또는 ObservableObject/@StateObject에서 마이그레이션하는 경우.
+  iOS 17+ SwiftUI patterns를 구현할 때 사용합니다: @Observable/@Bindable, MVVM architecture, NavigationStack, lazy loading, UIKit interop, accessibility (VoiceOver), 비동기 작업(.task/.refreshable), 또는 ObservableObject/@StateObject에서 마이그레이션하는 경우.
 ---
 
 # SwiftUI Patterns (iOS 17+)
@@ -46,7 +46,7 @@ SwiftUI 17+는 @Observable로 ObservableObject 보일러플레이트 코드를 �
 | **[내비게이션](references/navigation.md)** | 프로그래밍 방식 또는 딥링크 내비게이션 |
 | **[성능](references/performance.md)** | 항목이 100개 이상인 List 또는 과도한 리렌더링 |
 | **[UIKit Interop](references/uikit-interop.md)** | UIKit 컴포넌트(WKWebView, PHPicker)를 래핑할 때 |
-| **[Accessibility](references/accessibility.md)** | VoiceOver, Dynamic Type, accessibility 액션 |
+| **[Accessibility](references/accessibility.md)** | VoiceOver, accessibility 액션 |
 | **[Async Patterns](references/async-patterns.md)** | 로딩 상태, 새로고침, 백그라운드 task |
 | **[Composition](references/composition.md)** | 재사용 가능한 view modifier 또는 복잡한 조건부 UI |
 

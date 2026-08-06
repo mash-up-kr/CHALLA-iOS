@@ -1,0 +1,11 @@
+import ProjectDescription
+import ProjectDescriptionHelpers
+
+let project = Project.makeModule(
+    name: "{{ name }}Feature",
+    dependencies: [
+        // TODO: 이 피처가 쓰는 Domain 헬퍼를 DependencyInfo.swift에 추가하고 여기에 선언한다.
+        .composableArchitecture,
+        .designSystem
+    ]
+)
