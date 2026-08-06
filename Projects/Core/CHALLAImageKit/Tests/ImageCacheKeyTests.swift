@@ -11,10 +11,10 @@ struct ImageCacheKeyTests {
 
     @Test("같은 URL·크기면 같은 키다")
     func sameURLAndSizeAreEqual() {
-        let a = ImageCacheKey(url: url, pixelSize: size300)
-        let b = ImageCacheKey(url: url, pixelSize: size300)
+        let first = ImageCacheKey(url: url, pixelSize: size300)
+        let second = ImageCacheKey(url: url, pixelSize: size300)
 
-        #expect(a == b)
+        #expect(first == second)
     }
 
     @Test("같은 URL이라도 크기가 다르면 다른 키다")
@@ -27,18 +27,18 @@ struct ImageCacheKeyTests {
 
     @Test("URL이 다르면 다른 키다")
     func differentURLAreNotEqual() {
-        let a = ImageCacheKey(url: url, pixelSize: size300)
-        let b = ImageCacheKey(url: otherURL, pixelSize: size300)
+        let key = ImageCacheKey(url: url, pixelSize: size300)
+        let otherKey = ImageCacheKey(url: otherURL, pixelSize: size300)
 
-        #expect(a != b)
+        #expect(key != otherKey)
     }
 
     @Test("같은 키의 storageIdentifier는 항상 동일하다")
     func storageIdentifierIsStable() {
-        let a = ImageCacheKey(url: url, pixelSize: size300)
-        let b = ImageCacheKey(url: url, pixelSize: size300)
+        let first = ImageCacheKey(url: url, pixelSize: size300)
+        let second = ImageCacheKey(url: url, pixelSize: size300)
 
-        #expect(a.storageIdentifier == b.storageIdentifier)
+        #expect(first.storageIdentifier == second.storageIdentifier)
     }
 
     @Test("다른 키의 storageIdentifier는 충돌하지 않는다")

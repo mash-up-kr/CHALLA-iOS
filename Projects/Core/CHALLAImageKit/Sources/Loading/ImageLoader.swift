@@ -88,7 +88,11 @@ public actor ImageLoader {
         inFlight[key] = task
         // 자기 task일 때만 제거한다. removeAll()이 맵을 비운 사이 다른 요청이
         // 같은 키로 새 task를 등록했을 수 있으므로, 무조건 지우면 남의 등록을 오염시킨다.
-        defer { if inFlight[key] == task { inFlight[key] = nil } }
+        defer {
+            if inFlight[key] == task {
+                inFlight[key] = nil
+            }
+        }
 
         do {
             let image = try await task.value
@@ -135,7 +139,7 @@ public actor ImageLoader {
         guard let http = response as? HTTPURLResponse else {
             throw ImageLoadingError.invalidResponse
         }
-        guard (200..<300).contains(http.statusCode) else {
+        guard (200 ..< 300).contains(http.statusCode) else {
             throw ImageLoadingError.httpStatus(http.statusCode)
         }
         guard !data.isEmpty else {
@@ -170,7 +174,9 @@ public actor ImageLoader {
             do {
                 return try await fetcher.fetch(url)
             } catch let error as URLError {
-                if error.code == .cancelled { throw ImageLoadingError.cancelled }
+                if error.code == .cancelled {
+                    throw ImageLoadingError.cancelled
+                }
                 guard Self.retryableURLErrorCodes.contains(error.code),
                       attempt < retryDelays.count
                 else {

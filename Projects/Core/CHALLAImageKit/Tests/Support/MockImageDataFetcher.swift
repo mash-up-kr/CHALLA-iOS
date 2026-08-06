@@ -1,5 +1,5 @@
-import Foundation
 @testable import CHALLAImageKit
+import Foundation
 
 /// 테스트용 네트워크 페처. 반환값을 주입하고 호출 횟수를 센다.
 ///
@@ -42,10 +42,18 @@ final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
         return try await handler(url)
     }
 
+    /// 지정 상태 코드의 HTTP 응답을 만든다. 생성 실패는 `badServerResponse`로 던진다.
+    static func makeHTTPResponse(url: URL, statusCode: Int) throws -> HTTPURLResponse {
+        guard let response = HTTPURLResponse(url: url, statusCode: statusCode, httpVersion: nil, headerFields: nil) else {
+            throw URLError(.badServerResponse)
+        }
+        return response
+    }
+
     /// 200 OK로 고정 바이트를 돌려주는 간편 생성기.
     static func ok(_ data: Data, delayNanoseconds: UInt64 = 0) -> MockImageDataFetcher {
         MockImageDataFetcher(delayNanoseconds: delayNanoseconds) { url in
-            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let response = try makeHTTPResponse(url: url, statusCode: 200)
             return (data, response)
         }
     }
@@ -62,7 +70,7 @@ final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
             if counter.next() <= times {
                 throw URLError(errorCode)
             }
-            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let response = try makeHTTPResponse(url: url, statusCode: 200)
             return (data, response)
         }
     }
