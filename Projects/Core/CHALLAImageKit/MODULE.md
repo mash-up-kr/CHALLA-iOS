@@ -13,6 +13,24 @@ CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetw
 > 현재 다운샘플러 + 2단 캐시(메모리·디스크) + 로더(`ImageLoader`)까지 구현됨.
 > DS 뷰(`CHALLAAsyncImage`)는 후속 단계 (설계: 이슈 #25).
 
+전체 도해(파이프라인 · 타입 변환 · 캐시 삭제 정책 · 테스트 43개 카탈로그): [`docs/imagekit-map.html`](../../../docs/imagekit-map.html) — 브라우저로 열면 경로별 인터랙티브 구조도가 나온다.
+
+## 캐시 정책
+
+이 모듈의 캐시가 따르는 규칙 전체. 여기 없는 캐시 동작은 없다.
+
+| 항목 | 정책 |
+| :-- | :-- |
+| 구조 | 메모리 · 디스크 2단. 메모리는 디코딩된 `UIImage`(표시 즉시 사용), 디스크는 다운샘플된 HEIC 바이트(재실행 생존) |
+| 키 | `URL + 타깃 픽셀 크기(ceil(pt × scale))`. 같은 URL이라도 표시 크기가 다르면 별도 항목 |
+| 상한 | 메모리 100MB(cost 합산) · 디스크 500MB — `.default` 기준, 생성자 주입으로 변경 가능 |
+| 메모리 삭제 | NSCache 자동 방출(cost 상한 초과 · 시스템 메모리 압박 시). **방출 순서 비보장**. 별도 알림 구독 없음 |
+| 디스크 삭제 | 자체 LRU — 저장할 때마다 총 용량 검사, 상한 초과분을 파일 수정일이 오래된 순으로 삭제. 조회 적중 시 수정일 갱신 |
+| 저장 위치 | `Caches/CHALLAImageCache` — OS가 저장 공간 부족 시 지울 수 있는 위치를 일부러 선택 (재다운로드로 복구 가능한 데이터만 보관) |
+| OS 삭제 | 관리 수단으로 쓰지 않음(시점 보장 없음). 파일이 사라져도 미스 처리 → 네트워크 폴백으로 견딤 |
+| 전체 정리 | 상위 계층이 `ImageLoader.removeAll()` 호출(로그아웃 등) — 진행 중 작업 취소 + 두 캐시 모두 비움 |
+| HTTP 캐시 | `URLCache` 미사용 — 켜면 원본이 세션 캐시에, 가공본이 디스크 캐시에 이중 저장됨 |
+
 ## 공개 API
 
 | API | 설명 |
@@ -86,7 +104,7 @@ public final class MemoryImageCache: @unchecked Sendable {
 
 public actor DiskImageCache {
     public init(directory: URL, capacityBytes: Int) throws
-    public func data(for key: ImageCacheKey) -> Data?     // 조회 시 접근 시각 갱신(LRU)
+    public func data(for key: ImageCacheKey) -> Data?     // 적중 시 수정일 갱신(LRU)
     public func store(_ data: Data, for key: ImageCacheKey)
     public func removeAll()
     public func totalBytes() -> Int
