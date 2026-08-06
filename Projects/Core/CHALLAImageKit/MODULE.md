@@ -42,7 +42,7 @@ CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetw
 | `ImageCacheConfiguration` | 메모리/디스크 용량·경로 설정. `.default`(메모리 100MB / 디스크 500MB) |
 | `MemoryImageCache` | NSCache 래핑. 다운샘플 `UIImage`를 메모리 보관, cost 기반 자동 방출 |
 | `DiskImageCache` | `actor`. 다운샘플 바이트를 디스크 저장, 용량 초과 시 LRU 삭제 |
-| `ImageLoader` | `actor`. 메모리→디스크→네트워크 조회 오케스트레이터. 같은 키 dedup, 캐시 승격 |
+| `ImageLoader` | `actor`. 메모리→디스크→네트워크 조회 오케스트레이터. 같은 키 중복 제거(coalescing), 캐시 승격 |
 | `ImageDataFetching` | 네트워크 페치 추상화(주입 지점). 기본 구현 `URLSessionImageDataFetcher`(URLCache 끈 세션) |
 | `ImageLoadingError` | `invalidResponse` / `httpStatus` / `emptyData` / `downsampling` / `encodingFailed` / `networkFailed` / `cancelled` |
 
@@ -145,7 +145,7 @@ public actor ImageLoader {
 }
 ```
 
-- 조회 순서: **메모리 히트 → dedup(진행 중 동일 요청 공유) → 디스크 히트(디코딩·메모리 승격,
+- 조회 순서: **메모리 히트 → 중복 제거(진행 중 동일 요청 공유) → 디스크 히트(디코딩·메모리 승격,
   실패 시 조용히 네트워크 폴백) → 네트워크(다운샘플·HEIC 인코딩 후 디스크·메모리 저장)**.
 - 무거운 CPU 작업(다운샘플·인코딩·디코딩)은 `Task.detached(.utility)`로 액터 밖에서 실행한다
   (iOS 17이라 `@concurrent` 대신 detached). 비-Sendable `CGImage`는 detached 클로저 안에 가둔다.
@@ -166,7 +166,7 @@ public actor ImageLoader {
 이미지 픽스처는 번들 리소스 없이 `Tests/Support/TestImageFactory.swift`가 런타임 생성한다.
 디스크 캐시 테스트는 테스트마다 고유한 임시 디렉터리를 만들어 서로 격리한다.
 로더 테스트는 `Tests/Support/MockImageDataFetcher.swift`(호출 횟수 계수)를 주입해 네트워크 없이
-캐시 히트·dedup·에러 매핑을 검증한다 — 시뮬레이터 위에서 돌지만 실제 서버에 붙지 않는다.
+캐시 히트·중복 제거·에러 매핑을 검증한다 — 시뮬레이터 위에서 돌지만 실제 서버에 붙지 않는다.
 
 ```bash
 mise exec -- tuist generate --no-open

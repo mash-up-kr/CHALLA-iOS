@@ -4,7 +4,7 @@ import Foundation
 /// 테스트용 네트워크 페처. 반환값을 주입하고 호출 횟수를 센다.
 ///
 /// 실제 `URLSession` 대신 이걸 `ImageLoader`에 주입하면 네트워크 없이(시뮬레이터에서) 검증할 수 있고,
-/// `callCount`로 "캐시 히트 시 네트워크를 안 탔는가", "dedup으로 한 번만 탔는가"를 확인한다.
+/// `callCount`로 "캐시 히트 시 네트워크를 안 탔는가", "중복 제거로 한 번만 탔는가"를 확인한다.
 final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
 
     private let lock = NSLock()
@@ -21,7 +21,7 @@ final class MockImageDataFetcher: ImageDataFetching, @unchecked Sendable {
     private let handler: @Sendable (URL) async throws -> (Data, URLResponse)
 
     /// - Parameters:
-    ///   - delayNanoseconds: 응답 전 지연. dedup 테스트에서 요청들이 겹치도록 강제할 때 쓴다.
+    ///   - delayNanoseconds: 응답 전 지연. 중복 제거 테스트에서 요청들이 겹치도록 강제할 때 쓴다.
     ///   - handler: URL을 받아 (바이트, 응답)을 돌려주거나 던지는 클로저.
     init(
         delayNanoseconds: UInt64 = 0,

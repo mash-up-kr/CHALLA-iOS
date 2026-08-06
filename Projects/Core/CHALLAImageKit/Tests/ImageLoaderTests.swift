@@ -73,9 +73,9 @@ struct ImageLoaderTests {
         #expect(await disk.data(for: key) != nil)
     }
 
-    // MARK: - dedup
+    // MARK: - 중복 제거
 
-    @Test("dedup: 같은 키 동시 요청 시 네트워크는 한 번만 탄다")
+    @Test("중복 제거: 같은 키 동시 요청 시 네트워크는 한 번만 탄다")
     func deduplicatesConcurrentRequests() async throws {
         // 지연을 줘서 요청들이 확실히 겹치게 한다.
         let fetcher = try MockImageDataFetcher.ok(validJPEG(), delayNanoseconds: 50_000_000)

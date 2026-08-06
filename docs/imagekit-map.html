@@ -603,7 +603,7 @@ cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대�
       <tr><td>메모리 히트: 두 번째 요청은 네트워크를 타지 않는다</td><td class="why">1단계가 실제로 파이프라인을 끝내는가 — callCount가 1에 머무는지로 확인</td></tr>
       <tr><td>디스크 히트: 새 로더도 네트워크 없이 디스크에서 가져온다</td><td class="why">디스크 캐시가 로더 인스턴스(=앱 재실행)를 넘어 살아남는가</td></tr>
       <tr><td>네트워크 미스 후 다운샘플 바이트가 디스크에 저장된다</td><td class="why">6단계 저장이 실제로 일어나는가 — 다음 조회를 위한 준비</td></tr>
-      <tr><td>dedup: 같은 키 동시 요청 시 네트워크는 한 번만 탄다</td><td class="why">2단계 병합 — 지연을 준 목으로 요청을 겹치게 만들어 callCount 1을 확인</td></tr>
+      <tr><td>중복 제거: 같은 키 동시 요청 시 네트워크는 한 번만 탄다</td><td class="why">2단계 병합 검증 — 지연을 준 목으로 요청을 겹치게 만들어 callCount 1을 확인</td></tr>
       <tr><td>HTTPURLResponse가 아니면 invalidResponse</td><td class="why">응답 검증 1: HTTP가 아닌 응답을 걸러내는가</td></tr>
       <tr><td>2xx가 아니면 httpStatus(코드)</td><td class="why">응답 검증 2: 상태 코드가 에러에 실려 상위에 전달되는가</td></tr>
       <tr><td>빈 데이터면 emptyData</td><td class="why">응답 검증 3: 200이어도 본문이 비면 실패로 취급하는가</td></tr>
