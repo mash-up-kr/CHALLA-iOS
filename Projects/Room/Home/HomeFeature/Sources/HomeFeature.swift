@@ -78,6 +78,8 @@ public struct HomeFeature {
             case plusMenuDismissed
             /// 빈 상태의 "방 만들기" 버튼과 + 메뉴의 "방 만들기"가 함께 쓴다.
             case createRoomButtonTapped
+            /// 드로어가 자기 힘으로 닫힐 때 (끌어내리기 등). 닫기 버튼은 자식이 dismiss 의존성으로 처리한다.
+            case createRoomDrawerDismissed
         }
 
         case view(ViewAction)
@@ -150,6 +152,10 @@ public struct HomeFeature {
             case .view(.createRoomButtonTapped):
                 state.isPlusMenuPresented = false
                 state.destination = .createRoom(CreateRoomFeature.State())
+                return .none
+
+            case .view(.createRoomDrawerDismissed):
+                state.destination = nil
                 return .none
 
             // 드로어를 닫고 목록 맨 앞에 반영한 뒤 부모(App)에 넘긴다.

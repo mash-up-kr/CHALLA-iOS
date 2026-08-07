@@ -33,7 +33,7 @@ public struct HomeView: View {
             // 드로어가 하나 더 생기면 DS에 item 오버로드 추가를 검토한다 (설계 문서 4-9).
             isPresented: Binding(
                 get: { store.destination?.createRoom != nil },
-                set: { if !$0 { store.send(.destination(.dismiss)) } }
+                set: { if !$0 { send(.createRoomDrawerDismissed) } }
             ),
             allowsInteractiveDismiss: false // 입력 드로어 — 닫기 X로만 닫는다
         ) {
