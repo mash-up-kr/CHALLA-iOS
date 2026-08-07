@@ -43,6 +43,7 @@ struct RootView: View {
                     }
                     NavigationLink("Profile Bar") {
                         ProfileBarGallery()
+                    }
                     NavigationLink("Loading Dots") {
                         LoadingDotsGallery()
                     }
