@@ -25,11 +25,12 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 
 | API | 설명 |
 | :-- | :-- |
-| `CHALLATextButton` | 텍스트 버튼. variant(primary/neutral/transparent) × size(large/medium/small), leading/trailing 아이콘 옵션, `role: .destructive` 옵션(위험 액션 — primary는 빨간 채움, neutral·transparent는 빨간 글자), `isFullWidth` 옵션(부모 폭 채움 — 드로어 등) |
+| `CHALLATextButton` | 텍스트 버튼. variant(primary/neutral/transparent) × size(large/medium/small), leading/trailing 아이콘 옵션, `role: .destructive` 옵션(위험 액션 — primary는 빨간 채움, neutral·transparent는 빨간 글자), `isFullWidth` 옵션(부모 폭 채움 — 드로어 등), `isLoading` 옵션(라벨 자리에 로딩 점 + 탭 차단, 색은 isEnabled 기준 유지) |
 | `CHALLAIconButton` | 아이콘 버튼. 정사각(54/40/32), variant·size는 텍스트 버튼과 공용 (role 미지원 — Figma에 destructive 아이콘 버튼 정의 없음) |
 | `CHALLAButtonVariant` / `CHALLAButtonSize` | 두 버튼이 공유하는 스타일·크기 enum |
 | `CHALLAButtonRole` | 버튼 의미 표시 — variant(생김새)와 조합해 쓴다 (SwiftUI `Button(role:)`과 동일 개념). 현재 `.destructive` 하나. destructive 비활성 디자인은 Figma에 없어 공통 비활성 팔레트로 표시 |
-| `CHALLATextField` | 텍스트필드. 상태 5가지(placeholder/focus/typing/typed/disabled)를 입력값·포커스·활성 여부로 자동 판별. customize: `textAlignment`(기본 중앙) · `typography`(기본 body.medium.medium) · `borderColor`(기본 `CHALLAColor.defaultTheme`, 포커스 테두리+커서 색) |
+| `CHALLALoadingDots` | 로딩 인디케이터. 점 3개 순차 페이드(opacity 1.0↔0.3, 주기 0.6초, 점당 0.2초 지연). customize: `color`(기본 Label.neutral) · `diameter`(기본 6) · `spacing`(기본 5). VoiceOver에서 숨김 처리, Reduce Motion 시 정지 |
+| `CHALLATextField` | 텍스트필드. 상태 5가지(placeholder/focus/typing/typed/disabled)를 입력값·포커스·활성 여부로 자동 판별. customize: `textAlignment`(기본 중앙) · `typography`(기본 body.medium.medium) · `borderColor`(기본 `CHALLAColor.defaultTheme`, 포커스 테두리+커서 색) · `focus`(기본 nil, `FocusState<Bool>.Binding` 주입 시 키보드를 외부에서 프로그래밍 제어 — nil이면 내부 관리) |
 | `CHALLATopNavigation` | 탑 내비게이션 바 (높이 70, 상태바 제외). `.main(trailing:)` = 좌측 홈 로고 고정, `.sub(title:leading:trailing:)` = 중앙 타이틀. 슬롯은 `Item.icon(...)`으로 생성 (아이콘 24pt + 터치 40pt, accessibilityLabel 필수) |
 | `CHALLADrawer` | 하단 드로어 레이아웃. 헤더(`.handle` 손잡이 / `.title` 타이틀+닫기) × 콘텐츠 슬롯(@ViewBuilder, 선택) × 버튼(0~2개 + 푸터 액션). 버튼 크기·전체 폭·간격·개수는 드로어가 강제 |
 | `CHALLADrawerAction` | 드로어 버튼 한 자리의 내용(글자·variant·role·isEnabled·동작). 푸터 액션 자리는 variant 무시하고 항상 텍스트형 |
@@ -37,6 +38,7 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `challaDrawer(isPresented:allowsInteractiveDismiss:drawer:)` | 드로어 프레젠테이션 View 확장 — 딤·하단 등장/퇴장 스프링·끌어내려 닫기·딤 탭 닫기. `allowsInteractiveDismiss: false`면 닫기 버튼으로만 닫힘(입력 보호). 네이티브 .sheet 미사용(떠 있는 카드 모양이 안 나옴) |
 | `CHALLAListRow` | 리스트 행 (높이 52, 설명을 넣으면 74). 이니셜라이저 2종 — 탭 행 `init(_:description:icon:iconColor:accessory:themeColor:action:)` / 토글 행 `init(_:description:icon:iconColor:themeColor:isOn:)`. 아이콘 18pt, 이름 `.body.medium.medium`, 설명 `.body.xsmall.medium`. 제목·설명은 한 줄 고정(말줄임) |
 | `CHALLAListRowAccessory` | 탭 행의 우측 요소. `.arrow` · `.arrow(value:)` · `.check(isSelected:)` · `.empty` |
+| `CHALLAToast` | 잠시 나타났다 사라지는 알림 (`init(_ message:icon:variant:)`). 높이 50(위아래 9 + 콘텐츠 32), 좌우 16, 간격 8, radius 12, 반투명 `Background.level1` 77% + ultraThinMaterial. 내용만큼 넓어지고 320에서 멈춘다(한 줄 고정, 말줄임). `icon` 생략 = 시안의 `leadingIcon = false`(글자만). `variant`(`.normal` 기본 / `.negative`)는 **아이콘 색만** 정하고 배경·글자색은 공통. 등장·문구 교체 시 VoiceOver 낭독. **표시 시간·배치는 담는 쪽 책임**. 시안의 `positive`·`cautionary`와 `normal`의 기본 아이콘은 렌더된 적이 없어 미구현 — 디자이너 문의 중 |
 | `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음. 제목이 있으면 헤더 블록 44 고정(위 16 + 글자 상자 16 + 아래 12), 제목은 한 줄 고정(말줄임) |
 | `CHALLAFilmCard` | 필름 낱장 카드 (3:4 고정 비율). Variant 4종(촬영 전 dashed / 인화대기 blur / 인화완료 / 더보기 `+N`) × 순번(`slotNumber`) 옵션. `width` 지정 시 고정(홈 82·인화 카드 90), nil이면 부모 폭 채움(방 상세 그리드) — 세로는 내부 계산. `aspectRatio` 공개(placeholder 크기 계산용) |
 | `CHALLACardItem` | 촬영 중 방 카드 (시안 고정 200×266). 대표 사진 + 딤 2겹(검정 스크림·노랑 틴트) + 제목·인원 + 카메라 카운트 뱃지. 사진은 로드된 `Image?` — nil이면 바닥색. 탭은 호출부가 Button으로 감쌈 |
@@ -49,8 +51,6 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 
 알려진 제약:
 
-- `CHALLATextField`의 포커스는 내부에서만 관리된다 — 화면 진입 시 키보드 자동
-  표시 같은 외부 프로그래밍 포커스는 아직 불가 (실사용 화면에서 필요해지면 API 추가 예정).
 - `CHALLAListRow`는 비활성(`.disabled(_:)`) 상태를 지원하지 않는다 — 시안에 해당 상태가 없어
   색을 임의로 정하지 않았다. **`.disabled(true)`를 걸면 시각 변화 없이 터치만 차단된다**
   (토글도 눌리지 않는다). 비활성 표현이 필요하면 디자이너 확인 후 API를 추가한다.
@@ -69,6 +69,14 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
   32 상자에 넣어 그린다. 행 전체가 이미 버튼이라 그 안에 `CHALLAIconButton`을 넣으면
   버튼이 중첩돼 VoiceOver가 두 번 멈춘다. **보이는 결과는 같다**(Transparent는 배경 없음) —
   시안과 달라 보여도 되돌리지 말 것.
+- **SUIT 폰트 파일은 원본이 아니라 손본 것이다 — 원본으로 덮어쓰지 말 것.**
+  배포된 SUIT 2.040은 한글 11,172자 중 **8,504자(76%)를 외곽선 없는 빈 글리프로 내보냈다.**
+  cmap에는 매핑이 있어 시스템 폰트 대체가 일어나지 않아, `앚`·`앛`·`탚`·`킽` 같은 글자가
+  자리만 차지하고 **화면에서 사라진다**(닉네임 입력에서 발견).
+  세 굵기 모두 한글 영역의 빈 글리프 매핑을 cmap에서 제거해, 해당 글자는 시스템 폰트(Apple SD Gothic Neo)로
+  폴백돼 보이게 했다. 흔한 2,668자는 손대지 않아 SUIT 그대로다. OFL 1.1이고 Reserved Font Name이 없어 개작이 허용된다.
+  - **근본 해결은 전체 음절이 그려진 SUIT로 교체하는 것이다.** 교체할 때는 반드시 커버리지를 먼저 확인한다
+    (굵기당 350KB대면 축소판을 의심할 것 — 전체 음절 폰트는 보통 2MB 이상)
 - `challaFont`의 행간 보정(`lineBoxInset`)은 **`Text` 높이가 폰트 크기와 같다고 가정한다.**
   실제 `Text`는 폰트의 자연 행높이로 잡힌다 (SUIT 14pt는 토큰의 16이 아니라 약 17.7).
   - **섹션 헤더는 이 가정을 더 이상 쓰지 않는다** — 글자 상자를 `lineHeight`로 못 박아
