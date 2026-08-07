@@ -17,7 +17,7 @@ struct LoginFeatureTests {
         }
     }
 
-    @Test("카카오 탭 → 로딩 → 성공 → delegate.loginSucceeded(isNewUser: true) 전달")
+    @Test("카카오 탭 → 로딩 → 성공 → delegate.loginSucceeded 전달")
     func kakaoLoginSuccess() async {
         let store = makeStore(
             loginUseCase: LoginUseCase(run: { provider in
@@ -34,11 +34,11 @@ struct LoginFeatureTests {
         await store.receive(\.loginResponse.success) {
             $0.inFlightProvider = nil
         }
-        await store.receive(\.delegate.loginSucceeded, true)
+        await store.receive(\.delegate.loginSucceeded)
         #expect(store.state.isLoading == false)
     }
 
-    @Test("애플 탭도 동일 흐름 — delegate.loginSucceeded(isNewUser: false) 전달")
+    @Test("애플 탭도 동일 흐름 — delegate.loginSucceeded 전달")
     func appleLoginSuccess() async {
         let store = makeStore(
             loginUseCase: LoginUseCase(run: { provider in
@@ -53,7 +53,7 @@ struct LoginFeatureTests {
         await store.receive(\.loginResponse.success) {
             $0.inFlightProvider = nil
         }
-        await store.receive(\.delegate.loginSucceeded, false)
+        await store.receive(\.delegate.loginSucceeded)
     }
 
     @Test("실패(.server) → 로딩 해제 + '로그인 실패' 얼럿(userMessage 본문)")
@@ -126,7 +126,7 @@ struct LoginFeatureTests {
         await store.receive(\.loginResponse.success) {
             $0.inFlightProvider = nil
         }
-        await store.receive(\.delegate.loginSucceeded, false)
+        await store.receive(\.delegate.loginSucceeded)
         #expect(callCount.value == 1)
     }
 
@@ -158,7 +158,7 @@ struct LoginFeatureTests {
         await store.receive(\.loginResponse.success) {
             $0.inFlightProvider = nil
         }
-        await store.receive(\.delegate.loginSucceeded, false)
+        await store.receive(\.delegate.loginSucceeded)
         #expect(callCount.value == 2)
     }
 
