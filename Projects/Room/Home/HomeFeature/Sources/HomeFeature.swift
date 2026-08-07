@@ -21,7 +21,10 @@ public struct HomeFeature {
 
         public var rooms: IdentifiedArrayOf<Room> = []
         public var loadState: LoadState = .notRequested
-        @Presents public var alert: AlertState<Action.Alert>?
+
+        /// 상단 + 드롭다운의 열림 여부. 여닫기만 하면 되어 Destination에 넣지 않았다 (아래 Destination 주석 참고).
+        public var isPlusMenuPresented = false
+        @Presents public var destination: Destination.State?
 
         /// 섹션 분류는 Domain 규칙에 맡긴다. 저장하면 `rooms`와 어긋날 수 있어 매번 계산한다.
         public var board: RoomBoard { RoomBoard(rooms: rooms.elements) }
@@ -47,6 +50,19 @@ public struct HomeFeature {
         case failed(RoomError)
     }
 
+    // MARK: - Destination
+
+    /// 홈 위에 겹쳐 뜨는 것들. 드로어와 얼럿은 동시에 뜰 수 없어 enum 하나로 묶는다 —
+    /// 옵셔널 둘로 두면 둘 다 떠 있는 상태를 코드로 만들 수 있지만 enum은 타입이 막는다.
+    ///
+    /// 상단 + 메뉴는 여기 없다 — 자식 리듀서도, 닫힐 때 취소할 이펙트도 없어
+    /// `@Presents`가 해줄 일이 없기 때문이다 (`isPlusMenuPresented` Bool로 충분).
+    @Reducer
+    public enum Destination {
+        case createRoom(CreateRoomFeature)
+        case alert(AlertState<HomeFeature.Action.Alert>)
+    }
+
     // MARK: - Action
 
     public enum Action: ViewAction, Sendable {
@@ -58,6 +74,10 @@ public struct HomeFeature {
             /// 뷰가 들고 있던 값을 되돌려 보내면 낡은 값일 수 있어 id만 받는다.
             case roomTapped(Room.ID)
             case settingsButtonTapped
+            case plusButtonTapped
+            case plusMenuDismissed
+            /// 빈 상태의 "방 만들기" 버튼과 + 메뉴의 "방 만들기"가 함께 쓴다.
+            case createRoomButtonTapped
         }
 
         case view(ViewAction)
@@ -66,6 +86,7 @@ public struct HomeFeature {
         @CasePathable
         public enum Delegate: Equatable, Sendable {
             case roomSelected(Room)
+            case roomCreated(Room)
             case settingsTapped
         }
 
@@ -77,7 +98,7 @@ public struct HomeFeature {
             case retryTapped
         }
 
-        case alert(PresentationAction<Alert>)
+        case destination(PresentationAction<Destination.Action>)
     }
 
     public init() {}
@@ -92,7 +113,8 @@ public struct HomeFeature {
         Reduce { state, action in
             switch action {
             // 화면 등장·재시도 버튼·얼럿의 다시 시도가 같은 조회를 부른다.
-            case .view(.task), .view(.retryButtonTapped), .alert(.presented(.retryTapped)):
+            case .view(.task), .view(.retryButtonTapped),
+                 .destination(.presented(.alert(.retryTapped))):
                 return fetchRooms(&state)
 
             case let .roomsResponse(.success(rooms)):
@@ -104,15 +126,37 @@ public struct HomeFeature {
                 state.loadState = .failed(error)
                 // 화면 본문은 직전 목록을 유지한다 — 재조회 실패로 보던 목록이 사라지지 않게.
                 // TODO: 얼럿 제목·버튼 문구는 임의 작성본 — 기획 정책 확정 시 교체할 것.
-                state.alert = AlertState {
+                state.destination = .alert(AlertState {
                     TextState("방 목록을 불러오지 못했어요")
                 } actions: {
                     ButtonState(action: .retryTapped) { TextState("다시 시도") }
                     ButtonState(role: .cancel) { TextState("확인") }
                 } message: {
                     TextState(error.userMessage)
-                }
+                })
                 return .none
+
+            // MARK: + 메뉴 · 방 만들기
+
+            case .view(.plusButtonTapped):
+                state.isPlusMenuPresented.toggle()
+                return .none
+
+            case .view(.plusMenuDismissed):
+                state.isPlusMenuPresented = false
+                return .none
+
+            // 메뉴에서 진입했을 수 있어 드로어를 열기 전에 메뉴를 내린다.
+            case .view(.createRoomButtonTapped):
+                state.isPlusMenuPresented = false
+                state.destination = .createRoom(CreateRoomFeature.State())
+                return .none
+
+            // 드로어를 닫고 목록 맨 앞에 반영한 뒤 부모(App)에 넘긴다.
+            case let .destination(.presented(.createRoom(.delegate(.created(room))))):
+                state.destination = nil
+                state.rooms.insert(room, at: 0)
+                return .send(.delegate(.roomCreated(room)))
 
             case let .view(.roomTapped(id)):
                 guard let room = state.rooms[id: id] else { return .none }
@@ -121,11 +165,11 @@ public struct HomeFeature {
             case .view(.settingsButtonTapped):
                 return .send(.delegate(.settingsTapped))
 
-            case .delegate, .alert:
+            case .delegate, .destination:
                 return .none
             }
         }
-        .ifLet(\.$alert, action: \.alert)
+        .ifLet(\.$destination, action: \.destination)
     }
 
     // MARK: - Effects
@@ -152,3 +196,10 @@ public struct HomeFeature {
         .cancellable(id: CancelID.fetchRooms, cancelInFlight: true)
     }
 }
+
+// MARK: - Destination conformance
+
+// 매크로가 만든 State·Action은 public 타입이라 Equatable·Sendable이 자동 추론되지 않는다.
+// 매크로 인자로 합성하는 `@Reducer(state:action:)`는 폐기돼 extension으로 직접 선언한다.
+extension HomeFeature.Destination.State: Equatable {}
+extension HomeFeature.Destination.Action: Sendable {}

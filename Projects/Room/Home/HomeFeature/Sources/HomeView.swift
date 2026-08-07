@@ -27,17 +27,54 @@ public struct HomeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .challaMainBackground()
+        .overlay { plusMenuLayer }
+        .challaDrawer(
+            // challaDrawer가 Bool 바인딩만 받아 Destination 상태와 손으로 잇는다.
+            // 드로어가 하나 더 생기면 DS에 item 오버로드 추가를 검토한다 (설계 문서 4-9).
+            isPresented: Binding(
+                get: { store.destination?.createRoom != nil },
+                set: { if !$0 { store.send(.destination(.dismiss)) } }
+            ),
+            allowsInteractiveDismiss: false // 입력 드로어 — 닫기 X로만 닫는다
+        ) {
+            if let childStore = store.scope(
+                state: \.destination?.createRoom,
+                action: \.destination.createRoom
+            ) {
+                CreateRoomDrawer(store: childStore)
+            }
+        }
         .task { await send(.task).finish() }
-        .alert($store.scope(state: \.alert, action: \.alert))
+        .alert($store.scope(state: \.destination?.alert, action: \.destination.alert))
     }
 
     // MARK: - 상단 바
 
-    // 방 추가 버튼은 메뉴가 생기는 시점에 함께 붙인다.
     private var navigationBar: some View {
         CHALLATopNavigation.main(trailing: [
+            .icon(.plus, accessibilityLabel: "방 추가") { send(.plusButtonTapped) },
             .icon(.setting, accessibilityLabel: "설정") { send(.settingsButtonTapped) }
         ])
+    }
+
+    // MARK: - + 메뉴
+
+    /// 메뉴가 떠 있는 동안 화면 전체를 덮어 바깥 탭을 받는다 (시안 주석: 그 외 영역 탭 시 닫힘).
+    @ViewBuilder
+    private var plusMenuLayer: some View {
+        if store.isPlusMenuPresented {
+            ZStack(alignment: .topTrailing) {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { send(.plusMenuDismissed) }
+                PlusMenu(
+                    onCreateRoom: { send(.createRoomButtonTapped) },
+                    onJoinRoom: {} // 초대 코드 입장 단계에서 연결한다
+                )
+                .padding(.top, HomeMetric.menuTopSpacing)
+                .padding(.trailing, HomeMetric.menuTrailingSpacing)
+            }
+        }
     }
 
     // MARK: - 본문
@@ -50,12 +87,11 @@ public struct HomeView: View {
                 .tint(CHALLAColor.Label.neutral)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if store.showsEmptyState {
-            // 두 버튼의 동작은 드로어를 만드는 다음 단계에서 연결한다.
             HomeEmptyView(
                 nickname: store.nickname,
                 profileImageURL: store.profileImageURL,
-                onCreateRoom: {},
-                onJoinRoom: {}
+                onCreateRoom: { send(.createRoomButtonTapped) },
+                onJoinRoom: {} // 초대 코드 입장 단계에서 연결한다
             )
         } else {
             roomList
@@ -165,6 +201,10 @@ private enum HomeMetric {
     static let dividerHeight: CGFloat = 1
     /// 같은 섹션 안의 카드 사이 (완료 카드 블록 200 → 다음 블록 y=224).
     static let cardSpacing: CGFloat = 24
+    /// + 메뉴 상단 간격 — 상단 바 위 여백 15 + 터치 영역 40 (메뉴가 + 버튼 바로 아래 붙는다).
+    static let menuTopSpacing: CGFloat = 55
+    /// + 메뉴 우측 간격 — 메뉴 오른쪽 끝이 + 버튼 오른쪽과 정렬 (Figma x=154, 390−154−180).
+    static let menuTrailingSpacing: CGFloat = 56
 }
 
 // MARK: - Preview

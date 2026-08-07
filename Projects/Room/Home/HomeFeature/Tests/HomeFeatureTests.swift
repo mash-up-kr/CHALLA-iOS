@@ -79,12 +79,12 @@ struct HomeFeatureTests {
         }
         await store.receive(\.roomsResponse.failure) {
             $0.loadState = .failed(.network)
-            $0.alert = Self.fetchFailedAlert(.network)
+            $0.destination = .alert(Self.fetchFailedAlert(.network))
         }
 
         // 얼럿 버튼 액션이 들어오면 ifLet이 얼럿을 내리고, 리듀서가 재조회를 시작한다.
-        await store.send(.alert(.presented(.retryTapped))) {
-            $0.alert = nil
+        await store.send(.destination(.presented(.alert(.retryTapped)))) {
+            $0.destination = nil
             $0.loadState = .loading
         }
         await store.receive(\.roomsResponse.success) {
@@ -129,5 +129,36 @@ struct HomeFeatureTests {
 
         await store.send(.view(.settingsButtonTapped))
         await store.receive(\.delegate.settingsTapped)
+    }
+
+    // MARK: - 방 만들기
+
+    @Test("+ 버튼은 메뉴를 토글하고, 방 만들기를 고르면 메뉴가 내려가며 드로어가 뜬다")
+    func plusMenuTogglesAndOpensCreateDrawer() async {
+        let store = Self.makeStore()
+
+        await store.send(.view(.plusButtonTapped)) {
+            $0.isPlusMenuPresented = true
+        }
+        await store.send(.view(.createRoomButtonTapped)) {
+            $0.isPlusMenuPresented = false
+            $0.destination = .createRoom(CreateRoomFeature.State())
+        }
+    }
+
+    @Test("드로어가 방 생성을 알리면 드로어를 닫고 목록 맨 앞에 넣은 뒤 delegate로 넘긴다")
+    func createdRoomClosesDrawerAndPrepends() async {
+        let created = Room.previewPrinted
+        var state = HomeFeature.State(nickname: "찰나")
+        state.rooms = IdentifiedArray(uniqueElements: [Room.previewShooting])
+        state.loadState = .loaded
+        state.destination = .createRoom(CreateRoomFeature.State())
+        let store = Self.makeStore(initialState: state)
+
+        await store.send(.destination(.presented(.createRoom(.delegate(.created(created)))))) {
+            $0.destination = nil
+            $0.rooms.insert(created, at: 0)
+        }
+        await store.receive(\.delegate.roomCreated, created)
     }
 }
