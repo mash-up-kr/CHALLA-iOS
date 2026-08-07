@@ -7,7 +7,7 @@ import SwiftUI
 /// 모든 화면은 시스템 `AsyncImage` 대신 이 뷰를 쓴다.
 public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
 
-    // MARK: - Properties
+    // MARK: - 프로퍼티와 init
 
     private let url: URL?
     private let content: (Image) -> Content
@@ -17,8 +17,6 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
     @Environment(\.displayScale) private var displayScale
     @State private var phase: CHALLAAsyncImagePhase = .empty
     @State private var measuredSize: CGSize = .zero
-
-    // MARK: - Initialization
 
     /// - Parameters:
     ///   - url: 원격 이미지 URL. nil이면 placeholder만 표시한다.
@@ -55,7 +53,7 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
         }
     }
 
-    // MARK: - Private
+    // MARK: - 로드
 
     /// 로드의 입력값 묶음. 하나라도 바뀌면 `.task(id:)`가 이전 작업을 취소하고 다시 로드한다.
     private struct LoadInput: Equatable {
@@ -80,7 +78,7 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
             // 그대로 쓰면 재사용된 셀의 현재 요청 화면을 낡은 이미지로 덮어쓴다 — 여기서 차단.
             guard !Task.isCancelled else { return }
 
-            withAnimation(.easeInOut(duration: 0.25)) {
+            withAnimation(.easeInOut(duration: AsyncImageMetric.fadeInDuration)) {
                 phase = .success(Image(uiImage: uiImage))
             }
         } catch ImageLoadingError.cancelled {
@@ -108,4 +106,11 @@ public extension CHALLAAsyncImage where Content == Image, Placeholder == Color {
             placeholder: { CHALLAColor.Background.level2 }
         )
     }
+}
+
+// MARK: - Figma 실측값
+
+private enum AsyncImageMetric {
+    /// 성공 전환 페이드인 길이. 시안 육안 근사값 — 디자이너 검수로 확정한다.
+    static let fadeInDuration: TimeInterval = 0.25
 }
