@@ -15,8 +15,14 @@ public enum RoomNameRule {
         String(raw.prefix(maxLength))
     }
 
-    /// "만들기" 버튼 활성 조건. 공백만 입력한 이름은 만들 수 없다.
-    public static func isSubmittable(_ name: String) -> Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    /// 서버로 보낼 형태로 앞뒤 공백을 뗀다. 타이핑 중에는 쓰지 않는다 —
+    /// 단어 사이 공백을 칠 때마다 지워지면 입력이 막힌다.
+    public static func normalize(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// "만들기" 버튼 활성 조건. 정규화한 뒤 판단해야 공백만 입력한 값이 걸러진다.
+    public static func isSubmittable(_ raw: String) -> Bool {
+        !normalize(raw).isEmpty
     }
 }

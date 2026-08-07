@@ -14,7 +14,8 @@ extension CreateRoomUseCase: TestDependencyKey {
 
     public static func live(repository: any RoomRepository) -> CreateRoomUseCase {
         CreateRoomUseCase(run: { draft in
-            let name = RoomNameRule.sanitize(draft.name)
+            // 공백을 먼저 떼고 자른다. 순서가 반대면 "공백 20자 + 여행"이 공백만 남아 걸러진다.
+            let name = RoomNameRule.sanitize(RoomNameRule.normalize(draft.name))
             guard RoomNameRule.isSubmittable(name) else { throw RoomError.invalidRoomName }
             return try await repository.createRoom(
                 RoomDraft(name: name, shotCount: draft.shotCount)

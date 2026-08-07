@@ -28,6 +28,29 @@ struct CreateRoomUseCaseLiveTests {
         #expect(repository.createdDrafts.map(\.name) == [String(repeating: "가", count: 20)])
     }
 
+    @Test("앞뒤 공백을 뗀 이름이 저장소로 넘어간다")
+    func normalizesNameBeforeRepository() async throws {
+        let repository = MockRoomRepository(createResult: .success(.previewShooting))
+        let useCase = CreateRoomUseCase.live(repository: repository)
+
+        _ = try await useCase.run(RoomDraft(name: "  제주 우정 여행  ", shotCount: .default))
+
+        #expect(repository.createdDrafts.map(\.name) == ["제주 우정 여행"])
+    }
+
+    @Test("공백이 앞에 붙어 20자를 넘겨도 이름이 통째로 잘리지 않는다")
+    func trimsBeforeCutting() async throws {
+        let repository = MockRoomRepository(createResult: .success(.previewShooting))
+        let useCase = CreateRoomUseCase.live(repository: repository)
+
+        // 자르기를 먼저 하면 공백 20자만 남아 .invalidRoomName이 난다.
+        _ = try await useCase.run(
+            RoomDraft(name: String(repeating: " ", count: 20) + "여행", shotCount: .default)
+        )
+
+        #expect(repository.createdDrafts.map(\.name) == ["여행"])
+    }
+
     @Test("공백만 있는 이름은 저장소를 부르지 않고 .invalidRoomName을 던진다")
     func rejectsWhitespaceOnlyName() async {
         let repository = MockRoomRepository(createResult: .success(.previewShooting))

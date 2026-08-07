@@ -33,6 +33,13 @@ struct RoomNameRuleTests {
         #expect(sanitized == String(repeating: family, count: 20))
     }
 
+    @Test("normalize는 앞뒤 공백만 떼고 사이 공백은 남긴다")
+    func normalizeTrimsEdgesOnly() {
+        #expect(RoomNameRule.normalize("  제주 여행  ") == "제주 여행")
+        #expect(RoomNameRule.normalize("\n찰나\t") == "찰나")
+        #expect(RoomNameRule.normalize("친구들과 강릉 여행") == "친구들과 강릉 여행")
+    }
+
     @Test("공백·개행만 입력한 이름은 제출할 수 없다")
     func whitespaceOnlyIsNotSubmittable() {
         #expect(!RoomNameRule.isSubmittable(""))
