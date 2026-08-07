@@ -23,7 +23,8 @@ let project = Project(
             deploymentTargets: Environment.deploymentTarget,
             infoPlist: .default,
             sources: ["Tests/**"],
-            dependencies: [.target(name: "HomeFeature"), .composableArchitecture]
+            // .roomDomain: 테스트가 Room 엔티티·RoomError로 리듀서 동작을 검증한다.
+            dependencies: [.target(name: "HomeFeature"), .roomDomain, .composableArchitecture]
         )
     ]
 )
