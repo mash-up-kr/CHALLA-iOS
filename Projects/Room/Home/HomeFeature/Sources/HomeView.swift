@@ -94,11 +94,12 @@ public struct HomeView: View {
 
     @ViewBuilder
     private var content: some View {
-        // 첫 조회 중에만 로딩을 그린다. 재조회 중에는 보던 목록을 유지한다.
-        if store.loadState == .loading, store.rooms.isEmpty {
+        if store.showsLoading {
             ProgressView()
                 .tint(CHALLAColor.Label.neutral)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let message = store.errorMessage {
+            errorView(message)
         } else if store.showsEmptyState {
             HomeEmptyView(
                 nickname: store.nickname,
@@ -109,6 +110,20 @@ public struct HomeView: View {
         } else {
             roomList
         }
+    }
+
+    /// 첫 조회 실패. 얼럿을 닫아도 재시도할 수단이 남아 있어야 한다.
+    /// TODO: 문구·레이아웃 임의 작성본 — 시안에 조회 실패 화면 정의가 없다.
+    private func errorView(_ message: String) -> some View {
+        VStack(spacing: HomeMetric.errorSpacing) {
+            Text(message)
+                .challaFont(.body.medium.medium)
+                .foregroundStyle(CHALLAColor.Label.neutral)
+                .multilineTextAlignment(.center)
+            CHALLATextButton("다시 시도") { send(.retryButtonTapped) }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, HomeMetric.horizontalPadding)
     }
 
     private var roomList: some View {
@@ -212,6 +227,8 @@ private enum HomeMetric {
     static let sectionSpacing: CGFloat = 32
     /// 섹션 사이 구분선 두께.
     static let dividerHeight: CGFloat = 1
+    /// 실패 문구와 다시 시도 버튼 사이. 시안이 없어 임의값.
+    static let errorSpacing: CGFloat = 16
     /// 같은 섹션 안의 카드 사이 (완료 카드 블록 200 → 다음 블록 y=224).
     static let cardSpacing: CGFloat = 24
     /// + 메뉴 상단 간격 — 상단 바 위 여백 15 + 터치 영역 40 (메뉴가 + 버튼 바로 아래 붙는다).

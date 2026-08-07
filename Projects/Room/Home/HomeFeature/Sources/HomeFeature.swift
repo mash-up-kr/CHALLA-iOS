@@ -29,9 +29,19 @@ public struct HomeFeature {
         /// 섹션 분류는 Domain 규칙에 맡긴다. 저장하면 `rooms`와 어긋날 수 있어 매번 계산한다.
         public var board: RoomBoard { RoomBoard(rooms: rooms.elements) }
 
+        /// 첫 조회 중. 재조회 중에는 보던 목록을 유지한다.
+        public var showsLoading: Bool { loadState == .loading && rooms.isEmpty }
+
         /// 조회를 마쳤는데 방이 없을 때만 참이다.
         /// 첫 조회 중에는 거짓이라 빈 상태가 잠깐 보였다 목록으로 바뀌는 일이 없다.
         public var showsEmptyState: Bool { loadState == .loaded && board.isEmpty }
+
+        /// 조회에 실패했고 보여줄 목록도 없을 때의 안내 문구. 그 외에는 nil.
+        /// 재조회 실패는 직전 목록을 그대로 두므로 여기 해당하지 않는다.
+        public var errorMessage: String? {
+            guard case let .failed(error) = loadState, rooms.isEmpty else { return nil }
+            return error.userMessage
+        }
 
         public init(nickname: String, profileImageURL: URL? = nil) {
             self.nickname = nickname
@@ -81,7 +91,9 @@ public struct HomeFeature {
             case createRoomButtonTapped
             /// 빈 상태의 "초대 코드로 입장하기" 버튼과 + 메뉴의 "방 입장하기"가 함께 쓴다.
             case joinRoomButtonTapped
-            /// 드로어가 자기 힘으로 닫힐 때 (끌어내리기 등). 닫기 버튼은 자식이 dismiss 의존성으로 처리한다.
+            /// 드로어가 DS 쪽에서 닫힐 때 (딤 탭·끌어내리기).
+            /// 지금 두 드로어는 allowsInteractiveDismiss: false라 이 경로가 열려 있지 않다.
+            /// 닫기 버튼은 자식이 dismiss 의존성으로 처리한다.
             case drawerDismissed
         }
 
@@ -130,7 +142,13 @@ public struct HomeFeature {
 
             case let .roomsResponse(.failure(error)):
                 state.loadState = .failed(error)
-                // 화면 본문은 직전 목록을 유지한다 — 재조회 실패로 보던 목록이 사라지지 않게.
+                // 목록은 직전 것을 유지한다 — 재조회 실패로 보던 목록이 사라지지 않게.
+
+                // 드로어가 떠 있으면 얼럿으로 덮지 않는다. Destination이 enum이라 대입하는 순간
+                // 드로어가 사라지고 입력 중이던 값도 함께 날아간다.
+                // 실패는 loadState에 남아 있어, 드로어를 닫으면 본문이 알린다.
+                guard state.destination == nil else { return .none }
+
                 // TODO: 얼럿 제목·버튼 문구는 임의 작성본 — 기획 정책 확정 시 교체할 것.
                 state.destination = .alert(AlertState {
                     TextState("방 목록을 불러오지 못했어요")
@@ -202,7 +220,6 @@ public struct HomeFeature {
     }
 
     private func fetchRooms(_ state: inout State) -> Effect<Action> {
-        guard state.loadState != .loading else { return .none }
         state.loadState = .loading
         return .run { [fetchRoomsUseCase] send in // 비-Sendable self 대신 의존성 값만 캡처
             do {
@@ -216,6 +233,12 @@ public struct HomeFeature {
                 await send(.roomsResponse(.failure(.unknown)))
             }
         }
+        // 중복 요청은 cancelInFlight가 받는다 — 같은 id로 진행 중이던 요청을 취소하고
+        // 새로 시작하므로 응답이 두 번 도착하지 않는다.
+        //
+        // loadState == .loading 가드로 막지 않는 이유:
+        // 화면을 벗어나면 .task가 취소되고, 취소는 액션을 보내지 않아 loadState가 .loading에 남는다.
+        // 그 상태로 다시 들어오면 가드에 걸려 조회가 시작되지 않는다 — 첫 조회였다면 스피너가 계속 돈다.
         .cancellable(id: CancelID.fetchRooms, cancelInFlight: true)
     }
 }

@@ -81,6 +81,8 @@ struct HomeFeatureTests {
             $0.loadState = .failed(.network)
             $0.destination = .alert(Self.fetchFailedAlert(.network))
         }
+        // 얼럿을 닫아도 본문에 안내와 재시도 버튼이 남는다.
+        #expect(store.state.errorMessage == RoomError.network.userMessage)
 
         // 얼럿 버튼 액션이 들어오면 ifLet이 얼럿을 내리고, 리듀서가 재조회를 시작한다.
         await store.send(.destination(.presented(.alert(.retryTapped)))) {
@@ -93,14 +95,63 @@ struct HomeFeatureTests {
         }
     }
 
-    @Test("조회 중에는 다시 조회하지 않는다")
-    func ignoresDuplicateFetchWhileLoading() async {
+    @Test("목록이 있는 상태의 재조회 실패는 본문을 건드리지 않는다")
+    func refetchFailureKeepsList() async {
+        var state = HomeFeature.State(nickname: "찰나")
+        state.rooms = IdentifiedArray(uniqueElements: Self.rooms)
+        state.loadState = .loaded
+        let store = Self.makeStore(
+            initialState: state,
+            fetchRooms: FetchRoomsUseCase(run: { throw RoomError.network })
+        )
+
+        await store.send(.view(.task)) {
+            $0.loadState = .loading
+        }
+        await store.receive(\.roomsResponse.failure) {
+            $0.loadState = .failed(.network)
+            $0.destination = .alert(Self.fetchFailedAlert(.network))
+        }
+        // 보여줄 목록이 남아 있으므로 실패 안내 대신 목록을 그대로 그린다.
+        #expect(store.state.errorMessage == nil)
+        #expect(!store.state.showsLoading)
+        #expect(store.state.rooms.count == Self.rooms.count)
+    }
+
+    @Test("드로어가 열려 있으면 조회 실패 얼럿으로 덮지 않는다")
+    func failureKeepsOpenDrawer() async {
+        var state = HomeFeature.State(nickname: "찰나")
+        state.destination = .createRoom(CreateRoomFeature.State())
+        let store = Self.makeStore(
+            initialState: state,
+            fetchRooms: FetchRoomsUseCase(run: { throw RoomError.network })
+        )
+
+        await store.send(.view(.task)) {
+            $0.loadState = .loading
+        }
+        // destination은 그대로 드로어다 — 얼럿이 대입됐다면 여기서 실패한다.
+        await store.receive(\.roomsResponse.failure) {
+            $0.loadState = .failed(.network)
+        }
+    }
+
+    @Test("취소로 loadState가 .loading에 남아 있어도 다시 들어오면 조회한다")
+    func staleLoadingDoesNotBlockFetch() async {
+        // 화면을 벗어나 이펙트가 취소되면 액션이 오지 않아 loadState가 .loading에 남는다.
+        // 그 상태로 다시 들어온 상황이다 — 가드로 막으면 여기서 조회가 시작되지 않는다.
         var state = HomeFeature.State(nickname: "찰나")
         state.loadState = .loading
-        // 의존성을 주입하지 않는다 — 가드를 뚫고 조회가 실행되면 testValue가 테스트를 실패시킨다.
-        let store = Self.makeStore(initialState: state)
+        let store = Self.makeStore(
+            initialState: state,
+            fetchRooms: FetchRoomsUseCase(run: { Self.rooms })
+        )
 
         await store.send(.view(.task))
+        await store.receive(\.roomsResponse.success) {
+            $0.loadState = .loaded
+            $0.rooms = IdentifiedArray(uniqueElements: Self.rooms)
+        }
     }
 
     // MARK: - 위임
