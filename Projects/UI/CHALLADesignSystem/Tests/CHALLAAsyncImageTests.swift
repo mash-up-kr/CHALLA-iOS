@@ -42,6 +42,16 @@ struct CHALLAAsyncImageTests {
         #expect(values.challaImageLoader != nil)
     }
 
+    @Test("기본 로더는 몇 번을 읽어도 같은 인스턴스다")
+    func defaultLoaderIsSharedInstance() {
+        // 수동 키의 static let이 "한 번 생성·공유"를 실제로 지키는지 확인한다.
+        // (이 테스트가 있어야 나중에 @Entry 등으로 구현을 바꿀 때 공유가 깨지면 바로 잡힌다)
+        let first = EnvironmentValues().challaImageLoader
+        let second = EnvironmentValues().challaImageLoader
+
+        #expect(first === second)
+    }
+
     @Test("주입한 로더가 기본 로더를 대체한다")
     func injectedLoaderReplacesDefault() throws {
         let directory = FileManager.default.temporaryDirectory
