@@ -60,6 +60,7 @@ public struct HomeFeature {
     @Reducer
     public enum Destination {
         case createRoom(CreateRoomFeature)
+        case joinRoom(JoinRoomFeature)
         case alert(AlertState<HomeFeature.Action.Alert>)
     }
 
@@ -78,8 +79,10 @@ public struct HomeFeature {
             case plusMenuDismissed
             /// 빈 상태의 "방 만들기" 버튼과 + 메뉴의 "방 만들기"가 함께 쓴다.
             case createRoomButtonTapped
+            /// 빈 상태의 "초대 코드로 입장하기" 버튼과 + 메뉴의 "방 입장하기"가 함께 쓴다.
+            case joinRoomButtonTapped
             /// 드로어가 자기 힘으로 닫힐 때 (끌어내리기 등). 닫기 버튼은 자식이 dismiss 의존성으로 처리한다.
-            case createRoomDrawerDismissed
+            case drawerDismissed
         }
 
         case view(ViewAction)
@@ -89,6 +92,7 @@ public struct HomeFeature {
         public enum Delegate: Equatable, Sendable {
             case roomSelected(Room)
             case roomCreated(Room)
+            case roomJoined(Room)
             case settingsTapped
         }
 
@@ -138,7 +142,7 @@ public struct HomeFeature {
                 })
                 return .none
 
-            // MARK: + 메뉴 · 방 만들기
+            // MARK: + 메뉴 · 드로어
 
             case .view(.plusButtonTapped):
                 state.isPlusMenuPresented.toggle()
@@ -148,21 +152,34 @@ public struct HomeFeature {
                 state.isPlusMenuPresented = false
                 return .none
 
-            // 메뉴에서 진입했을 수 있어 드로어를 열기 전에 메뉴를 내린다.
+            // 진입점이 + 메뉴일 수 있어 드로어를 열기 전에 메뉴를 내린다 (아래 입장 케이스도 같다).
             case .view(.createRoomButtonTapped):
                 state.isPlusMenuPresented = false
                 state.destination = .createRoom(CreateRoomFeature.State())
                 return .none
 
-            case .view(.createRoomDrawerDismissed):
+            case .view(.joinRoomButtonTapped):
+                state.isPlusMenuPresented = false
+                state.destination = .joinRoom(JoinRoomFeature.State())
+                return .none
+
+            case .view(.drawerDismissed):
                 state.destination = nil
                 return .none
 
-            // 드로어를 닫고 목록 맨 앞에 반영한 뒤 부모(App)에 넘긴다.
             case let .destination(.presented(.createRoom(.delegate(.created(room))))):
                 state.destination = nil
                 state.rooms.insert(room, at: 0)
                 return .send(.delegate(.roomCreated(room)))
+
+            // 초대 코드는 방에 계속 붙어 있어 이미 들어간 방에 다시 입장할 수 있다.
+            // insert면 같은 id가 두 번 들어가므로 updateOrInsert를 쓴다.
+            // at: 0은 처음 들어가는 방에만 적용되고, 이미 있던 방은 자리를 지킨 채 값만 갱신된다.
+            // TODO: 서버가 중복 입장에 성공을 주는지 에러를 주는지 미확정 — 에러면 이 처리는 얼럿으로 옮긴다.
+            case let .destination(.presented(.joinRoom(.delegate(.joined(room))))):
+                state.destination = nil
+                state.rooms.updateOrInsert(room, at: 0)
+                return .send(.delegate(.roomJoined(room)))
 
             case let .view(.roomTapped(id)):
                 guard let room = state.rooms[id: id] else { return .none }

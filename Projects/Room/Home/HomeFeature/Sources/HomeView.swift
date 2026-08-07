@@ -28,12 +28,11 @@ public struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .challaMainBackground()
         .overlay { plusMenuLayer }
+        // challaDrawer는 Bool만 받아서 Destination이 이 케이스인지 직접 확인한다.
         .challaDrawer(
-            // challaDrawer가 Bool 바인딩만 받아 Destination 상태와 손으로 잇는다.
-            // 드로어가 하나 더 생기면 DS에 item 오버로드 추가를 검토한다 (설계 문서 4-9).
             isPresented: Binding(
                 get: { store.destination?.createRoom != nil },
-                set: { if !$0 { send(.createRoomDrawerDismissed) } }
+                set: { if !$0 { send(.drawerDismissed) } }
             ),
             allowsInteractiveDismiss: false // 입력 드로어 — 닫기 X로만 닫는다
         ) {
@@ -42,6 +41,20 @@ public struct HomeView: View {
                 action: \.destination.createRoom
             ) {
                 CreateRoomDrawer(store: childStore)
+            }
+        }
+        .challaDrawer(
+            isPresented: Binding(
+                get: { store.destination?.joinRoom != nil },
+                set: { if !$0 { send(.drawerDismissed) } }
+            ),
+            allowsInteractiveDismiss: false
+        ) {
+            if let childStore = store.scope(
+                state: \.destination?.joinRoom,
+                action: \.destination.joinRoom
+            ) {
+                JoinRoomDrawer(store: childStore)
             }
         }
         .task { await send(.task).finish() }
@@ -69,7 +82,7 @@ public struct HomeView: View {
                     .onTapGesture { send(.plusMenuDismissed) }
                 PlusMenu(
                     onCreateRoom: { send(.createRoomButtonTapped) },
-                    onJoinRoom: {} // 초대 코드 입장 단계에서 연결한다
+                    onJoinRoom: { send(.joinRoomButtonTapped) }
                 )
                 .padding(.top, HomeMetric.menuTopSpacing)
                 .padding(.trailing, HomeMetric.menuTrailingSpacing)
@@ -91,7 +104,7 @@ public struct HomeView: View {
                 nickname: store.nickname,
                 profileImageURL: store.profileImageURL,
                 onCreateRoom: { send(.createRoomButtonTapped) },
-                onJoinRoom: {} // 초대 코드 입장 단계에서 연결한다
+                onJoinRoom: { send(.joinRoomButtonTapped) }
             )
         } else {
             roomList
