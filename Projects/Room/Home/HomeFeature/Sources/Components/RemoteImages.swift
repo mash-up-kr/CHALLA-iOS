@@ -5,8 +5,11 @@ import SwiftUI
 /// 디자인 시스템 카드들이 `Image`(로드된 값)를 받고 URL은 다루지 않아 호출부가 변환을 맡는다.
 /// `AsyncImage`는 뷰를 돌려줄 뿐 `Image` 값을 꺼낼 수 없어 쓰지 못한다.
 ///
-/// 캐시도 취소도 없는 임시 구현이다 — 이미지 로딩 모듈(이슈 #25)이 생기면 그것으로 교체한다.
+/// 캐시가 없고 한 장씩 순서대로 받는 임시 구현이다.
 /// 받아오기 전에는 빈 배열을 넘겨 카드가 플레이스홀더를 그리게 한다.
+///
+/// TODO: 이미지 로딩 모듈(이슈 #25)의 `CHALLAAsyncImage`가 생기면 이 파일을 지운다.
+///       캐시·병렬 다운로드는 그쪽에서 해결되므로 여기서는 손대지 않는다.
 struct RemoteImages<Content: View>: View {
 
     let urls: [URL]
@@ -20,11 +23,15 @@ struct RemoteImages<Content: View>: View {
             .task(id: urls) {
                 var loaded: [Image] = []
                 for url in urls {
+                    // try?가 취소도 삼키므로 직접 확인한다. 안 그러면 남은 URL을 헛되이 다 돈다.
+                    guard !Task.isCancelled else { return }
                     guard let (data, _) = try? await URLSession.shared.data(from: url),
                           let uiImage = UIImage(data: data)
                     else { continue }
                     loaded.append(Image(uiImage: uiImage))
                 }
+                // 취소된 task가 뒤늦게 끝나 새 task가 넣은 이미지를 덮지 않게 한다.
+                guard !Task.isCancelled else { return }
                 images = loaded
             }
     }
