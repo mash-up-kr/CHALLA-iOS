@@ -36,6 +36,7 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `CHALLADrawerMessage` | 드로어 콘텐츠 슬롯용 제목+설명 안내 블록 (회원 탈퇴류 반복 패턴 공용화) |
 | `challaMainBackground()` | 화면 배경 View 확장 — surface 위에 하단에서 브랜드 노랑(`Background.brand`)이 번진다 (블러 먹인 타원, Figma 실측 777×594·20%). 홈·방 상세 등 화면 단위 뷰의 최상단에 붙인다 |
 | `challaDrawer(isPresented:allowsInteractiveDismiss:drawer:)` | 드로어 프레젠테이션 View 확장 — 딤·하단 등장/퇴장 스프링·끌어내려 닫기·딤 탭 닫기. `allowsInteractiveDismiss: false`면 닫기 버튼으로만 닫힘(입력 보호). 네이티브 .sheet 미사용(떠 있는 카드 모양이 안 나옴) |
+| `CHALLAPhotoCountSelector` | 촬영 매수 선택 줄. 숫자들을 "N장" 칩으로 나열하고 하나만 선택(라디오 성격 — 텍스트 버튼과 별개인 이유). 선택=level4 배경+Line.normal 테두리, 미선택=level2. 선택 상태 변경은 호출부 몫 |
 | `CHALLAListRow` | 리스트 행 (높이 52, 설명을 넣으면 74). 이니셜라이저 2종 — 탭 행 `init(_:description:icon:iconColor:accessory:themeColor:action:)` / 토글 행 `init(_:description:icon:iconColor:themeColor:isOn:)`. 아이콘 18pt, 이름 `.body.medium.medium`, 설명 `.body.xsmall.medium`. 제목·설명은 한 줄 고정(말줄임) |
 | `CHALLAListRowAccessory` | 탭 행의 우측 요소. `.arrow` · `.arrow(value:)` · `.check(isSelected:)` · `.empty` |
 | `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음. 제목이 있으면 헤더 블록 44 고정(위 16 + 글자 상자 16 + 아래 12), 제목은 한 줄 고정(말줄임) |

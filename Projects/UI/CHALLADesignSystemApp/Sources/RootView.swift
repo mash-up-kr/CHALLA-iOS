@@ -29,6 +29,9 @@ struct RootView: View {
                     NavigationLink("Drawer") {
                         DrawerGallery()
                     }
+                    NavigationLink("Photo Count Selector") {
+                        PhotoCountSelectorGallery()
+                    }
                     NavigationLink("List") {
                         ListGallery()
                     }
