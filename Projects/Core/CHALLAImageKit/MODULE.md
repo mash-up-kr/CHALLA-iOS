@@ -10,8 +10,8 @@
 CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetwork`와도 무관하다
 (아키텍처 규칙 6 저촉 없음 — "OS를 만지면 Core").
 
-> 현재 다운샘플러 + 2단 캐시(메모리·디스크) + 로더(`ImageLoader`)까지 구현됨.
-> DS 뷰(`CHALLAAsyncImage`)는 후속 단계 (설계: 이슈 #25).
+> 다운샘플러 + 2단 캐시(메모리·디스크) + 로더(`ImageLoader`)까지가 이 모듈 범위다.
+> 화면 쪽 짝인 DS 뷰(`CHALLAAsyncImage`)는 `CHALLADesignSystem`에 있다 (#43).
 
 전체 도해(파이프라인 · 타입 변환 · 캐시 삭제 정책 · 테스트 43개 카탈로그): [`docs/imagekit-map.html`](../../../docs/imagekit-map.html) — 브라우저로 열면 경로별 인터랙티브 구조도가 나온다.
 
