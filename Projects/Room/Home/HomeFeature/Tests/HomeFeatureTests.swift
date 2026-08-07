@@ -161,4 +161,62 @@ struct HomeFeatureTests {
         }
         await store.receive(\.delegate.roomCreated, created)
     }
+
+    // MARK: - 초대 코드 입장
+
+    @Test("+ 메뉴에서 방 입장하기를 고르면 메뉴가 내려가며 입장 드로어가 뜬다")
+    func plusMenuOpensJoinDrawer() async {
+        let store = Self.makeStore()
+
+        await store.send(.view(.plusButtonTapped)) {
+            $0.isPlusMenuPresented = true
+        }
+        await store.send(.view(.joinRoomButtonTapped)) {
+            $0.isPlusMenuPresented = false
+            $0.destination = .joinRoom(JoinRoomFeature.State())
+        }
+    }
+
+    @Test("드로어가 입장을 알리면 드로어를 닫고 목록 맨 앞에 넣은 뒤 delegate로 넘긴다")
+    func joinedRoomClosesDrawerAndPrepends() async {
+        let joined = Room.previewPrintWaiting
+        var state = HomeFeature.State(nickname: "찰나")
+        state.rooms = IdentifiedArray(uniqueElements: [Room.previewShooting])
+        state.loadState = .loaded
+        state.destination = .joinRoom(JoinRoomFeature.State())
+        let store = Self.makeStore(initialState: state)
+
+        await store.send(.destination(.presented(.joinRoom(.delegate(.joined(joined)))))) {
+            $0.destination = nil
+            $0.rooms.insert(joined, at: 0)
+        }
+        await store.receive(\.delegate.roomJoined, joined)
+    }
+
+    @Test("이미 목록에 있는 방에 다시 입장하면 중복 없이 값만 갱신한다")
+    func rejoiningExistingRoomUpdatesInPlace() async {
+        // 갱신된 방(인원 +1)을 받는 상황 — insert만 하면 같은 id가 두 번 들어간다.
+        // updateOrInsert의 at: 0은 새 방에만 적용되므로 이 방은 원래 자리에 남는다.
+        let updated = Room(
+            id: Room.previewPrintWaiting.id,
+            name: Room.previewPrintWaiting.name,
+            status: Room.previewPrintWaiting.status,
+            memberCount: Room.previewPrintWaiting.memberCount + 1,
+            photoCount: Room.previewPrintWaiting.photoCount,
+            shotCount: Room.previewPrintWaiting.shotCount,
+            coverImageURL: nil,
+            thumbnailURLs: []
+        )
+        var state = HomeFeature.State(nickname: "찰나")
+        state.rooms = IdentifiedArray(uniqueElements: [.previewShooting, .previewPrintWaiting])
+        state.loadState = .loaded
+        state.destination = .joinRoom(JoinRoomFeature.State())
+        let store = Self.makeStore(initialState: state)
+
+        await store.send(.destination(.presented(.joinRoom(.delegate(.joined(updated)))))) {
+            $0.destination = nil
+            $0.rooms = IdentifiedArray(uniqueElements: [.previewShooting, updated])
+        }
+        await store.receive(\.delegate.roomJoined, updated)
+    }
 }
