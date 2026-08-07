@@ -43,7 +43,7 @@ enum CompositionRoot {
         values.refreshTokenUseCase = .live(repository: repository, tokenStore: tokenStore)
     }
 
-    /// client는 Auth와 **같은 인스턴스**여야 한다 — 다른 걸 넘기면 `AuthInterceptor`가 붙인 토큰이 실리지 않아 401이 난다.
+    /// client는 Auth와 같은 인스턴스여야 한다 — 다른 걸 넘기면 `AuthInterceptor`가 붙인 토큰이 실리지 않아 401이 난다.
     private static func registerUser(into values: inout DependencyValues, client: any HTTPClient) {
         let repository = DefaultUserRepository(client: client)
         let imageUploader = DefaultProfileImageUploader(client: client)
