@@ -32,11 +32,30 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Auth/Login/LoginFeature")
     )
 
+    // MARK: - User
+
+    static let userDomain = TargetDependency.project(
+        target: "UserDomain",
+        path: .relativeToRoot("Projects/User/UserDomain")
+    )
+    static let userData = TargetDependency.project(
+        target: "UserData",
+        path: .relativeToRoot("Projects/User/UserData")
+    )
+    static let profileSetupFeature = TargetDependency.project(
+        target: "ProfileSetupFeature",
+        path: .relativeToRoot("Projects/User/ProfileSetup/ProfileSetupFeature")
+    )
+
     // MARK: - Core
 
     static let keychain = TargetDependency.project(
         target: "Keychain",
         path: .relativeToRoot("Projects/Core/Keychain")
+    )
+    static let photoLibrary = TargetDependency.project(
+        target: "PhotoLibrary",
+        path: .relativeToRoot("Projects/Core/PhotoLibrary")
     )
 
     // MARK: - External
