@@ -24,11 +24,11 @@ public struct DefaultAuthRepository: AuthRepository {
     public func login(_ credential: SocialCredential) async throws -> AuthSession {
         do {
             let requestDTO = LoginRequestDTO(from: credential)
-            let envelope = try await client.request(
+            let response = try await client.request(
                 AuthEndpoint.login(requestDTO),
                 as: BaseResponseDTO<LoginResponseDTO>.self
             )
-            let payload = try envelope.unwrap()
+            let payload = try response.unwrap().auth
             return AuthSession(
                 token: AuthToken(accessToken: payload.accessToken, refreshToken: payload.refreshToken),
                 isNewUser: payload.isNew
@@ -41,11 +41,11 @@ public struct DefaultAuthRepository: AuthRepository {
     public func refresh(refreshToken: String) async throws -> AuthToken {
         do {
             let requestDTO = RefreshRequestDTO(refreshToken: refreshToken)
-            let envelope = try await client.request(
+            let response = try await client.request(
                 AuthEndpoint.refresh(requestDTO),
                 as: BaseResponseDTO<TokenPairResponseDTO>.self
             )
-            let payload = try envelope.unwrap()
+            let payload = try response.unwrap().auth
             return AuthToken(
                 accessToken: payload.accessToken,
                 refreshToken: payload.refreshToken
@@ -58,11 +58,11 @@ public struct DefaultAuthRepository: AuthRepository {
     public func logout(refreshToken: String) async throws {
         do {
             let requestDTO = LogoutRequestDTO(refreshToken: refreshToken)
-            let envelope = try await client.request(
+            let response = try await client.request(
                 AuthEndpoint.logout(requestDTO),
                 as: BaseResponseDTO<EmptyResponseDTO>.self
             )
-            try envelope.ensureSuccess() // 페이로드는 무시, 실패만 매핑
+            try response.ensureSuccess() // 페이로드는 무시, 실패만 매핑
         } catch {
             throw Self.normalize(error)
         }
