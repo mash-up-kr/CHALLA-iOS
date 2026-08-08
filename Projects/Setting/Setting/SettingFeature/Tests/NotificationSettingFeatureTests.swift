@@ -186,14 +186,114 @@ struct NotificationSettingFeatureTests {
         #expect(store.state.isServiceNotificationEnabled)
     }
 
-    // MARK: - 설정 앱
+    // MARK: - 배너 탭
 
-    @Test("배너를 누르면 설정 앱을 연다")
-    func opensSystemSettings() async {
+    /// 배너 탭은 권한 상태에 따라 갈리므로, 상태를 먼저 불러온 스토어를 만든다.
+    private static func loadedStore(
+        authorization: NotificationAuthorizationStatus,
+        statusAfterRequest: NotificationAuthorizationStatus = .authorized,
+        requestCount: LockIsolated<Int> = LockIsolated(0),
+        openCount: LockIsolated<Int> = LockIsolated(0)
+    ) async -> TestStoreOf<NotificationSettingFeature> {
+        let snapshot = Fixture.snapshot(authorization: authorization)
+        let store = TestStore(initialState: NotificationSettingFeature.State(theme: .blueberry)) {
+            NotificationSettingFeature()
+        } withDependencies: {
+            $0.loadNotificationSettingsUseCase = LoadNotificationSettingsUseCase(run: { snapshot })
+            $0.requestNotificationAuthorizationUseCase = RequestNotificationAuthorizationUseCase(run: {
+                requestCount.withValue { $0 += 1 }
+                return statusAfterRequest
+            })
+            $0.openSystemNotificationSettingsUseCase = OpenSystemNotificationSettingsUseCase(run: {
+                openCount.withValue { $0 += 1 }
+            })
+        }
+
+        await store.send(.view(.onAppear))
+        await store.receive(\.notificationSettingsLoaded, snapshot) {
+            $0.systemAuthorization = authorization
+        }
+        return store
+    }
+
+    @Test("거절한 뒤 배너를 누르면 설정 앱을 연다 — 앱이 다시 물을 수 없다")
+    func opensSystemSettingsWhenDenied() async {
+        let requestCount = LockIsolated(0)
+        let openCount = LockIsolated(0)
+        let store = await Self.loadedStore(
+            authorization: .denied,
+            requestCount: requestCount,
+            openCount: openCount
+        )
+
+        await store.send(.view(.permissionBannerTapped))
+        await store.finish()
+
+        #expect(openCount.value == 1)
+        #expect(requestCount.value == 0)
+    }
+
+    @Test("한 번도 묻지 않았으면 배너를 눌러 권한을 요청한다 — 설정 앱에는 알림 항목이 없다")
+    func requestsAuthorizationWhenNotDetermined() async {
+        let requestCount = LockIsolated(0)
+        let openCount = LockIsolated(0)
+        let store = await Self.loadedStore(
+            authorization: .notDetermined,
+            statusAfterRequest: .authorized,
+            requestCount: requestCount,
+            openCount: openCount
+        )
+
+        await store.send(.view(.permissionBannerTapped))
+        await store.receive(\.authorizationRequested, .authorized) {
+            $0.systemAuthorization = .authorized
+        }
+
+        #expect(requestCount.value == 1)
+        #expect(openCount.value == 0)
+        #expect(store.state.showsPermissionBanner == false)
+    }
+
+    @Test("권한 요청을 거절하면 배너가 그대로 남는다")
+    func keepsBannerWhenRequestDenied() async {
+        let store = await Self.loadedStore(authorization: .notDetermined, statusAfterRequest: .denied)
+
+        await store.send(.view(.permissionBannerTapped))
+        await store.receive(\.authorizationRequested, .denied) {
+            $0.systemAuthorization = .denied
+        }
+
+        #expect(store.state.showsPermissionBanner)
+    }
+
+    @Test("권한이 허용이면 배너 탭이 아무 일도 하지 않는다 — 배너 자체가 없다")
+    func ignoresBannerTapWhenAuthorized() async {
+        let requestCount = LockIsolated(0)
+        let openCount = LockIsolated(0)
+        let store = await Self.loadedStore(
+            authorization: .authorized,
+            requestCount: requestCount,
+            openCount: openCount
+        )
+
+        await store.send(.view(.permissionBannerTapped))
+        await store.finish()
+
+        #expect(requestCount.value == 0)
+        #expect(openCount.value == 0)
+    }
+
+    @Test("권한을 조회하기 전 배너 탭도 아무 일도 하지 않는다")
+    func ignoresBannerTapBeforeLoading() async {
+        let requestCount = LockIsolated(0)
         let openCount = LockIsolated(0)
         let store = TestStore(initialState: NotificationSettingFeature.State(theme: .blueberry)) {
             NotificationSettingFeature()
         } withDependencies: {
+            $0.requestNotificationAuthorizationUseCase = RequestNotificationAuthorizationUseCase(run: {
+                requestCount.withValue { $0 += 1 }
+                return .authorized
+            })
             $0.openSystemNotificationSettingsUseCase = OpenSystemNotificationSettingsUseCase(run: {
                 openCount.withValue { $0 += 1 }
             })
@@ -202,7 +302,8 @@ struct NotificationSettingFeatureTests {
         await store.send(.view(.permissionBannerTapped))
         await store.finish()
 
-        #expect(openCount.value == 1)
+        #expect(requestCount.value == 0)
+        #expect(openCount.value == 0)
     }
 
     // MARK: - 뒤로가기

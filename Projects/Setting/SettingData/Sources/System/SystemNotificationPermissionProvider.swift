@@ -3,17 +3,33 @@ import SettingDomain
 import UIKit
 import UserNotifications
 
-/// `NotificationPermissionProvider`의 기본 구현 — OS의 알림 권한을 읽고 설정 앱을 연다.
+/// `NotificationPermissionProvider`의 기본 구현 — OS의 알림 권한을 읽고·요청하고 설정 앱을 연다.
 ///
 /// OS를 만지지만 Core가 아니라 여기 있다 (근거: MODULE.md "Core가 아니라 여기 있는 이유").
 ///
-/// **권한을 요청하지 않는다** — 현재 상태를 읽어 배너를 그릴 뿐이고, 요청은 푸시 등록 흐름의 몫이다.
+/// 권한을 받은 뒤 원격 알림에 등록하는 일(FCM 토큰 발급)은 여기서 하지 않는다 —
+/// 실행 앱의 `CompositionRoot`가 이 구현을 감싸 이어붙인다.
 public struct SystemNotificationPermissionProvider: NotificationPermissionProvider {
+
+    /// 시안의 배너 문구가 "앱 알림이 꺼져있어요"라 배너·소리·배지를 한 묶음으로 요청한다.
+    private static let requestedOptions: UNAuthorizationOptions = [.alert, .sound, .badge]
 
     public init() {}
 
     public func authorizationStatus() async -> NotificationAuthorizationStatus {
         await Self.mapped(rawAuthorizationStatus())
+    }
+
+    /// 요청이 던지거나 거절되어도 **다시 읽은 실제 상태**를 돌려준다 —
+    /// granted 플래그만 믿으면 `.provisional`처럼 granted가 false인 허용 상태를 놓친다.
+    public func requestAuthorization() async -> NotificationAuthorizationStatus {
+        do {
+            _ = try await UNUserNotificationCenter.current()
+                .requestAuthorization(options: Self.requestedOptions)
+        } catch {
+            // 요청 자체가 실패한 경우도 아래 재조회로 판단한다 (실패 문구가 시안에 없다).
+        }
+        return await authorizationStatus()
     }
 
     public func openSystemNotificationSettings() async {
