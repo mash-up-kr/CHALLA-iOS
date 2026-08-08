@@ -7,7 +7,7 @@ struct ProfileFormHeadline: Equatable {
     var text: String
 }
 
-/// 아바타 이미지 소스. `remote`는 ProfileEdit(서버 이미지 URL) 대비.
+/// 아바타 이미지 소스. `remote`는 편집 모드에서 서버에 저장된 사진을 그릴 때 쓴다.
 enum ProfileAvatarSource: Equatable {
     case placeholder
     case local(Data)

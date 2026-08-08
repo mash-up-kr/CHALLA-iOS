@@ -2,8 +2,13 @@
 
 ## 레이어와 책임
 
-**Feature 레이어**. 프로필 설정 화면의 TCA Feature. 닉네임 입력·검증(`UserDomain.NicknameRule` 호출)·프로필 사진 선택·프로필 제출·환영 연출을 담당하고,
-완료 후 화면 전환은 `delegate(.setupCompleted)`로 App에 위임한다(아키텍처 규칙 3).
+**Feature 레이어**. 프로필 **설정과 편집**을 한 모듈이 `mode`로 처리한다.
+닉네임 입력·검증(`UserDomain.NicknameRule` 호출)·프로필 사진 선택·제출·환영 연출을 담당하고,
+완료 후 화면 전환은 `delegate`로 App에 위임한다(아키텍처 규칙 3).
+
+`docs/ARCHITECTURE.md`에 `ProfileEditFeature`가 계획으로 적혀 있지만 별도 모듈로 만들지 않았다 —
+화면 구성이 거의 같아 쪼개면 컴포넌트를 공유 모듈로 빼거나 복제해야 한다.
+모듈명은 `ProfileSetupFeature`를 유지한다 (리네임이 Tuist 헬퍼·데모앱·경로까지 번진다).
 
 `UserData`를 import 하지 않는다(규칙 2). 라이브 구현 등록은 실행 앱의 `CompositionRoot`가 담당한다.
 사진 접근 권한은 Core 레이어의 `PhotoLibrary` 모듈을 `@Dependency`로 주입받는다(규칙 4).
@@ -13,8 +18,13 @@
 ### ProfileSetupFeature (`@Reducer`)
 
 #### State (`@ObservableState`)
+- `mode: Mode = .setup` — `.setup`(최초 설정) / `.edit`(편집)
 - `nickname: String = ""` — 입력값
-- `imageData: Data?` — 선택된 프로필 이미지. nil이면 아바타가 기본 실루엣
+- `imageData: Data?` — 새로 고른 프로필 이미지
+- `remoteImageURL: URL?` — 서버에 저장된 이미지 URL (편집 진입 시 부모가 시드).
+  **표시용이자 저장용이다** — 사진을 안 건드렸을 때 이 URL을 되돌려 보내야 서버가 기존 사진을 지우지 않는다
+- `isPhotoRemoved: Bool = false` — 사진 삭제를 눌렀는지.
+  `imageData == nil` 하나로는 "안 건드림"과 "지움"이 구분되지 않는다
 - `isPhotoMenuPresented: Bool = false` — 사진 메뉴 드로어 표시 여부
 - `isPhotoPickerPresented: Bool = false` — 시스템 사진 피커 표시 여부 (권한 승인 후에만 켠다)
 - `photoPickerItem: PhotosPickerItem?` — 피커가 돌려준 선택 항목. 읽어들인 뒤 리듀서가 nil로 되돌린다
@@ -33,10 +43,16 @@
 - `isCTALoading: Bool` — `phase == .submitting`
 - `isFieldEditable: Bool` — `phase == .editing`
 - `showsCameraBadge: Bool` — `phase != .welcome`
-- `canRemovePhoto: Bool` — `imageData != nil` (드로어의 삭제 버튼 노출 조건)
+- `canRemovePhoto: Bool` — 새로 고른 사진이 있거나, 서버 사진이 아직 지워지지 않았을 때
+- `avatarImageURL: URL?` — 아바타에 그릴 서버 이미지. 지웠으면 nil
+- `imageChange: ProfileImageChange` — 저장 시 서버에 전달할 사진 처리 방식.
+  새 사진 > 삭제 > 원본 유지 순으로 판단한다
+- `showsBackButton: Bool` — 편집 모드의 편집 단계에서만 `true`
+- `showsWelcome: Bool` — 환영 연출은 최초 설정에만 있다
 
 **nested**
 - `enum Phase: Equatable, Sendable` — `.editing` / `.submitting` / `.welcome`
+- `enum Mode: Equatable, Sendable` — `.setup` / `.edit`
 - `struct ToastState: Equatable, Sendable` — `message: String`
 
 #### Action
@@ -53,9 +69,13 @@
   - `nicknameSubmitted` — 키보드 return
   - `backgroundTapped` — 빈 곳 탭
   - `startButtonTapped` — CTA 탭
+  - `backButtonTapped` — 편집 모드의 뒤로가기. 제출 중에는 막는다
+    (나가면 이펙트가 취소돼 성공도 실패도 오지 않는다)
 - `case view(ViewAction)`
 - `enum Delegate: Equatable, Sendable` — parent(App)와의 통신 채널
-  - `setupCompleted(UserProfile)` — 환영 화면 종료 = 다음 화면으로 진행해도 좋다는 신호
+  - `setupCompleted(UserProfile)` — 최초 설정 완료. 환영 화면 종료 = 다음 화면으로 진행해도 좋다는 신호
+  - `editCompleted(UserProfile)` — 편집 저장 완료. 환영 연출을 거치지 않고 바로 올린다
+  - `cancelled` — 편집을 버리고 나갔다
 - `case delegate(Delegate)`
 - `case submitResponse(Result<UserProfile, UserError>)` — 서버 응답
 - `case photoAuthorizationResponse(PhotoLibraryAuthorization)` — 사진 권한 요청 결과
@@ -84,7 +104,7 @@
 
 - `init(store: StoreOf<ProfileSetupFeature>)`
 
-### Components (internal, ProfileEdit 착수 시 Projects/User/ProfileFormUI로 승격)
+### Components (internal)
 
 store를 모르는 재사용 파라미터 뷰들.
 
@@ -102,7 +122,8 @@ store를 모르는 재사용 파라미터 뷰들.
 #### ProfileFormModels
 
 - `struct ProfileFormHeadline` — `highlighted: String?` (lime 강조 첫 줄) · `text: String` (나머지 줄, 개행 가능)
-- `enum ProfileAvatarSource` — `.placeholder` / `.local(Data)` / `.remote(URL)` (ProfileEdit 대비)
+- `enum ProfileAvatarSource` — `.placeholder` / `.local(Data)` / `.remote(URL)`.
+  `.remote`는 편집 모드에서 서버에 저장된 사진을 그릴 때 쓴다
 - `enum ProfileNicknameFieldMode` — `.editable` / `.invalid` / `.readOnly`
 - `struct ProfileFormCTA` — `title: String` · `isEnabled: Bool` · `isLoading: Bool` · `action: () -> Void`
 
@@ -121,7 +142,9 @@ store를 모르는 재사용 파라미터 뷰들.
 
 ## 계획 (미구현)
 
-- **재사용 단위 승격** — ProfileEdit 착수 시 `Components/` 6개 파일을 `Projects/User/ProfileFormUI/`로 옮김
+- **`Components/`를 공유 모듈로 빼지 않았다** — 편집을 별도 모듈로 만들었다면 `Projects/User/ProfileFormUI/`로
+  승격할 계획이었지만, 같은 모듈에 `mode`로 넣어 소비자가 하나뿐이라 뺄 이유가 없다.
+  세 번째 화면이 같은 폼을 필요로 하면 그때 승격한다
   (store를 모르므로 파일 이동 + `public` 선언만으로 충분. 규칙 3·5 위반 없음)
 
 ## 테스트 실행 방법
