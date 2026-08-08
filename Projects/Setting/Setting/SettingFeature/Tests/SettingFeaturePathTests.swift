@@ -9,7 +9,6 @@ import Testing
 private enum Fixture {
     static let profile = SettingProfile(
         nickname: "나는야멋쟁이토마토",
-        email: "hap****@naver.com",
         avatarURL: nil
     )
     static let theme = AppTheme.blueberry
