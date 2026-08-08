@@ -23,27 +23,37 @@ struct CreateRoomDrawer: View {
                 }
             ]
         ) {
-            VStack(spacing: DrawerMetric.fieldQuestionSpacing) {
-                CHALLATextField(
-                    text: $store.name,
-                    placeholder: "방 이름 입력",
-                    textAlignment: .leading
-                )
-
-                VStack(spacing: DrawerMetric.questionSelectorSpacing) {
-                    Text("얼마나 찍을까요?")
-                        .challaFont(.body.xsmall.medium)
-                        .foregroundStyle(CHALLAColor.Label.alternative)
-                    CHALLAPhotoCountSelector(
-                        counts: RoomShotCount.allCases.map(\.rawValue),
-                        selected: store.shotCount.rawValue
-                    ) { selectedCount in
-                        send(.shotCountSelected(RoomShotCount(rawValue: selectedCount) ?? .default))
-                    }
-                }
-            }
+            inputs
         }
         .alert($store.scope(state: \.alert, action: \.alert))
+    }
+
+    // MARK: - 입력
+
+    private var inputs: some View {
+        VStack(spacing: DrawerMetric.fieldQuestionSpacing) {
+            CHALLATextField(
+                text: $store.name,
+                placeholder: "방 이름 입력",
+                textAlignment: .leading
+            )
+            shotCountPicker
+        }
+    }
+
+    private var shotCountPicker: some View {
+        VStack(spacing: DrawerMetric.questionSelectorSpacing) {
+            Text("얼마나 찍을까요?")
+                .challaFont(.body.xsmall.medium)
+                .foregroundStyle(CHALLAColor.Label.alternative)
+            CHALLAPhotoCountSelector(
+                counts: RoomShotCount.allCases.map(\.rawValue),
+                selected: store.shotCount.rawValue
+            ) { selectedCount in
+                // counts를 우리가 넘긴 값이라 nil이 나올 수 없다.
+                send(.shotCountSelected(RoomShotCount(rawValue: selectedCount) ?? .default))
+            }
+        }
     }
 }
 
@@ -64,6 +74,7 @@ private enum DrawerMetric {
             $0.createRoomUseCase = .previewValue
         }
     )
+    // 드로어는 화면 하단에 붙는 컴포넌트라 프리뷰에서도 그 자리를 만들어 준다.
     .frame(maxHeight: .infinity, alignment: .bottom)
     .background(CHALLAColor.Background.surface)
 }

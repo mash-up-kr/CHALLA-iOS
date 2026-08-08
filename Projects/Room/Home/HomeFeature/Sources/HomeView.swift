@@ -3,10 +3,8 @@ import ComposableArchitecture
 import RoomDomain
 import SwiftUI
 
-/// 홈 화면. 방 목록을 촬영 중 · 촬영 완료 두 섹션으로 나눠 그린다.
-///
-/// 카드는 디자인 시스템이 그리고 이 뷰는 배치와 탭 전달만 맡는다.
-/// 사진은 URL을 `RemoteImages`로 감싸 로드된 값으로 바꿔 넘긴다.
+/// 홈 화면. 카드는 디자인 시스템이 그리고 이 뷰는 배치와 탭 전달만 맡는다.
+/// 사진은 URL을 `RemoteImages`로 감싸 로드된 `Image`로 바꿔 넘긴다.
 @ViewAction(for: HomeFeature.self)
 public struct HomeView: View {
 
@@ -28,37 +26,49 @@ public struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .challaMainBackground()
         .overlay { plusMenuLayer }
-        // challaDrawer는 Bool만 받아서 Destination이 이 케이스인지 직접 확인한다.
-        .challaDrawer(
-            isPresented: Binding(
-                get: { store.destination?.createRoom != nil },
-                set: { if !$0 { send(.drawerDismissed) } }
-            ),
-            allowsInteractiveDismiss: false // 입력 드로어 — 닫기 X로만 닫는다
-        ) {
-            if let childStore = store.scope(
-                state: \.destination?.createRoom,
-                action: \.destination.createRoom
-            ) {
-                CreateRoomDrawer(store: childStore)
-            }
-        }
-        .challaDrawer(
-            isPresented: Binding(
-                get: { store.destination?.joinRoom != nil },
-                set: { if !$0 { send(.drawerDismissed) } }
-            ),
-            allowsInteractiveDismiss: false
-        ) {
-            if let childStore = store.scope(
-                state: \.destination?.joinRoom,
-                action: \.destination.joinRoom
-            ) {
-                JoinRoomDrawer(store: childStore)
-            }
-        }
+        .challaDrawer(isPresented: createRoomBinding, allowsInteractiveDismiss: false) { createRoomDrawer }
+        .challaDrawer(isPresented: joinRoomBinding, allowsInteractiveDismiss: false) { joinRoomDrawer }
         .task { await send(.task).finish() }
         .alert($store.scope(state: \.destination?.alert, action: \.destination.alert))
+    }
+
+    // MARK: - 드로어
+
+    // challaDrawer는 Bool만 받아서 Destination이 이 케이스인지 직접 확인한다.
+    // 둘 다 입력 드로어라 딤 탭·끌어내리기를 막고 X 버튼으로만 닫는다.
+
+    private var createRoomBinding: Binding<Bool> {
+        Binding(
+            get: { store.destination?.createRoom != nil },
+            set: { if !$0 { send(.drawerDismissed) } }
+        )
+    }
+
+    @ViewBuilder
+    private var createRoomDrawer: some View {
+        if let childStore = store.scope(
+            state: \.destination?.createRoom,
+            action: \.destination.createRoom
+        ) {
+            CreateRoomDrawer(store: childStore)
+        }
+    }
+
+    private var joinRoomBinding: Binding<Bool> {
+        Binding(
+            get: { store.destination?.joinRoom != nil },
+            set: { if !$0 { send(.drawerDismissed) } }
+        )
+    }
+
+    @ViewBuilder
+    private var joinRoomDrawer: some View {
+        if let childStore = store.scope(
+            state: \.destination?.joinRoom,
+            action: \.destination.joinRoom
+        ) {
+            JoinRoomDrawer(store: childStore)
+        }
     }
 
     // MARK: - 상단 바
@@ -112,7 +122,7 @@ public struct HomeView: View {
         }
     }
 
-    /// 첫 조회 실패. 얼럿을 닫아도 재시도할 수단이 남아 있어야 한다.
+    /// 첫 조회 실패 화면. 얼럿을 닫아도 다시 시도할 수단이 남아 있어야 한다.
     /// TODO: 문구·레이아웃 임의 작성본 — 시안에 조회 실패 화면 정의가 없다.
     private func errorView(_ message: String) -> some View {
         VStack(spacing: HomeMetric.errorSpacing) {
@@ -134,7 +144,6 @@ public struct HomeView: View {
                         shootingCards
                     }
                 }
-                // 두 섹션이 모두 있을 때만 구분선을 넣는다.
                 if !store.board.shooting.isEmpty, !store.board.completed.isEmpty {
                     Rectangle()
                         .fill(CHALLAColor.Line.normal)
@@ -290,55 +299,34 @@ private enum PreviewRooms {
     }
 }
 
+/// 프리뷰는 조회 결과만 다르다 — 나머지 조립은 같아 한곳에 둔다.
+private func previewStore(_ fetchRooms: FetchRoomsUseCase) -> StoreOf<HomeFeature> {
+    Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
+        HomeFeature()
+    } withDependencies: {
+        $0.fetchRoomsUseCase = fetchRooms
+    }
+}
+
 #Preview("목록 (사진)") {
-    HomeView(
-        store: Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
-            HomeFeature()
-        } withDependencies: {
-            $0.fetchRoomsUseCase = FetchRoomsUseCase(run: { PreviewRooms.all })
-        }
-    )
+    HomeView(store: previewStore(FetchRoomsUseCase(run: { PreviewRooms.all })))
 }
 
 #Preview("목록 (사진 없음)") {
-    HomeView(
-        store: Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
-            HomeFeature()
-        } withDependencies: {
-            $0.fetchRoomsUseCase = .previewValue
-        }
-    )
+    HomeView(store: previewStore(.previewValue))
 }
 
 #Preview("빈 상태") {
-    HomeView(
-        store: Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
-            HomeFeature()
-        } withDependencies: {
-            $0.fetchRoomsUseCase = FetchRoomsUseCase(run: { [] })
-        }
-    )
-}
-
-#Preview("로딩") {
-    HomeView(
-        store: Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
-            HomeFeature()
-        } withDependencies: {
-            $0.fetchRoomsUseCase = FetchRoomsUseCase(run: {
-                try await Task.sleep(for: .seconds(600))
-                return []
-            })
-        }
-    )
+    HomeView(store: previewStore(FetchRoomsUseCase(run: { [] })))
 }
 
 #Preview("조회 실패") {
-    HomeView(
-        store: Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
-            HomeFeature()
-        } withDependencies: {
-            $0.fetchRoomsUseCase = FetchRoomsUseCase(run: { throw RoomError.network })
-        }
-    )
+    HomeView(store: previewStore(FetchRoomsUseCase(run: { throw RoomError.network })))
+}
+
+#Preview("로딩") {
+    HomeView(store: previewStore(FetchRoomsUseCase(run: {
+        try await Task.sleep(for: .seconds(600))
+        return []
+    })))
 }
