@@ -117,7 +117,7 @@ public struct CHALLAListRow: View {
                 .layoutPriority(1)
             Spacer(minLength: ListRowMetric.labelAccessoryMinGap)
             ListSwitch(isOn: isOn.wrappedValue, themeColor: themeColor)
-                .padding(.trailing, ListRowMetric.switchTrailingInset)
+                .padding(.trailing, ListRowMetric.accessoryTrailingInset)
                 .contentShape(Rectangle().expandedToHitTarget(from: ListRowMetric.switchHeight))
                 .onTapGesture { isOn.wrappedValue.toggle() }
         }
@@ -202,6 +202,7 @@ public struct CHALLAListRow: View {
                     color: isSelected ? CHALLAColor.Static.white : CHALLAColor.Label.disabled
                 )
                 .frame(width: ListRowMetric.accessoryBox, height: ListRowMetric.accessoryBox)
+                .padding(.trailing, ListRowMetric.accessoryTrailingInset)
 
         case .empty:
             EmptyView()
@@ -279,13 +280,9 @@ private enum ListRowMetric {
     /// 값 텍스트와 화살표 사이 간격.
     static let valueArrowSpacing: CGFloat = 2
 
-    /// 스위치를 카드 오른쪽 끝에서 추가로 떨어뜨리는 거리.
-    ///
-    /// 시안의 카드 오른쪽 안여백이 행 종류에 따라 다르다 — 화살표 행 16, 토글 행 20.
-    /// 화살표 행은 우측 32 상자 안에 16 아이콘이 가운데 놓여 상자가 4만큼 더 파고들기 때문이다
-    /// (눈에 보이는 여백은 16 + 8 = 24).
-    /// 카드(`CHALLAListSection`)는 16으로 통일하고, 상자가 없는 토글 행만 여기서 4를 더해 20을 맞춘다.
-    static let switchTrailingInset: CGFloat = 4
+    /// 체크·토글 행이 카드 여백(16)에 더해 시안의 안여백 20을 맞추는 값.
+    /// 화살표 행만 이 값을 더하지 않는 이유는 MODULE.md 참고.
+    static let accessoryTrailingInset: CGFloat = 4
 
     static let switchWidth: CGFloat = 47
     static let switchHeight: CGFloat = 26

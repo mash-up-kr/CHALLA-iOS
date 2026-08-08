@@ -47,6 +47,21 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/User/ProfileSetup/ProfileSetupFeature")
     )
 
+    // MARK: - Setting
+
+    static let settingDomain = TargetDependency.project(
+        target: "SettingDomain",
+        path: .relativeToRoot("Projects/Setting/SettingDomain")
+    )
+    static let settingData = TargetDependency.project(
+        target: "SettingData",
+        path: .relativeToRoot("Projects/Setting/SettingData")
+    )
+    static let settingFeature = TargetDependency.project(
+        target: "SettingFeature",
+        path: .relativeToRoot("Projects/Setting/Setting/SettingFeature")
+    )
+
     // MARK: - Core
 
     static let keychain = TargetDependency.project(
