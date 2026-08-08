@@ -88,6 +88,7 @@ public struct AppFeature {
     // MARK: - Dependencies
 
     @Dependency(\.fetchMyProfileUseCase) var fetchMyProfileUseCase
+    @Dependency(\.pushTokenSynchronizer) var pushTokenSynchronizer
 
     // MARK: - Body
 
@@ -110,7 +111,11 @@ public struct AppFeature {
 
             case .login(.delegate(.loginSucceeded)):
                 state = .launching
-                return fetchMyProfile()
+                // 여기서 한번 sync 처리.
+                return .merge(
+                    fetchMyProfile(),
+                    .run { [pushTokenSynchronizer] _ in await pushTokenSynchronizer.sync() }
+                )
 
             case let .profileSetup(.delegate(.setupCompleted(profile))):
                 state = .home(profile)

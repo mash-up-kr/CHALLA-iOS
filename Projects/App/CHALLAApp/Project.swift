@@ -30,8 +30,10 @@ let project = Project.makeAppProject(
         .loginFeature, .authData, .authDomain,
         .profileSetupFeature, .userData, .userDomain,
         .settingFeature, .settingData, .settingDomain,
+        .notificationData, .notificationDomain,
         .network, .keychain,
         .composableArchitecture,
-        .kakaoSDKCommon, .kakaoSDKAuth // initSDK · onOpenURL 처리용
+        .kakaoSDKCommon, .kakaoSDKAuth, // initSDK · onOpenURL 처리용
+        .firebaseCore, .firebaseMessaging // FirebaseApp.configure · FCM 토큰
     ]
 )

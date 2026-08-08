@@ -11,6 +11,10 @@ import SwiftUI
 @main
 struct CHALLAApp: App {
 
+    /// Firebase 초기화와 푸시 콜백 수신 (`AppDelegate` 주석 참고).
+    /// 델리게이트 콜백은 이 `init`이 끝난 뒤 불리므로 그때는 의존성이 이미 등록돼 있다.
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     private let store: StoreOf<AppFeature>
 
     init() {

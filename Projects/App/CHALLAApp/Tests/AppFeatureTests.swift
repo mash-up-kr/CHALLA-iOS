@@ -1,6 +1,7 @@
 @testable import CHALLAApp
 import ComposableArchitecture
 import Foundation
+import NotificationDomain
 import ProfileSetupFeature
 import SettingFeature
 import Testing
@@ -14,6 +15,25 @@ private enum Fixture {
         imageURL: URL(string: "https://cdn.example.com/me.jpg")
     )
     static let renamedProfile = UserProfile(id: 1, nickname: "새이름", imageURL: profile.imageURL)
+    static let pushToken = "fcm-token"
+}
+
+/// 로그인 성공 뒤 토큰 등록이 걸리는지만 본다.
+private actor SpyPushTokenRepository: PushTokenRepository {
+
+    private(set) var registered: [String] = []
+
+    func register(token: String) async throws {
+        registered.append(token)
+    }
+
+    func unregister(token _: String) async throws {}
+
+    #if DEBUG
+        func sendTestPush(title _: String, body _: String) async throws -> Int {
+            0
+        }
+    #endif
 }
 
 @MainActor
@@ -26,6 +46,65 @@ struct AppFeatureTests {
         TestStore(initialState: initialState) {
             AppFeature()
         }
+    }
+
+    // MARK: - 앱 진입 분기
+
+    @Test("프로필 설정을 마쳤으면 홈으로 간다")
+    func entersHomeWhenProfileCompleted() async {
+        let store = Self.store(initialState: .launching)
+
+        await store.send(.profileResponse(.success(Fixture.profile))) {
+            $0 = .home(Fixture.profile)
+        }
+    }
+
+    @Test("닉네임이 없으면 프로필 설정으로 보낸다")
+    func entersProfileSetupWhenNicknameMissing() async {
+        let incomplete = UserProfile(id: 1)
+        let store = Self.store(initialState: .launching)
+
+        await store.send(.profileResponse(.success(incomplete))) {
+            $0 = .profileSetup(.init())
+        }
+    }
+
+    @Test(
+        "조회에 실패하면 로그인 화면으로 되돌린다",
+        arguments: [UserError.unauthorized, .network, .unknown]
+    )
+    func resetsToLoginOnProfileFailure(error: UserError) async {
+        let store = Self.store(initialState: .launching)
+
+        await store.send(.profileResponse(.failure(error))) {
+            $0 = .login(.init())
+        }
+    }
+
+    @Test("로그인에 성공하면 프로필을 다시 조회하고 푸시 토큰을 재등록한다")
+    func refetchesProfileAfterLogin() async {
+        let repository = SpyPushTokenRepository()
+        let synchronizer = PushTokenSynchronizer(
+            repository: repository,
+            isServiceNotificationEnabled: { true },
+            currentToken: { Fixture.pushToken }
+        )
+        let store = TestStore(initialState: AppFeature.State.login(.init())) {
+            AppFeature()
+        } withDependencies: {
+            $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: { Fixture.profile })
+            $0.pushTokenSynchronizer = synchronizer
+        }
+
+        await store.send(.login(.delegate(.loginSucceeded))) {
+            $0 = .launching
+        }
+        await store.receive(\.profileResponse.success, Fixture.profile) {
+            $0 = .home(Fixture.profile)
+        }
+        await store.finish()
+
+        #expect(await repository.registered == [Fixture.pushToken])
     }
 
     // MARK: - 설정 진입·이탈

@@ -2,10 +2,13 @@ import AuthData
 import AuthDomain
 import CHALLANetwork
 import ComposableArchitecture
+import FirebaseMessaging // 델리게이트 콜백 전에도 이미 발급된 토큰을 물어볼 수 있다
 import Foundation
 import Keychain
+import NotificationData
 import SettingData
 import SettingDomain
+import UIKit // registerForRemoteNotifications — 권한 허용 직후 FCM 토큰 발급을 건다
 import UserData
 import UserDomain
 
@@ -29,23 +32,47 @@ enum CompositionRoot {
         )
 
         let userRepository = DefaultUserRepository(client: client)
+        let settings = DefaultSettingsRepository()
+        // 알림 토글이 이 인스턴스를 통해 토큰을 등록·해제한다 — 설정보다 먼저 만들어야 한다.
+        let pushSynchronizer = PushTokenSynchronizer(
+            repository: DefaultPushTokenRepository(client: client),
+            isServiceNotificationEnabled: { await settings.fetchNotificationSetting().isServiceEnabled },
+            currentToken: { try? await Messaging.messaging().token() }
+        )
+        values.pushTokenSynchronizer = pushSynchronizer
 
-        registerAuth(into: &values, client: client, tokenStore: tokenStore)
+        // 로그아웃은 계정 관리 어댑터도 쓴다. 값을 돌려받아 넘기는 이유는 registerAuth 주석 참고.
+        let logout = registerAuth(into: &values, client: client, tokenStore: tokenStore)
         registerUser(into: &values, client: client, repository: userRepository)
-        registerSetting(into: &values, userRepository: userRepository, tokenStore: tokenStore)
+        registerSetting(
+            into: &values,
+            using: SettingCollaborators(
+                settings: settings,
+                logout: logout,
+                userRepository: userRepository,
+                tokenStore: tokenStore,
+                pushSynchronizer: pushSynchronizer
+            )
+        )
     }
 
+    /// 만든 `LogoutUseCase`를 돌려준다 — 뒤에서 `values.logoutUseCase`를 되읽으면
+    /// 호출 순서에 묶이면서 그 의존이 시그니처에 드러나지 않는다.
+    /// 순서를 바꾸면 미구현 `testValue`가 잡혀 로그아웃이 조용히 실패한다.
+    @discardableResult
     private static func registerAuth(
         into values: inout DependencyValues,
         client: any HTTPClient,
         tokenStore: any TokenStore
-    ) {
+    ) -> LogoutUseCase {
         let repository = DefaultAuthRepository(client: client)
         let social = DefaultSocialLoginService()
+        let logout = LogoutUseCase.live(repository: repository, tokenStore: tokenStore)
 
         values.loginUseCase = .live(social: social, repository: repository, tokenStore: tokenStore)
-        values.logoutUseCase = .live(repository: repository, tokenStore: tokenStore)
+        values.logoutUseCase = logout
         values.refreshTokenUseCase = .live(repository: repository, tokenStore: tokenStore)
+        return logout
     }
 
     /// client는 Auth와 같은 인스턴스여야 한다 — 다른 걸 넘기면 `AuthInterceptor`가 붙인 토큰이 실리지 않아 401이 난다.
@@ -60,32 +87,60 @@ enum CompositionRoot {
         values.setupProfileUseCase = .live(repository: repository, uploader: imageUploader)
     }
 
+    /// 설정 조립이 필요로 하는 다른 aggregate의 결과물.
+    /// 설정 화면 하나가 Auth·User·Notification을 모두 걸치기 때문에 인자가 많아 묶었다.
+    private struct SettingCollaborators {
+        let settings: any SettingsRepository
+        let logout: LogoutUseCase
+        let userRepository: any UserRepository
+        let tokenStore: any TokenStore
+        let pushSynchronizer: PushTokenSynchronizer
+    }
+
     /// 테마·알림은 기기에 저장하고, 프로필·계정은 다른 aggregate를 어댑터로 잇는다
     /// (`Sources/Adapters/` 두 파일의 주석 참고).
     private static func registerSetting(
         into values: inout DependencyValues,
-        userRepository: any UserRepository,
-        tokenStore: any TokenStore
+        using collaborators: SettingCollaborators
     ) {
-        let settings = DefaultSettingsRepository()
+        let settings = collaborators.settings
+        let userRepository = collaborators.userRepository
+        let pushSynchronizer = collaborators.pushSynchronizer
         let permission = SystemNotificationPermissionProvider()
         let profile = SettingProfileProviderAdapter(repository: userRepository)
         let account = AccountRepositoryAdapter(
-            logout: values.logoutUseCase,
+            logout: collaborators.logout,
             userRepository: userRepository,
-            tokenStore: tokenStore,
-            // TODO: 푸시 토큰 해제를 잇는다 — PushTokenSynchronizer 추가 시 교체할 것.
-            clearPushToken: {}
+            tokenStore: collaborators.tokenStore,
+            pushToken: AccountRepositoryAdapter.PushTokenControl(
+                clear: { await pushSynchronizer.clear() },
+                restore: { await pushSynchronizer.sync() }
+            )
         )
 
         values.loadProfileUseCase = .live(profile: profile)
         values.loadThemeUseCase = .live(settings: settings)
         values.selectThemeUseCase = .live(settings: settings)
         values.loadNotificationSettingsUseCase = .live(settings: settings, permission: permission)
-        values.updateServiceNotificationUseCase = .live(settings: settings)
-        values.requestNotificationAuthorizationUseCase = .live(permission: permission)
         values.openSystemNotificationSettingsUseCase = .live(permission: permission)
         values.signOutUseCase = .live(account: account)
         values.deleteAccountUseCase = .live(account: account)
+
+        // 토글은 값을 저장한 뒤 토큰 등록·해제 API까지 부른다 (`PushTokenSynchronizer` 참고).
+        // 이 이펙트는 알림 화면에 묶여 있어서, 토글하고 바로 뒤로 가면 취소된다.
+        // 그래서 서버 호출만 `Task`로 떼어내 화면과 무관하게 끝나게 한다.
+        values.updateServiceNotificationUseCase = UpdateServiceNotificationUseCase(run: { isEnabled in
+            await settings.updateNotificationSetting(NotificationSetting(isServiceEnabled: isEnabled))
+            Task { await pushSynchronizer.sync() }
+        })
+
+        // 권한을 허용받으면 곧바로 원격 알림에 등록해야 FCM 토큰이 발급된다.
+        values.requestNotificationAuthorizationUseCase = RequestNotificationAuthorizationUseCase(run: {
+            let status = await permission.requestAuthorization()
+            if status == .authorized {
+                await UIApplication.shared.registerForRemoteNotifications()
+            }
+            return status
+        })
     }
 }
