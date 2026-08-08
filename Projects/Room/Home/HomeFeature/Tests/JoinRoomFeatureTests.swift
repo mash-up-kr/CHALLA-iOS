@@ -74,13 +74,13 @@ struct JoinRoomFeatureTests {
             $0.isJoining = false
         }
         await store.receive(\.delegate.joined, joined)
-        // 다듬지 않은 입력이 그대로 UseCase로 간다 — 정규화는 UseCase 책임이다.
+        // 다듬지 않은 입력이 그대로 UseCase로 간다 — 공백 제거는 UseCase 책임이다.
         #expect(receivedCodes.value == [" 1928121 "])
     }
 
     @Test("코드가 비어 있으면 입장 탭을 무시한다")
     func emptyCodeIgnoresJoinTap() async {
-        // 의존성을 주입하지 않는다 — 가드를 뚫으면 testValue가 테스트를 실패시킨다.
+        // 의존성을 주입하지 않는다 — 가드를 지나 조회가 실행되면 testValue가 테스트를 실패시킨다.
         let store = Self.makeStore()
 
         await store.send(.view(.joinButtonTapped))

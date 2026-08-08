@@ -2,11 +2,8 @@ import ComposableArchitecture
 import Foundation
 import RoomDomain
 
-/// 홈 화면의 TCA Feature.
-///
-/// 화면이 뜨면 방 목록을 한 번 가져오고, 그 결과 하나에서 촬영 중·촬영 완료 두 섹션이 파생된다.
-/// 방이 하나도 없으면 목록 대신 빈 상태를 그린다.
-/// 방 상세와 설정 화면은 다른 Feature 소관이라 `delegate`로 부모에게 넘긴다.
+/// 홈 화면. 방 목록을 한 번 가져와 촬영 중·촬영 완료 두 섹션으로 나눠 보여준다.
+/// 방이 없으면 빈 상태를 그리고, 방 상세·설정으로 가는 것은 `delegate`로 App에 넘긴다.
 @Reducer
 public struct HomeFeature {
 
@@ -14,26 +11,26 @@ public struct HomeFeature {
 
     @ObservableState
     public struct State: Equatable {
-        /// 빈 상태 인사말에 쓰는 값들. 사용자 정보를 다루는 Domain이 아직 없어
-        /// 부모(App·데모앱)가 넣어 준다. 이슈 #33이 프로필 정본을 만들면 UseCase 주입으로 바꾼다.
+        /// 빈 상태 인사말에 쓴다. 사용자 정보 Domain이 아직 없어 부모가 넣어 준다.
+        /// TODO: 이슈 #33이 프로필을 만들면 UseCase 주입으로 바꾼다.
         public let nickname: String
         public let profileImageURL: URL?
 
         public var rooms: IdentifiedArrayOf<Room> = []
         public var loadState: LoadState = .notRequested
 
-        /// 상단 + 드롭다운의 열림 여부. 여닫기만 하면 되어 Destination에 넣지 않았다 (아래 Destination 주석 참고).
+        /// 상단 + 드롭다운의 열림 여부 (Destination에 넣지 않은 이유는 아래).
         public var isPlusMenuPresented = false
         @Presents public var destination: Destination.State?
 
         /// 섹션 분류는 Domain 규칙에 맡긴다. 저장하면 `rooms`와 어긋날 수 있어 매번 계산한다.
         public var board: RoomBoard { RoomBoard(rooms: rooms.elements) }
 
-        /// 첫 조회 중. 재조회 중에는 보던 목록을 유지한다.
+        /// 첫 조회 중에만 참이다. 재조회 중에는 거짓이라 보던 목록이 스피너로 바뀌지 않는다.
         public var showsLoading: Bool { loadState == .loading && rooms.isEmpty }
 
-        /// 조회를 마쳤는데 방이 없을 때만 참이다.
-        /// 첫 조회 중에는 거짓이라 빈 상태가 잠깐 보였다 목록으로 바뀌는 일이 없다.
+        /// 조회를 마쳤는데 방이 0개일 때만 참이다.
+        /// 아직 못 받은 것과 구분해야 진입 직후에 빈 상태가 잠깐 보였다 사라지지 않는다.
         public var showsEmptyState: Bool { loadState == .loaded && board.isEmpty }
 
         /// 조회에 실패했고 보여줄 목록도 없을 때의 안내 문구. 그 외에는 nil.
@@ -49,9 +46,7 @@ public struct HomeFeature {
         }
     }
 
-    /// 조회를 요청했는지, 받았는지로 갈리는 네 상태.
-    ///
-    /// 방이 정말 없는 것과 아직 못 받은 것을 구분하기 위해 둔다 — `rooms.isEmpty`만 보면
+    /// 방이 정말 없는 것과 아직 못 받은 것을 구분한다 — `rooms.isEmpty`만 보면
     /// 첫 조회 중에 빈 화면이 잠깐 보였다 사라진다.
     public enum LoadState: Equatable, Sendable {
         case notRequested
@@ -78,28 +73,28 @@ public struct HomeFeature {
 
     public enum Action: ViewAction, Sendable {
 
-        /// UI에서만 트리거되는 액션 (`@ViewAction` 뷰가 `send(...)`로 호출).
+        /// 뷰가 `send(...)`로 보내는 액션 (`@ViewAction`).
         public enum ViewAction: Sendable {
             case task
             case retryButtonTapped
-            /// 뷰가 들고 있던 값을 되돌려 보내면 낡은 값일 수 있어 id만 받는다.
+            /// `Room` 대신 id를 받는다 — 뷰가 그린 값과 State의 값이 다를 수 있어 리듀서가 State에서 찾는다.
             case roomTapped(Room.ID)
             case settingsButtonTapped
             case plusButtonTapped
             case plusMenuDismissed
-            /// 빈 상태의 "방 만들기" 버튼과 + 메뉴의 "방 만들기"가 함께 쓴다.
+
+            // 아래 둘은 진입점이 두 곳이다 — 빈 상태의 버튼과 + 메뉴.
             case createRoomButtonTapped
-            /// 빈 상태의 "초대 코드로 입장하기" 버튼과 + 메뉴의 "방 입장하기"가 함께 쓴다.
             case joinRoomButtonTapped
-            /// 드로어가 DS 쪽에서 닫힐 때 (딤 탭·끌어내리기).
-            /// 지금 두 드로어는 allowsInteractiveDismiss: false라 이 경로가 열려 있지 않다.
-            /// 닫기 버튼은 자식이 dismiss 의존성으로 처리한다.
+
+            /// 드로어를 딤 탭이나 끌어내려서 닫았을 때 온다.
+            /// 지금 두 드로어는 그 방식을 막아 뒀고(`allowsInteractiveDismiss: false`) X 버튼으로만 닫힌다.
             case drawerDismissed
         }
 
         case view(ViewAction)
 
-        /// parent(App)에게만 알린다. 화면 전환은 App이 조립한다.
+        /// 부모(App)에게만 알린다. 화면 전환은 App이 조립한다.
         @CasePathable
         public enum Delegate: Equatable, Sendable {
             case roomSelected(Room)
@@ -130,9 +125,9 @@ public struct HomeFeature {
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
-            // 화면 등장·재시도 버튼·얼럿의 다시 시도가 같은 조회를 부른다.
             case .view(.task), .view(.retryButtonTapped),
                  .destination(.presented(.alert(.retryTapped))):
+                // 화면 등장·재시도 버튼·얼럿의 다시 시도가 같은 조회를 부른다.
                 return fetchRooms(&state)
 
             case let .roomsResponse(.success(rooms)):
@@ -142,11 +137,9 @@ public struct HomeFeature {
 
             case let .roomsResponse(.failure(error)):
                 state.loadState = .failed(error)
-                // 목록은 직전 것을 유지한다 — 재조회 실패로 보던 목록이 사라지지 않게.
 
-                // 드로어가 떠 있으면 얼럿으로 덮지 않는다. Destination이 enum이라 대입하는 순간
-                // 드로어가 사라지고 입력 중이던 값도 함께 날아간다.
-                // 실패는 loadState에 남아 있어, 드로어를 닫으면 본문이 알린다.
+                // 드로어가 떠 있으면 얼럿으로 덮지 않는다 — Destination이 enum이라 입력 중이던 값이 함께 사라진다.
+                // 실패는 loadState에 남아 드로어를 닫으면 본문이 알린다.
                 guard state.destination == nil else { return .none }
 
                 // TODO: 얼럿 제목·버튼 문구는 임의 작성본 — 기획 정책 확정 시 교체할 것.
@@ -160,6 +153,13 @@ public struct HomeFeature {
                 })
                 return .none
 
+            case let .view(.roomTapped(id)):
+                guard let room = state.rooms[id: id] else { return .none }
+                return .send(.delegate(.roomSelected(room)))
+
+            case .view(.settingsButtonTapped):
+                return .send(.delegate(.settingsTapped))
+
             // MARK: + 메뉴 · 드로어
 
             case .view(.plusButtonTapped):
@@ -170,7 +170,7 @@ public struct HomeFeature {
                 state.isPlusMenuPresented = false
                 return .none
 
-            // 진입점이 + 메뉴일 수 있어 드로어를 열기 전에 메뉴를 내린다 (아래 입장 케이스도 같다).
+            // + 메뉴에서 들어왔을 수 있어 드로어를 열기 전에 메뉴를 내린다.
             case .view(.createRoomButtonTapped):
                 state.isPlusMenuPresented = false
                 state.destination = .createRoom(CreateRoomFeature.State())
@@ -191,21 +191,14 @@ public struct HomeFeature {
                 return .send(.delegate(.roomCreated(room)))
 
             // 초대 코드는 방에 계속 붙어 있어 이미 들어간 방에 다시 입장할 수 있다.
-            // insert면 같은 id가 두 번 들어가므로 updateOrInsert를 쓴다.
-            // at: 0은 처음 들어가는 방에만 적용되고, 이미 있던 방은 자리를 지킨 채 값만 갱신된다.
+            // insert면 같은 id가 두 번 들어가므로 updateOrInsert를 쓴다 — at: 0은 새 방에만 적용된다.
             // TODO: 서버가 중복 입장에 성공을 주는지 에러를 주는지 미확정 — 에러면 이 처리는 얼럿으로 옮긴다.
             case let .destination(.presented(.joinRoom(.delegate(.joined(room))))):
                 state.destination = nil
                 state.rooms.updateOrInsert(room, at: 0)
                 return .send(.delegate(.roomJoined(room)))
 
-            case let .view(.roomTapped(id)):
-                guard let room = state.rooms[id: id] else { return .none }
-                return .send(.delegate(.roomSelected(room)))
-
-            case .view(.settingsButtonTapped):
-                return .send(.delegate(.settingsTapped))
-
+            // delegate는 부모가 받고, 나머지 destination 액션은 ifLet이 자식에게 넘긴다.
             case .delegate, .destination:
                 return .none
             }
@@ -233,12 +226,10 @@ public struct HomeFeature {
                 await send(.roomsResponse(.failure(.unknown)))
             }
         }
-        // 중복 요청은 cancelInFlight가 받는다 — 같은 id로 진행 중이던 요청을 취소하고
-        // 새로 시작하므로 응답이 두 번 도착하지 않는다.
+        // 중복 요청은 cancelInFlight가 받는다 — 진행 중이던 요청을 취소하고 새로 시작한다.
         //
-        // loadState == .loading 가드로 막지 않는 이유:
-        // 화면을 벗어나면 .task가 취소되고, 취소는 액션을 보내지 않아 loadState가 .loading에 남는다.
-        // 그 상태로 다시 들어오면 가드에 걸려 조회가 시작되지 않는다 — 첫 조회였다면 스피너가 계속 돈다.
+        // loadState로 막지 않는 이유: 화면을 벗어나면 .task가 취소되는데, 취소는 액션을 보내지 않아
+        // loadState가 .loading에 남는다. 가드가 있으면 다시 들어와도 조회가 막혀 스피너가 계속 돈다.
         .cancellable(id: CancelID.fetchRooms, cancelInFlight: true)
     }
 }

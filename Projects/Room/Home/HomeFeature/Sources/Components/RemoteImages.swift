@@ -23,7 +23,7 @@ struct RemoteImages<Content: View>: View {
             .task(id: urls) {
                 var loaded: [Image] = []
                 for url in urls {
-                    // try?가 취소도 삼키므로 직접 확인한다. 안 그러면 남은 URL을 헛되이 다 돈다.
+                    // try?는 취소 오류까지 nil로 바꾼다. 이 확인이 없으면 취소된 뒤에도 남은 URL을 계속 받는다.
                     guard !Task.isCancelled else { return }
                     guard let (data, _) = try? await URLSession.shared.data(from: url),
                           let uiImage = UIImage(data: data)

@@ -1,11 +1,8 @@
 import ComposableArchitecture
 import RoomDomain
 
-/// 방 만들기 드로어의 TCA Feature.
-///
-/// 이름을 입력받고 촬영 매수를 골라 방을 만든다. 생성 성공은 `delegate(.created)`로
-/// 부모(홈)에 알리고, 드로어를 닫을지는 부모가 정한다. 실패 얼럿은 이 리듀서가 소유한다 —
-/// 드로어를 열어 둔 채 입력값 그대로 다시 시도할 수 있어야 해서다.
+/// 방 만들기 드로어. 성공은 `delegate(.created)`로 홈에 알리고, 닫는 것은 홈이 정한다.
+/// 실패 얼럿은 이 리듀서의 State에 둔다 — 드로어를 연 채 입력값 그대로 다시 시도할 수 있어야 한다.
 @Reducer
 public struct CreateRoomFeature {
 
@@ -18,7 +15,7 @@ public struct CreateRoomFeature {
         public var isCreating = false
         @Presents public var alert: AlertState<Action.Alert>?
 
-        /// "만들기" 버튼 활성 조건. 요청 중이거나 공백만 입력한 이름이면 잠근다.
+        /// "만들기" 버튼 활성 조건. 요청 중이거나 공백만 입력한 이름이면 비활성화 한다.
         public var canSubmit: Bool { !isCreating && RoomNameRule.isSubmittable(name) }
 
         public init() {}
@@ -28,7 +25,7 @@ public struct CreateRoomFeature {
 
     public enum Action: BindableAction, ViewAction, Sendable {
 
-        /// UI에서만 트리거되는 액션 (`@ViewAction` 뷰가 `send(...)`로 호출).
+        /// 뷰가 `send(...)`로 보내는 액션 (`@ViewAction`).
         public enum ViewAction: Sendable {
             case closeButtonTapped
             case shotCountSelected(RoomShotCount)
@@ -40,7 +37,7 @@ public struct CreateRoomFeature {
         /// 방 이름 텍스트필드 입력.
         case binding(BindingAction<State>)
 
-        /// parent(홈)에게만 알린다. 목록 반영과 드로어 닫기는 홈이 한다.
+        /// 부모(홈)에게만 알린다. 목록 반영과 드로어 닫기는 홈이 한다.
         @CasePathable
         public enum Delegate: Equatable, Sendable {
             case created(Room)
@@ -80,7 +77,7 @@ public struct CreateRoomFeature {
                 return .none
 
             case .view(.closeButtonTapped):
-                return .run { [dismiss] _ in await dismiss() } // 비-Sendable self 대신 의존성 값만 캡처
+                return .run { [dismiss] _ in await dismiss() }
 
             case .view(.createButtonTapped):
                 return createRoom(&state)
@@ -118,7 +115,7 @@ public struct CreateRoomFeature {
         guard state.canSubmit else { return .none }
         state.isCreating = true
         let draft = RoomDraft(name: state.name, shotCount: state.shotCount)
-        return .run { [createRoomUseCase] send in // 비-Sendable self 대신 의존성 값만 캡처
+        return .run { [createRoomUseCase] send in
             do {
                 let room = try await createRoomUseCase.run(draft)
                 await send(.createResponse(.success(room)))

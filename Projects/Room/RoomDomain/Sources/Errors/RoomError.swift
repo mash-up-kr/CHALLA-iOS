@@ -12,7 +12,7 @@ public enum RoomError: Error, Equatable, Sendable {
     case server(message: String)
     case unknown
 
-    // TODO: 문구는 임의 작성본 — 기획의 에러 문구 가이드 확정 시 일괄 교체 (AuthError와 같은 처지).
+    // TODO: 문구는 임의 작성본 — 기획의 에러 문구 가이드 확정 시 일괄 교체 (AuthError도 마찬가지다).
     /// 얼럿에 띄울 문구. 에러가 자기 문구를 들고 다녀야 같은 실패에 화면마다 다른 말이 나오지 않는다.
     public var userMessage: String {
         switch self {

@@ -40,6 +40,7 @@ struct JoinRoomDrawer: View {
             $0.joinRoomUseCase = .previewValue
         }
     )
+    // 드로어는 화면 하단에 붙는 컴포넌트라 프리뷰에서도 그 자리를 만들어 준다.
     .frame(maxHeight: .infinity, alignment: .bottom)
     .background(CHALLAColor.Background.surface)
 }

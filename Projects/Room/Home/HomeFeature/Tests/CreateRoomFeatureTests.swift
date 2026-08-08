@@ -83,7 +83,7 @@ struct CreateRoomFeatureTests {
 
     @Test("이름이 비어 있으면 만들기 탭을 무시한다")
     func emptyNameIgnoresCreateTap() async {
-        // 의존성을 주입하지 않는다 — 가드를 뚫으면 testValue가 테스트를 실패시킨다.
+        // 의존성을 주입하지 않는다 — 가드를 지나 조회가 실행되면 testValue가 테스트를 실패시킨다.
         let store = Self.makeStore()
 
         await store.send(.view(.createButtonTapped))

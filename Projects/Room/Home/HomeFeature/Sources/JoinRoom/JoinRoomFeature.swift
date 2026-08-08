@@ -1,11 +1,8 @@
 import ComposableArchitecture
 import RoomDomain
 
-/// 초대 코드 입장 드로어의 TCA Feature.
-///
-/// 코드를 입력받아 방에 입장한다. 입장 성공은 `delegate(.joined)`로 부모(홈)에 알리고,
-/// 드로어를 닫을지는 부모가 정한다. 실패 얼럿은 이 리듀서가 소유한다 —
-/// 코드를 잘못 친 경우가 흔해 드로어를 연 채 고쳐 칠 수 있어야 한다.
+/// 초대 코드 입장 드로어. 성공은 `delegate(.joined)`로 홈에 알리고, 닫는 것은 홈이 정한다.
+/// 실패 얼럿은 이 리듀서의 State에 둔다 — 드로어를 연 채 코드를 고쳐 다시 시도할 수 있어야 한다.
 @Reducer
 public struct JoinRoomFeature {
 
@@ -17,7 +14,7 @@ public struct JoinRoomFeature {
         public var isJoining = false
         @Presents public var alert: AlertState<Action.Alert>?
 
-        /// "입장하기" 버튼 활성 조건. 요청 중이거나 공백만 입력한 코드면 잠근다.
+        /// "입장하기" 버튼 활성 조건. 요청 중이거나 공백만 입력한 코드면 비활성화 한다.
         public var canSubmit: Bool { !isJoining && InviteCodeRule.isSubmittable(code) }
 
         public init() {}
@@ -27,7 +24,7 @@ public struct JoinRoomFeature {
 
     public enum Action: BindableAction, ViewAction, Sendable {
 
-        /// UI에서만 트리거되는 액션 (`@ViewAction` 뷰가 `send(...)`로 호출).
+        /// 뷰가 `send(...)`로 보내는 액션 (`@ViewAction`).
         public enum ViewAction: Sendable {
             case closeButtonTapped
             case joinButtonTapped
@@ -64,13 +61,13 @@ public struct JoinRoomFeature {
 
     public var body: some ReducerOf<Self> {
         // 방 만들기와 달리 입력을 즉시 다듬지 않는다 — 타이핑 중에 공백을 지우면 커서가 튄다.
-        // 코드 정규화는 제출 시점에 UseCase가 한 번 한다.
+        // 앞뒤 공백 제거는 제출 시점에 UseCase가 한다.
         BindingReducer()
 
         Reduce { state, action in
             switch action {
             case .view(.closeButtonTapped):
-                return .run { [dismiss] _ in await dismiss() } // 비-Sendable self 대신 의존성 값만 캡처
+                return .run { [dismiss] _ in await dismiss() }
 
             case .view(.joinButtonTapped):
                 return joinRoom(&state)
@@ -108,7 +105,7 @@ public struct JoinRoomFeature {
         guard state.canSubmit else { return .none }
         state.isJoining = true
         let code = state.code
-        return .run { [joinRoomUseCase] send in // 비-Sendable self 대신 의존성 값만 캡처
+        return .run { [joinRoomUseCase] send in
             do {
                 let room = try await joinRoomUseCase.run(code)
                 await send(.joinResponse(.success(room)))

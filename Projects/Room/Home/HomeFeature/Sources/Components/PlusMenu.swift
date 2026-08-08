@@ -27,6 +27,7 @@ struct PlusMenu: View {
                 .foregroundStyle(CHALLAColor.Label.subtle)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(MenuMetric.itemPadding)
+                // 행 전체를 탭 영역이 되게 한다. 없으면 글자 위만 눌린다.
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
