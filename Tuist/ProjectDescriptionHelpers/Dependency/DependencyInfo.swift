@@ -3,6 +3,14 @@ import ProjectDescription
 /// 모듈 의존성 선언 헬퍼. 각 Project.swift는 `.project(target:path:)`를 직접 쓰지 않고 여기 값을 쓴다.
 public extension TargetDependency {
 
+    // MARK: - Core
+
+    /// CHALLAImageKit 모듈에 대한 의존성.
+    static let imageKit = TargetDependency.project(
+        target: "CHALLAImageKit",
+        path: .relativeToRoot("Projects/Core/CHALLAImageKit")
+    )
+
     // MARK: - UI
 
     static let designSystem = TargetDependency.project(

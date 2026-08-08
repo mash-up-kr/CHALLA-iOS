@@ -103,9 +103,12 @@ Projects/
 │
 ├─ Core/                             (폴더) OS/디바이스 래핑 인프라 (Network 제외)
 │  ├─ Keychain                       (모듈) 범용 보안 저장소 — 토큰은 손님 중 하나
+│  ├─ CHALLAImageKit                 (모듈) 이미지 로더 · 메모리/디스크 2단 캐시 · 다운샘플링 (#25)
+│  │                                        URLSession·ImageIO만 사용, CHALLANetwork와 무관
+│  │                                        → 상세: 모듈 MODULE.md · 도해: docs/imagekit-map.html
 │  ├─ Camera                         (모듈) AVFoundation 래핑
 │  ├─ Permission                     (모듈) 카메라/사진첩/푸시 권한
-│  ├─ FileStorage                    (모듈) 임시 파일 · 캐시
+│  ├─ FileStorage                    (모듈) 임시 파일 · 캐시 (이미지 캐시는 CHALLAImageKit이 자체 보유)
 │  ├─ Logger                         (모듈) os.log 래핑 — Core여도 전 레이어 공용
 │  └─ Share                          (모듈) iOS 공유하기
 │
