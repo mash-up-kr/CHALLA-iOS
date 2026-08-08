@@ -2,15 +2,25 @@ import Foundation
 
 /// `POST /api/v1/auth/login` 응답 페이로드 (`BaseResponseDTO.data`).
 struct LoginResponseDTO: Decodable, Sendable {
-    let accessToken: String
-    let refreshToken: String
-    let isNew: Bool
+
+    let auth: Payload
+
+    struct Payload: Decodable, Sendable {
+        let accessToken: String
+        let refreshToken: String
+        let isNew: Bool
+    }
 }
 
 /// `POST /api/v1/auth/refresh` 응답 페이로드.
 struct TokenPairResponseDTO: Decodable, Sendable {
-    let accessToken: String
-    let refreshToken: String
+
+    let auth: Payload
+
+    struct Payload: Decodable, Sendable {
+        let accessToken: String
+        let refreshToken: String
+    }
 }
 
 /// 페이로드가 없는(무시하는) 응답용 (logout 등 — `ensureSuccess()`와 함께 쓴다).

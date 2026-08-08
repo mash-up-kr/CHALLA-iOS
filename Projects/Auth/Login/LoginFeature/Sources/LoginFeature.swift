@@ -36,10 +36,10 @@ public struct LoginFeature {
 
         case view(ViewAction)
 
-        /// parent(App)에게만 알린다. `isNewUser`로 프로필설정/메인 분기 (분기 자체는 App 책임).
+        /// parent(App)에게만 알린다. 다음 화면은 App이 내 프로필을 다시 조회해 정한다.
         @CasePathable
         public enum Delegate: Equatable, Sendable {
-            case loginSucceeded(isNewUser: Bool)
+            case loginSucceeded
         }
 
         case delegate(Delegate)
@@ -71,9 +71,9 @@ public struct LoginFeature {
             case .view(.appleLoginButtonTapped):
                 return startLogin(&state, provider: .apple)
 
-            case let .loginResponse(.success(result)):
+            case .loginResponse(.success):
                 state.inFlightProvider = nil
-                return .send(.delegate(.loginSucceeded(isNewUser: result.isNewUser)))
+                return .send(.delegate(.loginSucceeded))
 
             case let .loginResponse(.failure(error)):
                 state.inFlightProvider = nil
