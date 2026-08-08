@@ -39,7 +39,7 @@ struct CreateRoomFeatureTests {
     func whitespaceNameLocksSubmit() async {
         let store = Self.makeStore()
 
-        // 공백도 이름 값으로는 저장된다 — sanitize는 길이만 자른다.
+        // 공백도 이름 값으로는 저장된다 — truncated는 길이만 자른다.
         // 거부는 저장이 아니라 canSubmit(제출 판단)에서 일어난다.
         await store.send(\.binding.name, "   ") {
             $0.name = "   "

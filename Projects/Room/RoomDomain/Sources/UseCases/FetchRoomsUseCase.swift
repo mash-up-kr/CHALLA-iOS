@@ -1,11 +1,10 @@
 import Dependencies
 import DependenciesMacros
 
-/// 내가 속한 방 목록을 한 번에 가져온다. 홈의 화면 4상태는 이 결과 하나에서 파생된다.
+/// 내가 속한 방 목록. 홈의 화면 4상태가 이 결과 하나에서 갈린다.
 ///
-/// `liveValue`를 두지 않은 것은 의도다 — 실 구현에는 `RoomData`의 저장소가 필요해
-/// Domain이 Data를 import하게 된다. 조립은 실행 앱의 `CompositionRoot`가 맡는다.
-/// (세 UseCase 모두 같은 구조.)
+/// `liveValue`가 없는 것은 의도다 — 실 구현에 `RoomData`의 저장소가 필요해 Domain이 Data를
+/// import하게 된다. 조립은 실행 앱의 `CompositionRoot`가 맡는다 (세 UseCase 모두 같다).
 @DependencyClient
 public struct FetchRoomsUseCase: Sendable {
     public var run: @Sendable () async throws -> [Room]

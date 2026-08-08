@@ -10,16 +10,16 @@ struct RoomNameRuleTests {
         let twenty = String(repeating: "a", count: 20)
         let twentyOne = String(repeating: "a", count: 21)
 
-        #expect(RoomNameRule.sanitize(nineteen) == nineteen)
-        #expect(RoomNameRule.sanitize(twenty) == twenty)
-        #expect(RoomNameRule.sanitize(twentyOne) == twenty)
+        #expect(RoomNameRule.truncated(nineteen) == nineteen)
+        #expect(RoomNameRule.truncated(twenty) == twenty)
+        #expect(RoomNameRule.truncated(twentyOne) == twenty)
     }
 
     @Test("한글도 한 글자 = 1로 센다")
     func koreanCountsPerCharacter() {
         let name = String(repeating: "가", count: 25)
 
-        #expect(RoomNameRule.sanitize(name) == String(repeating: "가", count: 20))
+        #expect(RoomNameRule.truncated(name) == String(repeating: "가", count: 20))
     }
 
     @Test("조합 이모지도 Character 단위로 한 글자다")
@@ -27,17 +27,17 @@ struct RoomNameRuleTests {
         let family = "👨‍👩‍👧‍👦" // 스칼라 여러 개가 조합된 이모지 — Character로는 1
         let name = String(repeating: family, count: 21)
 
-        let sanitized = RoomNameRule.sanitize(name)
+        let truncatedName = RoomNameRule.truncated(name)
 
-        #expect(sanitized.count == 20)
-        #expect(sanitized == String(repeating: family, count: 20))
+        #expect(truncatedName.count == 20)
+        #expect(truncatedName == String(repeating: family, count: 20))
     }
 
-    @Test("normalize는 앞뒤 공백만 떼고 사이 공백은 남긴다")
-    func normalizeTrimsEdgesOnly() {
-        #expect(RoomNameRule.normalize("  제주 여행  ") == "제주 여행")
-        #expect(RoomNameRule.normalize("\n찰나\t") == "찰나")
-        #expect(RoomNameRule.normalize("친구들과 강릉 여행") == "친구들과 강릉 여행")
+    @Test("trimmed는 앞뒤 공백만 떼고 사이 공백은 남긴다")
+    func trimmedKeepsInnerSpaces() {
+        #expect(RoomNameRule.trimmed("  제주 여행  ") == "제주 여행")
+        #expect(RoomNameRule.trimmed("\n찰나\t") == "찰나")
+        #expect(RoomNameRule.trimmed("친구들과 강릉 여행") == "친구들과 강릉 여행")
     }
 
     @Test("공백·개행만 입력한 이름은 제출할 수 없다")
@@ -48,11 +48,11 @@ struct RoomNameRuleTests {
         #expect(RoomNameRule.isSubmittable(" 찰나 "))
     }
 
-    @Test("공백 21자는 sanitize를 통과해도 제출할 수 없다")
-    func sanitizedWhitespaceStaysUnsubmittable() {
-        let sanitized = RoomNameRule.sanitize(String(repeating: " ", count: 21))
+    @Test("공백 21자는 잘려도 제출할 수 없다")
+    func truncatedWhitespaceStaysUnsubmittable() {
+        let truncatedName = RoomNameRule.truncated(String(repeating: " ", count: 21))
 
-        #expect(sanitized.count == RoomNameRule.maxLength)
-        #expect(!RoomNameRule.isSubmittable(sanitized))
+        #expect(truncatedName.count == RoomNameRule.maxLength)
+        #expect(!RoomNameRule.isSubmittable(truncatedName))
     }
 }

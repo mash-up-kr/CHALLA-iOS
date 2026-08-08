@@ -1,10 +1,9 @@
 import Dependencies
 import DependenciesMacros
 
-/// 이름 규칙을 적용해 방을 만들고 생성된 방을 돌려준다.
+/// 이름 규칙을 적용해 방을 만든다.
 ///
-/// 저장소를 그냥 통과시키지 않고 `RoomNameRule`을 여기서 한 번 더 적용한다 —
-/// UseCase가 도메인 경계라, 진입점이 늘어도(드로어 외의 다른 화면) 규칙이 새지 않는다.
+/// 뷰가 이미 막고 있어도 여기서 한 번 더 본다 — 진입점이 늘어도 규칙이 새지 않는다.
 @DependencyClient
 public struct CreateRoomUseCase: Sendable {
     public var run: @Sendable (_ draft: RoomDraft) async throws -> Room
@@ -14,8 +13,8 @@ extension CreateRoomUseCase: TestDependencyKey {
 
     public static func live(repository: any RoomRepository) -> CreateRoomUseCase {
         CreateRoomUseCase(run: { draft in
-            // 공백을 먼저 떼고 자른다. 순서가 반대면 "공백 20자 + 여행"이 공백만 남아 걸러진다.
-            let name = RoomNameRule.sanitize(RoomNameRule.normalize(draft.name))
+            // 공백을 먼저 뗀다 — 자르기가 먼저면 "공백 20자 + 여행"이 공백만 남는다.
+            let name = RoomNameRule.truncated(RoomNameRule.trimmed(draft.name))
             guard RoomNameRule.isSubmittable(name) else { throw RoomError.invalidRoomName }
             return try await repository.createRoom(
                 RoomDraft(name: name, shotCount: draft.shotCount)
@@ -25,7 +24,7 @@ extension CreateRoomUseCase: TestDependencyKey {
 
     public static let testValue = CreateRoomUseCase()
 
-    /// 입력한 이름이 그대로 보여야 프리뷰에서 화면을 확인할 수 있다.
+    /// 입력한 이름을 그대로 돌려준다 (프리뷰 확인용).
     public static let previewValue = CreateRoomUseCase(
         run: { draft in
             Room(

@@ -1,8 +1,7 @@
-/// 방 흐름에서 일어날 수 있는 실패의 목록. Data가 던지고 Feature가 받는다.
+/// 방 관련 동작이 실패하는 경우를 모아 둔다. Data가 던지고 Feature가 받는다.
 ///
-/// Data는 서버·저장소 오류를 반드시 이 타입으로 번역해 던진다 — 그래야 HTTP 상태 코드
-/// 같은 서버 사정이 Data에서 끊기고 Feature는 방 이야기만 알게 된다.
-/// `AuthError`와 달리 `.cancelled`가 없다 — 방 흐름에는 사용자가 취소하는 외부 SDK 왕복이 없다.
+/// Data는 서버·저장소에서 난 오류를 반드시 이 타입으로 바꿔 던진다. 그래야 HTTP 상태 코드 같은
+/// 서버 사정이 Data에서 멈추고, Feature는 방에 관한 실패만 알면 된다.
 public enum RoomError: Error, Equatable, Sendable {
     case network                    // 오프라인·타임아웃
     case unauthorized               // 401 — 토큰 만료

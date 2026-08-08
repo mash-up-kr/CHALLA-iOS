@@ -31,8 +31,7 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   - `Room.previewShooting` · `previewPrintWaiting` · `previewPrinted` · `previewRooms` —
     `#Preview`·테스트용 상수. 사진 URL이 비어 있어 네트워크 없이 즉시 그려진다
 - `enum RoomShotCount: Int` — `.twentyFour`(24) / `.fortyEight`(48) / `.seventyTwo`(72), `.default`는 24
-- `struct RoomDraft` — `name` · `shotCount`. 방을 만들기 전의 입력값이라 `Room`으로 표현할 수 없다
-  (id·상태·인원수는 서버가 채운다)
+  - `Room`과 `RoomDraft`가 함께 쓰는 값이라 엔티티다
 
 ### Errors (`Sources/Errors/`)
 
@@ -47,6 +46,11 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 
 ### Models (`Sources/Models/`)
 
+경계 하나만을 위한 입출력 구조와 엔티티에서 파생된 결과. 정체성도 수명도 없어 `Entities/`와 섞지 않는다.
+
+- `struct RoomDraft` — `name` · `shotCount`. 방을 만들기 전의 입력값이라 `Room`으로 표현할 수 없다
+  (id·상태·인원수는 서버가 채운다). 드로어에서 만들어져 `RoomRepository.createRoom`까지 가는
+  요청 모델이라 엔티티가 아니다
 - `struct RoomBoard` — 방 배열 하나를 `shooting` / `completed` 두 배열로 가른 결과. `isEmpty`
   - 섹션별로 따로 조회하지 않기 위한 타입이다. 두 번 조회하면 그 사이에 상태가 바뀐 방이
     양쪽에 나오거나 어디에도 안 나온다
@@ -57,11 +61,10 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 
 UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것이다. 버튼 활성 판단은 뷰가 동기로 한다.
 
-- `enum RoomNameRule` — `maxLength`(20) · `sanitize(_:)`(길이 자르기) · `normalize(_:)`(앞뒤 공백 제거) ·
-  `isSubmittable(_:)`
-  - `sanitize`는 타이핑 중에, `normalize`는 제출 시점에 쓴다. 타이핑 중 공백을 떼면 단어 사이를 띄울 수 없다
-- `enum InviteCodeRule` — `normalize(_:)` · `isSubmittable(_:)`
-  - 형식(자릿수·문자셋)이 정해지면 여기에 검사를 추가한다
+- `enum RoomNameRule` — `maxLength`(20) · `truncated(_:)` · `trimmed(_:)` · `isSubmittable(_:)`
+  - `truncated`는 타이핑 중에, `trimmed`는 제출 시점에 쓴다. 타이핑 중 공백을 떼면 단어 사이를 띄울 수 없다
+- `enum InviteCodeRule` — `trimmed(_:)` · `isSubmittable(_:)`
+  - 지금 거르는 것은 빈 값 하나뿐이다. 자릿수·문자셋은 형식이 정해지면 추가한다
 
 ### UseCases (`@DependencyClient` — `liveValue` 없음)
 

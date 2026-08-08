@@ -17,7 +17,7 @@ struct CreateRoomUseCaseLiveTests {
     }
 
     @Test("20자를 넘는 이름은 잘린 뒤 저장소로 넘어간다")
-    func sanitizesNameBeforeRepository() async throws {
+    func truncatesNameBeforeRepository() async throws {
         let repository = MockRoomRepository(createResult: .success(.previewShooting))
         let useCase = CreateRoomUseCase.live(repository: repository)
 
@@ -29,7 +29,7 @@ struct CreateRoomUseCaseLiveTests {
     }
 
     @Test("앞뒤 공백을 뗀 이름이 저장소로 넘어간다")
-    func normalizesNameBeforeRepository() async throws {
+    func trimsNameBeforeRepository() async throws {
         let repository = MockRoomRepository(createResult: .success(.previewShooting))
         let useCase = CreateRoomUseCase.live(repository: repository)
 

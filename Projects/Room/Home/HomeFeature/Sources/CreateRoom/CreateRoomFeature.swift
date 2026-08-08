@@ -72,7 +72,7 @@ public struct CreateRoomFeature {
             // BindingReducer가 입력값을 먼저 쓰고, 여기서 20자로 잘라 되쓴다.
             // 잘린 값이 텍스트필드에 다시 반영되어 21번째 글자가 화면에 남지 않는다.
             case .binding(\.name):
-                state.name = RoomNameRule.sanitize(state.name)
+                state.name = RoomNameRule.truncated(state.name)
                 return .none
 
             case let .view(.shotCountSelected(count)):

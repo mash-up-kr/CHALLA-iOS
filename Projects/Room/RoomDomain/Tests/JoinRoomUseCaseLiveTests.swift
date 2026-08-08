@@ -5,7 +5,7 @@ import Testing
 struct JoinRoomUseCaseLiveTests {
 
     @Test("성공 흐름: 공백을 제거한 코드가 저장소로 전달되고 입장한 방이 돌아온다")
-    func normalizesCodeAndReturnsRoom() async throws {
+    func trimsCodeAndReturnsRoom() async throws {
         let joined = Room.previewShooting
         let repository = MockRoomRepository(joinResult: .success(joined))
         let useCase = JoinRoomUseCase.live(repository: repository)
