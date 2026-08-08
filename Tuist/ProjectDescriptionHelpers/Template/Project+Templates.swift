@@ -9,12 +9,14 @@ public extension Project {
     ///   - hasResource: 리소스(폰트/애셋) 유무
     ///   - hasTests: 테스트 타깃(<모듈명>Tests, Tests/** 규약) 포함 여부
     ///   - dependencies: 이 모듈(타깃)이 의존하는 대상 (호출부에서 헬퍼로 명시)
+    ///   - testDependencies: 테스트에서만 필요한 의존 (`Tests/Support`의 목이 쓰는 타입 등)
     /// - Swift 언어 모드는 `.challaBase()`가 6.0으로 고정한다 (프로젝트별로 낮출 수 없다).
     static func makeModule(
         name: String,
         hasResource: Bool = false,
         hasTests: Bool = false,
-        dependencies: [TargetDependency] = []
+        dependencies: [TargetDependency] = [],
+        testDependencies: [TargetDependency] = []
     ) -> Project {
         var targets = [
             Target.makeModuleTarget(
@@ -24,7 +26,9 @@ public extension Project {
             )
         ]
         if hasTests {
-            targets.append(Target.makeTestTarget(name: name))
+            targets.append(
+                Target.makeTestTarget(name: name, additionalDependencies: testDependencies)
+            )
         }
 
         return Project(
