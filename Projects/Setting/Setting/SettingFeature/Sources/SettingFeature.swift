@@ -152,6 +152,9 @@ public struct SettingFeature {
             case let .profileResponse(.success(profile)):
                 state.isLoading = false
                 state.profile = profile
+                // 조회가 늦게 끝나는 사이 이미 계정 관리로 들어가 있으면 그 화면에도 채운다.
+                // 그 화면은 스스로 조회하지 않아 부모가 넣어주지 않으면 영영 빈 채로 남는다.
+                fillAccountProfile(profile, in: &state.path)
                 return .none
 
             case let .profileResponse(.failure(error)):
@@ -187,10 +190,13 @@ public struct SettingFeature {
                 state.theme = theme
                 // 저장도 여기서 한다 — 테마 화면이 pop되면 그 화면의 이펙트는 취소된다.
                 // 로컬 저장이라 실패 경로가 없어 결과를 받지 않는다.
+                //
+                // 취소 ID를 붙이지 않는다. 부모가 pop보다 먼저 사라지는 경우(App이 설정 화면을
+                // 통째로 교체)에는 이 이펙트도 함께 취소돼 고른 테마가 유실된다.
+                // 즉시 끝나는 로컬 write라 중복 실행을 막을 이유도 없다.
                 return .run { [selectThemeUseCase] _ in
                     await selectThemeUseCase.run(theme)
                 }
-                .cancellable(id: CancelID.saveTheme, cancelInFlight: true)
 
             case .path(.element(id: _, action: .account(.delegate(.signedOut)))):
                 // 스택을 먼저 비운다 — App이 화면을 즉시 교체하지 않는 구현이어도
@@ -231,6 +237,16 @@ public struct SettingFeature {
 
     // MARK: - Effects
 
+    /// 스택에 떠 있는 계정 관리 화면에 프로필을 채운다.
+    /// 계정 관리는 이 화면에서 한 번만 push되므로 첫 항목을 찾으면 끝난다.
+    private func fillAccountProfile(_ profile: SettingProfile, in path: inout StackState<Path.State>) {
+        guard let id = path.ids.first(where: { path[id: $0]?.is(\.account) == true }),
+              case var .account(account) = path[id: id]
+        else { return }
+        account.profile = profile
+        path[id: id] = .account(account)
+    }
+
     /// 앱 밖 링크를 연다. 주소가 없거나(`SettingExternalLinks` 미확정) 열지 못해도 알리지 않는다 —
     /// 시안에 실패 문구가 없다.
     private func open(_ url: URL?) -> Effect<Action> {
@@ -240,7 +256,7 @@ public struct SettingFeature {
         }
     }
 
-    private enum CancelID { case load, saveTheme }
+    private enum CancelID { case load }
 }
 
 // MARK: - Path conformances

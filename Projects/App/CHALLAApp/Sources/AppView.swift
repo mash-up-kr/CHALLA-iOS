@@ -1,9 +1,14 @@
 import ComposableArchitecture
 import LoginFeature
 import ProfileSetupFeature
+import SettingFeature
 import SwiftUI
 
 /// 앱 최상위 View. `AppFeature.State`에 따라 보여줄 화면을 고른다.
+///
+/// `SettingView`가 자기 `NavigationStack`을 소유하므로 여기서 push하지 않고 화면을 교체한다 —
+/// 중첩 `NavigationStack`은 동작이 깨진다 (`SettingFeature/MODULE.md`).
+/// 앱에 `NavigationStack`이 하나도 없어 이 방식으로 충돌이 생기지 않는다.
 public struct AppView: View {
 
     @Bindable private var store: StoreOf<AppFeature>
@@ -29,7 +34,19 @@ public struct AppView: View {
                 }
 
             case let .home(profile):
-                HomePlaceholderView(profile: profile)
+                HomePlaceholderView(profile: profile) {
+                    store.send(.settingButtonTapped)
+                }
+
+            case .setting:
+                if let settingStore = store.scope(state: \.setting?.setting, action: \.setting) {
+                    SettingView(store: settingStore)
+                }
+
+            case .profileEdit:
+                if let editStore = store.scope(state: \.profileEdit?.edit, action: \.profileEdit) {
+                    ProfileSetupView(store: editStore)
+                }
             }
         }
         .task { store.send(.task) }

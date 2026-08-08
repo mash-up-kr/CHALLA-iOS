@@ -26,6 +26,26 @@ struct SettingFeaturePathTests {
         return state
     }
 
+    // MARK: - 늦게 도착한 프로필
+
+    @Test("계정 관리에 먼저 들어가 있어도 나중에 도착한 프로필이 채워진다")
+    func fillsAccountProfileWhenLoadedLate() async {
+        let store = TestStore(initialState: SettingFeature.State()) {
+            SettingFeature()
+        }
+
+        // 조회가 끝나기 전에 계정 관리로 진입한다 — 그 화면은 스스로 조회하지 않는다.
+        await store.send(.view(.accountRowTapped)) {
+            $0.path.append(.account(AccountFeature.State(profile: nil)))
+        }
+
+        await store.send(.profileResponse(.success(Fixture.profile))) {
+            $0.isLoading = false
+            $0.profile = Fixture.profile
+            $0.path[id: $0.path.ids[0]] = .account(AccountFeature.State(profile: Fixture.profile))
+        }
+    }
+
     // MARK: - push
 
     @Test("테마 행을 누르면 현재 테마를 시드해 테마 화면을 쌓는다")
