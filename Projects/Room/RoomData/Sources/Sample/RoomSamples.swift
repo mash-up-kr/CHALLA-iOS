@@ -1,13 +1,18 @@
 import Foundation
 import RoomDomain
 
-/// 데모앱·실앱이 `InMemoryRoomRepository`에 넣는 시드 데이터.
+/// 서버 없이 화면을 확인하려고 쓰는 목 데이터. `InMemoryRoomRepository`에  넣는다.
 ///
-/// 목록 구성이 데모앱의 `--state` 값과 1:1로 대응한다 (`shooting` · `printed` · `both`).
+/// 목록 셋이 데모앱 `--state`와 짝을 이룬다.
+/// - `mixed` → `default` (촬영 중 + 촬영 완료)
+/// - `shootingOnly` → `shooting`
+/// - `completedOnly` → `printed`
 ///
-/// Domain의 `Room.previewXxx`와 용도가 다르다 — 그쪽은 `#Preview`용이라 네트워크 없이
-/// 즉시 그려져야 해서 사진이 비어 있다. 이쪽은 실행 중이라 사진을 받아올 수 있고,
-/// 사진이 없으면 인화 카드의 낱장 스택과 "+N" 오버레이를 시안과 대조할 수 없다.
+/// 사진 URL이 채워져 있다는 것이 Domain의 `Room.previewXxx`와 다른 점이다.
+/// 그쪽은 Xcode 프리뷰용이라 네트워크를 타면 안 돼서 비워 뒀다.
+/// 인화 카드는 사진이 있어야 낱장이 쌓인 모습과 "+N"이 그려지므로, 검수에는 이쪽이 필요하다.
+///
+/// TODO: 서버가 붙으면 실앱에는 필요 없다. 데모앱·검수용으로 남길지는 그때 정한다.
 public enum RoomSamples {
 
     /// 시안에 적힌 초대 코드. 이 코드로 `gangneung` 방에 입장한다.

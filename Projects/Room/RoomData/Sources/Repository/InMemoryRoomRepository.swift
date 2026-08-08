@@ -1,19 +1,22 @@
 import Foundation
 import RoomDomain
 
-/// 서버 API 확정 전까지 쓰는 메모리 저장소. 앱을 끄면 만든 방도 사라진다.
+/// `RoomRepository`의 임시 구현. 방을 메모리 배열에 들고 있어 앱을 끄면 사라진다.
 ///
-/// 스펙이 나오면 `DefaultRoomRepository`(HTTPClient 호출 + DTO 변환 + `RoomError` 매핑)를
-/// 새로 만들고 `CompositionRoot`의 조립 한 줄만 바꾼 뒤 이 타입은 지운다.
-/// `RoomRepository` 프로토콜이 그대로라 `RoomDomain`과 `HomeFeature`는 손대지 않는다.
+/// TODO: 서버 API가 정해지면 이 파일을 지운다. 대신 `DefaultRoomRepository`를 만들어
+///       HTTP 호출 → DTO 디코딩 → `Room` 변환 → 실패의 `RoomError` 매핑까지 맡긴다.
+///       프로토콜이 그대로라 합성 루트의 조립 한 줄만 바뀌고 Domain·Feature는 손대지 않는다.
 ///
-/// `actor`인 이유 — 방 목록이 계속 바뀌는데 `RoomRepository`는 `Sendable`이라 동시 접근이
-/// 안전해야 한다. 락으로 묶는 방법도 있으나 여기는 `await`로 기다리는 구간이 있어 쓸 수 없다
-/// (락은 스레드를 붙잡고 `await`는 스레드를 놓는다).
-///
-/// 대신 actor는 재진입을 허용한다 — `await`에서 멈춘 사이 다른 호출이 들어와 상태를 바꿀 수
-/// 있다. 그래서 세 메서드 모두 기다리는 일을 `waitAndCheckFailure()`로 앞에 모으고,
-/// 그 뒤로는 `await` 없이 상태를 읽고 쓴다.
+/// 주입 예시
+/// ```swift
+/// let repository = InMemoryRoomRepository(rooms: RoomSamples.mixed, inviteCodes: RoomSamples.inviteCodes)
+/// values.fetchRoomsUseCase = .live(repository: repository)
+/// values.createRoomUseCase = .live(repository: repository)
+/// values.joinRoomUseCase = .live(repository: repository)
+/// ```
+/// `actor`인 이유 — 목록이 계속 바뀌는데 `RoomRepository`는 `Sendable`이다. 락은 `await` 구간이
+/// 있어 못 쓴다(락은 스레드를 붙잡고 `await`는 놓는다). 대신 actor는 재진입을 허용하므로,
+/// 기다리는 일을 `waitAndCheckFailure()`로 앞에 모으고 그 뒤로는 `await` 없이 상태를 읽고 쓴다.
 ///
 /// 초대 코드는 `Room`에 없어(홈 카드가 쓰지 않는다) 저장소가 코드→방 매핑을 따로 들고 있다.
 public actor InMemoryRoomRepository: RoomRepository {
