@@ -1,6 +1,7 @@
 import CHALLADesignSystem
 import SwiftUI
 
+// TODO: CHALLAAvatar 활용 여지 검토
 /// 프로필 아바타 (80pt 원) + 카메라 배지.
 /// 탭 영역은 원 전체다 — 배지(32pt)만 탭 대상으로 삼으면 HIG 최소 터치 타깃(44pt) 미만이다.
 struct ProfileAvatarView: View {
