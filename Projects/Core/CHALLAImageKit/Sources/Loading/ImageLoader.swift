@@ -125,7 +125,15 @@ public actor ImageLoader {
         //
         // 가장 빠른 경로다.
         // 이미 디코딩된 UIImage가 있으므로 별도 I/O나 이미지 처리 없이 반환한다.
+        //
+        // 다른 반환 지점과 마찬가지로 호출자의 취소 상태를 먼저 확인한다.
+        // 이 경로만 확인을 생략하면 같은 요청이라도 캐시 적중 여부에 따라
+        // 취소된 호출이 이미지를 받기도, .cancelled를 받기도 한다.
         if let cached = memory.image(for: key) {
+            guard !Task.isCancelled else {
+                throw ImageLoadingError.cancelled
+            }
+
             return cached
         }
 
@@ -311,12 +319,19 @@ public actor ImageLoader {
     /// 재시도했을 때 성공 가능성이 있는 일시적인 네트워크 에러 코드.
     ///
     /// 잘못된 URL처럼 재시도로 해결되지 않는 오류는 포함하지 않는다.
+    ///
+    /// `notConnectedToInternet`도 포함하지 않는다.
+    /// 이 코드는 시스템이 사용할 수 있는 네트워크 인터페이스가 없다고 판단한 결과이므로
+    /// 몇 초 안에 상황이 달라질 가능성이 낮다.
+    /// 포함하면 오프라인에서 매 요청마다 백오프 시간만큼 대기한 뒤 실패하게 된다.
+    ///
+    /// 반면 `networkConnectionLost`는 연결이 있던 상태에서 전송 도중 끊긴 경우라
+    /// 재시도할 가치가 있다.
     private static let retryableURLErrorCodes: Set<URLError.Code> = [
         .timedOut,
         .cannotConnectToHost,
         .cannotFindHost,
         .networkConnectionLost,
-        .notConnectedToInternet,
         .dnsLookupFailed,
         .badServerResponse
     ]
