@@ -21,6 +21,9 @@ actor PushTokenSynchronizer {
     /// 재설치나 토큰 갱신으로 값이 바뀌었을 수 있어 매번 맞춰 보는 편이 안전하다.
     private var registeredToken: String?
 
+    /// 마지막으로 시작한 작업. 다음 호출이 이게 끝날 때까지 기다린다.
+    private var pending: Task<Void, Never>?
+
     init(
         repository: any PushTokenRepository,
         isServiceNotificationEnabled: @escaping @Sendable () async -> Bool,
@@ -43,19 +46,46 @@ actor PushTokenSynchronizer {
     /// 바뀐 값을 인자로 받지 않는 이유는 토글을 빠르게 연타하면 호출 순서가 뒤집힐 수 있어서다.
     /// 매번 저장된 값을 다시 읽으면 순서와 상관없이 마지막 값으로 맞춰진다.
     func sync() async {
-        await sync(isEnabled: isServiceNotificationEnabled())
+        await enqueue(.sync)
     }
 
     /// 로그아웃·탈퇴 때 부른다. 세션이 끊기면 해제 API를 부를 수 없어서 그 전에 지워야 하고,
     /// 토큰 값 자체는 남겨 두어 나중에 다른 계정으로 다시 등록할 수 있게 한다.
     func clear() async {
-        await unregisterIfNeeded()
+        await enqueue(.unregister)
+    }
+
+    // MARK: - 순차 실행
+
+    private enum Operation: Sendable {
+        case sync
+        case unregister
+    }
+
+    /// 직전 작업이 끝난 뒤에 실행한다.
+    ///
+    /// actor라도 `await`에서 다른 호출이 들어오므로, 토글을 켰다 바로 끄면 등록과 해제가 함께 돈다.
+    /// 서버에 도착하는 순서가 뒤집히면 토글은 꺼졌는데 토큰은 등록된 상태로 남는다.
+    private func enqueue(_ operation: Operation) async {
+        let previous = pending
+        let task = Task {
+            await previous?.value
+            switch operation {
+            case .sync:
+                await self.performSync()
+            case .unregister:
+                await self.unregisterIfNeeded()
+            }
+        }
+        pending = task
+        await task.value
     }
 
     // MARK: - Private
 
-    private func sync(isEnabled: Bool) async {
-        if isEnabled {
+    /// 토글 값은 직전 작업이 끝난 뒤에 읽는다. 기다리는 동안 값이 바뀔 수 있다.
+    private func performSync() async {
+        if await isServiceNotificationEnabled() {
             await registerIfNeeded()
         } else {
             await unregisterIfNeeded()
