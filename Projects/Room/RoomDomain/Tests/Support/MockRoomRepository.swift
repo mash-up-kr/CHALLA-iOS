@@ -1,6 +1,6 @@
 import Foundation
-import RoomDomain
 import os
+import RoomDomain
 
 /// 호출을 캡처하고 지정한 결과를 돌려주는 `RoomRepository` 목.
 ///

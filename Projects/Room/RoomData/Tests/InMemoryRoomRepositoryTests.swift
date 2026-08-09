@@ -1,7 +1,6 @@
+@testable import RoomData
 import RoomDomain
 import Testing
-
-@testable import RoomData
 
 @Suite("InMemoryRoomRepository")
 struct InMemoryRoomRepositoryTests {

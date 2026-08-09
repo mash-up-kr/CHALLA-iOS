@@ -15,7 +15,9 @@ public struct JoinRoomFeature {
         @Presents public var alert: AlertState<Action.Alert>?
 
         /// "입장하기" 버튼 활성 조건. 요청 중이거나 공백만 입력한 코드면 비활성화 한다.
-        public var canSubmit: Bool { !isJoining && InviteCodeRule.isSubmittable(code) }
+        public var canSubmit: Bool {
+            !isJoining && InviteCodeRule.isSubmittable(code)
+        }
 
         public init() {}
     }

@@ -20,9 +20,9 @@ public struct Room: Identifiable, Equatable, Sendable {
     public let thumbnailURLs: [URL]
 
     public enum Status: Equatable, Sendable {
-        case shooting       // 촬영 중
-        case printWaiting   // 인화 대기
-        case printed        // 인화 완료
+        case shooting // 촬영 중
+        case printWaiting // 인화 대기
+        case printed // 인화 완료
     }
 
     public init(

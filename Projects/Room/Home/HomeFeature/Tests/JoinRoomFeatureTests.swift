@@ -1,8 +1,7 @@
+@testable import HomeFeature
 import ComposableArchitecture
 import RoomDomain
 import Testing
-
-@testable import HomeFeature
 
 @MainActor
 @Suite("JoinRoomFeature")

@@ -1,15 +1,14 @@
+@testable import HomeFeature
 import ComposableArchitecture
 import RoomDomain
 import Testing
-
-@testable import HomeFeature
 
 @MainActor
 @Suite("HomeFeature")
 struct HomeFeatureTests {
 
-    // 스위트가 @MainActor라 static도 메인 액터에 묶이는데, 이 값은 UseCase의 @Sendable
-    // 클로저 안에서 읽힌다. 값 타입 상수라 격리가 필요 없어 nonisolated로 푼다.
+    /// 스위트가 @MainActor라 static도 메인 액터에 묶이는데, 이 값은 UseCase의 @Sendable
+    /// 클로저 안에서 읽힌다. 값 타입 상수라 격리가 필요 없어 nonisolated로 푼다.
     private nonisolated static let rooms = [Room.previewShooting, .previewPrintWaiting, .previewPrinted]
 
     private static func makeStore(

@@ -24,14 +24,20 @@ public struct HomeFeature {
         @Presents public var destination: Destination.State?
 
         /// 섹션 분류는 Domain 규칙에 맡긴다. 저장하면 `rooms`와 어긋날 수 있어 매번 계산한다.
-        public var board: RoomBoard { RoomBoard(rooms: rooms.elements) }
+        public var board: RoomBoard {
+            RoomBoard(rooms: rooms.elements)
+        }
 
         /// 첫 조회 중에만 참이다. 재조회 중에는 거짓이라 보던 목록이 스피너로 바뀌지 않는다.
-        public var showsLoading: Bool { loadState == .loading && rooms.isEmpty }
+        public var showsLoading: Bool {
+            loadState == .loading && rooms.isEmpty
+        }
 
         /// 조회를 마쳤는데 방이 0개일 때만 참이다.
         /// 아직 못 받은 것과 구분해야 진입 직후에 빈 상태가 잠깐 보였다 사라지지 않는다.
-        public var showsEmptyState: Bool { loadState == .loaded && board.isEmpty }
+        public var showsEmptyState: Bool {
+            loadState == .loaded && board.isEmpty
+        }
 
         /// 조회에 실패했고 보여줄 목록도 없을 때의 안내 문구. 그 외에는 nil.
         /// 재조회 실패는 직전 목록을 그대로 두므로 여기 해당하지 않는다.

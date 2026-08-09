@@ -3,12 +3,12 @@
 /// Data는 서버·저장소에서 난 오류를 반드시 이 타입으로 바꿔 던진다. 그래야 HTTP 상태 코드 같은
 /// 서버 사정이 Data에서 멈추고, Feature는 방에 관한 실패만 알면 된다.
 public enum RoomError: Error, Equatable, Sendable {
-    case network                    // 오프라인·타임아웃
-    case unauthorized               // 401 — 토큰 만료
-    case invalidRoomName            // 빈 이름으로 생성 시도 (UseCase 경계 방어)
-    case invalidInviteCode          // 코드가 비었음
-    case roomNotFound               // 그런 초대 코드가 없음
-    case roomFull                   // 정원 초과
+    case network // 오프라인·타임아웃
+    case unauthorized // 401 — 토큰 만료
+    case invalidRoomName // 빈 이름으로 생성 시도 (UseCase 경계 방어)
+    case invalidInviteCode // 코드가 비었음
+    case roomNotFound // 그런 초대 코드가 없음
+    case roomFull // 정원 초과
     case server(message: String)
     case unknown
 

@@ -1,7 +1,7 @@
 import RoomDomain
 import Testing
 
-// 서버 오류 → RoomError 정규화는 RoomData 소속이므로 여기서 다루지 않는다 (규칙 6).
+/// 서버 오류 → RoomError 정규화는 RoomData 소속이므로 여기서 다루지 않는다 (규칙 6).
 @Suite("RoomError")
 struct RoomErrorTests {
 

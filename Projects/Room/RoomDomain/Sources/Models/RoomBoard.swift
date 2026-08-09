@@ -1,7 +1,7 @@
 /// 방이 놓일 자리. 홈 화면의 "촬영 중" · "촬영 완료" 섹션에 대응한다.
 public enum RoomSection: Equatable, Sendable {
-    case shooting    // "촬영 중"
-    case completed   // "촬영 완료"
+    case shooting // "촬영 중"
+    case completed // "촬영 완료"
 }
 
 public extension Room.Status {
@@ -34,5 +34,7 @@ public struct RoomBoard: Equatable, Sendable {
     }
 
     /// 참이면 홈은 목록 대신 빈 상태를 그린다.
-    public var isEmpty: Bool { shooting.isEmpty && completed.isEmpty }
+    public var isEmpty: Bool {
+        shooting.isEmpty && completed.isEmpty
+    }
 }

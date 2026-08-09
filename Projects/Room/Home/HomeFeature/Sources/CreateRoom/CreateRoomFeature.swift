@@ -16,7 +16,9 @@ public struct CreateRoomFeature {
         @Presents public var alert: AlertState<Action.Alert>?
 
         /// "만들기" 버튼 활성 조건. 요청 중이거나 공백만 입력한 이름이면 비활성화 한다.
-        public var canSubmit: Bool { !isCreating && RoomNameRule.isSubmittable(name) }
+        public var canSubmit: Bool {
+            !isCreating && RoomNameRule.isSubmittable(name)
+        }
 
         public init() {}
     }

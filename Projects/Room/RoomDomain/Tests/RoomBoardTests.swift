@@ -66,7 +66,7 @@ struct RoomBoardTests {
             Self.room(id: "s1", status: .shooting),
             Self.room(id: "c1", status: .printWaiting),
             Self.room(id: "s2", status: .shooting),
-            Self.room(id: "c2", status: .printed),
+            Self.room(id: "c2", status: .printed)
         ]
 
         let board = RoomBoard(rooms: rooms)
