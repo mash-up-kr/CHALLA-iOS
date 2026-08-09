@@ -41,8 +41,10 @@ struct HomeEmptyView: View {
             .padding(.horizontal, EmptyMetric.greetingHorizontalPadding)
             .padding(.vertical, EmptyMetric.greetingVerticalPadding)
 
-            RemoteImages(urls: [profileImageURL].compactMap(\.self)) { images in
-                CHALLAAvatar(photo: images.first, size: EmptyMetric.avatarSize)
+            CHALLAAsyncImage(url: profileImageURL) { image in
+                CHALLAAvatar(photo: image, size: EmptyMetric.avatarSize)
+            } placeholder: {
+                CHALLAAvatar(photo: nil, size: EmptyMetric.avatarSize)
             }
         }
     }

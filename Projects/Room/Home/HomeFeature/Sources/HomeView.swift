@@ -4,7 +4,8 @@ import RoomDomain
 import SwiftUI
 
 /// 홈 화면. 카드는 디자인 시스템이 그리고 이 뷰는 배치와 탭 전달만 맡는다.
-/// 사진은 URL을 `RemoteImages`로 감싸 로드된 `Image`로 바꿔 넘긴다.
+/// 사진은 `CHALLAAsyncImage`가 로드한다 — 카드가 `Image`를 받는 자리만 클로저로 감싸고,
+/// 낱장 여러 장이 필요한 인화 카드는 URL 배열을 그대로 넘긴다.
 @ViewAction(for: HomeFeature.self)
 public struct HomeView: View {
 
@@ -40,7 +41,11 @@ public struct HomeView: View {
     private var createRoomBinding: Binding<Bool> {
         Binding(
             get: { store.destination?.createRoom != nil },
-            set: { if !$0 { send(.drawerDismissed) } }
+            set: {
+                if !$0 {
+                    send(.drawerDismissed)
+                }
+            }
         )
     }
 
@@ -57,7 +62,11 @@ public struct HomeView: View {
     private var joinRoomBinding: Binding<Bool> {
         Binding(
             get: { store.destination?.joinRoom != nil },
-            set: { if !$0 { send(.drawerDismissed) } }
+            set: {
+                if !$0 {
+                    send(.drawerDismissed)
+                }
+            }
         )
     }
 
@@ -182,13 +191,10 @@ public struct HomeView: View {
                     Button {
                         send(.roomTapped(room.id))
                     } label: {
-                        RemoteImages(urls: [room.coverImageURL].compactMap(\.self)) { images in
-                            CHALLACardItem(
-                                title: room.name,
-                                memberCount: room.memberCount,
-                                photoCount: room.photoCount,
-                                photo: images.first
-                            )
+                        CHALLAAsyncImage(url: room.coverImageURL) { image in
+                            cardItem(room, photo: image)
+                        } placeholder: {
+                            cardItem(room, photo: nil)
                         }
                     }
                     .buttonStyle(.plain)
@@ -207,19 +213,27 @@ public struct HomeView: View {
                 Button {
                     send(.roomTapped(room.id))
                 } label: {
-                    RemoteImages(urls: room.thumbnailURLs) { images in
-                        CHALLAPrintCard(
-                            status: room.status == .printed ? .printed : .printing,
-                            title: room.name,
-                            memberCount: room.memberCount,
-                            photos: images,
-                            totalPhotoCount: room.photoCount
-                        )
-                    }
+                    CHALLAPrintCard(
+                        status: room.status == .printed ? .printed : .printing,
+                        title: room.name,
+                        memberCount: room.memberCount,
+                        photoURLs: room.thumbnailURLs,
+                        totalPhotoCount: room.photoCount
+                    )
                 }
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    /// 대표 사진 유무만 다른 두 자리에서 카드 생성을 공유한다.
+    private func cardItem(_ room: Room, photo: Image?) -> some View {
+        CHALLACardItem(
+            title: room.name,
+            memberCount: room.memberCount,
+            photoCount: room.photoCount,
+            photo: photo
+        )
     }
 }
 

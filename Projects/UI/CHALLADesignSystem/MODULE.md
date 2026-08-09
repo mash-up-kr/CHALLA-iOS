@@ -46,7 +46,7 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 | `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음. 제목이 있으면 헤더 블록 44 고정(위 16 + 글자 상자 16 + 아래 12), 제목은 한 줄 고정(말줄임) |
 | `CHALLAFilmCard` | 필름 낱장 카드 (3:4 고정 비율). Variant 4종(촬영 전 dashed / 인화대기 blur / 인화완료 / 더보기 `+N`) × 순번(`slotNumber`) 옵션. `width` 지정 시 고정(홈 82·인화 카드 90), nil이면 부모 폭 채움(방 상세 그리드) — 세로는 내부 계산. `aspectRatio` 공개(placeholder 크기 계산용) |
 | `CHALLACardItem` | 촬영 중 방 카드 (시안 고정 200×266). 대표 사진 + 딤 2겹(검정 스크림·노랑 틴트) + 제목·인원 + 카메라 카운트 뱃지. 사진은 로드된 `Image?` — nil이면 바닥색. 탭은 호출부가 Button으로 감쌈 |
-| `CHALLAPrintCard` | 촬영 완료 방 카드. `Status`(printing/printed) 하나가 상태 칩 색과 낱장 blur/선명을 동시 결정. 낱장 스택은 실측 좌표·회전각 4슬롯에 `CHALLAFilmCard(width: 90)` 재사용, 전체 장수가 4를 넘으면 마지막 슬롯이 `+N` |
+| `CHALLAPrintCard` | 촬영 완료 방 카드. `Status`(printing/printed) 하나가 상태 칩 색과 낱장 blur/선명을 동시 결정. 낱장 스택은 실측 좌표·회전각 4슬롯에 `CHALLAFilmCard(width: 90)` 재사용, 전체 장수가 4를 넘으면 마지막 슬롯이 `+N`. 생성자 2종 — `photoURLs:`(화면용, 낱장마다 `CHALLAAsyncImage`가 로드하고 로드 전에는 빈 낱장) / `photos: [Image]`(갤러리·Preview·테스트용) |
 | `CHALLAAvatar` | 원형 아바타. `photo: Image?`(nil이면 person placeholder) + `size` 지름 (실측: 프로필 바 30 / 상세·채팅 22 / 팝오버 행 20) |
 | `CHALLAProfileBar` | 프로필 바. 아바타 입장 순 최대 9명 + `+N` 칩, 탭 시 멤버 팝오버(초대 코드 + 복사 콜백 + 전체 리스트, maxHeight 450 초과 시 스크롤). 열림 상태는 `isPresented` 바인딩(호출부 소유 — 드로어와 동일), 바 배경 흰(닫힘)↔검정(열림), 바깥 탭 닫기. 바를 화면 가로 중앙에 두는 배치 전제 |
 | `CHALLAAsyncImage` | 원격 이미지 뷰. 자기 크기·배율을 측정해 `ImageLoader`로 로드(다운샘플+2단 캐시), 성공 시 페이드인 |
