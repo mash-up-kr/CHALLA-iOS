@@ -24,9 +24,11 @@ extension UserError {
         case .transport:
             self = .network
         case let .unacceptableStatusCode(statusCode, _):
-            self = statusCode == 401
-                ? .unauthorized
-                : .server(message: "요청이 실패했어요. (HTTP \(statusCode))")
+            switch statusCode {
+            case 401: self = .unauthorized
+            case 500 ... 599: self = .serverUnavailable
+            default: self = .server(message: "요청이 실패했어요. (HTTP \(statusCode))")
+            }
         case .invalidRequest, .nonHTTPResponse, .decoding:
             self = .unknown
         }

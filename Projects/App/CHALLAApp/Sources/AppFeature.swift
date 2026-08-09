@@ -49,6 +49,7 @@ public struct AppFeature {
     // MARK: - Dependencies
 
     @Dependency(\.fetchMyProfileUseCase) var fetchMyProfileUseCase
+    @Dependency(\.continuousClock) var clock
 
     // MARK: - Body
 
@@ -65,7 +66,7 @@ public struct AppFeature {
                 return .none
 
             case .profileResponse(.failure):
-                // 미로그인(401)도 조회 실패도 결론은 같다 — 로그인부터 다시.
+                // 재시도로 풀리는 실패는 여기까지 오지 않는다(이펙트가 삼킨다) — 남는 건 로그인부터 다시 해야 하는 것들뿐.
                 state = .login(LoginFeature.State())
                 return .none
 
@@ -91,16 +92,33 @@ public struct AppFeature {
 
     private enum CancelID { case profile }
 
+    /// 저절로 풀릴 수 있는 실패가 이어지는 동안의 대기 간격. 마지막 값이 상한이다.
+    private enum RetryBackoff {
+        private static let delays: [Duration] = [.seconds(1), .seconds(2), .seconds(4)]
+
+        static func delay(for attempt: Int) -> Duration {
+            delays[min(attempt, delays.count - 1)]
+        }
+    }
+
     private func fetchMyProfile() -> Effect<Action> {
-        .run { [fetchMyProfileUseCase] send in
-            do {
-                let profile = try await fetchMyProfileUseCase.run()
-                await send(.profileResponse(.success(profile)))
-            } catch let error as UserError {
-                await send(.profileResponse(.failure(error)))
-            } catch is CancellationError {
-            } catch {
-                await send(.profileResponse(.failure(.unknown)))
+        .run { [fetchMyProfileUseCase, clock] send in
+            for attempt in 0... {
+                do {
+                    let profile = try await fetchMyProfileUseCase.run()
+                    await send(.profileResponse(.success(profile)))
+                    return
+                } catch is CancellationError {
+                    return
+                } catch let error as UserError where error.isRetryable {
+                    // 전파·서버 일시 장애는 사용자가 손쓸 수 있는 게 없다 — 알리지 않고 아래에서 대기 후 재시도한다.
+                } catch {
+                    await send(.profileResponse(.failure((error as? UserError) ?? .unknown)))
+                    return
+                }
+
+                // try? 로 감싸면 취소된 뒤에도 루프가 계속 돈다 — 취소는 그대로 밖으로 던진다.
+                try await clock.sleep(for: RetryBackoff.delay(for: attempt))
             }
         }
         .cancellable(id: CancelID.profile, cancelInFlight: true)
