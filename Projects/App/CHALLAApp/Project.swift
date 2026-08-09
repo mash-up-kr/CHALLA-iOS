@@ -29,6 +29,7 @@ let project = Project.makeAppProject(
         .loginFeature, .authData, .authDomain,
         .profileSetupFeature, .userData, .userDomain,
         .network, .keychain,
+        .designSystem, .imageKit,
         .composableArchitecture,
         .kakaoSDKCommon, .kakaoSDKAuth // initSDK · onOpenURL 처리용
     ]
