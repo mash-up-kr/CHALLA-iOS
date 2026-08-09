@@ -314,6 +314,9 @@ private enum PreviewRooms {
 }
 
 /// 프리뷰는 조회 결과만 다르다 — 나머지 조립은 같아 한곳에 둔다.
+/// `Store`의 초기화자가 MainActor 격리라 이 헬퍼도 같은 격리에 둔다.
+/// (`#Preview` 본문은 MainActor라 그 안에서 직접 만들면 표시가 필요 없다)
+@MainActor
 private func previewStore(_ fetchRooms: FetchRoomsUseCase) -> StoreOf<HomeFeature> {
     Store(initialState: HomeFeature.State(nickname: "나는야멋쟁이토마토")) {
         HomeFeature()
