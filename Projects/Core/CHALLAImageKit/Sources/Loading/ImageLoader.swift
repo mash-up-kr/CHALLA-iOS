@@ -107,7 +107,16 @@ public actor ImageLoader {
         }
     }
 
-    /// 모든 진행 중 작업을 취소하고 메모리·디스크 캐시를 비운다. (로그아웃·메모리 경고 시)
+    /// 메모리 캐시를 전부 비운다.
+    ///
+    /// iOS가 메모리 부족 경고를 보내면 App 레이어가 이 메서드를 호출한다.
+    /// 메모리 이미지만 제거하며, 디스크 캐시와 진행 중인 다운로드는 유지한다.
+    /// 이후 같은 이미지는 디스크 캐시 또는 네트워크에서 다시 불러올 수 있다.
+    public func evictMemoryCache() {
+        memory.removeAll()
+    }
+
+    /// 모든 진행 중 작업을 취소하고 메모리·디스크 캐시를 비운다. (로그아웃 등 사용자 데이터 정리)
     public func removeAll() async {
         for task in inFlight.values {
             task.cancel()

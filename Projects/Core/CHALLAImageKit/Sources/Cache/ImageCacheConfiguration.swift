@@ -5,7 +5,7 @@ import Foundation
 /// 앱은 `.default`를 쓰고, 테스트는 작은 용량을 주입해 상한·LRU 동작을 검증한다.
 public struct ImageCacheConfiguration: Sendable {
 
-    /// 메모리 캐시 총 비용 상한(바이트). 초과 시 NSCache가 자동 방출한다 — 방출 순서는 비보장.
+    /// 메모리 캐시 총 비용 상한(바이트). 초과 시 가장 오래 사용하지 않은 항목부터 방출한다(LRU).
     public let memoryCostLimitBytes: Int
 
     /// 디스크 캐시 디렉터리. 없으면 `DiskImageCache`가 생성한다.
@@ -27,7 +27,7 @@ public struct ImageCacheConfiguration: Sendable {
     /// OS가 이 폴더의 파일을 삭제할 수 있고, 지워져도 재다운로드로 다시 채워진다.
     /// 다만 OS 삭제는 언제 일어날지 보장이 없으므로 용량 관리 수단으로 쓰지 않는다.
     /// 평상시 용량은 `DiskImageCache`의 LRU(500MB 상한)가 유지한다.
-    /// (RAM 부족 시 NSCache가 메모리 캐시 항목을 방출하는 것과는 별개 동작)
+    /// (메모리 캐시가 cost 상한 초과 시 LRU로 방출하는 것과는 별개 동작)
     public static var `default`: ImageCacheConfiguration {
         let caches = FileManager.default
             .urls(for: .cachesDirectory, in: .userDomainMask)
