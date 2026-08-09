@@ -4,9 +4,11 @@
 
 찰나의 디자인 토큰(색·타이포그래피·둥글기·아이콘)과 공용 SwiftUI 컴포넌트를 제공한다.
 
-이 모듈은 SwiftUI 기반이며, SwiftUI에 대응 API가 없는 시스템 동작이 필요할 때에 한해
-UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키보드 동시 내림). Feature가
-이 모듈을 가져다 쓰는 것이며, 역방향(디자인 시스템 → Feature) 참조는 금지다 (아키텍처 규칙 5).
+이 모듈은 SwiftUI 기반이며, 예외 의존은 둘뿐이다 — SwiftUI에 대응 API가 없는 시스템 동작에
+한한 UIKit(현재 유일: 드로어 닫힘 시 키보드 동시 내림), 그리고 `CHALLAAsyncImage`의 이미지
+로딩용 `CHALLAImageKit`(Core). Feature가 이 모듈을 가져다 쓰는 것이며, 역방향(디자인 시스템
+→ Feature) 참조는 금지다 (아키텍처 규칙 5). 네트워크·디스크를 만지는 로딩 로직은 전부
+Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 
 ## 공개 API
 
@@ -47,6 +49,8 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 | `CHALLAPrintCard` | 촬영 완료 방 카드. `Status`(printing/printed) 하나가 상태 칩 색과 낱장 blur/선명을 동시 결정. 낱장 스택은 실측 좌표·회전각 4슬롯에 `CHALLAFilmCard(width: 90)` 재사용, 전체 장수가 4를 넘으면 마지막 슬롯이 `+N` |
 | `CHALLAAvatar` | 원형 아바타. `photo: Image?`(nil이면 person placeholder) + `size` 지름 (실측: 프로필 바 30 / 상세·채팅 22 / 팝오버 행 20) |
 | `CHALLAProfileBar` | 프로필 바. 아바타 입장 순 최대 9명 + `+N` 칩, 탭 시 멤버 팝오버(초대 코드 + 복사 콜백 + 전체 리스트, maxHeight 450 초과 시 스크롤). 열림 상태는 `isPresented` 바인딩(호출부 소유 — 드로어와 동일), 바 배경 흰(닫힘)↔검정(열림), 바깥 탭 닫기. 바를 화면 가로 중앙에 두는 배치 전제 |
+| `CHALLAAsyncImage` | 원격 이미지 뷰. 자기 크기·배율을 측정해 `ImageLoader`로 로드(다운샘플+2단 캐시), 성공 시 페이드인 |
+| `EnvironmentValues.challaImageLoader` | 로더 주입 통로. 기본값은 `.default` 설정의 공유 로더 — 주입 없이 동작 |
 
 > **우측 여백이 행 종류마다 다르다** — 시안 안여백이 화살표 행 16, 체크·토글 행 20이다.
 > 카드는 16으로 통일하고 체크·토글 행이 각각 4를 더한다(`ListRowMetric.accessoryTrailingInset`).
@@ -56,6 +60,38 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 
 버튼·텍스트필드 비활성화는 별도 파라미터 없이 SwiftUI 표준 `.disabled(_:)`로 제어한다
 (내부에서 `@Environment(\.isEnabled)`를 읽어 비활성 색을 적용).
+
+### CHALLAAsyncImage 사용법
+
+```swift
+// 기본형 — 로딩 중·실패 시 DS 배경 박스, 성공 시 페이드인
+CHALLAAsyncImage(url: photo.url)
+    .scaledToFill()
+    .frame(width: 160, height: 160)
+
+// 커스텀형 — content·placeholder 지정 (SwiftUI AsyncImage와 같은 모양)
+CHALLAAsyncImage(url: photo.url) { image in
+    image.resizable().scaledToFill()
+} placeholder: {
+    CHALLAColor.Background.level2
+}
+
+// 로더는 앱 루트(CHALLAApp)에서 만들어 주입한다 — 아래는 주입 지점의 실제 코드
+AppView(store: store)
+    .environment(\.challaImageLoader, imageLoader)
+    .task { await imageLoader?.removeExpiredDiskCache() }          // 보관 기간 만료 정리
+    .onReceive(메모리 경고 알림) { _ in
+        Task { await imageLoader?.evictMemoryCache() }             // 메모리만 비움
+    }
+```
+
+- 크기(`pointSize`)와 배율(`displayScale`)은 뷰가 스스로 측정해 로더에 넘긴다.
+- url·크기 변경 시 이전 로드를 취소하고 재로드하며, 뷰가 사라지면 자동 취소된다.
+- 실패 시 별도 UI 없이 placeholder를 유지한다 (#25 결정). 재등장 시 자연 재시도.
+- **로더는 앱당 하나다.** 루트에서 주입하면 Environment 기본 로더는 생성되지 않는다
+  (`set`은 기본값을 읽지 않는다). 인스턴스가 분리되면 메모리 캐시와 중복 요청 관리도 분리된다.
+- 캐시 정리 시점은 App이 정한다 — 만료 정리는 앱 실행당 한 번, 메모리 경고 시에는 메모리만 비운다.
+  `CHALLAImageKit`은 `UIApplication`을 직접 구독하지 않는다.
 
 알려진 제약:
 
@@ -99,7 +135,8 @@ UIKit을 제한적으로 사용한다 (현재 유일: 드로어 닫힘 시 키�
 
 ## 의존 관계
 
-- 이 모듈이 의존하는 모듈: 없음 (SwiftUI 사용, 키보드 내림 등 일부 시스템 동작만 UIKit)
+- 이 모듈이 의존하는 모듈: `CHALLAImageKit` (Core — 규칙 4에 따라 허용).
+  그 외에는 SwiftUI만 쓰며, 키보드 내림 등 일부 시스템 동작에 한해 UIKit을 쓴다
 - 이 모듈에 의존하는 모듈: 모든 Feature, `CHALLADesignSystemApp`
 
 ## 사용 규칙
