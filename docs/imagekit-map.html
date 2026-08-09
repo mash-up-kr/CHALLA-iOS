@@ -153,6 +153,59 @@
   }
   .aside b { color: var(--ink); }
 
+  .policy-note { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 8px 0 0; }
+
+  /* ── 정리 정책 목록(클릭 확장) ─────────────── */
+  .pol-list { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
+  .pol {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    transition: border-color 0.15s;
+  }
+  .pol:hover, .pol[open] { border-color: var(--accent); }
+  .pol summary {
+    cursor: pointer; list-style: none; padding: 11px 14px;
+    display: grid; grid-template-columns: 62px 132px 96px 1fr 14px;
+    gap: 12px; align-items: center;
+  }
+  .pol summary::-webkit-details-marker { display: none; }
+  .pol summary::after { content: "+"; color: var(--muted); font: 600 14px/1 var(--mono); text-align: center; }
+  .pol[open] summary::after { content: "\2212"; color: var(--accent); }
+  .pol summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+  .pol-target { font: 600 11px/1 var(--mono); padding: 5px 0; border-radius: 999px; text-align: center; }
+  .pol-target.mem  { background: var(--warn-soft); color: var(--warn); }
+  .pol-target.disk { background: var(--accent-soft); color: var(--accent); }
+  .pol-target.both { background: var(--hit-soft); color: var(--hit); }
+  .pol-when { font-weight: 650; font-size: 14.5px; }
+  .pol-who {
+    font: 600 11px/1 var(--mono); padding: 5px 0; border-radius: 999px; text-align: center;
+  }
+  .pol-who.auto { background: var(--hit-soft); color: var(--hit); }
+  .pol-who.call { background: var(--warn-soft); color: var(--warn); }
+  .pol-who.os   { background: var(--code-bg); color: var(--muted); }
+  .pol-group {
+    font: 600 12.5px/1 var(--mono); color: var(--muted);
+    margin: 24px 0 8px; letter-spacing: 0.01em;
+  }
+  .pol-group:first-of-type { margin-top: 16px; }
+  .pol-what { font-size: 13px; color: var(--muted); }
+  .pol-body { padding: 10px 14px 14px; border-top: 1px dashed var(--line); font-size: 14px; }
+  .pol-body p { margin: 0 0 8px; }
+  .pol-body p:last-child { margin-bottom: 0; }
+  @media (max-width: 720px) {
+    .pol summary { grid-template-columns: 62px 1fr 14px; }
+    .pol-who, .pol-what { display: none; }
+  }
+  .rv-quote {
+    color: var(--muted); font-size: 13px; line-height: 1.65;
+    border-left: 2px solid var(--line); padding-left: 10px; margin: 0 0 10px;
+  }
+  .rv-meta { font: 11.5px/1 var(--mono); color: var(--muted); margin: 10px 0 0; }
+  .rv-tag {
+    font: 600 10.5px/1 var(--mono); color: var(--err); background: var(--err-soft);
+    padding: 3px 6px; border-radius: 4px; margin-left: 6px; vertical-align: 1px;
+  }
+  .policy h3 { font-size: 14.5px; }
+
   /* ── 정책 카드 ─────────────────────────── */
   .policies { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
   .policy { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
@@ -208,7 +261,7 @@
   <p class="eyebrow">CHALLA iOS · Core · 이슈 #25</p>
   <h1>CHALLAImageKit — 이미지 로딩 파이프라인 도해</h1>
   <p class="lede">원격 사진 한 장이 <code>URL</code>에서 화면의 <code>UIImage</code>가 되기까지:
-  조회 순서, 타입 변환, 캐시 삭제 정책, 그리고 테스트 43개가 각각 증명하는 것.</p>
+  조회 순서, 타입 변환, 캐시 삭제 정책, 그리고 테스트 60개가 각각 증명하는 것.</p>
 
   <div class="ov-wrap">
     <svg class="ov" id="ov" viewBox="0 0 860 512" role="img" aria-label="CHALLAImageKit 전체 구조도">
@@ -260,17 +313,17 @@
       <g class="node" data-f="mem disk net" data-play="mem" tabindex="0">
         <rect x="40" y="266" width="222" height="68"/>
         <text class="nt" x="151" y="292" text-anchor="middle">메모리 캐시</text>
-        <text class="ns" x="151" y="312" text-anchor="middle">NSCache · cost 상한 100MB</text>
+        <text class="ns" x="151" y="312" text-anchor="middle">LRU · 상한 RAM의 10% (최대 512MB)</text>
       </g>
       <g class="node" data-f="disk net" data-play="disk" tabindex="0">
         <rect x="320" y="266" width="222" height="68"/>
         <text class="nt" x="431" y="292" text-anchor="middle">디스크 캐시</text>
-        <text class="ns" x="431" y="312" text-anchor="middle">LRU 500MB · Caches/ 폴더</text>
+        <text class="ns" x="431" y="312" text-anchor="middle">LRU · 상한 500MB · 작은 이미지 보호</text>
       </g>
       <g class="node" data-f="net" data-play="net" tabindex="0">
         <rect x="600" y="266" width="222" height="68"/>
         <text class="nt" x="711" y="292" text-anchor="middle">네트워크</text>
-        <text class="ns" x="711" y="312" text-anchor="middle">fetcher · 백오프 1→2→4초</text>
+        <text class="ns" x="711" y="312" text-anchor="middle">재시도 1→2→4초 · 오프라인은 제외</text>
       </g>
       <g class="node" data-f="net" data-play="net" tabindex="0">
         <rect x="600" y="404" width="222" height="68"/>
@@ -323,12 +376,13 @@
   <section>
     <p class="eyebrow">2</p>
     <h2>구성 요소 지도</h2>
-    <p class="section-note">동시성 타입 선택 기준 — 이미 스레드 안전한 것을 감싸면 class, 여러 단계짜리 가변 작업을 스스로 지켜야 하면 actor, 상태가 없으면 struct.</p>
+    <p class="section-note">동시성 타입 선택 기준 — 소유한 액터 격리 안에서만 쓰이면 class, 액터를 오래 잡는 느린 작업(파일 I/O)을 스스로 지켜야 하면 별도 actor, 상태가 없으면 struct.</p>
     <div class="map">
       <div class="comp"><span class="name">ImageLoader</span><span class="kind actor">actor</span>
         <div class="role">전체 오케스트레이터. 메모리 → 디스크 → 네트워크 순서로 해결하고, 진행 중 작업 맵(<code>inFlight</code>)으로 같은 키 요청을 병합한다.</div></div>
-      <div class="comp"><span class="name">MemoryImageCache</span><span class="kind klass">final class</span>
-        <div class="role"><code>NSCache</code> 래핑. NSCache가 자체로 스레드 안전해서 actor가 필요 없다. cost(바이트) 상한 기반.</div></div>
+      <div class="comp"><span class="name">MemoryImageCache</span><span class="kind klass">final class (internal)</span>
+        <div class="role">cost(바이트) 합산 LRU. <code>ImageLoader</code>의 private 상태로만 존재해 모든 접근이 그 액터 격리 안에서 직렬화되므로 락도, 별도 actor도 없다.
+        딕셔너리 조회는 액터를 잡는 시간이 무시할 수준이라 actor로 빼면 hop 비용만 는다.</div></div>
       <div class="comp"><span class="name">DiskImageCache</span><span class="kind actor">actor</span>
         <div class="role">파일 저장 + 용량 합산 + LRU 삭제가 여러 단계로 이어지는 작업이라 직렬화가 필요하다. 파일명은 키의 SHA256.</div></div>
       <div class="comp"><span class="name">ImageDownsampler</span><span class="kind struct">struct</span>
@@ -338,11 +392,11 @@
       <div class="comp"><span class="name">ImageCacheKey · PixelSize</span><span class="kind struct">struct</span>
         <div class="role"><code>PixelSize</code>는 pt·scale을 <code>ceil(pt × scale)</code> 픽셀로 환산해 보관 — 캐시 키의 크기 성분이자 다운샘플 타깃.
         <code>ImageCacheKey</code>(URL + PixelSize)는 세 곳의 키다: 로더의 <code>inFlight</code> 맵(중복 제거),
-        메모리 캐시의 NSCache 키(상자로 감싸서), 디스크 캐시의 파일명(SHA256).</div></div>
+        메모리 캐시의 딕셔너리 키, 디스크 캐시의 파일명(SHA256).</div></div>
       <div class="comp"><span class="name">ImageDataFetching</span><span class="kind proto">protocol</span>
         <div class="role">네트워크 주입 지점. 기본 구현 <code>URLSessionImageDataFetcher</code>는 URLCache를 끈 세션 사용(이중 저장 방지). 테스트는 목으로 대체.</div></div>
       <div class="comp"><span class="name">ImageCacheConfiguration</span><span class="kind struct">struct</span>
-        <div class="role">용량·경로 설정. 기본값: 메모리 100MB · 디스크 500MB · <code>Caches/CHALLAImageCache</code>.</div></div>
+        <div class="role">용량·경로 설정. 기본값: 메모리 = 기기 총 메모리의 10%(최대 512MB) · 디스크 500MB · <code>Caches/CHALLAImageCache</code>.</div></div>
     </div>
   </section>
 
@@ -377,10 +431,10 @@
       <div class="step" data-id="mem">
         <span class="dot">1</span>
         <details>
-          <summary><span class="t">메모리 조회</span><span class="s">NSCache · 로더 내부 추가 대기 없음</span><span class="stop-badge">여기서 반환</span></summary>
+          <summary><span class="t">메모리 조회</span><span class="s">딕셔너리 · 로더 내부 추가 대기 없음</span><span class="stop-badge">여기서 반환</span></summary>
           <div class="body">
-            <p><span class="tag hit">히트</span> 디코딩까지 끝난 <code>UIImage</code>가 그대로 나온다 — 파이프라인에서 가장 싼 경로, 즉시 반환.</p>
-            <p><span class="tag off">미스</span> 다음 단계로. NSCache는 cost 상한 초과나 시스템 메모리 압박 시 항목을 자동 방출하므로(순서 비보장), 넣었던 것이 없을 수 있다.</p>
+            <p><span class="tag hit">히트</span> 디코딩까지 끝난 <code>UIImage</code>가 그대로 나온다 — 파이프라인에서 가장 싼 경로, 즉시 반환. 적중한 항목은 사용 순서가 갱신돼 방출에서 뒤로 밀린다.</p>
+            <p><span class="tag off">미스</span> 다음 단계로. cost 상한 초과로 LRU 방출됐거나 메모리 경고로 비워졌을 수 있어, 넣었던 것이 없을 수 있다.</p>
           </div>
         </details>
       </div>
@@ -476,7 +530,7 @@
         <span class="arrow"><b>UIImage(cgImage:scale:)</b>scale을 실어 pt 보정</span>
         <span class="chip">UIImage<small>표시용</small></span>
         <span class="arrow"><b>MemoryImageCache.insert</b>cost 신고와 함께</span>
-        <span class="chip">메모리 캐시 항목<small>NSCache · 다음 요청은 1단계 히트</small></span>
+        <span class="chip">메모리 캐시 항목<small>cost 합산 LRU · 다음 요청은 1단계 히트</small></span>
       </div>
     </div>
     <div class="lane">
@@ -512,7 +566,7 @@
   <section>
     <p class="eyebrow">5</p>
     <h2>cost — 메모리 캐시가 용량을 세는 단위</h2>
-    <p class="section-note">화면 표시에 쓰는 값이 아니다. NSCache에게 "이 이미지가 메모리를 이만큼 차지한다"를 알려주는 관리용 숫자다.</p>
+    <p class="section-note">화면 표시에 쓰는 값이 아니다. "이 이미지가 메모리를 이만큼 차지한다"를 메모리 캐시가 합산해 상한과 비교하는 관리용 숫자다.</p>
 
     <h3>어떻게 계산하나</h3>
     <pre class="figure">let cost = cgImage.bytesPerRow * cgImage.height
@@ -522,22 +576,24 @@
 cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대략적인 메모리 크기</pre>
     <p>디스크의 파일 용량과는 전혀 다른 값이다. 같은 이미지라도:</p>
     <pre class="figure">디스크의 HEIC 파일         50KB   (압축된 크기 — DiskImageCache가 세는 값)
-디코딩 후 메모리 비트맵    360KB   (펼쳐진 픽셀 크기 — NSCache가 세는 값 = cost)</pre>
+디코딩 후 메모리 비트맵    360KB   (펼쳐진 픽셀 크기 — MemoryImageCache가 세는 값 = cost)</pre>
 
     <h3>어디로 흘러가나</h3>
     <pre class="figure">① 상한 설정 — <em>로더 생성 시 한 번</em>
-   MemoryImageCache(costLimit: 100MB) → 내부에서 cache.totalCostLimit = 100MB
+   MemoryImageCache(costLimit: 기기 메모리의 10%) → 이 값을 넘는 순간 방출이 돈다
 
 ② 비용 신고 — <em>메모리 캐시에 이미지가 들어가는 두 시점마다</em>
    (네트워크 다운로드 직후 저장할 때 · 디스크 히트를 메모리로 승격할 때)
    memory.insert(image, for: key, cost: 360_000)
-   → cache.setObject(image, forKey: box, <em>cost: 360_000</em>)
+   → entries[key] = Entry(image, <em>cost: 360_000</em>, lastUsed: 다음 번호)
 
-③ 합산 — <em>넣고 뺄 때마다 NSCache가 자동으로</em>
+③ 합산 — <em>넣고 뺄 때마다 totalCost에 직접</em>
    이미지 A 10MB + B 15MB + C 20MB = 총 45MB
+   (같은 키를 덮어쓰면 이전 cost를 먼저 빼서 이중 합산을 막는다)
 
-④ 자동 방출 — <em>합계가 totalCostLimit을 넘었을 때 + 시스템 메모리 압박 시</em>
-   (무엇을 언제 지울지는 NSCache 재량 — 상한은 엄격한 보장이 아니라 관리 힌트)</pre>
+④ 방출 — <em>합계가 상한을 넘었을 때, 넘은 만큼만</em>
+   가장 오래 사용하지 않은 항목부터 상한 이하가 될 때까지 삭제(LRU)
+   조회로 적중한 항목은 lastUsed가 갱신돼 방출 순서에서 뒤로 밀린다</pre>
 
     <h3>왜 ProcessedImage · CachedImage가 cost를 담아 오나</h3>
     <p><code>CGImage</code>는 액터 밖 <code>Task.detached</code> 클로저 안에서만 존재한다.
@@ -553,51 +609,127 @@ cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대�
               CachedImage(image, cost)
               — 디스크의 HEIC를 다시 펼쳤으니 메모리 비용도 다시 계산해서 승격에 사용</pre>
     <p class="aside"><b>정리</b> — cost는 나중에 꺼내 쓰는 값이 아니라, 만들자마자 <code>memory.insert</code>로 넘겨
-    NSCache의 용량 관리(합산 → 상한 초과 시 방출)에 바로 쓰이는 값이다.
-    우리가 정하는 건 상한(<code>memoryCostLimitBytes</code>, 기본 100MB)과 이미지별 신고값(cost)까지고, 방출 시점·순서는 NSCache가 정한다.</p>
+    메모리 캐시의 용량 관리(합산 → 상한 초과 시 LRU 방출)에 바로 쓰이는 값이다.
+    상한(<code>memoryCostLimitBytes</code>, 기본은 기기 메모리의 10%) · 이미지별 신고값(cost) · 방출 시점과 순서까지 전부 이 모듈이 정하므로, 방출 동작을 테스트로 고정할 수 있다.</p>
   </section>
 
   <!-- ═══════════ 6. 삭제 정책 ═══════════ -->
   <section>
     <p class="eyebrow">6</p>
     <h2>캐시는 언제, 누가 비우나</h2>
-    <p class="section-note">지우는 주체가 넷이고 조건이 전부 다르다. 어느 층이 비어 있어도 파이프라인이 다음 층으로 넘어가므로 기능은 항상 동작한다.</p>
-    <div class="policies">
-      <div class="policy">
-        <h3><span class="swatch" style="background: var(--warn)"></span>메모리 — NSCache 자동 방출</h3>
-        <p>cost 총합이 상한(기본 <b>100MB</b>)을 넘거나 <b>시스템 메모리 압박</b> 시 NSCache가 스스로 방출한다.
-        방출 순서는 비보장. 앱 생명주기 알림(<code>UIApplication</code>) 구독 없이 이 자동 동작만으로 충족한다 —
-        Core 모듈이 앱 실행 상태를 관찰하지 않게 유지하고, 강제 정리는 상위가 <code>removeAll()</code>로 한다.</p>
-      </div>
-      <div class="policy">
-        <h3><span class="swatch" style="background: var(--accent)"></span>디스크 — 자체 LRU</h3>
-        <p>저장할 때마다 총 용량을 재고, 상한(기본 <b>500MB</b>) 초과분을 <b>수정일이 오래된 파일부터</b> 삭제한다.
-        조회 적중 시 수정일을 갱신하므로 자주 보는 사진은 뒤로 밀린다. 평상시 용량 관리는 전적으로 이 알고리즘 몫.</p>
-      </div>
-      <div class="policy">
-        <h3><span class="swatch" style="background: var(--err)"></span>OS — Caches 폴더 청소</h3>
-        <p>기기 저장 공간이 부족하면 iOS가 <code>Caches/</code> 파일을 지울 수 있다.
-        <b>우리가 디스크 캐시를 일부러 여기에 둔 이유다</b> — iOS 파일 배치 규칙이
-        "지워지면 안 되는 사용자 데이터는 <code>Documents/</code>, 다시 만들 수 있는 파일은 <code>Caches/</code>"인데,
-        이미지 캐시는 재다운로드하면 그만이라 후자다. <code>Documents/</code>에 두면 지워지지도 않고
-        설정 → 저장 공간에서 앱 용량으로만 쌓인다. OS 청소는 시점 보장이 없어 관리 수단으로 쓰지 않고,
-        <b>언제 지워져도 동작하는 것</b>(미스 처리 → 재다운로드)으로 견딘다.</p>
-      </div>
-      <div class="policy">
-        <h3><span class="swatch" style="background: var(--hit)"></span>상위 계층 — removeAll()</h3>
-        <p>로그아웃 등에서 상위가 명시적으로 호출한다. 진행 중 다운로드를 전부 취소하고 메모리·디스크를 모두 비운다.
-        유일하게 "지금 당장, 전부"를 보장하는 경로.</p>
-      </div>
+    <p class="section-note">지우는 계기가 여섯이다. 그중 <b>캐시가 스스로 하는 건 둘뿐</b>이고 나머지 넷은 누군가 불러줘야 돈다 —
+    App 배선이 빠지면 절반이 동작하지 않는다. 어느 층이 비어 있어도 파이프라인은 다음 층으로 넘어가므로 기능은 항상 동작한다.
+    각 줄을 누르면 그렇게 정한 이유가 나온다.</p>
+
+    <p class="pol-group">캐시가 스스로 — 저장할 때마다 자동으로 검사</p>
+    <div class="pol-list">
+      <details class="pol">
+        <summary>
+          <span class="pol-target mem">메모리</span>
+          <span class="pol-when">상한 초과</span>
+          <span class="pol-who auto">자동</span>
+          <span class="pol-what">가장 오래 안 쓴 항목부터 상한 이하까지</span>
+        </summary>
+        <div class="pol-body">
+          <p>저장할 때마다 cost를 합산하고, 상한(<b>기기 총 메모리의 10%</b>, 최대 512MB)을 넘으면 넘은 만큼만 지운다.
+          조회 적중 시 사용 순서를 갱신하므로 자주 보는 이미지는 뒤로 밀린다.</p>
+          <p class="policy-note">디스크와 같은 LRU이고, 기준이 파일 수정일 대신 사용 순서 번호일 뿐이다.
+          번호를 쓰면 같은 순간에 저장·조회해도 순서가 뒤섞이지 않는다.</p>
+          <p class="policy-note"><b>디스크에 있는 두 장치가 여기엔 없다</b> — 작은 이미지 예약분과 90% 목표다.
+          메모리는 밀려나도 디스크가 받쳐줘서 손해가 재디코딩(5~10ms)인데, 디스크에서 밀려나면 재다운로드(200~800ms)라 규모가 다르다.
+          방출 목표를 상한 바로 아래로 두는 것도 같은 이유다 — 디스크는 방출마다 디렉터리 스캔이 붙어서 여유를 둬야 하지만,
+          메모리는 총량을 항상 들고 있어 검사가 비교 한 번이라 미리 더 지울 이유가 없다.</p>
+        </div>
+      </details>
+
+      <details class="pol">
+        <summary>
+          <span class="pol-target disk">디스크</span>
+          <span class="pol-when">상한 초과</span>
+          <span class="pol-who auto">자동</span>
+          <span class="pol-what">오래된 파일부터 상한의 90%까지</span>
+        </summary>
+        <div class="pol-body">
+          <p>상한 <b>500MB</b>를 넘으면 수정일이 오래된 파일부터 지운다. 조회 적중 시 수정일을 갱신하므로 자주 보는 사진은 뒤로 밀린다.</p>
+          <p class="policy-note"><b>총량이 상한 근처가 아니면 디렉터리를 읽지 않는다</b> — 저장은 로더가 이미지를 반환하기 직전이라
+          매번 전체 스캔하면 그 비용이 표시 지연이 된다. 90%까지 지우는 것도 다음 스캔까지 여유를 만들기 위해서다.</p>
+          <p class="policy-note"><b>100KB 미만 파일에는 50MB를 예약</b>(방 약 11개 분량)해 방출 후보에서 뺀다.
+          크기를 안 보면 상세 사진 1장(300KB)을 넣을 때마다 썸네일 5장(60KB)이 밀려난다.</p>
+        </div>
+      </details>
+
+    </div>
+
+    <p class="pol-group">누군가 불러야 — 호출이 없으면 영영 안 돈다</p>
+    <div class="pol-list">
+      <details class="pol">
+        <summary>
+          <span class="pol-target mem">메모리</span>
+          <span class="pol-when">메모리 경고</span>
+          <span class="pol-who call">App</span>
+          <span class="pol-what">메모리 전체 — 디스크는 유지</span>
+        </summary>
+        <div class="pol-body">
+          <p>OS가 메모리 경고를 보내면 App이 <code>UIApplication.didReceiveMemoryWarningNotification</code>을 구독해
+          <code>evictMemoryCache()</code>를 호출한다.</p>
+          <p class="policy-note">Core가 <code>UIApplication</code>을 직접 구독하면 레이어 위반이라 <b>신호는 App이 받고 비우는 일은 로더가 한다.</b>
+          디스크는 남으므로 다음 요청은 네트워크 없이 복구된다 — 스스로 줄여 강제 종료 확률을 낮추는 경로다.</p>
+        </div>
+      </details>
+
+      <details class="pol">
+        <summary>
+          <span class="pol-target disk">디스크</span>
+          <span class="pol-when">보관 기간 만료</span>
+          <span class="pol-who call">App</span>
+          <span class="pol-what">생성일이 30일 지난 파일</span>
+        </summary>
+        <div class="pol-body">
+          <p>서버가 <b>방 생성일 + 30일</b>에 방을 삭제하는데, 삭제된 방은 목록에서 빠질 뿐이라
+          <b>앱은 어떤 사진이 사라졌는지 통보받지 못한다.</b> 그래서 파일 나이로 판정한다.</p>
+          <p class="policy-note">방 생성 ≤ 사진 다운로드이므로 파일이 30일을 넘겼다면 그 방은 이미 삭제된 뒤다 —
+          <b>늦게 판정할 뿐 이르게 지우지 않는다.</b> 조회마다 갱신되는 수정일이 아니라 <b>생성일</b>을 보는 이유다.</p>
+          <p class="policy-note">용량과 무관한 정리라 방출과 경로가 다르다(<code>removeExpiredDiskCache()</code>).</p>
+        </div>
+      </details>
+
+      <details class="pol">
+        <summary>
+          <span class="pol-target disk">디스크</span>
+          <span class="pol-when">Caches 폴더 청소</span>
+          <span class="pol-who os">iOS</span>
+          <span class="pol-what">시점 보장 없음 — 견디기만 한다</span>
+        </summary>
+        <div class="pol-body">
+          <p>기기 저장 공간이 부족하면 iOS가 <code>Caches/</code> 파일을 지울 수 있다. <b>디스크 캐시를 일부러 여기에 둔 이유다.</b></p>
+          <p class="policy-note">"지워지면 안 되는 사용자 데이터는 <code>Documents/</code>, 다시 만들 수 있는 파일은 <code>Caches/</code>"라는
+          배치 규칙에서 이미지 캐시는 후자다. 시점 보장이 없어 용량 관리 수단으로 쓰지 않고,
+          <b>언제 지워져도 동작하는 것</b>(미스 → 재다운로드)으로 견딘다.</p>
+        </div>
+      </details>
+
+      <details class="pol">
+        <summary>
+          <span class="pol-target both">둘 다</span>
+          <span class="pol-when">로그아웃</span>
+          <span class="pol-who call">상위 계층</span>
+          <span class="pol-what">진행 중 작업까지 전부</span>
+        </summary>
+        <div class="pol-body">
+          <p>상위 계층이 <code>removeAll()</code>을 명시적으로 호출한다. 진행 중 다운로드를 전부 취소하고 메모리·디스크를 모두 비운다.</p>
+          <p class="policy-note">유일하게 "지금 당장, 전부"를 보장하는 경로다.</p>
+        </div>
+      </details>
     </div>
   </section>
 
   <!-- ═══════════ 5. 테스트 ═══════════ -->
   <section class="tests">
     <p class="eyebrow">7</p>
-    <h2>테스트 카탈로그 — 43개가 각각 증명하는 것</h2>
+    <h2>테스트 카탈로그 — 60개가 각각 증명하는 것</h2>
     <p class="section-note">검증의 공통 관점: 캐시·중복 제거의 목적이 "불필요한 네트워크 회피"이므로, 목 페처의 <code>callCount</code>(네트워크를 몇 번 탔나)가 핵심 증거다.</p>
 
-    <h3>ImageLoaderTests <span>— 13개 · 파이프라인 전체를 목 페처로 검증</span></h3>
+    <h3>ImageLoaderTests <span>— 15개 · 파이프라인 전체를 목 페처로 검증</span></h3>
     <div class="twrap"><table>
       <tr><th>테스트</th><th>증명하려는 것</th></tr>
       <tr><td>메모리 히트: 두 번째 요청은 네트워크를 타지 않는다</td><td class="why">1단계가 실제로 파이프라인을 끝내는가 — callCount가 1에 머무는지로 확인</td></tr>
@@ -613,7 +745,9 @@ cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대�
       <tr><td>재시도를 소진하면 networkFailed로 실패한다</td><td class="why">재시도가 무한 루프가 아니라 retryDelays 개수에서 멈추는가</td></tr>
       <tr><td>재시도 불가한 전송 오류는 즉시 실패한다</td><td class="why">화이트리스트 밖 오류에 헛된 재시도(와 대기 시간)를 쓰지 않는가</td></tr>
       <tr><td>removeAll 후에는 캐시가 비어 다시 네트워크를 탄다</td><td class="why">전체 초기화가 메모리·디스크 양쪽에 실제로 미치는가</td></tr>
-    </table></div>
+          <tr><td>오프라인은 재시도하지 않고 즉시 실패한다</td><td class="why">인터페이스가 없는 상태에서 백오프를 기다리지 않는가 — 재시도 간격을 10초로 주입해 확인</td></tr>
+      <tr><td>취소된 호출은 메모리 캐시가 적중해도 cancelled를 던진다</td><td class="why">세 반환 경로가 같은 취소 계약을 지키는가</td></tr>
+</table></div>
 
     <h3>ImageDownsamplerTests <span>— 6개 · 픽셀 수 계약 검증</span></h3>
     <div class="twrap"><table>
@@ -626,7 +760,7 @@ cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대�
       <tr><td>타깃보다 작은 원본은 업스케일하지 않고 원본 픽셀 크기 그대로 반환한다</td><td class="why">MaxPixelSize가 "상한"임을 확정 — 없는 픽셀을 지어내지 않는가</td></tr>
     </table></div>
 
-    <h3>DiskImageCacheTests <span>— 6개 · 파일 왕복과 LRU</span></h3>
+    <h3>DiskImageCacheTests <span>— 12개 · 파일 왕복과 방출·만료 정책</span></h3>
     <div class="twrap"><table>
       <tr><th>테스트</th><th>증명하려는 것</th></tr>
       <tr><td>저장한 바이트는 같은 키로 조회하면 그대로 나온다</td><td class="why">저장↔조회가 같은 파일 경로 규칙(SHA256)을 쓰는가</td></tr>
@@ -635,15 +769,25 @@ cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대�
       <tr><td>removeAll 후에는 조회하면 nil이고 총량이 0이다</td><td class="why">전체 삭제가 파일과 용량 집계 모두에 미치는가</td></tr>
       <tr><td>totalBytes는 저장한 바이트 수를 반영한다</td><td class="why">LRU 판단의 입력값인 용량 집계가 정확한가</td></tr>
       <tr><td>용량 초과 시 가장 오래된 파일부터 삭제한다(LRU)</td><td class="why">핵심 정책 — 작은 상한을 주입해 삭제 순서가 수정일 순인지 확인</td></tr>
+      <tr><td>총량이 상한과 거리가 있으면 저장할 때마다 디렉터리를 읽지 않는다</td><td class="why">저장 경로에서 전체 스캔이 사라졌는가 — 실행 후 첫 저장 1회만 읽는다</td></tr>
+      <tr><td>방출은 상한이 아니라 방출 목표(상한의 90%)까지 지운다</td><td class="why">상한 바로 아래에서 멈추면 다음 저장마다 다시 스캔하게 된다</td></tr>
+      <tr><td>작은 이미지는 예약분 안에 있는 동안 큰 이미지에 밀려나지 않는다</td><td class="why">가장 오래된 파일이어도 예약분 안이면 살아남는가 — 크기 무시 LRU의 문제를 막는 지점</td></tr>
+      <tr><td>작은 이미지가 예약분을 넘으면 넘친 만큼은 오래된 것부터 방출된다</td><td class="why">보호가 무제한이 아니라 예약분까지임을 못박음</td></tr>
+      <tr><td>보관 기간을 넘긴 파일은 용량이 남아 있어도 제거된다</td><td class="why">만료 정리가 용량 방출과 무관한 별개 경로인가</td></tr>
+      <tr><td>보관 기간 안의 파일은 제거하지 않는다</td><td class="why">아직 볼 수 있는 사진을 지워 재다운로드를 유발하지 않는가</td></tr>
     </table></div>
 
-    <h3>MemoryImageCacheTests <span>— 4개 · NSCache 래핑의 키 동작</span></h3>
+    <h3>MemoryImageCacheTests <span>— 8개 · 키 동작과 LRU 방출 정책</span></h3>
     <div class="twrap"><table>
       <tr><th>테스트</th><th>증명하려는 것</th></tr>
-      <tr><td>저장한 이미지는 같은 키로 조회하면 그대로 나온다</td><td class="why">CacheKeyBox의 hash/isEqual 위임이 동작하는가 — 다른 상자 인스턴스로도 히트</td></tr>
+      <tr><td>저장한 이미지는 같은 키로 조회하면 그대로 나온다</td><td class="why">저장↔조회가 같은 키로 이어지는가 — 값 기반 동등성으로 히트</td></tr>
       <tr><td>저장하지 않은 키를 조회하면 nil이다</td><td class="why">미스가 nil로 끝나는가</td></tr>
       <tr><td>같은 URL이라도 크기가 다르면 별도 항목으로 취급한다</td><td class="why">픽셀 크기가 메모리 캐시 키에도 반영되는가</td></tr>
-      <tr><td>removeAll 후에는 조회하면 nil이다</td><td class="why">상위 계층의 강제 정리 경로가 동작하는가</td></tr>
+      <tr><td>removeAll 후에는 조회하면 nil이고 총 비용이 0이다</td><td class="why">강제 정리가 항목과 용량 집계 모두에 미치는가</td></tr>
+      <tr><td>상한을 넘으면 넘은 만큼만, 가장 오래 사용하지 않은 항목부터 방출한다</td><td class="why">방출 대상과 멈추는 지점 — 작은 상한을 주입해 삭제가 상한 이하가 되는 순간 멈추는지 확인</td></tr>
+      <tr><td>조회로 적중하면 먼저 넣은 항목이라도 방출에서 살아남는다</td><td class="why">삽입 순서(FIFO)가 아니라 사용 순서(LRU)임을 가르는 유일한 테스트</td></tr>
+      <tr><td>같은 키를 덮어써도 총 비용이 이중으로 합산되지 않는다</td><td class="why">덮어쓰기 때 이전 cost를 빼는가 — 총량이 부풀면 멀쩡한 항목이 방출된다</td></tr>
+      <tr><td>상한 하나를 통째로 넘는 이미지는 저장 직후 방출된다</td><td class="why">상한을 넘는 단일 항목의 처리를 못박음 — 별도 분기 없이 방출 루프가 흡수</td></tr>
     </table></div>
 
     <h3>ImageCacheKeyTests <span>— 6개 · 키의 동등성과 파일명 안전성</span></h3>
@@ -667,13 +811,92 @@ cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대�
       <tr><td>같은 값이면 동등하고 Set에서 하나로 취급된다</td><td class="why">Hashable 계약 — 생성 경로가 달라도(정수 vs pt×scale) 값이 같으면 같은 키</td></tr>
     </table></div>
 
-    <h3>ImageCacheConfigurationTests <span>— 3개 · 설정값 보관과 기본값</span></h3>
+    <h3>ImageCacheConfigurationTests <span>— 8개 · 설정값 보관과 기기별 메모리 상한</span></h3>
     <div class="twrap"><table>
       <tr><th>테스트</th><th>증명하려는 것</th></tr>
       <tr><td>커스텀 생성자에 넣은 메모리·디스크 용량과 디렉터리가 그대로 보관된다</td><td class="why">테스트가 작은 용량을 주입하는 경로가 왜곡 없이 전달되는가</td></tr>
       <tr><td>기본 설정(.default)의 메모리·디스크 용량 상한이 0보다 크다</td><td class="why">기본값 오타(0 등)로 캐시가 통째로 꺼지는 사고 방지</td></tr>
       <tr><td>기본 설정의 디스크 경로는 Caches 아래 CHALLAImageCache 폴더를 가리킨다</td><td class="why">전용 폴더명이 고정되는가 — 실제 검증 범위는 폴더명까지(Caches 하위 여부는 미검증)</td></tr>
+      <tr><td>메모리 상한은 기기 총 메모리의 10%로 정해진다</td><td class="why">비율 계산이 맞는가 — 4GB 기기에 409MB</td></tr>
+      <tr><td>총 메모리가 작은 기기에서는 하한 없이 10%가 그대로 적용된다</td><td class="why">하한을 두지 않은 결정을 못박음 — 실기기 최소 3GB라 발동할 구간이 없다</td></tr>
+      <tr><td>총 메모리가 큰 기기에서도 상한(512MB)을 넘지 않는다</td><td class="why">고사양에서 적중률도 안 오르는데 점유만 커지지 않는가</td></tr>
+      <tr><td>기본 보관 기간은 서버의 방 삭제 정책과 같은 30일이다</td><td class="why">캐시 보관 기간이 서버 정책과 어긋나면 만료 정리가 무의미해진다</td></tr>
+      <tr><td>기본 설정의 메모리 상한은 512MB를 넘지 않는다</td><td class="why">시뮬레이터는 맥의 RAM을 보고하므로, 상한이 없으면 .default가 GB 단위가 된다</td></tr>
     </table></div>
+  </section>
+
+  <!-- ═══════════ 8. 리뷰 반영 ═══════════ -->
+  <section>
+    <p class="eyebrow">8</p>
+    <h2>리뷰에서 바뀐 것</h2>
+    <p class="section-note">PR <a href="https://github.com/DEV-CHALLA/CHALLA-iOS/pull/44">#44</a>에서 받은 지적과 반영 결과.
+    이 문서의 정책 대부분이 여기서 다시 정해졌다.</p>
+
+    <div class="policies">
+      <div class="policy">
+        <h3>메모리 캐시가 OS 정책에 의존한다</h3>
+        <p class="rv-quote">NSCache가 자동으로 정리 해주긴 하지만, OS 내부 정책에 의존하기보다 개발자가 직접 제어해서 예측 가능하게 설계하는 게 더 좋다고 생각하는데 어떠신가요? / UIApplication 알림은 Core가 아니라 앱 모듈에서 구독해도 처리할 수 있지 않을까요?</p>
+        <p><b>전</b> NSCache 래핑. 방출 시점·순서가 OS 재량이라 <b>방출 테스트를 하나도 쓸 수 없었다.</b><br>
+        <b>후</b> cost 합산 LRU 직접 구현 + <code>evictMemoryCache()</code>로 App이 메모리 경고를 전달. 방출 테스트 4개 추가.</p>
+        <p class="rv-meta">@Hansangjin98 · f967b47</p>
+      </div>
+
+      <div class="policy">
+        <h3>메모리 상한이 모든 기기에서 100MB</h3>
+        <p class="rv-quote">메모리 캐시의 상한을 정적인 값이 아니라 동적인 비율로 잡아두면 다양한 사양의 기기에 조금 더 적절하게 대응할 수 있을 것 같습니다. 참고로 Kingfisher는 기기 전체 메모리의 25%로 잡아두고 있습니다.</p>
+        <p><b>전</b> 고정 100MB.<br>
+        <b>후</b> 기기 RAM의 10%, 최대 512MB. Kingfisher의 25%를 안 쓴 건 그 값의 전제(NSCache의 자동 회수)를 위에서 없앴기 때문이다.</p>
+        <p class="rv-meta">@Hansangjin98 · ba82bfa</p>
+      </div>
+
+      <div class="policy">
+        <h3>큰 사진이 작은 이미지를 밀어낸다</h3>
+        <p class="rv-quote">크기 구분 없이 저장 순서만 고려하고 있어서 크기가 큰 사진 상세 이미지 1개가 크기가 작은 방 상세 이미지 여러 개를 밀어내서 캐시 효율이 떨어질 수 있을 것 같아요.</p>
+        <p><b>전</b> 수정일만 보는 LRU. 상세 1장(300KB)당 썸네일 5장(60KB)이 밀려나는 교환.<br>
+        <b>후</b> 100KB 미만 파일에 상한의 10%(50MB, 방 약 11개 분량) 예약.</p>
+        <p class="rv-meta">@Hansangjin98 · 9f82c73</p>
+      </div>
+
+      <div class="policy">
+        <h3>만료된 이미지가 디스크를 계속 차지한다</h3>
+        <p class="rv-quote">저희 서비스는 이미지를 볼 수 있는 유효 기간이 정해져있던 걸로 기억하는데, 유효 기간이 만료되어도 지속적으로 불필요하게 디스크 공간을 차지하게 될 것 같아요.</p>
+        <p><b>전</b> 시간 기반 정리 없음.<br>
+        <b>후</b> 백엔드 확인 결과 <b>방 생성일 + 30일</b> 삭제 정책. 삭제된 방은 목록에서 빠질 뿐이라 통보가 없어, 파일 생성일로 판정하는 <code>removeExpired()</code> 추가.</p>
+        <p class="rv-meta">@Hansangjin98 · 77c0b3d</p>
+      </div>
+
+      <div class="policy">
+        <h3>저장할 때마다 디렉터리를 전부 읽는다</h3>
+        <p class="rv-quote">저장 한 번마다 수천 회 stat이 발생할 것 같아서 수정을 하면 좋을 거 같아요! 용량이 상한과 거리가 있을 때도 매번 같은 비용을 처리하게끔 되어있는 거 같아서… 최근 저장 누적 바이트 같은 상태를 하나 들고 있다가 임계치를 넘었을 때에만 스캔하는 건 어떨까요?</p>
+        <p><b>전</b> <code>store()</code>마다 전체 스캔. 이 저장은 로더가 이미지를 반환하기 직전이라 스캔 비용이 표시 지연이 된다.<br>
+        <b>후</b> 추정 총량이 상한을 넘을 때만 스캔 + 방출 목표 90%. 상세 사진 기준 약 170번 저장에 스캔 1번.</p>
+        <p class="rv-meta">@k-nh · 9f82c73</p>
+      </div>
+
+      <div class="policy">
+        <h3>메모리 히트 경로에만 취소 확인이 없다</h3>
+        <p class="rv-quote">여기에는 checkCancellation이 빠진 이유가 있을까??</p>
+        <p><b>전</b> 취소된 호출이 캐시 적중 여부에 따라 이미지를 받기도, <code>.cancelled</code>를 받기도 했다. 뷰가 <code>guard !Task.isCancelled</code>로 대신 막고 있었다.<br>
+        <b>후</b> 세 반환 경로 모두 취소면 <code>.cancelled</code>. 의도가 아니라 누락이었다(b471ba9가 나머지 두 경로를 이미 고쳤다).</p>
+        <p class="rv-meta">@k-nh · 2fa0c41</p>
+      </div>
+
+      <div class="policy">
+        <h3>오프라인에서도 재시도를 다 돈다</h3>
+        <p class="rv-quote">오프라인인 경우에도 재시도를 1초 → 2초 → 4초 이렇게 3번씩 하게 될 거 같은데, 오프라인에서 재시도는 의미가 없으니까 네트워크 상태 체크해서 재시도 루프를 빨리 끊는 처리를 해주면 좋을 거 같아!!</p>
+        <p><b>전</b> <code>.notConnectedToInternet</code>이 재시도 대상이라 이미지당 7초를 기다린 뒤 실패.<br>
+        <b>후</b> 목록에서 제외해 즉시 실패. 이 코드 자체가 시스템의 상태 판정이라 별도 모니터가 필요 없었다. 전송 중 끊긴 <code>.networkConnectionLost</code>는 유지.</p>
+        <p class="rv-meta">@k-nh · 2fa0c41</p>
+      </div>
+
+      <div class="policy">
+        <h3>인코더를 public으로 열어달라 <span class="rv-tag">받아들이지 않음</span></h3>
+        <p class="rv-quote">internal이라 모듈 밖에서 재사용할 수 없어서 PR #45의 프로필 이미지 업로더에서 JPEG 인코딩을 별도 구현하고 있는 거 같아요. 포맷 정책이 두 곳으로 분산된 상태가 되어서…</p>
+        <p><b>판단</b> 열어도 못 쓴다. 이건 디스크 저장용 HEIC 인코더인데 업로드는 <code>image/jpeg·png·webp</code>만 허용하고 다르면 S3가 403을 낸다.
+        같은 정책이 흩어진 게 아니라 <b>로컬 저장 포맷과 서버 계약이라는 서로 다른 정책</b>이다. 대신 경계를 문서에 명시했다.</p>
+        <p class="rv-meta">@k-nh · 코드 변경 없음</p>
+      </div>
+    </div>
   </section>
 </main>
 
