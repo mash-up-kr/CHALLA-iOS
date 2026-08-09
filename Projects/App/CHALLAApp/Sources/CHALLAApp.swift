@@ -16,7 +16,7 @@ struct CHALLAApp: App {
     init() {
         Self.bootstrapKakaoSDK()
         prepareDependencies { CompositionRoot.registerLiveDependencies(into: &$0) }
-        store = Store(initialState: AppFeature.State()) {
+        store = Store(initialState: .launching) {
             AppFeature()
         }
     }

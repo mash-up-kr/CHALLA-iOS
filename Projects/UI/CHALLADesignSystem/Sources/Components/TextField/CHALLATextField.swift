@@ -23,6 +23,7 @@ public struct CHALLATextField: View {
     private let textAlignment: TextAlignment
     private let typography: CHALLATypography
     private let borderColor: Color
+    private let externalFocus: FocusState<Bool>.Binding?
 
     /// - Parameters:
     ///   - text: 입력값. 소유는 호출부가 한다.
@@ -30,18 +31,27 @@ public struct CHALLATextField: View {
     ///   - textAlignment: 글자 정렬. Figma 컴포넌트 기본은 중앙, 실사용(방 만들기)은 왼쪽 오버라이드.
     ///   - typography: 글자 타이포 (Figma customize 속성).
     ///   - borderColor: 포커스 테두리 + 커서 색 (Figma customize 속성).
+    ///   - focus: 외부 포커스 바인딩. 키보드를 프로그래밍으로 열고 닫아야 할 때 주입한다.
+    ///     nil이면 포커스를 내부에서만 관리한다 (기존 동작).
     public init(
         text: Binding<String>,
         placeholder: String,
         textAlignment: TextAlignment = .center,
         typography: CHALLATypography = .body.medium.medium,
-        borderColor: Color = CHALLAColor.defaultTheme
+        borderColor: Color = CHALLAColor.defaultTheme,
+        focus: FocusState<Bool>.Binding? = nil
     ) {
         self._text = text
         self.placeholder = placeholder
         self.textAlignment = textAlignment
         self.typography = typography
         self.borderColor = borderColor
+        self.externalFocus = focus
+    }
+
+    /// `.focused(_:)`와 테두리 판정이 항상 같은 포커스 값을 보도록 한 곳에서 결정한다.
+    private var focusBinding: FocusState<Bool>.Binding {
+        externalFocus ?? $isFocused
     }
 
     // MARK: - Body
@@ -54,7 +64,7 @@ public struct CHALLATextField: View {
             .multilineTextAlignment(textAlignment)
             .foregroundStyle(isEnabled ? CHALLAColor.Label.normal : CHALLAColor.Label.disabled)
             .tint(borderColor)
-            .focused($isFocused)
+            .focused(focusBinding)
             .padding(.horizontal, TextFieldMetric.contentPadding)
             .frame(height: typography.lineHeight + TextFieldMetric.contentPadding * 2)
             .background {
@@ -62,7 +72,7 @@ public struct CHALLATextField: View {
                     .fill(CHALLAColor.Background.level2)
             }
             .overlay {
-                if isFocused {
+                if focusBinding.wrappedValue {
                     RoundedRectangle(cornerRadius: CHALLARadius.large)
                         .strokeBorder(borderColor, lineWidth: TextFieldMetric.focusBorderWidth)
                 }
@@ -73,7 +83,7 @@ public struct CHALLATextField: View {
                 // 비활성 상태에선 탭해도 포커스를 주지 않는다.
                 // .disabled(_:)는 TextField 입력만 막고, 뷰에 붙인 이 제스처까지는 막아주지 않아서 직접 차단한다.
                 guard isEnabled else { return }
-                isFocused = true
+                focusBinding.wrappedValue = true
             }
     }
 

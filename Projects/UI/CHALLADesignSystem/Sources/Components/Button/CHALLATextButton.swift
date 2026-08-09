@@ -27,6 +27,7 @@ public struct CHALLATextButton: View {
     private let role: CHALLAButtonRole?
     private let size: CHALLAButtonSize
     private let isFullWidth: Bool
+    private let isLoading: Bool
     private let leadingIcon: CHALLAIcon?
     private let trailingIcon: CHALLAIcon?
     private let action: () -> Void
@@ -40,12 +41,14 @@ public struct CHALLATextButton: View {
     ///   - leadingIcon: 문구 앞 아이콘. nil이면 숨긴다.
     ///   - trailingIcon: 문구 뒤 아이콘. nil이면 숨긴다.
     ///   - action: 탭했을 때 실행할 동작.
+    ///   - isLoading: true면 라벨 자리에 로딩 점을 겹치고 탭을 막는다.
     public init(
         _ title: String,
         variant: CHALLAButtonVariant = .primary,
         role: CHALLAButtonRole? = nil,
         size: CHALLAButtonSize = .large,
         isFullWidth: Bool = false,
+        isLoading: Bool = false,
         leadingIcon: CHALLAIcon? = nil,
         trailingIcon: CHALLAIcon? = nil,
         action: @escaping () -> Void
@@ -55,6 +58,7 @@ public struct CHALLATextButton: View {
         self.role = role
         self.size = size
         self.isFullWidth = isFullWidth
+        self.isLoading = isLoading
         self.leadingIcon = leadingIcon
         self.trailingIcon = trailingIcon
         self.action = action
@@ -63,7 +67,11 @@ public struct CHALLATextButton: View {
     // MARK: - Body
 
     public var body: some View {
-        Button(action: action) {
+        // VoiceOver 더블탭은 hit-testing을 거치지 않으므로 로딩 중 실행은 액션 자체에서 차단한다.
+        Button {
+            guard !isLoading else { return }
+            action()
+        } label: {
             HStack(spacing: size.contentSpacing) {
                 if let leadingIcon {
                     leadingIcon.image(size: size.iconSize, color: contentColor)
@@ -75,6 +83,13 @@ public struct CHALLATextButton: View {
                     trailingIcon.image(size: size.iconSize, color: contentColor)
                 }
             }
+            // 라벨을 지우지 않고 투명 처리한다 — 로딩 전환 시 버튼 크기가 유지된다.
+            .opacity(isLoading ? 0 : 1)
+            .overlay {
+                if isLoading {
+                    CHALLALoadingDots()
+                }
+            }
             .foregroundStyle(contentColor)
             .padding(.horizontal, size.horizontalPadding)
             .frame(height: size.height)
@@ -83,6 +98,9 @@ public struct CHALLATextButton: View {
             .challaButtonBackground(variant: variant, role: role, size: size, isEnabled: isEnabled)
         }
         .buttonStyle(.plain)
+        .allowsHitTesting(!isLoading)
+        // 로딩 중 라벨이 투명해져도(opacity 0) 접근성 트리에서 버튼 이름이 유지되도록 명시한다.
+        .accessibilityLabel(title)
     }
 
     private var contentColor: Color {
@@ -100,6 +118,9 @@ public struct CHALLATextButton: View {
         CHALLATextButton("작은 버튼", variant: .neutral, size: .small, leadingIcon: .check) {}
         CHALLATextButton("그래도 탈퇴하기", role: .destructive) {}
         CHALLATextButton("프로필 사진 삭제", variant: .neutral, role: .destructive) {}
+        CHALLATextButton("로딩 버튼", isLoading: true) {}
+        CHALLATextButton("전체 너비 버튼", isFullWidth: true) {}
+        CHALLATextButton("전체 너비 로딩 버튼", isFullWidth: true, isLoading: true) {}
     }
     .padding()
     .background(CHALLAColor.Background.surface)

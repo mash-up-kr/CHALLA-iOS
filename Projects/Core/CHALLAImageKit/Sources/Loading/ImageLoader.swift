@@ -3,49 +3,62 @@ import Foundation
 import ImageIO
 import UIKit
 
-/// 원격 이미지를 "메모리 → 디스크 → 네트워크" 순으로 해결해 표시용 `UIImage`를 돌려주는 로더.
+/// 원격 이미지를 표시 크기에 맞게 로드하고
+/// 메모리·디스크·네트워크 캐시 계층을 조율한다.
 ///
-/// 가변 상태(진행 중 작업 맵)와 여러 캐시 계층 조율을 하므로 `actor`로 접근을 직렬화한다.
-/// 무거운 CPU 작업(다운샘플·인코딩·디코딩)은 `Task.detached`로 액터 밖에서 실행해 액터가 막히지 않게 한다.
+/// 이미지 로드 순서:
+/// 1. 메모리 캐시
+/// 2. 동일 키의 진행 중 작업 공유
+/// 3. 디스크 캐시
+/// 4. 네트워크 → 다운샘플 → HEIC 저장
 ///
-/// 파이프라인:
-/// 1. 메모리 히트 → 즉시 반환
-/// 2. 같은 키의 진행 중 작업이 있으면 그 결과를 공유(중복 제거)
-/// 3. 디스크 히트 → 디코딩·메모리 승격 후 반환 (디코딩 실패 시 조용히 네트워크로 폴백)
-/// 4. 네트워크 → 다운샘플 → HEIC 인코딩 → 디스크 저장 + 메모리 저장 후 반환
+/// 진행 중 작업과 메모리 캐시는 `ImageLoader` actor에서 관리하고,
+/// 다운샘플·인코딩·디코딩은 `Task.detached`에서 수행한다.
 public actor ImageLoader {
 
     // MARK: - Properties
 
+    /// 다운샘플된 `UIImage`를 보관하는 메모리 LRU 캐시.
     private let memory: MemoryImageCache
+
+    /// 다운샘플 후 HEIC로 인코딩한 바이트를 보관하는 디스크 캐시.
     private let disk: DiskImageCache
+
     private let downsampler: ImageDownsampler
     private let encoder: ImageDataEncoder
     private let fetcher: ImageDataFetching
 
-    /// 일시적 전송 실패 시 재시도 간격(지수 백오프). 원소 개수 = 최대 재시도 횟수.
+    /// 일시적인 네트워크 실패 시 사용할 재시도 간격.
+    /// 배열의 개수가 최대 재시도 횟수가 된다.
     private let retryDelays: [Duration]
 
-    /// 같은 키에 대한 중복 다운로드를 막는 진행 중 작업 맵.
+    /// 동일한 캐시 키에 대해 현재 진행 중인 이미지 로드 작업.
+    ///
+    /// 같은 URL과 PixelSize 요청이 동시에 들어오면
+    /// 새 작업을 만들지 않고 기존 Task의 결과를 공유한다.
     private var inFlight: [ImageCacheKey: Task<UIImage, Error>] = [:]
 
     // MARK: - Initialization
 
-    /// - Parameters:
-    ///   - configuration: 메모리·디스크 캐시 용량과 저장 위치.
-    ///   - fetcher: 원격 바이트 취득기. 기본값은 URLCache를 끈 세션 기반 구현.
-    ///   - retryDelays: 일시적 전송 실패 시 재시도 간격(지수 백오프). 기본 1→2→4초, 빈 배열이면 재시도 안 함.
-    /// - Throws: 디스크 캐시 디렉터리 생성 실패 시 던진다.
     public init(
         configuration: ImageCacheConfiguration = .default,
         fetcher: ImageDataFetching = URLSessionImageDataFetcher(),
-        retryDelays: [Duration] = [.seconds(1), .seconds(2), .seconds(4)]
+        retryDelays: [Duration] = [
+            .seconds(1),
+            .seconds(2),
+            .seconds(4)
+        ]
     ) throws {
-        self.memory = MemoryImageCache(costLimit: configuration.memoryCostLimitBytes)
+        self.memory = MemoryImageCache(
+            costLimit: configuration.memoryCostLimitBytes
+        )
+
         self.disk = try DiskImageCache(
             directory: configuration.diskDirectory,
-            capacityBytes: configuration.diskCapacityBytes
+            capacityBytes: configuration.diskCapacityBytes,
+            retention: configuration.diskRetention
         )
+
         self.downsampler = ImageDownsampler()
         self.encoder = ImageDataEncoder()
         self.fetcher = fetcher
@@ -54,41 +67,59 @@ public actor ImageLoader {
 
     // MARK: - Public Methods
 
-    /// URL의 이미지를 표시 크기에 맞춰 로드한다.
+    /// URL의 이미지를 실제 표시 크기에 맞춰 로드한다.
     ///
-    /// - Parameters:
-    ///   - url: 원격 이미지 URL.
-    ///   - pointSize: 표시 뷰의 논리 크기(pt).
-    ///   - scale: 디스플레이 배율(@2x/@3x).
-    /// - Returns: 다운샘플된 표시용 `UIImage`.
-    /// - Throws: ``ImageLoadingError``.
-    public func image(from url: URL, pointSize: CGSize, scale: CGFloat) async throws -> UIImage {
-        let key = ImageCacheKey(url: url, pixelSize: PixelSize(pointSize: pointSize, scale: scale))
+    /// 같은 URL이라도 표시 크기가 다르면 필요한 픽셀 수가 다르므로
+    /// URL과 PixelSize를 함께 캐시 키로 사용한다.
+    public func image(
+        from url: URL,
+        pointSize: CGSize,
+        scale: CGFloat
+    ) async throws -> UIImage {
+        let key = ImageCacheKey(
+            url: url,
+            pixelSize: PixelSize(
+                pointSize: pointSize,
+                scale: scale
+            )
+        )
 
-        // 1·2. 메모리 히트 → 즉시 반환.
+        // 캐시 적중 여부와 관계없이 취소된 호출은 동일하게 .cancelled로 처리한다.
         if let cached = memory.image(for: key) {
+            guard !Task.isCancelled else {
+                throw ImageLoadingError.cancelled
+            }
+
             return cached
         }
 
-        // 3. 중복 제거: 같은 키가 이미 진행 중이면 그 결과를 기다려 공유한다.
+        // 같은 이미지 로드가 진행 중이면 기존 작업의 결과를 공유한다.
         if let existing = inFlight[key] {
             do {
                 let image = try await existing.value
+
+                // 공유 작업과 현재 호출자의 취소 상태는 별개다.
                 try Task.checkCancellation()
+
                 return image
             } catch is CancellationError {
                 throw ImageLoadingError.cancelled
             }
         }
 
-        // 4. 새 작업 등록. 성공·실패·취소 모든 경로에서 맵을 정리한다(defer).
         let task = Task<UIImage, Error> { [self] in
-            try await load(url: url, key: key, pointSize: pointSize, scale: scale)
+            try await load(
+                url: url,
+                key: key,
+                pointSize: pointSize,
+                scale: scale
+            )
         }
+
         inFlight[key] = task
 
-        // 자기 task일 때만 제거한다. removeAll()이 맵을 비운 사이 다른 요청이
-        // 같은 키로 새 task를 등록했을 수 있으므로, 무조건 지우면 남의 등록을 오염시킨다.
+        // removeAll() 이후 같은 키에 새 Task가 등록될 수 있으므로
+        // 현재 등록된 작업이 내가 만든 Task일 때만 제거한다.
         defer {
             if inFlight[key] == task {
                 inFlight[key] = nil
@@ -97,80 +128,131 @@ public actor ImageLoader {
 
         do {
             let image = try await task.value
-            // 이 호출(뷰)이 취소돼도 위의 await task.value는 에러 없이 이미지를 돌려준다.
-            // 그래서 여기서 "내가 취소됐는지"를 직접 확인해, 취소된 호출에는 이미지 대신 .cancelled를 던진다.
-            // (다운로드 작업은 일부러 취소하지 않는다 — 끝까지 받아 캐시에 넣어두면 다음 요청이 재사용)
+
+            // 공유 로드는 캐시에 남기되 취소된 호출자에게 결과를 반환하지 않는다.
             try Task.checkCancellation()
+
             return image
         } catch is CancellationError {
             throw ImageLoadingError.cancelled
         }
     }
 
-    /// 모든 진행 중 작업을 취소하고 메모리·디스크 캐시를 비운다. (로그아웃·메모리 경고 시)
+    /// 메모리 캐시만 비운다.
+    ///
+    /// 메모리 경고는 App 레이어에서 받고 이 메서드를 호출한다.
+    /// 디스크 캐시와 진행 중인 다운로드는 유지한다.
+    public func evictMemoryCache() {
+        memory.removeAll()
+    }
+
+    /// 보관 기간을 넘긴 디스크 캐시 파일을 정리한다.
+    /// 호출 시점은 App 레이어가 결정한다.
+    public func removeExpiredDiskCache() async {
+        await disk.removeExpired()
+    }
+
+    /// 진행 중인 작업을 취소하고 메모리·디스크 캐시를 모두 비운다.
     public func removeAll() async {
         for task in inFlight.values {
             task.cancel()
         }
+
         inFlight.removeAll()
         memory.removeAll()
+
         await disk.removeAll()
     }
 
-    // MARK: - Private Methods
+    // MARK: - Loading Pipeline
 
-    /// 디스크·네트워크를 거쳐 이미지를 실제로 해결한다.
+    /// 메모리 캐시 이후의 실제 이미지 로드 파이프라인.
+    ///
+    /// 디스크에 없거나 디코딩에 실패하면 네트워크에서 다시 받아
+    /// 다운샘플 후 메모리·디스크 캐시에 저장한다.
     private func load(
         url: URL,
         key: ImageCacheKey,
         pointSize: CGSize,
         scale: CGFloat
     ) async throws -> UIImage {
-        // 디스크 히트: 이미 다운샘플된 바이트이므로 다운샘플 없이 디코딩만 한다.
-        // 디코딩에 실패해도 hard-fail 하지 않고 조용히 네트워크로 폴백한다.
+
+        // 디스크에는 이미 목표 PixelSize로 다운샘플된 데이터가 있으므로
+        // 다시 다운샘플하지 않고 디코딩만 한다.
         if let diskData = await disk.data(for: key),
-           let decoded = await Self.decodeCachedData(diskData, scale: scale) {
-            memory.insert(decoded.image, for: key, cost: decoded.cost)
+           let decoded = await Self.decodeCachedData(
+               diskData,
+               scale: scale
+           ) {
+            memory.insert(
+                decoded.image,
+                for: key,
+                cost: decoded.cost
+            )
+
             return decoded.image
         }
 
-        // 네트워크. 일시적 전송 실패는 지수 백오프로 재시도한다.
         let (data, response) = try await fetchWithRetry(url)
 
         guard let http = response as? HTTPURLResponse else {
             throw ImageLoadingError.invalidResponse
         }
+
         guard (200 ..< 300).contains(http.statusCode) else {
             throw ImageLoadingError.httpStatus(http.statusCode)
         }
+
         guard !data.isEmpty else {
             throw ImageLoadingError.emptyData
         }
 
         try Task.checkCancellation()
 
-        // 다운샘플 + HEIC 인코딩은 액터 밖에서 실행한다.
-        let processed = try await downsample(data: data, pointSize: pointSize, scale: scale)
+        let processed = try await downsample(
+            data: data,
+            pointSize: pointSize,
+            scale: scale
+        )
 
-        await disk.store(processed.encodedData, for: key)
-        memory.insert(processed.image, for: key, cost: processed.cost)
+        await disk.store(
+            processed.encodedData,
+            for: key
+        )
+
+        memory.insert(
+            processed.image,
+            for: key,
+            cost: processed.cost
+        )
+
         return processed.image
     }
 
-    /// 재시도해도 소용 있는(일시적) 전송 실패 코드. 이 외의 URLError는 재시도 없이 즉시 실패한다.
+    // MARK: - Network Retry
+
+    /// 재시도 가치가 있는 일시적인 네트워크 오류.
+    ///
+    /// 완전 오프라인(`notConnectedToInternet`)은 즉시 실패하고,
+    /// 전송 도중 연결이 끊긴 경우(`networkConnectionLost`)는 재시도한다.
     private static let retryableURLErrorCodes: Set<URLError.Code> = [
-        .timedOut, .cannotConnectToHost, .cannotFindHost,
-        .networkConnectionLost, .notConnectedToInternet,
-        .dnsLookupFailed, .badServerResponse
+        .timedOut,
+        .cannotConnectToHost,
+        .cannotFindHost,
+        .networkConnectionLost,
+        .dnsLookupFailed,
+        .badServerResponse
     ]
 
-    /// `fetcher.fetch`를 감싸 일시적 실패 시 `retryDelays` 간격으로 재시도한다.
+    /// 일시적인 네트워크 실패 시 `retryDelays`에 따라 재시도한다.
     ///
-    /// - 취소(`.cancelled`)는 재시도하지 않고 `.cancelled`로 종료한다.
-    /// - 재시도 불가 코드(예: `.badURL`)거나 재시도 횟수를 소진하면 `.networkFailed`로 실패한다.
-    /// - 백오프 대기 중 취소되면 `Task.sleep`이 취소를 던져 상위에서 `.cancelled`로 매핑된다.
-    private func fetchWithRetry(_ url: URL) async throws -> (Data, URLResponse) {
+    /// 기본값은 1초 → 2초 → 4초이며,
+    /// 취소 또는 재시도 불가능한 오류는 즉시 종료한다.
+    private func fetchWithRetry(
+        _ url: URL
+    ) async throws -> (Data, URLResponse) {
         var attempt = 0
+
         while true {
             do {
                 return try await fetcher.fetch(url)
@@ -178,22 +260,28 @@ public actor ImageLoader {
                 if error.code == .cancelled {
                     throw ImageLoadingError.cancelled
                 }
-                guard Self.retryableURLErrorCodes.contains(error.code),
-                      attempt < retryDelays.count
+
+                guard
+                    Self.retryableURLErrorCodes.contains(error.code),
+                    attempt < retryDelays.count
                 else {
                     throw ImageLoadingError.networkFailed(error.code)
                 }
-                try await Task.sleep(for: retryDelays[attempt]) // 1초 → 2초 → 4초
+
+                try await Task.sleep(
+                    for: retryDelays[attempt]
+                )
+
                 attempt += 1
             }
         }
     }
 
-    /// 원본 바이트를 다운샘플하고 HEIC로 재인코딩한다. (액터 밖 유틸리티 우선순위)
+    // MARK: - Image Processing
+
+    /// 원본 이미지를 요청 크기로 다운샘플하고 HEIC로 인코딩한다.
     ///
-    /// 동시성: 이 detached 클로저는 Sendable 값만 캡처한다(`ImageDownsampler`, `ImageDataEncoder`,
-    /// `Data`, `CGSize`, `CGFloat`). 비-Sendable인 `CGImage`는 클로저 내부에서만 존재하며 밖으로 새지 않고,
-    /// 결과로는 `ProcessedImage`(다운샘플 완료 후 불변인 `UIImage` + 바이트 + cost)만 돌려준다.
+    /// CPU 비용이 있는 이미지 처리는 `Task.detached(.utility)`에서 수행한다.
     private func downsample(
         data: Data,
         pointSize: CGSize,
@@ -204,36 +292,74 @@ public actor ImageLoader {
 
         return try await Task.detached(priority: .utility) {
             let cgImage: CGImage
+
             do {
-                cgImage = try downsampler.downsample(data: data, pointSize: pointSize, scale: scale)
+                cgImage = try downsampler.downsample(
+                    data: data,
+                    pointSize: pointSize,
+                    scale: scale
+                )
             } catch let error as ImageDownsamplingError {
                 throw ImageLoadingError.downsampling(error)
             }
 
             let encodedData = try encoder.encode(cgImage)
+
+            // 압축 파일 크기가 아닌 디코딩된 비트맵의 메모리 비용.
             let cost = cgImage.bytesPerRow * cgImage.height
-            // 다운샘플은 pt×scale 픽셀을 만든다. scale을 실어야 UIImage.size가 논리 pt로 잡힌다.
-            let image = UIImage(cgImage: cgImage, scale: scale, orientation: .up)
-            return ProcessedImage(image: image, encodedData: encodedData, cost: cost)
+
+            let image = UIImage(
+                cgImage: cgImage,
+                scale: scale,
+                orientation: .up
+            )
+
+            return ProcessedImage(
+                image: image,
+                encodedData: encodedData,
+                cost: cost
+            )
         }.value
     }
 
-    /// 디스크에 저장된(이미 다운샘플된) 바이트를 `UIImage`로 디코딩한다. (액터 밖 유틸리티 우선순위)
+    /// 디스크에 저장된 다운샘플 이미지를 `UIImage`로 디코딩한다.
     ///
-    /// 다운샘플은 불필요하다 — 저장 시점에 이미 타깃 픽셀로 줄여 두었기 때문이다.
-    /// 실패 시 `nil`을 반환해 상위에서 네트워크로 폴백하게 한다.
-    private static func decodeCachedData(_ data: Data, scale: CGFloat) async -> CachedImage? {
+    /// 디코딩에 실패하면 `nil`을 반환해 네트워크 경로로 폴백한다.
+    private static func decodeCachedData(
+        _ data: Data,
+        scale: CGFloat
+    ) async -> CachedImage? {
         await Task.detached(priority: .utility) {
-            let options = [kCGImageSourceShouldCacheImmediately: true] as CFDictionary
-            guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-                  let cgImage = CGImageSourceCreateImageAtIndex(source, 0, options)
+            let options = [
+                kCGImageSourceShouldCacheImmediately: true
+            ] as CFDictionary
+
+            guard
+                let source = CGImageSourceCreateWithData(
+                    data as CFData,
+                    nil
+                ),
+                let cgImage = CGImageSourceCreateImageAtIndex(
+                    source,
+                    0,
+                    options
+                )
             else {
                 return nil
             }
+
             let cost = cgImage.bytesPerRow * cgImage.height
-            // 요청 컨텍스트의 scale을 실어 표시 크기를 논리 pt로 맞춘다(네트워크 경로와 동일).
-            let image = UIImage(cgImage: cgImage, scale: scale, orientation: .up)
-            return CachedImage(image: image, cost: cost)
+
+            let image = UIImage(
+                cgImage: cgImage,
+                scale: scale,
+                orientation: .up
+            )
+
+            return CachedImage(
+                image: image,
+                cost: cost
+            )
         }.value
     }
 }
@@ -242,14 +368,15 @@ public actor ImageLoader {
 
 private extension ImageLoader {
 
-    /// 네트워크 경로의 detached 결과: 표시용 이미지 + 디스크 저장용 바이트 + 메모리 cost.
+    /// 네트워크 처리 결과.
+    /// 화면 표시·메모리 캐시·디스크 캐시에 필요한 값을 함께 전달한다.
     struct ProcessedImage {
         let image: UIImage
         let encodedData: Data
         let cost: Int
     }
 
-    /// 디스크 경로의 detached 결과: 표시용 이미지 + 메모리 cost.
+    /// 디스크 캐시에서 복구한 이미지와 메모리 비용.
     struct CachedImage {
         let image: UIImage
         let cost: Int

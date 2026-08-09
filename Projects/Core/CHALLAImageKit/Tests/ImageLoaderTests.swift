@@ -204,6 +204,42 @@ struct ImageLoaderTests {
         #expect(fetcher.callCount == 1) // 재시도 안 함
     }
 
+    @Test("오프라인은 재시도하지 않고 즉시 실패한다")
+    func doesNotRetryWhenOffline() async throws {
+        let fetcher = MockImageDataFetcher { _ in throw URLError(.notConnectedToInternet) }
+        // 재시도가 일어나면 10초 지연되므로, 재시도 안 함을 callCount로 확인한다.
+        let loader = try ImageLoader(
+            configuration: makeConfiguration(),
+            fetcher: fetcher,
+            retryDelays: [.seconds(10)]
+        )
+
+        await #expect(throws: ImageLoadingError.networkFailed(.notConnectedToInternet)) {
+            try await loader.image(from: url, pointSize: pointSize, scale: scale)
+        }
+        #expect(fetcher.callCount == 1) // 인터페이스가 없는 상태라 백오프를 기다릴 이유가 없다
+    }
+
+    // MARK: - 취소
+
+    @Test("취소된 호출은 메모리 캐시가 적중해도 cancelled를 던진다")
+    func cancelledCallerGetsCancelledEvenOnMemoryHit() async throws {
+        let fetcher = try MockImageDataFetcher.ok(validJPEG())
+        let loader = try ImageLoader(configuration: makeConfiguration(), fetcher: fetcher)
+
+        // 먼저 한 번 로드해 메모리 캐시를 채운다.
+        _ = try await loader.image(from: url, pointSize: pointSize, scale: scale)
+
+        let task = Task {
+            try await loader.image(from: url, pointSize: pointSize, scale: scale)
+        }
+        task.cancel()
+
+        await #expect(throws: ImageLoadingError.cancelled) {
+            try await task.value
+        }
+    }
+
     // MARK: - removeAll
 
     @Test("removeAll 후에는 캐시가 비어 다시 네트워크를 탄다")

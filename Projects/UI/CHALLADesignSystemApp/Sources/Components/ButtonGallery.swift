@@ -12,6 +12,7 @@ struct ButtonGallery: View {
                 destructiveSection
                 fullWidthSection
                 textButtonIconSection
+                loadingSection
                 iconButtonSection
             }
             .padding(20)
@@ -103,6 +104,22 @@ struct ButtonGallery: View {
                 CHALLATextButton("버튼명", variant: .neutral, leadingIcon: .check, trailingIcon: .caretRight) {}
                 Spacer()
             }
+        }
+    }
+
+    /// isLoading 옵션 (Primary·Large 기준 — isFullWidth 조합 포함, 프로필 설정 CTA 실사용).
+    private var loadingSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            galleryTitle("Text Button · Loading")
+            galleryCaption("isLoading (활성 · 비활성)")
+            HStack(spacing: 12) {
+                CHALLATextButton("버튼명", isLoading: true) {}
+                CHALLATextButton("버튼명", isLoading: true) {}
+                    .disabled(true)
+                Spacer()
+            }
+            galleryCaption("isFullWidth + isLoading (프로필 설정 CTA 실사용)")
+            CHALLATextButton("버튼명", isFullWidth: true, isLoading: true) {}
         }
     }
 
