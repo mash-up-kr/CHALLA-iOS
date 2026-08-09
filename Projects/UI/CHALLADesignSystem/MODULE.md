@@ -74,13 +74,22 @@ CHALLAAsyncImage(url: photo.url) { image in
     CHALLAColor.Background.level2
 }
 
-// 커스텀 로더가 필요하면(로그아웃 removeAll 연결 등) 앱 루트에서 교체
-RootView().environment(\.challaImageLoader, myLoader)
+// 로더는 앱 루트(CHALLAApp)에서 만들어 주입한다 — 아래는 주입 지점의 실제 코드
+AppView(store: store)
+    .environment(\.challaImageLoader, imageLoader)
+    .task { await imageLoader?.removeExpiredDiskCache() }          // 보관 기간 만료 정리
+    .onReceive(메모리 경고 알림) { _ in
+        Task { await imageLoader?.evictMemoryCache() }             // 메모리만 비움
+    }
 ```
 
 - 크기(`pointSize`)와 배율(`displayScale`)은 뷰가 스스로 측정해 로더에 넘긴다.
 - url·크기 변경 시 이전 로드를 취소하고 재로드하며, 뷰가 사라지면 자동 취소된다.
 - 실패 시 별도 UI 없이 placeholder를 유지한다 (#25 결정). 재등장 시 자연 재시도.
+- **로더는 앱당 하나다.** 루트에서 주입하면 Environment 기본 로더는 생성되지 않는다
+  (`set`은 기본값을 읽지 않는다). 인스턴스가 분리되면 메모리 캐시와 중복 요청 관리도 분리된다.
+- 캐시 정리 시점은 App이 정한다 — 만료 정리는 앱 실행당 한 번, 메모리 경고 시에는 메모리만 비운다.
+  `CHALLAImageKit`은 `UIApplication`을 직접 구독하지 않는다.
 
 알려진 제약:
 
