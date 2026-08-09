@@ -74,17 +74,18 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
                 pointSize: measuredSize,
                 scale: displayScale
             )
-            // 취소된 요청이 여기까지 결과를 들고 올 수 있다(로더의 메모리 히트는 취소 확인 없이 반환).
-            // 그대로 쓰면 재사용된 셀의 현재 요청 화면을 낡은 이미지로 덮어쓴다 — 여기서 차단.
-            guard !Task.isCancelled else { return }
-
             withAnimation(.easeInOut(duration: AsyncImageMetric.fadeInDuration)) {
                 phase = .success(Image(uiImage: uiImage))
             }
         } catch ImageLoadingError.cancelled {
-            // 취소된 요청의 결과. 상태에 쓰면 재사용된 셀의 현재 요청을 덮어쓰므로 버린다.
+            // 스크롤로 셀이 재사용되면 url이 바뀌고, .task(id:)가 이전 url의 로드를 취소한 뒤
+            // 새 url로 다시 시작한다. 이 블록에 오는 건 그렇게 취소된 이전 로드의 결과다.
+            //
+            // phase를 갱신하지 않는다 — 이 뷰는 이미 새 url을 로드하고 있어서,
+            // 여기서 이전 결과를 쓰면 새 이미지가 도착할 때까지 지난 사진이 보이게 된다.
         } catch is CancellationError {
-            // 로더의 번역을 거치지 않은 원시 취소가 새어 나온 경우의 안전망 — 같은 이유로 버린다.
+            // 로더가 취소를 .cancelled로 바꾸므로 지금은 도달하지 않는다.
+            // 빼면 나중에 취소가 아래 catch로 흘러 로드 실패로 기록된다.
         } catch {
             // 취소가 아닌 실제 실패(HTTP 오류·재시도 소진·손상 이미지 등)만 기록한다.
             // 실패 시 표시는 placeholder 유지 — 별도 실패 UI를 두지 않는 것이 #25 결정.
