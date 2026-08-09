@@ -64,6 +64,13 @@ struct ImageCacheConfigurationTests {
         #expect(config.memoryCostLimitBytes <= 512 * 1024 * 1024)
     }
 
+    @Test("기본 보관 기간은 서버의 방 삭제 정책과 같은 30일이다")
+    func defaultRetentionMatchesServerPolicy() {
+        let config = ImageCacheConfiguration.default
+
+        #expect(config.diskRetention == 30 * 24 * 60 * 60)
+    }
+
     @Test("기본 설정의 디스크 경로는 Caches 아래 CHALLAImageCache 폴더를 가리킨다")
     func defaultUsesDedicatedDirectory() {
         let config = ImageCacheConfiguration.default

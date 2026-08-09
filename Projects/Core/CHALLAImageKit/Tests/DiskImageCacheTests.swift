@@ -15,8 +15,15 @@ struct DiskImageCacheTests {
             .appendingPathComponent("DiskImageCacheTests-\(UUID().uuidString)", isDirectory: true)
     }
 
-    private func makeCache(capacityBytes: Int = 10 * 1024 * 1024) throws -> DiskImageCache {
-        try DiskImageCache(directory: makeTempDirectory(), capacityBytes: capacityBytes)
+    private func makeCache(
+        capacityBytes: Int = 10 * 1024 * 1024,
+        retention: TimeInterval = ImageCacheConfiguration.defaultDiskRetention
+    ) throws -> DiskImageCache {
+        try DiskImageCache(
+            directory: makeTempDirectory(),
+            capacityBytes: capacityBytes,
+            retention: retention
+        )
     }
 
     /// 방출 순서를 검증하려면 항목을 서로 구분해야 하므로, URL만 다른 키를 만든다.
@@ -152,6 +159,31 @@ struct DiskImageCacheTests {
         #expect(await cache.data(for: makeKey("small-1")) != nil)
         #expect(await cache.data(for: makeKey("large-0")) == nil)
         #expect(await cache.data(for: makeKey("large-2")) != nil)
+    }
+
+    @Test("보관 기간을 넘긴 파일은 용량이 남아 있어도 제거된다")
+    func removeExpiredDeletesFilesPastRetention() async throws {
+        // 상한 10MB에 1KB 하나 — 용량은 널널하지만 보관 기간이 지나면 지워져야 한다.
+        let cache = try makeCache(retention: 0.05)
+        let key = ImageCacheKey(url: url, pixelSize: size300)
+        await cache.store(Data(count: 1024), for: key)
+
+        try await Task.sleep(nanoseconds: 100_000_000)
+        await cache.removeExpired()
+
+        #expect(await cache.data(for: key) == nil)
+        #expect(await cache.totalBytes() == 0)
+    }
+
+    @Test("보관 기간 안의 파일은 제거하지 않는다")
+    func removeExpiredKeepsRecentFiles() async throws {
+        let cache = try makeCache(retention: 60)
+        let key = ImageCacheKey(url: url, pixelSize: size300)
+        await cache.store(Data(count: 1024), for: key)
+
+        await cache.removeExpired()
+
+        #expect(await cache.data(for: key) != nil)
     }
 
     @Test("작은 이미지가 예약분을 넘으면 넘친 만큼은 오래된 것부터 방출된다")
