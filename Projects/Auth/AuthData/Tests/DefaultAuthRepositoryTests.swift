@@ -18,7 +18,7 @@ struct DefaultAuthRepositoryTests {
     @Test("로그인 성공: BaseResponseDTO를 벗겨 AuthSession으로 변환한다")
     func loginSuccess() async throws {
         let json = """
-        {"success": true, "message": "ok", "data": {"accessToken": "access", "refreshToken": "refresh", "isNew": true}}
+        {"success": true, "message": "ok", "data": {"auth": {"accessToken": "access", "refreshToken": "refresh", "isNew": true}}}
         """
         let client = MockHTTPClient.returning(json: json)
         let repository = DefaultAuthRepository(client: client)
@@ -74,7 +74,7 @@ struct DefaultAuthRepositoryTests {
     @Test("리프레시 성공: 토큰 쌍을 AuthToken으로 변환한다")
     func refreshSuccess() async throws {
         let json = """
-        {"success": true, "message": "ok", "data": {"accessToken": "new-access", "refreshToken": "new-refresh"}}
+        {"success": true, "message": "ok", "data": {"auth": {"accessToken": "new-access", "refreshToken": "new-refresh"}}}
         """
         let client = MockHTTPClient.returning(json: json)
         let repository = DefaultAuthRepository(client: client)

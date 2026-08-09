@@ -42,12 +42,12 @@ struct ListGallery: View {
             CHALLAListSection {
                 CHALLAListRow("텍스트", icon: .palette, accessory: .arrow(value: "레몬에이드")) {}
             }
-            galleryCaption("check — List / Check (선택 / 미선택)")
+            galleryCaption("check — List / Check (선택 / 미선택) · 우측 안여백 20")
             CHALLAListSection {
                 CHALLAListRow("선택됨", icon: .circle, accessory: .check(isSelected: true)) {}
                 CHALLAListRow("선택 안 됨", icon: .circle, accessory: .check(isSelected: false)) {}
             }
-            galleryCaption("toggle — 스위치를 눌러야 바뀐다 (이름을 눌러도 안 바뀌어야 정상)")
+            galleryCaption("toggle — 스위치를 눌러야 바뀐다 (이름을 눌러도 안 바뀌어야 정상) · 우측 안여백 20")
             CHALLAListSection {
                 CHALLAListRow("켜짐", icon: .bellSimple, isOn: $accessoryToggleOn)
                 CHALLAListRow("꺼짐", icon: .bellSimple, isOn: $accessoryToggleOff)

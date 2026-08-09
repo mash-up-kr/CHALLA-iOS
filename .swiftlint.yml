@@ -17,6 +17,10 @@ line_length:
   warning: 140
   ignores_comments: true
 
+file_length:
+  warning: 400
+  ignore_comment_only_lines: true
+
 identifier_name:
   min_length: 2             # x, y 등 좌표 변수 허용을 위해 1자만 금지
 

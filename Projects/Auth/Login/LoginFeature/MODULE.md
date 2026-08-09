@@ -28,8 +28,8 @@ Store별 `withDependencies`로.
   - `alert(PresentationAction<Alert>)` — 확인 버튼만 있는 얼럿 (`Alert`는 빈 enum)
 
 ### Delegate 계약 (parent가 수신)
-- `loginSucceeded(isNewUser: Bool)` — 로그인 완료. `true`면 프로필 설정, `false`면 메인으로 분기
-  (분기 자체는 App 책임 — 이 모듈은 알리기만 한다)
+- `loginSucceeded` — 로그인 완료. 다음 화면은 App이 내 프로필을 다시 조회해 정한다
+  (닉네임 유무가 기준이라 로그인 응답의 `isNew`는 싣지 않는다 — 프로필 설정을 이탈한 사용자를 다음 실행에서도 다시 잡아야 한다)
 
 ### 동작 규칙
 - 로딩 중 중복 탭 무시 (`inFlightProvider` 가드 + `CancelID.login`/`cancelInFlight` 방어)
@@ -60,7 +60,7 @@ mise exec -- tuist test LoginFeature
 ```
 
 TCA `TestStore` 기반 Swift Testing — `LoginFeatureTests` (7개):
-- 카카오/애플 탭 → 로딩 → 성공 → `delegate.loginSucceeded(isNewUser:)` 전달
+- 카카오/애플 탭 → 로딩 → 성공 → `delegate.loginSucceeded` 전달
 - 실패(`.server`) → "로그인 실패" 얼럿 세팅 → 확인으로 해제
 - 취소(`.cancelled`) → 얼럿 없이 `inFlightProvider`만 해제
 - 로딩 중 중복 탭(같은/다른 버튼) 무시 — useCase 1회 호출 보장
