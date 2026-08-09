@@ -60,6 +60,7 @@ public extension Project {
     ///   - entitlements: 앱 엔타이틀먼트 (예: Sign in with Apple). 없으면 nil
     ///   - hasTests: 테스트 타깃(<앱이름>Tests, Tests/** 규약) 포함 여부.
     ///     실배포앱은 조립(화면 전이·의존성 배선) 자체가 검증 대상이라 켠다. 데모·검수앱은 끈다
+    ///   - signing: 서명 방식. 기본은 자동이고, 팀 프로파일을 직접 지정할 때만 `.manual`을 쓴다
     ///   - usesAPIEnvironment: true면 백엔드 서버 Info.plist 값(`API_SCHEME`/`API_HOST`/`API_PORT`)과
     ///     필요 시 ATS 예외를 자동으로 주입한다 (`Configs/Shared.xcconfig` 기준). 서버를 호출하는 앱만 켠다.
     ///   - dependencies: 앱이 의존하는 대상 (디자인 시스템 앱=DS 모듈, 데모앱=피처+데이터 등)
@@ -73,6 +74,7 @@ public extension Project {
         additionalInfoPlist: [String: Plist.Value] = [:],
         entitlements: Entitlements? = nil,
         hasTests: Bool = false,
+        signing: AppSigning = .automatic,
         usesAPIEnvironment: Bool = false,
         dependencies: [TargetDependency] = []
     ) -> Project {
@@ -101,7 +103,11 @@ public extension Project {
                 resources: ["Resources/**"],
                 entitlements: entitlements,
                 dependencies: dependencies,
-                settings: appSettings(marketingVersion: marketingVersion, buildNumber: buildNumber)
+                settings: appSettings(
+                    marketingVersion: marketingVersion,
+                    buildNumber: buildNumber,
+                    signing: signing
+                )
             )
         ]
         if hasTests {
@@ -120,22 +126,36 @@ public extension Project {
     }
 
     /// 서명·버전 빌드 설정. DEVELOPMENT_TEAM과 백엔드 서버 값은 `Configs/Shared.xcconfig`에서 주입한다.
-    private static func appSettings(marketingVersion: String, buildNumber: String) -> Settings {
+    private static func appSettings(
+        marketingVersion: String,
+        buildNumber: String,
+        signing: AppSigning
+    ) -> Settings {
         // 빌드 번호: TUIST_BUILD_NUMBER 환경변수가 있으면(CI) 그 값, 없으면(로컬) 파라미터 값.
         // xcconfig 주입이 아닌 generate 시점 결정이라 빌드 설정 우선순위(base > xcconfig)에 안 밀린다.
         // (ProjectDescription. 명시: 우리 헬퍼의 Environment enum과 이름이 겹침)
         let resolvedBuildNumber = ProjectDescription.Environment.buildNumber.getString(default: buildNumber)
 
+        var base: SettingsDictionary = [
+            "MARKETING_VERSION": .string(marketingVersion),
+            "CURRENT_PROJECT_VERSION": .string(resolvedBuildNumber),
+            "SWIFT_VERSION": .string(Environment.swiftVersion)
+        ]
+        base.merge(signing.baseSettings) { _, new in new }
+
         return .settings(
-            base: [
-                "CODE_SIGN_STYLE": "Automatic",
-                "MARKETING_VERSION": .string(marketingVersion),
-                "CURRENT_PROJECT_VERSION": .string(resolvedBuildNumber),
-                "SWIFT_VERSION": .string(Environment.swiftVersion)
-            ],
+            base: base,
             configurations: [
-                .debug(name: .debug, xcconfig: .relativeToRoot("Configs/Shared.xcconfig")),
-                .release(name: .release, xcconfig: .relativeToRoot("Configs/Shared.xcconfig"))
+                .debug(
+                    name: .debug,
+                    settings: signing.debugSettings,
+                    xcconfig: .relativeToRoot("Configs/Shared.xcconfig")
+                ),
+                .release(
+                    name: .release,
+                    settings: signing.releaseSettings,
+                    xcconfig: .relativeToRoot("Configs/Shared.xcconfig")
+                )
             ]
         )
     }
