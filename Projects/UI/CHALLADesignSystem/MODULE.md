@@ -48,7 +48,6 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 | `CHALLAAvatar` | 원형 아바타. `photo: Image?`(nil이면 person placeholder) + `size` 지름 (실측: 프로필 바 30 / 상세·채팅 22 / 팝오버 행 20) |
 | `CHALLAProfileBar` | 프로필 바. 아바타 입장 순 최대 9명 + `+N` 칩, 탭 시 멤버 팝오버(초대 코드 + 복사 콜백 + 전체 리스트, maxHeight 450 초과 시 스크롤). 열림 상태는 `isPresented` 바인딩(호출부 소유 — 드로어와 동일), 바 배경 흰(닫힘)↔검정(열림), 바깥 탭 닫기. 바를 화면 가로 중앙에 두는 배치 전제 |
 | `CHALLAAsyncImage` | 원격 이미지 뷰. 자기 크기·배율을 측정해 `ImageLoader`로 로드(다운샘플+2단 캐시), 성공 시 페이드인 |
-| `CHALLAAsyncImagePhase` | 로딩 상태 enum (`empty`/`success(Image)`/`failure(Error)`) + `image`/`error` 편의 접근 |
 | `EnvironmentValues.challaImageLoader` | 로더 주입 통로. 기본값은 `.default` 설정의 공유 로더 — 주입 없이 동작 |
 
 > **우측 여백이 행 종류마다 다르다** — 시안 안여백이 화살표 행 16, 체크·토글 행 20이다.
