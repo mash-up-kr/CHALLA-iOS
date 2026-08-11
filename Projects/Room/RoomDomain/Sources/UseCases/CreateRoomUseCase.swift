@@ -28,14 +28,13 @@ extension CreateRoomUseCase: TestDependencyKey {
     public static let previewValue = CreateRoomUseCase(
         run: { draft in
             Room(
-                id: "preview-created",
-                name: draft.name,
+                id: -100,
+                title: draft.name,
                 status: .shooting,
-                memberCount: 1,
-                photoCount: 0,
-                shotCount: draft.shotCount,
-                coverImageURL: nil,
-                thumbnailURLs: []
+                totalPhotoCount: draft.shotCount.rawValue,
+                remainedPhotoCount: draft.shotCount.rawValue, // 방금 만들어 아직 안 찍었다
+                createdAt: .now,
+                expiresAt: .now.addingTimeInterval(60 * 60 * 24 * 30)
             )
         }
     )
