@@ -1,4 +1,5 @@
 @testable import RoomData
+import Foundation
 import RoomDomain
 import Testing
 
@@ -8,23 +9,26 @@ struct InMemoryRoomRepositoryTests {
     private static let inviteCode = "1928121"
 
     /// 초대 코드가 가리키는 방. 인원 4명으로 시작해 입장 후 5명이 되는지 본다.
-    private static let joinable = Room(
-        id: "room-abc",
-        name: "친구들과 강릉 여행",
-        status: .shooting,
+    private static let joinable = RoomCard(
+        room: Room(
+            id: -50,
+            title: "친구들과 강릉 여행",
+            status: .shooting,
+            totalPhotoCount: 24,
+            remainedPhotoCount: 12,
+            createdAt: Date(timeIntervalSince1970: 0),
+            expiresAt: Date(timeIntervalSince1970: 60 * 60 * 24 * 30)
+        ),
         memberCount: 4,
-        photoCount: 12,
-        shotCount: .twentyFour,
-        coverImageURL: nil,
         thumbnailURLs: []
     )
 
     private static func makeRepository(
-        rooms: [Room] = [],
+        cards: [RoomCard] = [],
         failure: RoomError? = nil
     ) -> InMemoryRoomRepository {
         InMemoryRoomRepository(
-            rooms: rooms,
+            cards: cards,
             inviteCodes: [inviteCode: joinable.id],
             failure: failure
         )
@@ -33,11 +37,11 @@ struct InMemoryRoomRepositoryTests {
     // MARK: - 조회
 
     @Test("생성 시 넣은 방들을 순서 그대로 돌려준다")
-    func returnsInitialRooms() async throws {
-        let rooms = [Room.previewShooting, .previewPrintWaiting, .previewPrinted]
-        let repository = Self.makeRepository(rooms: rooms)
+    func returnsInitialCards() async throws {
+        let cards = [RoomCard.previewShooting, .previewPrintWaiting, .previewPrinted]
+        let repository = Self.makeRepository(cards: cards)
 
-        #expect(try await repository.rooms() == rooms)
+        #expect(try await repository.rooms() == cards)
     }
 
     // MARK: - 생성
@@ -50,13 +54,14 @@ struct InMemoryRoomRepositoryTests {
             RoomDraft(name: "제주 우정 여행", shotCount: .fortyEight)
         )
 
-        #expect(created.name == "제주 우정 여행")
-        #expect(created.shotCount == .fortyEight)
+        #expect(created.room.title == "제주 우정 여행")
+        #expect(created.room.totalPhotoCount == 48)
         // 만든 직후라 촬영 중이고, 만든 사람 혼자이며, 찍은 사진이 없다.
-        #expect(created.status == .shooting)
+        #expect(created.room.status == .shooting)
         #expect(created.memberCount == 1)
-        #expect(created.photoCount == 0)
-        #expect(!created.id.isEmpty)
+        #expect(created.room.shotPhotoCount == 0)
+        // 서버가 발급하지 않은 id는 음수라는 표식을 지킨다.
+        #expect(created.id < 0)
     }
 
     @Test("만든 방은 목록에 남는다")
@@ -72,13 +77,13 @@ struct InMemoryRoomRepositoryTests {
 
     @Test("여러 번 만들면 최근 방이 맨 앞에 오고 id는 서로 다르다")
     func recentRoomComesFirst() async throws {
-        let repository = Self.makeRepository(rooms: [Self.joinable])
+        let repository = Self.makeRepository(cards: [Self.joinable])
 
         let first = try await repository.createRoom(RoomDraft(name: "첫 번째", shotCount: .default))
         let second = try await repository.createRoom(RoomDraft(name: "두 번째", shotCount: .default))
 
-        let rooms = try await repository.rooms()
-        #expect(rooms.map(\.name) == ["두 번째", "첫 번째", "친구들과 강릉 여행"])
+        let cards = try await repository.rooms()
+        #expect(cards.map(\.room.title) == ["두 번째", "첫 번째", "친구들과 강릉 여행"])
         #expect(first.id != second.id)
     }
 
@@ -86,7 +91,7 @@ struct InMemoryRoomRepositoryTests {
 
     @Test("입장하면 인원이 하나 늘고 목록에도 반영된다")
     func joinIncrementsMemberCount() async throws {
-        let repository = Self.makeRepository(rooms: [Self.joinable])
+        let repository = Self.makeRepository(cards: [Self.joinable])
 
         let joined = try await repository.joinRoom(inviteCode: Self.inviteCode)
 
@@ -97,7 +102,7 @@ struct InMemoryRoomRepositoryTests {
 
     @Test("등록되지 않은 코드는 .roomNotFound를 던진다")
     func unknownInviteCodeThrows() async {
-        let repository = Self.makeRepository(rooms: [Self.joinable])
+        let repository = Self.makeRepository(cards: [Self.joinable])
 
         await #expect(throws: RoomError.roomNotFound) {
             _ = try await repository.joinRoom(inviteCode: "0000000")
@@ -108,7 +113,7 @@ struct InMemoryRoomRepositoryTests {
 
     @Test("failure를 심으면 세 메서드 모두 그 오류를 던진다")
     func injectedFailurePropagates() async {
-        let repository = Self.makeRepository(rooms: [Self.joinable], failure: .network)
+        let repository = Self.makeRepository(cards: [Self.joinable], failure: .network)
 
         await #expect(throws: RoomError.network) {
             _ = try await repository.rooms()
