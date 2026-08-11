@@ -2,7 +2,6 @@ import ProjectDescription
 import ProjectDescriptionHelpers
 
 /// 테스트 타깃이 RoomDomain을 직접 import해야 해서(엔티티로 검증) makeModule 대신 직접 구성한다.
-/// 서버 API 확정 전이라 CHALLANetwork 의존이 없다 — DefaultRoomRepository 추가 시 .network를 붙인다.
 let project = Project(
     name: "RoomData",
     organizationName: Environment.organizationName,
@@ -14,7 +13,7 @@ let project = Project(
     targets: [
         .makeModuleTarget(
             name: "RoomData",
-            dependencies: [.roomDomain]
+            dependencies: [.roomDomain, .network] // .network: DefaultRoomRepository가 HTTPClient로 서버를 부른다
         ),
         .target(
             name: "RoomDataTests",
