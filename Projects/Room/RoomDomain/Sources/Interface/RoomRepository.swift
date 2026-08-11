@@ -6,11 +6,13 @@
 public protocol RoomRepository: Sendable {
 
     /// 내가 속한 방 전부. 상태가 섞인 한 배열로 온다.
-    func rooms() async throws -> [Room]
+    func rooms() async throws -> [RoomCard]
 
-    /// id·상태·인원수는 구현체가 채운다.
-    func createRoom(_ draft: RoomDraft) async throws -> Room
+    /// 만든 방을 홈 목록에 바로 꽂을 수 있는 카드로 돌려준다.
+    /// 서버 생성 응답이 id뿐이어도 카드를 채우는 것은 구현체 몫이다 —
+    /// 서버 사정이 이 계약까지 올라오지 않게 한다.
+    func createRoom(_ draft: RoomDraft) async throws -> RoomCard
 
     /// 코드에 해당하는 방이 없으면 `RoomError.roomNotFound`를 던진다.
-    func joinRoom(inviteCode: String) async throws -> Room
+    func joinRoom(inviteCode: String) async throws -> RoomCard
 }

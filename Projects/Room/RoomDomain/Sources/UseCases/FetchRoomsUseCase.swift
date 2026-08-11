@@ -7,7 +7,7 @@ import DependenciesMacros
 /// import하게 된다. 조립은 실행 앱의 `CompositionRoot`가 맡는다 (세 UseCase 모두 같다).
 @DependencyClient
 public struct FetchRoomsUseCase: Sendable {
-    public var run: @Sendable () async throws -> [Room]
+    public var run: @Sendable () async throws -> [RoomCard]
 }
 
 extension FetchRoomsUseCase: TestDependencyKey {
@@ -19,7 +19,7 @@ extension FetchRoomsUseCase: TestDependencyKey {
     public static let testValue = FetchRoomsUseCase()
 
     public static let previewValue = FetchRoomsUseCase(
-        run: { Room.previewRooms }
+        run: { RoomCard.previewCards }
     )
 }
 
