@@ -42,12 +42,12 @@ public struct CreateRoomFeature {
         /// 부모(홈)에게만 알린다. 목록 반영과 드로어 닫기는 홈이 한다.
         @CasePathable
         public enum Delegate: Equatable, Sendable {
-            case created(Room)
+            case created(RoomCard)
         }
 
         case delegate(Delegate)
 
-        case createResponse(Result<Room, RoomError>)
+        case createResponse(Result<RoomCard, RoomError>)
 
         public enum Alert: Equatable, Sendable {}
 

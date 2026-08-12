@@ -40,12 +40,12 @@ public struct JoinRoomFeature {
         /// parent(홈)에게만 알린다. 목록 반영과 드로어 닫기는 홈이 한다.
         @CasePathable
         public enum Delegate: Equatable, Sendable {
-            case joined(Room)
+            case joined(RoomCard)
         }
 
         case delegate(Delegate)
 
-        case joinResponse(Result<Room, RoomError>)
+        case joinResponse(Result<RoomCard, RoomError>)
 
         public enum Alert: Equatable, Sendable {}
 

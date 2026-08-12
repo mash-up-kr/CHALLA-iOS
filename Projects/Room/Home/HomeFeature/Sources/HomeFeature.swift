@@ -16,21 +16,21 @@ public struct HomeFeature {
         public let nickname: String
         public let profileImageURL: URL?
 
-        public var rooms: IdentifiedArrayOf<Room> = []
+        public var cards: IdentifiedArrayOf<RoomCard> = []
         public var loadState: LoadState = .notRequested
 
         /// 상단 + 드롭다운의 열림 여부 (Destination에 넣지 않은 이유는 아래).
         public var isPlusMenuPresented = false
         @Presents public var destination: Destination.State?
 
-        /// 섹션 분류는 Domain 규칙에 맡긴다. 저장하면 `rooms`와 어긋날 수 있어 매번 계산한다.
+        /// 섹션 분류는 Domain 규칙에 맡긴다. 저장하면 `cards`와 어긋날 수 있어 매번 계산한다.
         public var board: RoomBoard {
-            RoomBoard(rooms: rooms.elements)
+            RoomBoard(cards: cards.elements)
         }
 
         /// 첫 조회 중에만 참이다. 재조회 중에는 거짓이라 보던 목록이 스피너로 바뀌지 않는다.
         public var showsLoading: Bool {
-            loadState == .loading && rooms.isEmpty
+            loadState == .loading && cards.isEmpty
         }
 
         /// 조회를 마쳤는데 방이 0개일 때만 참이다.
@@ -42,7 +42,7 @@ public struct HomeFeature {
         /// 조회에 실패했고 보여줄 목록도 없을 때의 안내 문구. 그 외에는 nil.
         /// 재조회 실패는 직전 목록을 그대로 두므로 여기 해당하지 않는다.
         public var errorMessage: String? {
-            guard case let .failed(error) = loadState, rooms.isEmpty else { return nil }
+            guard case let .failed(error) = loadState, cards.isEmpty else { return nil }
             return error.userMessage
         }
 
@@ -52,7 +52,7 @@ public struct HomeFeature {
         }
     }
 
-    /// 방이 정말 없는 것과 아직 못 받은 것을 구분한다 — `rooms.isEmpty`만 보면
+    /// 방이 정말 없는 것과 아직 못 받은 것을 구분한다 — `cards.isEmpty`만 보면
     /// 첫 조회 중에 빈 화면이 잠깐 보였다 사라진다.
     public enum LoadState: Equatable, Sendable {
         case notRequested
@@ -83,7 +83,7 @@ public struct HomeFeature {
         public enum ViewAction: Sendable {
             case task
             case retryButtonTapped
-            /// `Room` 대신 id를 받는다 — 뷰가 그린 값과 State의 값이 다를 수 있어 리듀서가 State에서 찾는다.
+            /// `RoomCard` 대신 id를 받는다 — 뷰가 그린 값과 State의 값이 다를 수 있어 리듀서가 State에서 찾는다.
             case roomTapped(Room.ID)
             case settingsButtonTapped
             case plusButtonTapped
@@ -103,15 +103,15 @@ public struct HomeFeature {
         /// 부모(App)에게만 알린다. 화면 전환은 App이 조립한다.
         @CasePathable
         public enum Delegate: Equatable, Sendable {
-            case roomSelected(Room)
-            case roomCreated(Room)
-            case roomJoined(Room)
+            case roomSelected(RoomCard)
+            case roomCreated(RoomCard)
+            case roomJoined(RoomCard)
             case settingsTapped
         }
 
         case delegate(Delegate)
 
-        case roomsResponse(Result<[Room], RoomError>)
+        case roomsResponse(Result<[RoomCard], RoomError>)
 
         public enum Alert: Equatable, Sendable {
             case retryTapped
@@ -136,9 +136,9 @@ public struct HomeFeature {
                 // 화면 등장·재시도 버튼·얼럿의 다시 시도가 같은 조회를 부른다.
                 return fetchRooms(&state)
 
-            case let .roomsResponse(.success(rooms)):
+            case let .roomsResponse(.success(cards)):
                 state.loadState = .loaded
-                state.rooms = IdentifiedArray(uniqueElements: rooms)
+                state.cards = IdentifiedArray(uniqueElements: cards)
                 return .none
 
             case let .roomsResponse(.failure(error)):
@@ -160,8 +160,8 @@ public struct HomeFeature {
                 return .none
 
             case let .view(.roomTapped(id)):
-                guard let room = state.rooms[id: id] else { return .none }
-                return .send(.delegate(.roomSelected(room)))
+                guard let card = state.cards[id: id] else { return .none }
+                return .send(.delegate(.roomSelected(card)))
 
             case .view(.settingsButtonTapped):
                 return .send(.delegate(.settingsTapped))
@@ -191,18 +191,18 @@ public struct HomeFeature {
                 state.destination = nil
                 return .none
 
-            case let .destination(.presented(.createRoom(.delegate(.created(room))))):
+            case let .destination(.presented(.createRoom(.delegate(.created(card))))):
                 state.destination = nil
-                state.rooms.insert(room, at: 0)
-                return .send(.delegate(.roomCreated(room)))
+                state.cards.insert(card, at: 0)
+                return .send(.delegate(.roomCreated(card)))
 
             // 초대 코드는 방에 계속 붙어 있어 이미 들어간 방에 다시 입장할 수 있다.
             // insert면 같은 id가 두 번 들어가므로 updateOrInsert를 쓴다 — at: 0은 새 방에만 적용된다.
             // TODO: 서버가 중복 입장에 성공을 주는지 에러를 주는지 미확정 — 에러면 이 처리는 얼럿으로 옮긴다.
-            case let .destination(.presented(.joinRoom(.delegate(.joined(room))))):
+            case let .destination(.presented(.joinRoom(.delegate(.joined(card))))):
                 state.destination = nil
-                state.rooms.updateOrInsert(room, at: 0)
-                return .send(.delegate(.roomJoined(room)))
+                state.cards.updateOrInsert(card, at: 0)
+                return .send(.delegate(.roomJoined(card)))
 
             // delegate는 부모가 받고, 나머지 destination 액션은 ifLet이 자식에게 넘긴다.
             case .delegate, .destination:
@@ -222,8 +222,8 @@ public struct HomeFeature {
         state.loadState = .loading
         return .run { [fetchRoomsUseCase] send in // 비-Sendable self 대신 의존성 값만 캡처
             do {
-                let rooms = try await fetchRoomsUseCase.run()
-                await send(.roomsResponse(.success(rooms)))
+                let cards = try await fetchRoomsUseCase.run()
+                await send(.roomsResponse(.success(cards)))
             } catch let error as RoomError {
                 await send(.roomsResponse(.failure(error)))
             } catch is CancellationError {
