@@ -85,6 +85,13 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Setting/Setting/SettingFeature")
     )
 
+    // MARK: - Camera
+
+    static let cameraFeature = TargetDependency.project(
+        target: "CameraFeature",
+        path: .relativeToRoot("Projects/Camera/Camera/CameraFeature")
+    )
+
     // MARK: - Core
 
     static let keychain = TargetDependency.project(
