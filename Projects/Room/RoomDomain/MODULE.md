@@ -10,10 +10,15 @@ Feature-facing UseCase를 정의한다. 서버·저장소의 존재를 모르며
 **화면이 아니라 대상 단위로 한 벌이다.** 홈·방 상세·촬영 등 방을 다루는 모든 Feature가 이 모듈 하나를
 공유한다. 화면마다 Domain을 만들면 같은 `Room` 엔티티가 여러 벌 생긴다.
 
+**엔티티는 서버 두 API의 교집합이다 (#54).** 목록(`GET /rooms`)과 상세(`GET /rooms/{id}`)가
+공통으로 주는 필드만 `Room`에 담고, 한쪽 API만 주는 값은 화면별 Model(`RoomCard`, 추후 `RoomDetail`)이
+`Room`을 감싸며 들고 있다. 어느 값이 어느 API에서 오는지 타입에 드러나고, 홈→상세로 `Room`을 넘겨
+첫 프레임부터 그릴 수 있다.
+
 **의존 주입 설계**: UseCase는 `@DependencyClient` + `TestDependencyKey`로 선언하고 **`liveValue`를
 의도적으로 두지 않는다**. 인자 없는 `liveValue`를 채우려면 구체 저장소를 생성해야 하고, 그러려면 Data를
 import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가 인터페이스만 받아 규칙을 조립하고,
-구체 저장소를 넘기는 일은 합성 루트(`HomeFeatureDemo`·`CHALLAApp`의 `CompositionRoot`)가 한다.
+구체 저장소를 넘기는 일은 합성 루트(`CHALLAApp`·`HomeFeatureDemo`의 `CompositionRoot`)가 한다.
 `AuthDomain`과 같은 구조다.
 
 **동시성**: 모든 공개 타입이 값 타입 + `Sendable`이다 (`@unchecked` 미사용).
@@ -25,13 +30,16 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 
 ### Entities (`Sources/Entities/`)
 
-- `struct Room` — `id` · `name` · `status` · `memberCount` · `photoCount` · `shotCount` ·
-  `coverImageURL?` · `thumbnailURLs`. 전 필드 `let`이라 갱신은 새 값을 만든다
+- `struct Room` — 방 그 자체 (목록·상세 API의 교집합 8필드). `id: Int64`(서버 발급) · `title` ·
+  `status` · `totalPhotoCount: Int` · `remainedPhotoCount` · `createdAt` · `expiresAt` ·
+  `photoPrintCompletedAt?`(인화 전에는 nil이 정상). 전 필드 `let`이라 갱신은 새 값을 만든다
+  - `shotPhotoCount` — 찍은 장수 계산 프로퍼티 (`total − remained`, 서버는 남은 장수를 준다)
   - `enum Room.Status` — `.shooting` / `.printWaiting` / `.printed`
   - `Room.previewShooting` · `previewPrintWaiting` · `previewPrinted` · `previewRooms` —
-    `#Preview`·테스트용 상수. 사진 URL이 비어 있어 네트워크 없이 즉시 그려진다
+    `#Preview`·테스트용 상수. id는 음수(-1~-3, 서버 양수 id와 불겹침 표식), 날짜는 고정값
 - `enum RoomShotCount: Int` — `.twentyFour`(24) / `.fortyEight`(48) / `.seventyTwo`(72), `.default`는 24
-  - `Room`과 `RoomDraft`가 함께 쓰는 값이라 엔티티다
+  - **방을 만들 때 고르는 입력값의 규칙**이라 `RoomDraft` 전용이다. 이미 존재하는 방의
+    `totalPhotoCount`는 서버가 정하는 자유값이라 enum이 아니다
 
 ### Errors (`Sources/Errors/`)
 
@@ -41,17 +49,24 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 
 ### Interface (`Sources/Interface/` — 구현: RoomData)
 
-- `protocol RoomRepository` — `rooms()` · `createRoom(_:)` · `joinRoom(inviteCode:)`
+- `protocol RoomRepository` — `rooms() -> [RoomCard]` · `createRoom(_:) -> RoomCard` ·
+  `joinRoom(inviteCode:) -> RoomCard`
   - 구현체 계약: 실패는 반드시 `RoomError`로 번역해 던진다. 입력값 검증은 UseCase가 이미 마쳤다
+  - 생성·입장도 카드를 돌려준다 — 홈이 성공 직후 목록에 꽂을 수 있어야 하고, 서버 응답이
+    부실해도(id만 주는 등) 그 사정은 구현체가 흡수한다
 
 ### Models (`Sources/Models/`)
 
 경계 하나만을 위한 입출력 구조와 엔티티에서 파생된 결과. 정체성도 수명도 없어 `Entities/`와 섞지 않는다.
 
+- `struct RoomCard` — 홈 목록 한 칸 (`GET /rooms` 응답 한 줄에 대응). `room: Room` +
+  목록 API만 주는 값(`memberCount` · `thumbnailURLs`)
+  - `id`는 `room.id`를 그대로 노출 — 카드 탭이 방 식별로 바로 이어진다
+  - `coverImageURL` — 촬영 중 카드의 대표 사진 = 첫 썸네일 (서버에 별도 필드 없음, 백엔드 확인 TODO)
+  - `previewShooting` · `previewPrintWaiting` · `previewPrinted` · `previewCards` 상수
 - `struct RoomDraft` — `name` · `shotCount`. 방을 만들기 전의 입력값이라 `Room`으로 표현할 수 없다
-  (id·상태·인원수는 서버가 채운다). 드로어에서 만들어져 `RoomRepository.createRoom`까지 가는
-  요청 모델이라 엔티티가 아니다
-- `struct RoomBoard` — 방 배열 하나를 `shooting` / `completed` 두 배열로 가른 결과. `isEmpty`
+  (id·상태·인원수는 서버가 채운다)
+- `struct RoomBoard` — 카드 배열 하나를 `shooting` / `completed` 두 배열로 가른 결과. `isEmpty`
   - 섹션별로 따로 조회하지 않기 위한 타입이다. 두 번 조회하면 그 사이에 상태가 바뀐 방이
     양쪽에 나오거나 어디에도 안 나온다
 - `enum RoomSection` — `.shooting` / `.completed`
@@ -68,10 +83,11 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
 
 ### UseCases (`@DependencyClient` — `liveValue` 없음)
 
-- `FetchRoomsUseCase` (`\.fetchRoomsUseCase`) — 방 목록 조회
-- `CreateRoomUseCase` (`\.createRoomUseCase`) — `RoomNameRule` 적용 후 생성. 규칙 위반이면
-  저장소를 부르지 않고 `.invalidRoomName`
-- `JoinRoomUseCase` (`\.joinRoomUseCase`) — `InviteCodeRule` 적용 후 입장. 빈 코드면 `.invalidInviteCode`
+- `FetchRoomsUseCase` (`\.fetchRoomsUseCase`) — 방 카드 목록 조회 (`-> [RoomCard]`)
+- `CreateRoomUseCase` (`\.createRoomUseCase`) — `RoomNameRule` 적용 후 생성 (`-> RoomCard`).
+  규칙 위반이면 저장소를 부르지 않고 `.invalidRoomName`
+- `JoinRoomUseCase` (`\.joinRoomUseCase`) — `InviteCodeRule` 적용 후 입장 (`-> RoomCard`).
+  빈 코드면 `.invalidInviteCode`
 
 셋 다 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
 
@@ -79,7 +95,7 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
 
 - **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (TCA 전이 의존, `Tuist/Package.swift` 경유)
 - **이 모듈에 의존**: `HomeFeature`(UseCase를 `@Dependency`로 주입받음) ·
-  `RoomData`(인터페이스 구현) · 합성 루트(`.live(repository:)` 조립)
+  `RoomData`(인터페이스 구현) · 합성 루트(`CHALLAApp`·`HomeFeatureDemo` — `.live(repository:)` 조립)
 
 ## 테스트 실행 방법
 
