@@ -65,7 +65,7 @@ struct CreateRoomFeatureTests {
 
     @Test("만들기 성공은 delegate로 방을 알린다")
     func createSuccessDelegates() async {
-        let created = Room.previewShooting
+        let created = RoomCard.previewShooting
         let store = Self.makeStore(createRoom: CreateRoomUseCase(run: { _ in created }))
 
         await store.send(\.binding.name, "제주 우정 여행") {
