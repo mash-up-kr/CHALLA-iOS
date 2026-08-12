@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import HomeFeature
 import LoginFeature
 import ProfileSetupFeature
 import UserDomain
@@ -15,8 +16,7 @@ public struct AppFeature {
         case launching
         case login(LoginFeature.State)
         case profileSetup(ProfileSetupFeature.State)
-        // TODO: HomeFeature가 생기면 그 State로 교체할 것.
-        case home(UserProfile)
+        case home(HomeFeature.State)
 
         /// 화면 전환만 식별한다 — 자식 State 변화(닉네임 입력 등)에는 반응하지 않는다.
         public var screenID: ScreenID {
@@ -40,6 +40,7 @@ public struct AppFeature {
         case profileResponse(Result<UserProfile, UserError>)
         case login(LoginFeature.Action)
         case profileSetup(ProfileSetupFeature.Action)
+        case home(HomeFeature.Action)
     }
 
     // MARK: - Init
@@ -60,7 +61,7 @@ public struct AppFeature {
 
             case let .profileResponse(.success(profile)):
                 state = profile.isProfileCompleted
-                    ? .home(profile)
+                    ? .home(Self.homeState(for: profile))
                     : .profileSetup(ProfileSetupFeature.State())
                 return .none
 
@@ -74,10 +75,23 @@ public struct AppFeature {
                 return fetchMyProfile()
 
             case let .profileSetup(.delegate(.setupCompleted(profile))):
-                state = .home(profile)
+                state = .home(Self.homeState(for: profile))
                 return .none
 
-            case .login, .profileSetup:
+            // 홈이 알리는 화면 전환 요청 — Feature끼리는 서로를 모르므로 조립은 App이 한다 (규칙 3).
+            case .home(.delegate(.roomSelected)):
+                // TODO: 방 상세 Feature가 생기면 여기서 push한다.
+                return .none
+
+            case .home(.delegate(.settingsTapped)):
+                // TODO: 설정 앱 연결(#50)이 머지되면 여기서 SettingFeature를 연다.
+                return .none
+
+            case .home(.delegate(.roomCreated)), .home(.delegate(.roomJoined)):
+                // TODO: 방 상세 Feature가 생기면 만든·입장한 방으로 바로 진입할지 기획과 정해 여기서 조립한다.
+                return .none
+
+            case .login, .profileSetup, .home:
                 return .none
             }
         }
@@ -87,6 +101,18 @@ public struct AppFeature {
         .ifCaseLet(\.profileSetup, action: \.profileSetup) {
             ProfileSetupFeature()
         }
+        .ifCaseLet(\.home, action: \.home) {
+            HomeFeature()
+        }
+    }
+
+    /// 로그인 뒤 조회한 내 프로필을 홈의 시작 State로 옮겨 담는다 — 홈의 인사말·프로필 아바타가 이 값으로 그려진다.
+    /// 홈으로 들어오는 문이 둘(프로필 조회 성공·프로필 설정 완료)이라 변환 규칙을 한곳에 모았다.
+    private static func homeState(for profile: UserProfile) -> HomeFeature.State {
+        HomeFeature.State(
+            nickname: profile.nickname ?? "",
+            profileImageURL: profile.imageURL
+        )
     }
 
     private enum CancelID { case profile }

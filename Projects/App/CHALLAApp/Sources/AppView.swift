@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import HomeFeature
 import LoginFeature
 import ProfileSetupFeature
 import SwiftUI
@@ -28,8 +29,10 @@ public struct AppView: View {
                     ProfileSetupView(store: profileStore)
                 }
 
-            case let .home(profile):
-                HomePlaceholderView(profile: profile)
+            case .home:
+                if let homeStore = store.scope(state: \.home, action: \.home) {
+                    HomeView(store: homeStore)
+                }
             }
         }
         .task { store.send(.task) }
