@@ -196,9 +196,6 @@ private extension CameraFeature.State {
 
         return Self(
             rooms: IdentifiedArray(uniqueElements: rooms),
-            filters: IdentifiedArray(uniqueElements: (1 ... 8).map {
-                CameraFilter(id: "\($0)", name: "필터\($0)")
-            }),
             selectedFilterID: selectedFilterID,
             flashMode: flashMode,
             captureAvailability: captureAvailability
@@ -210,9 +207,9 @@ private extension CameraFeature.State {
     CameraView(store: Store(initialState: .demo()) { CameraFeature() })
 }
 
-#Preview("플래시 꺼짐 · 필터 5") {
+#Preview("플래시 꺼짐 · Warm 필터") {
     CameraView(
-        store: Store(initialState: .demo(flashMode: .off, selectedFilterID: "5")) { CameraFeature() }
+        store: Store(initialState: .demo(flashMode: .off, selectedFilterID: "warm")) { CameraFeature() }
     )
 }
 

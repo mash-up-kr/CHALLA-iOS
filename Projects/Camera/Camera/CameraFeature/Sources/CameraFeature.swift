@@ -22,7 +22,7 @@ public struct CameraFeature {
         public init(
             rooms: IdentifiedArrayOf<CameraRoom> = [],
             selectedRoomID: CameraRoom.ID? = nil,
-            filters: IdentifiedArrayOf<CameraFilter> = [],
+            filters: IdentifiedArrayOf<CameraFilter> = CameraFilterCatalog.filters,
             selectedFilterID: CameraFilter.ID? = nil,
             flashMode: CameraFlashMode = .on,
             cameraPosition: CameraPosition = .back,
