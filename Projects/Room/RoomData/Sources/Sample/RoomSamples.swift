@@ -33,7 +33,7 @@ public enum RoomSamples {
     /// id가 음수인 이유는 `InMemoryRoomRepository.nextID` 주석 참고 — 샘플은 -10번대를 쓴다.
     /// 날짜가 고정값인 이유 — 검수할 때마다 화면(D-day 등)이 달라지지 않아야 한다.
     private static let createdAt = Date(timeIntervalSince1970: 1_784_000_000)
-    private static let expiresAt = createdAt.addingTimeInterval(60 * 60 * 24 * 30)
+    private static let expiresAt = createdAt.addingTimeInterval(Room.previewLifetime)
 
     private static let gangneung = RoomCard(
         room: Room(
@@ -73,7 +73,7 @@ public enum RoomSamples {
             remainedPhotoCount: 0,
             createdAt: createdAt,
             expiresAt: expiresAt,
-            photoPrintCompletedAt: createdAt.addingTimeInterval(60 * 60 * 24 * 3)
+            photoPrintCompletedAt: createdAt.addingTimeInterval(Room.previewPrintCompletionOffset)
         ),
         memberCount: 11,
         thumbnailURLs: thumbnailURLs(prefix: "first-meeting")

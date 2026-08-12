@@ -61,9 +61,16 @@ public struct Room: Identifiable, Equatable, Sendable {
 /// 날짜는 고정 시각이다 — 프리뷰는 언제 열어도 같은 화면을 그려야 한다.
 public extension Room {
 
+    /// 프리뷰·샘플·가짜 저장소가 함께 쓰는 만료 간격(30일).
+    /// 실제 만료는 서버가 expiresAt으로 내려준다 — 화면 로직에서 이 값으로 계산하지 말 것.
+    static let previewLifetime: TimeInterval = 60 * 60 * 24 * 30
+
+    /// 프리뷰·샘플이 쓰는 인화 완료 시각의 오프셋(만든 지 3일 뒤).
+    static let previewPrintCompletionOffset: TimeInterval = 60 * 60 * 24 * 3
+
     /// 프리뷰 공통 기준 시각 (2026-07-13 00:00 UTC 근처의 고정값).
     private static let previewCreatedAt = Date(timeIntervalSince1970: 1_784_000_000)
-    private static let previewExpiresAt = previewCreatedAt.addingTimeInterval(60 * 60 * 24 * 30)
+    private static let previewExpiresAt = previewCreatedAt.addingTimeInterval(previewLifetime)
 
     static let previewShooting = Room(
         id: -1,
@@ -93,7 +100,7 @@ public extension Room {
         remainedPhotoCount: 0,
         createdAt: previewCreatedAt,
         expiresAt: previewExpiresAt,
-        photoPrintCompletedAt: previewCreatedAt.addingTimeInterval(60 * 60 * 24 * 3)
+        photoPrintCompletedAt: previewCreatedAt.addingTimeInterval(previewPrintCompletionOffset)
     )
 
     /// 두 섹션이 모두 보이는 화면을 재현한다.

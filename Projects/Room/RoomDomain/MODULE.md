@@ -37,6 +37,8 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   - `enum Room.Status` — `.shooting` / `.printWaiting` / `.printed`
   - `Room.previewShooting` · `previewPrintWaiting` · `previewPrinted` · `previewRooms` —
     `#Preview`·테스트용 상수. id는 음수(-1~-3, 서버 양수 id와 불겹침 표식), 날짜는 고정값
+  - `Room.previewLifetime`(30일) · `previewPrintCompletionOffset`(3일) — 프리뷰·샘플·가짜 저장소가
+    함께 쓰는 날짜 간격. 실제 만료는 서버가 `expiresAt`으로 내려주므로 화면 로직에서 쓰지 않는다
 - `enum RoomShotCount: Int` — `.twentyFour`(24) / `.fortyEight`(48) / `.seventyTwo`(72), `.default`는 24
   - **방을 만들 때 고르는 입력값의 규칙**이라 `RoomDraft` 전용이다. 이미 존재하는 방의
     `totalPhotoCount`는 서버가 정하는 자유값이라 enum이 아니다

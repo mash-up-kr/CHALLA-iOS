@@ -273,7 +273,7 @@ private enum PreviewCards {
     static let all: [RoomCard] = [shooting, printWaiting, printed]
 
     private static let createdAt = Date(timeIntervalSince1970: 1_784_000_000)
-    private static let expiresAt = createdAt.addingTimeInterval(60 * 60 * 24 * 30)
+    private static let expiresAt = createdAt.addingTimeInterval(Room.previewLifetime)
 
     private static let shooting = RoomCard(
         room: Room(
@@ -313,7 +313,7 @@ private enum PreviewCards {
             remainedPhotoCount: 0,
             createdAt: createdAt,
             expiresAt: expiresAt,
-            photoPrintCompletedAt: createdAt.addingTimeInterval(60 * 60 * 24 * 3)
+            photoPrintCompletedAt: createdAt.addingTimeInterval(Room.previewPrintCompletionOffset)
         ),
         memberCount: 11,
         thumbnailURLs: thumbnailURLs(prefix: "first-meeting")

@@ -36,7 +36,7 @@ extension CreateRoomUseCase: TestDependencyKey {
                     totalPhotoCount: draft.shotCount.rawValue,
                     remainedPhotoCount: draft.shotCount.rawValue, // 방금 만들어 아직 안 찍었다
                     createdAt: .now,
-                    expiresAt: .now.addingTimeInterval(60 * 60 * 24 * 30)
+                    expiresAt: .now.addingTimeInterval(Room.previewLifetime)
                 ),
                 memberCount: 1, // 만든 직후라 혼자다
                 thumbnailURLs: []

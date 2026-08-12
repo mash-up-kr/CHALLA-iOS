@@ -30,9 +30,6 @@ public actor InMemoryRoomRepository: RoomRepository {
     /// 데이터임을 알 수 있다. 프리뷰(-1…-3)·샘플(-10번대)과 겹치지 않게 -1000부터 시작한다.
     private var nextID: Int64 = -1000
 
-    /// 방을 만들면 이 기간 뒤에 만료된다 (서버 정책 30일을 흉내).
-    private static let lifetime: TimeInterval = 60 * 60 * 24 * 30
-
     /// - Parameters:
     ///   - cards: 시작 시점의 방 목록.
     ///   - inviteCodes: 초대 코드 → 방 id. 여기 없는 코드로 입장하면 `.roomNotFound`가 난다.
@@ -73,7 +70,7 @@ public actor InMemoryRoomRepository: RoomRepository {
                 totalPhotoCount: draft.shotCount.rawValue,
                 remainedPhotoCount: draft.shotCount.rawValue,
                 createdAt: now,
-                expiresAt: now.addingTimeInterval(Self.lifetime)
+                expiresAt: now.addingTimeInterval(Room.previewLifetime) // 실서버 정책과 같은 30일 뒤 만료
             ),
             memberCount: 1,
             thumbnailURLs: []
