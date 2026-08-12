@@ -7,12 +7,15 @@
 
 ## 지금 구현 범위
 
-**UI만 구현돼 있다.** 서버 API와 AVFoundation 캡처는 아직 붙지 않았다.
+**UI와 필터(LUT)까지 구현돼 있다.** 서버 API와 AVFoundation 캡처는 아직 붙지 않았다.
 
-- 방 목록 · 필터 목록 · 촬영 가능 여부(`captureAvailability`)는 **호출부가 `State`로 주입한다.**
+- 방 목록 · 촬영 가능 여부(`captureAvailability`)는 **호출부가 `State`로 주입한다.**
   API가 생기면 Domain에 UseCase를 추가하고 `@Dependency`로 받아 채우는 형태로 바꾼다 (아키텍처 규칙 2).
+- 필터 목록은 `State` 기본값이 `CameraFilterCatalog.filters`(필름 LUT 10종)다 — 별도 주입 없이 채워진다.
+  실제 색 변환은 조립 지점의 카메라 세션이 `CameraFilterCatalog`로 id를 LUT에 매핑해 수행한다.
 - 뷰파인더에 들어갈 실제 카메라 프리뷰는 `CameraView(store:preview:)`의 `preview` 슬롯으로 주입한다.
-  기본값은 `CameraPreviewPlaceholder`(단색 그라디언트)다.
+  기본값은 `CameraPreviewPlaceholder`(단색 그라디언트)고, 실기기 연동 시에는
+  `CameraFilteredPreviewView`(Metal 렌더러)에 `CameraPreviewFrameSource` 구현을 물려 넣는다.
 - 셔터를 눌러 촬영이 허용되면 `Action.Delegate.captureRequested(roomID:filterID:)`가 나간다.
   실제 캡처·업로드는 이 delegate를 받는 쪽(App 또는 데모앱)이 붙인다.
 
@@ -26,6 +29,9 @@
 | `CameraRoom` | 촬영 대상 방 (`id` · `name` · `remainingCards` · `totalCards` · `cardsLevel`) |
 | `CameraCardsLevel` | 남은 장수 표시 단계 (`normal` · `low` · `unavailable`) |
 | `CameraFilter` | 필터 항목 (`id` · `name`) |
+| `CameraFilterCatalog` | 필름 LUT 필터 10종의 정본. `filters`(목록, `State` 기본값) · `lutFilter(id:)`(id → 새 `CIColorCube`) · `filteredJPEG(from:filterID:)`(촬영본 후처리). LUT 원본은 모듈 리소스 `Resources/Filters/<id>.cube` |
+| `CameraFilteredPreviewView` | LUT 입힌 프레임(`CIImage`)을 Metal로 그리는 프리뷰 뷰 — `preview` 슬롯용 |
+| `CameraPreviewFrameSource` | 프리뷰 프레임 공급자 프로토콜. 카메라 세션(조립 지점 소유)이 구현한다 |
 | `CameraZoom` | 뷰파인더 배율 (`factor` · `label` · `range`) |
 | `CameraCaptureAvailability` | 촬영 가능 여부 (`available` · `unavailable(viewportMessage:toastMessage:)` · `noCardsLeft`) |
 | `CameraFlashMode` · `CameraPosition` | 플래시 켜짐/꺼짐 · 전후면 카메라 |
@@ -66,7 +72,7 @@ CameraView(
 | FlashOff | https://zpl.io/GnzEAx9 |
 | 촬영 불가능 | https://zpl.io/xnBm6MX |
 
-실측값은 `Sources/Components/CameraMetric.swift` 한 곳에 모아 둔다.
+실측값은 컴포넌트별 파일 하단의 private metric enum에 둔다 (DS 컨벤션과 동일).
 
 DS에 없는 형태(52pt 원형 아이콘 버튼, 44pt 알약 방 버튼)만 이 모듈에서 만들고,
 드로어 껍데기·토스트·아이콘·색·타이포는 `CHALLADesignSystem`을 그대로 쓴다.
@@ -100,6 +106,7 @@ xcrun simctl launch booted com.challa.camerafeature.demo --screen camera --state
 인자를 주지 않으면 시나리오 목록이 뜬다.
 FlashOn·SelectRoom은 아직 인자로 띄우지 못한다 — 목록에서 들어간 뒤 직접 눌러 확인한다.
 
-데모앱은 실기기 카메라를 실제로 붙인다 (`CameraSessionController` — `AVCaptureSession` 구성·촬영,
+데모앱은 실기기 카메라를 실제로 붙인다 (`CameraSessionController` — `AVCaptureSession` 구성,
+LUT 프리뷰 프레임 공급(`CameraPreviewFrameSource` 구현), 촬영본 필터 적용,
 `delegate(.captureRequested)`를 받아 사진첩 Add-only 저장까지). 시뮬레이터에서는 프리뷰 자리에
 `CameraPreviewPlaceholder`가 그대로 남는다.
