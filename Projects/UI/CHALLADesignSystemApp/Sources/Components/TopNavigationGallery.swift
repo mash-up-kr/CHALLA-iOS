@@ -2,7 +2,7 @@ import CHALLADesignSystem
 import SwiftUI
 
 /// Component > Top Navigation 검수 화면.
-/// Figma 예시 6조합을 전수 나열한다: main(기본/우측 아이콘), sub(없음/왼쪽/오른쪽/양쪽).
+/// Figma 예시 7조합을 전수 나열한다: main(기본/아이콘 1개/2개), sub(없음/왼쪽/오른쪽/양쪽).
 struct TopNavigationGallery: View {
 
     var body: some View {
@@ -18,15 +18,22 @@ struct TopNavigationGallery: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    /// main variant: 홈 로고 고정, 우측 아이콘 유무 2조합.
+    /// main variant: 홈 로고 고정, 우측 아이콘 0·1·2개 3조합.
     private var mainSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             galleryTitle("Main")
             galleryCaption("기본")
             CHALLATopNavigation.main()
-            galleryCaption("trailing 아이콘")
+            galleryCaption("trailing 아이콘 1개")
             CHALLATopNavigation.main(
-                trailing: .icon(.setting, accessibilityLabel: "설정") {}
+                trailing: [.icon(.setting, accessibilityLabel: "설정") {}]
+            )
+            galleryCaption("trailing 아이콘 2개 (홈 화면)")
+            CHALLATopNavigation.main(
+                trailing: [
+                    .icon(.plus, accessibilityLabel: "방 추가") {},
+                    .icon(.setting, accessibilityLabel: "설정") {}
+                ]
             )
         }
     }

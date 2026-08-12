@@ -13,6 +13,12 @@ struct CHALLAButtonVariantTests {
 
     // MARK: - 활성 · role 없음
 
+    @Test("활성 theme은 테마 색 채움 + 검정 글자다")
+    func enabledThemeDefault() {
+        #expect(CHALLAButtonVariant.theme.backgroundColor(isEnabled: true) == CHALLAColor.defaultTheme)
+        #expect(CHALLAButtonVariant.theme.contentColor(isEnabled: true) == CHALLAColor.Static.black)
+    }
+
     @Test("활성 primary는 밝은 채움 + 어두운 글자다")
     func enabledPrimaryDefault() {
         #expect(CHALLAButtonVariant.primary.backgroundColor(isEnabled: true) == CHALLAColor.Label.normal)
@@ -54,6 +60,18 @@ struct CHALLAButtonVariantTests {
         )
     }
 
+    @Test("theme은 destructive를 무시하고 테마 색·검정 글자를 유지한다")
+    func themeIgnoresDestructive() {
+        #expect(
+            CHALLAButtonVariant.theme.backgroundColor(role: .destructive, isEnabled: true)
+                == CHALLAColor.defaultTheme
+        )
+        #expect(
+            CHALLAButtonVariant.theme.contentColor(role: .destructive, isEnabled: true)
+                == CHALLAColor.Static.black
+        )
+    }
+
     @Test("destructive는 neutral의 회색 채움을 바꾸지 않는다")
     func enabledDestructiveKeepsNeutralBackground() {
         #expect(
@@ -66,8 +84,8 @@ struct CHALLAButtonVariantTests {
 
     /// arguments 두 벌은 zip이 아니라 전수 조합(곱)이 의도다 — 이하 동일
     @Test(
-        "비활성 primary·neutral 배경은 role과 무관하게 공통 비활성 팔레트다",
-        arguments: [CHALLAButtonVariant.primary, .neutral], allRoles
+        "비활성 theme·primary·neutral 배경은 role과 무관하게 공통 비활성 팔레트다",
+        arguments: [CHALLAButtonVariant.theme, .primary, .neutral], allRoles
     )
     func disabledBackgroundFallsToCommonPalette(variant: CHALLAButtonVariant, role: CHALLAButtonRole?) {
         #expect(variant.backgroundColor(role: role, isEnabled: false) == CHALLAColor.Background.level2)
