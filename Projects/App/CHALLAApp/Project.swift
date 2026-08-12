@@ -28,6 +28,7 @@ let project = Project.makeAppProject(
     dependencies: [
         .loginFeature, .authData, .authDomain,
         .profileSetupFeature, .userData, .userDomain,
+        .roomData, .roomDomain,
         .network, .keychain,
         .designSystem, .imageKit,
         .composableArchitecture,
