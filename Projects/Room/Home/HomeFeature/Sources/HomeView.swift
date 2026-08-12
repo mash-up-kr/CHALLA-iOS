@@ -187,14 +187,14 @@ public struct HomeView: View {
     private var shootingCards: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: HomeMetric.cardSpacing) {
-                ForEach(store.board.shooting) { room in
+                ForEach(store.board.shooting) { card in
                     Button {
-                        send(.roomTapped(room.id))
+                        send(.roomTapped(card.id))
                     } label: {
-                        CHALLAAsyncImage(url: room.coverImageURL) { image in
-                            cardItem(room, photo: image)
+                        CHALLAAsyncImage(url: card.coverImageURL) { image in
+                            cardItem(card, photo: image)
                         } placeholder: {
-                            cardItem(room, photo: nil)
+                            cardItem(card, photo: nil)
                         }
                     }
                     .buttonStyle(.plain)
@@ -209,16 +209,16 @@ public struct HomeView: View {
     /// 촬영 완료 — 카드가 가로 폭을 채워 세로로 쌓는다.
     private var completedCards: some View {
         VStack(spacing: HomeMetric.cardSpacing) {
-            ForEach(store.board.completed) { room in
+            ForEach(store.board.completed) { card in
                 Button {
-                    send(.roomTapped(room.id))
+                    send(.roomTapped(card.id))
                 } label: {
                     CHALLAPrintCard(
-                        status: room.status == .printed ? .printed : .printing,
-                        title: room.name,
-                        memberCount: room.memberCount,
-                        photoURLs: room.thumbnailURLs,
-                        totalPhotoCount: room.photoCount
+                        status: card.room.status == .printed ? .printed : .printing,
+                        title: card.room.title,
+                        memberCount: card.memberCount,
+                        photoURLs: card.thumbnailURLs,
+                        totalPhotoCount: card.room.shotPhotoCount
                     )
                 }
                 .buttonStyle(.plain)
@@ -227,11 +227,11 @@ public struct HomeView: View {
     }
 
     /// 대표 사진 유무만 다른 두 자리에서 카드 생성을 공유한다.
-    private func cardItem(_ room: Room, photo: Image?) -> some View {
+    private func cardItem(_ card: RoomCard, photo: Image?) -> some View {
         CHALLACardItem(
-            title: room.name,
-            memberCount: room.memberCount,
-            photoCount: room.photoCount,
+            title: card.room.title,
+            memberCount: card.memberCount,
+            photoCount: card.room.shotPhotoCount,
             photo: photo
         )
     }
@@ -262,45 +262,60 @@ private enum HomeMetric {
 
 // MARK: - Preview
 
-/// 사진이 들어간 프리뷰용 방들.
+/// 사진이 들어간 프리뷰용 카드들.
 ///
-/// Domain의 `Room.previewXxx`는 URL이 비어 있다 — 프리뷰가 네트워크 없이 즉시 떠야 해서다.
+/// Domain의 `RoomCard.previewXxx`는 URL이 비어 있다 — 프리뷰가 네트워크 없이 즉시 떠야 해서다.
 /// 사진이 있어야 확인되는 것(낱장 스택·`+N` 오버레이·인화 대기 blur)을 보려고 여기에 따로 둔다.
 /// `RoomData`의 `RoomSamples`와 같은 시드를 쓰지만, Feature는 Data를 import하지 않아 값을 복제한다.
-private enum PreviewRooms {
+/// id가 음수인 이유는 서버가 발급하지 않은 값이라는 표식 — 프리뷰(-1~-3)·샘플(-10번대)과 겹치지 않게 -20번대.
+private enum PreviewCards {
 
-    static let all: [Room] = [shooting, printWaiting, printed]
+    static let all: [RoomCard] = [shooting, printWaiting, printed]
 
-    private static let shooting = Room(
-        id: "preview-shooting",
-        name: "친구들과 강릉 여행",
-        status: .shooting,
+    private static let createdAt = Date(timeIntervalSince1970: 1_784_000_000)
+    private static let expiresAt = createdAt.addingTimeInterval(60 * 60 * 24 * 30)
+
+    private static let shooting = RoomCard(
+        room: Room(
+            id: -21,
+            title: "친구들과 강릉 여행",
+            status: .shooting,
+            totalPhotoCount: 24,
+            remainedPhotoCount: 0,
+            createdAt: createdAt,
+            expiresAt: expiresAt
+        ),
         memberCount: 11,
-        photoCount: 24,
-        shotCount: .twentyFour,
-        coverImageURL: photoURL(seed: "gangneung-cover", size: 400),
-        thumbnailURLs: []
+        // 촬영 중 카드의 대표 사진 = 첫 썸네일 (RoomCard.coverImageURL).
+        thumbnailURLs: [photoURL(seed: "gangneung-cover", size: 400)].compactMap(\.self)
     )
 
-    private static let printWaiting = Room(
-        id: "preview-print-waiting",
-        name: "성수동 필름 산책",
-        status: .printWaiting,
+    private static let printWaiting = RoomCard(
+        room: Room(
+            id: -22,
+            title: "성수동 필름 산책",
+            status: .printWaiting,
+            totalPhotoCount: 48,
+            remainedPhotoCount: 0,
+            createdAt: createdAt,
+            expiresAt: expiresAt
+        ),
         memberCount: 6,
-        photoCount: 48,
-        shotCount: .fortyEight,
-        coverImageURL: nil,
         thumbnailURLs: thumbnailURLs(prefix: "seongsu")
     )
 
-    private static let printed = Room(
-        id: "preview-printed",
-        name: "인화 완료 된 방이에요",
-        status: .printed,
+    private static let printed = RoomCard(
+        room: Room(
+            id: -23,
+            title: "인화 완료 된 방이에요",
+            status: .printed,
+            totalPhotoCount: 72,
+            remainedPhotoCount: 0,
+            createdAt: createdAt,
+            expiresAt: expiresAt,
+            photoPrintCompletedAt: createdAt.addingTimeInterval(60 * 60 * 24 * 3)
+        ),
         memberCount: 11,
-        photoCount: 72,
-        shotCount: .seventyTwo,
-        coverImageURL: nil,
         thumbnailURLs: thumbnailURLs(prefix: "first-meeting")
     )
 
@@ -326,7 +341,7 @@ private func previewStore(_ fetchRooms: FetchRoomsUseCase) -> StoreOf<HomeFeatur
 }
 
 #Preview("목록 (사진)") {
-    HomeView(store: previewStore(FetchRoomsUseCase(run: { PreviewRooms.all })))
+    HomeView(store: previewStore(FetchRoomsUseCase(run: { PreviewCards.all })))
 }
 
 #Preview("목록 (사진 없음)") {
