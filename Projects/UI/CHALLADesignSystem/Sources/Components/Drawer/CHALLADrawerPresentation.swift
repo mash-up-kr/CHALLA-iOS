@@ -13,6 +13,7 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
 
     @Binding var isPresented: Bool
     let allowsInteractiveDismiss: Bool
+    let bottomMargin: CGFloat
     @ViewBuilder let drawerContent: () -> DrawerContent
 
     /// 손가락으로 끌어내린 거리. 손을 떼면 0으로 복귀하거나(제자리) 닫힌다.
@@ -58,7 +59,7 @@ struct CHALLADrawerPresentationModifier<DrawerContent: View>: ViewModifier {
         drawerContent()
             .padding(.horizontal, DrawerPresentationMetric.screenMargin)
             // 안전 영역 기준 여백이라 키보드가 올라오면 드로어도 자동으로 따라 올라간다
-            .padding(.bottom, DrawerPresentationMetric.screenMargin)
+            .padding(.bottom, bottomMargin)
             .offset(y: max(0, dragOffset)) // 아래 방향 드래그만 반영한다
             .gesture(dragToDismiss) // 드로어 아무 데나 잡고 끌 수 있음
             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -111,6 +112,8 @@ public extension View {
     ///   - allowsInteractiveDismiss: 딤 탭·아래로 끌기로 닫기 허용 여부 (기본 true).
     ///     입력 중 실수로 닫히면 안 되는 드로어(타이틀 헤더형)는 false로 두고
     ///     닫기 버튼으로만 닫는다.
+    ///   - bottomMargin: 안전 영역 하단과 드로어 사이 여백. nil이면 시안 기본값(12).
+    ///     뒤에 남는 화면 요소를 드로어로 덮어야 할 때만 더 작은 값을 준다.
     ///
     /// ```swift
     /// .challaDrawer(isPresented: $showsProfileMenu) {
@@ -120,11 +123,13 @@ public extension View {
     func challaDrawer(
         isPresented: Binding<Bool>,
         allowsInteractiveDismiss: Bool = true,
+        bottomMargin: CGFloat? = nil,
         @ViewBuilder drawer: @escaping () -> some View
     ) -> some View {
         modifier(CHALLADrawerPresentationModifier(
             isPresented: isPresented,
             allowsInteractiveDismiss: allowsInteractiveDismiss,
+            bottomMargin: bottomMargin ?? DrawerPresentationMetric.screenMargin,
             drawerContent: drawer
         ))
     }
