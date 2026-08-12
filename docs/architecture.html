@@ -274,7 +274,7 @@
         <div class="box">OnboardingFeature</div><div class="box">LoginFeature</div></div></div>
       <div class="group"><div class="group-label">User/ <span class="kind">(폴더)</span></div><div class="row">
         <div class="box">ProfileSetupFeature</div><div class="box">ProfileEditFeature</div></div></div>
-      <div class="group"><div class="group-label">Home/ <span class="kind">(폴더)</span></div><div class="row">
+      <div class="group"><div class="group-label">Room/Home/ <span class="kind">(폴더 · Room 그룹 소속)</span></div><div class="row">
         <div class="box">HomeFeature</div></div></div>
     </div>
     <div class="row" style="margin-top:12px;">
@@ -371,7 +371,7 @@
     <div class="row">
       <div class="box">HGFoundation<small>Extension · EntityID · AppError · Validator</small></div>
       <div class="box">HGResources<small>공통 리소스 접근 헬퍼</small></div>
-      <div class="box ghost">Tuist/Package.swift<small>TCA · Kingfisher · KakaoSDK — 외부 패키지 (모듈 아님)</small></div>
+      <div class="box ghost">Tuist/Package.swift<small>TCA · KakaoSDK — 외부 패키지 (모듈 아님)</small></div>
     </div>
   </div>
 
@@ -441,11 +441,11 @@ Projects/
 │  ├─ UserDomain                     <span class="k-mod">(모듈)</span> User · Profile · UserRepository(interface)
 │  └─ UserData                       <span class="k-mod">(모듈)</span> 유저 조회/수정 API 구현
 │
-├─ Home/                             <span class="k-folder">(폴더)</span> 홈  (Domain/Data 없음)
-│  └─ HomeFeature                    <span class="k-mod">(모듈)</span> 방 목록 · Empty · 생성/입장/상세 진입
-│                                          <span class="cm">└ RoomDomain.fetchRooms 재사용</span>
-│
 ├─ Room/   ⭐                        <span class="k-folder">(폴더)</span> 도메인/데이터 통합 · Feature는 화면별 유지
+│  ├─ Home/                          <span class="k-folder">(폴더)</span> 홈 피처 묶음 — 방 목록을 그리므로 Room 그룹 소속
+│  │  ├─ HomeFeature                 <span class="k-mod">(모듈)</span> 방 목록 · Empty · 생성/입장/상세 진입
+│  │  │                                    <span class="cm">└ RoomDomain.fetchRooms 재사용 (홈 전용 Domain/Data 없음)</span>
+│  │  └─ HomeFeatureDemo             <span class="k-app">(앱)</span>   피처 데모앱 — Mock 주입 · 상태별 실행 인자
 │  ├─ RoomDomain                     <span class="k-mod">(모듈)</span> ★ 방 도메인 공용 — Feature 5개가 공유
 │  │   ├─ Entities/                        <span class="cm">Room · Participant · InviteCode · RoomID</span>
 │  │   │   └─ FilmStatus                   <span class="cm">촬영중 · 인화대기 · 완료  ← Film 도메인 흡수</span>
@@ -501,7 +501,7 @@ Projects/
    └─ HGResources                    <span class="k-mod">(모듈)</span> 공통 리소스 접근 헬퍼
 
 Tuist/
-└─ Package.swift                     <span class="cm"># 외부 패키지 (모듈 아님) — TCA · Firebase · Kingfisher · KakaoSDK …</span>
+└─ Package.swift                     <span class="cm"># 외부 패키지 (모듈 아님) — TCA · Firebase · KakaoSDK …</span>
     </pre>
   </div>
 

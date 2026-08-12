@@ -59,11 +59,11 @@ Projects/
 │  ├─ UserDomain                     (모듈) User · Profile · UserRepository(interface)
 │  └─ UserData                       (모듈) 유저 조회/수정 API 구현
 │
-├─ Home/                             (폴더) 홈  (Domain/Data 없음)
-│  └─ HomeFeature                    (모듈) 방 목록 · Empty · 생성/입장/상세 진입
-│                                          └ RoomDomain.fetchRooms 재사용
-│
 ├─ Room/   ⭐                        (폴더) 도메인/데이터 통합 · Feature는 화면별 유지
+│  ├─ Home/                          (폴더) 홈 피처 묶음 — 방 목록을 그리므로 Room 그룹 소속
+│  │  ├─ HomeFeature                 (모듈) 방 목록 · Empty · 생성/입장/상세 진입
+│  │  │                                    └ RoomDomain.fetchRooms 재사용 (홈 전용 Domain/Data 없음)
+│  │  └─ HomeFeatureDemo             (앱)   피처 데모앱 — Mock 주입 · 상태별 실행 인자
 │  ├─ RoomDomain                     (모듈) ★ 방 도메인 공용 — Feature 5개가 공유
 │  │   ├─ Entities/                        Room · Participant · InviteCode · RoomID
 │  │   │   └─ FilmStatus                   촬영중 · 인화대기 · 완료  ← Film 도메인 흡수
@@ -122,7 +122,7 @@ Projects/
    └─ HGResources                    (모듈) 공통 리소스 접근 헬퍼
 
 Tuist/
-└─ Package.swift                     # 외부 패키지 (모듈 아님) — TCA · Firebase · Kingfisher · KakaoSDK …
+└─ Package.swift                     # 외부 패키지 (모듈 아님) — TCA · Firebase · KakaoSDK …
 ```
 
 ---
