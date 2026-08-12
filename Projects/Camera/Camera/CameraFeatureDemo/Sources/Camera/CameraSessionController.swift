@@ -1,12 +1,17 @@
 @preconcurrency import AVFoundation
 import CameraFeature
+import CoreImage
 import Observation
 
-/// 데모앱 전용 실기기 카메라 세션. `AVCaptureSession` 구성·촬영·사진첩 저장을 전담한다.
+/// 데모앱 전용 실기기 카메라 세션. `AVCaptureSession` 구성·필터 프리뷰·촬영·사진첩 저장을 전담한다.
 ///
-/// 세션 구성·입력 교체·촬영은 전용 시리얼 큐에서만 처리한다 (Apple 권장 — 메인 스레드에서 하면 프리뷰가 멎는다).
+/// 프리뷰는 `AVCaptureVideoDataOutput` 프레임에 LUT(`CameraFilterCatalog`)를 입혀
+/// `onPreviewImage`(feature의 `CameraPreviewFrameSource` 통로)로 내보낸다.
+///
+/// 스레드 규칙: 세션 구성·입력 교체·촬영은 `sessionQueue`, 프레임 콜백·프리뷰 LUT는 `videoQueue`
+/// 에서만 처리한다 (Apple 권장 — 메인 스레드에서 하면 프리뷰가 멎는다).
 @Observable
-final class CameraSessionController: NSObject, @unchecked Sendable {
+final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchecked Sendable {
 
     enum Authorization: Equatable {
         case notDetermined
@@ -18,10 +23,17 @@ final class CameraSessionController: NSObject, @unchecked Sendable {
 
     private(set) var authorization: Authorization = .notDetermined
 
+    /// LUT가 적용된 프리뷰 프레임 콜백. `videoQueue`에서 불린다 — 소비자(렌더러)가 스레드를 넘긴다.
+    var onPreviewImage: (@Sendable (CIImage) -> Void)?
+
     private let sessionQueue = DispatchQueue(label: "com.challa.camerafeaturedemo.session")
+    private let videoQueue = DispatchQueue(label: "com.challa.camerafeaturedemo.video")
     private let photoOutput = AVCapturePhotoOutput()
+    private let videoOutput = AVCaptureVideoDataOutput()
     private var currentInput: AVCaptureDeviceInput?
     private var photoCaptureContinuation: CheckedContinuation<Data, Error>?
+    /// 프리뷰 프레임에 입힐 LUT. `videoQueue` 전용 — 교체도 큐로 넘겨서 락 없이 안전하다.
+    private var previewLUT: (CIFilter & CIColorCubeWithColorSpace)?
 
     func start(position: CameraPosition) async {
         let granted = await requestAccessIfNeeded()
@@ -64,11 +76,19 @@ final class CameraSessionController: NSObject, @unchecked Sendable {
         }
     }
 
-    /// 촬영 후 JPEG 데이터를 사진첩(Add-only)에 저장한다. `PHPhotoLibraryAddOnly` 권한만 요구한다 —
-    /// 촬영한 사진을 추가만 하면 되므로 `PhotoLibrary` 모듈의 읽기·선택 권한(`.readWrite`)까지는 필요 없다.
-    func captureAndSavePhoto(flashMode: CameraFlashMode) async throws {
+    /// 프리뷰에 실시간으로 입힐 필터를 바꾼다. nil이면 원본 그대로.
+    func setPreviewFilter(id: CameraFilter.ID?) {
+        videoQueue.async { [self] in
+            previewLUT = id.flatMap { CameraFilterCatalog.lutFilter(id: $0) }
+        }
+    }
+
+    /// 촬영 후 선택 필터를 입힌 JPEG을 사진첩(Add-only)에 저장한다. `PHPhotoLibraryAddOnly` 권한만
+    /// 요구한다 — 추가만 하면 되므로 `PhotoLibrary` 모듈의 읽기·선택 권한(`.readWrite`)까지는 필요 없다.
+    func captureAndSavePhoto(flashMode: CameraFlashMode, filterID: CameraFilter.ID?) async throws {
         let data = try await capturePhotoData(flashMode: flashMode)
-        try await PhotoLibrarySaver.save(jpegData: data)
+        let filtered = CameraFilterCatalog.filteredJPEG(from: data, filterID: filterID) ?? data
+        try await PhotoLibrarySaver.save(jpegData: filtered)
     }
 
     private func capturePhotoData(flashMode: CameraFlashMode) async throws -> Data {
@@ -100,6 +120,14 @@ final class CameraSessionController: NSObject, @unchecked Sendable {
         if session.canAddOutput(photoOutput) {
             session.addOutput(photoOutput)
         }
+        videoOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+        ]
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.setSampleBufferDelegate(self, queue: videoQueue)
+        if session.canAddOutput(videoOutput) {
+            session.addOutput(videoOutput)
+        }
         session.commitConfiguration()
     }
 
@@ -121,6 +149,38 @@ final class CameraSessionController: NSObject, @unchecked Sendable {
 
         session.addInput(input)
         currentInput = input
+        configureConnections(position: position)
+    }
+
+    /// 입력을 갈아끼우면 연결이 새로 생기므로 그때마다 다시 잡는다. 세션 큐에서만 호출한다.
+    private func configureConnections(position: CameraPosition) {
+        // 프리뷰 레이어 없이 직접 프레임을 다루므로 세로 회전도 직접 지정한다 (앱은 세로 고정)
+        for connection in [videoOutput.connection(with: .video), photoOutput.connection(with: .video)] {
+            guard let connection, connection.isVideoRotationAngleSupported(90) else { continue }
+            connection.videoRotationAngle = 90
+        }
+        // 전면 프리뷰만 거울상 — 시스템 카메라와 동일 (저장본은 photoOutput 기본값 유지)
+        if let preview = videoOutput.connection(with: .video), preview.isVideoMirroringSupported {
+            preview.automaticallyAdjustsVideoMirroring = false
+            preview.isVideoMirrored = position == .front
+        }
+    }
+}
+
+extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate {
+
+    func captureOutput(
+        _: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from _: AVCaptureConnection
+    ) {
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        var image = CIImage(cvPixelBuffer: pixelBuffer)
+        if let previewLUT {
+            previewLUT.inputImage = image
+            image = previewLUT.outputImage ?? image
+        }
+        onPreviewImage?(image)
     }
 }
 

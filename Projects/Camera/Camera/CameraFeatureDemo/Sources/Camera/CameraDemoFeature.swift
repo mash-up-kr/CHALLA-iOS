@@ -26,11 +26,11 @@ struct CameraDemoFeature {
         }
         Reduce { state, action in
             switch action {
-            case .camera(.delegate(.captureRequested)):
+            case let .camera(.delegate(.captureRequested(_, filterID))):
                 let flashMode = state.camera.flashMode
                 return .run { send in
                     do {
-                        try await cameraSession.captureAndSavePhoto(flashMode: flashMode)
+                        try await cameraSession.captureAndSavePhoto(flashMode: flashMode, filterID: filterID)
                     } catch {
                         await send(.captureFailed(error.localizedDescription))
                     }

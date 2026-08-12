@@ -3,7 +3,7 @@ import ComposableArchitecture
 import SwiftUI
 
 /// `CameraView`의 `preview` 슬롯에 주입하는 실기기 카메라 프리뷰.
-/// 세션 시작·정지는 이 뷰의 생명주기를 따르고, 카메라 전환·줌은 `store` 상태 변화를 그대로 반영한다.
+/// 세션 시작·정지는 이 뷰의 생명주기를 따르고, 카메라 전환·줌·필터는 `store` 상태 변화를 그대로 반영한다.
 struct LiveCameraPreview: View {
 
     let session: CameraSessionController
@@ -11,7 +11,10 @@ struct LiveCameraPreview: View {
 
     var body: some View {
         content
-            .task { await session.start(position: store.cameraPosition) }
+            .task {
+                session.setPreviewFilter(id: store.selectedFilterID)
+                await session.start(position: store.cameraPosition)
+            }
             .onDisappear { session.stop() }
             .onChange(of: store.cameraPosition) { _, position in
                 session.setCameraPosition(position)
@@ -19,13 +22,16 @@ struct LiveCameraPreview: View {
             .onChange(of: store.zoom.factor) { _, factor in
                 session.setZoomFactor(factor)
             }
+            .onChange(of: store.selectedFilterID) { _, filterID in
+                session.setPreviewFilter(id: filterID)
+            }
     }
 
     @ViewBuilder
     private var content: some View {
         switch session.authorization {
         case .authorized:
-            CameraPreviewView(session: session.session)
+            CameraFilteredPreviewView(source: session)
         case .denied:
             deniedMessage
         case .notDetermined:

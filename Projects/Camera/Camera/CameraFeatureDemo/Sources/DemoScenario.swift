@@ -58,10 +58,6 @@ struct DemoScenario: Equatable {
 
 extension DemoScenario {
 
-    private static let filters = IdentifiedArray(
-        uniqueElements: (1 ... 8).map { CameraFilter(id: "\($0)", name: "필터\($0)") }
-    )
-
     private static let rooms = IdentifiedArray(uniqueElements: [
         CameraRoom(id: "1", name: "방이름방이름방이름1", remainingCards: 6, totalCards: 24),
         CameraRoom(id: "2", name: "방이름방이름방이름2", remainingCards: 6, totalCards: 24),
@@ -81,14 +77,12 @@ extension DemoScenario {
             CameraFeature.State(
                 rooms: Self.rooms,
                 selectedRoomID: "3",
-                filters: Self.filters,
                 flashMode: .off
             )
 
         case (.camera, .error):
             CameraFeature.State(
                 rooms: Self.soldOutRooms,
-                filters: Self.filters,
                 captureAvailability: .noCardsLeft,
                 toastMessage: CameraCaptureAvailability.noCardsLeft.demoToastMessage
             )
