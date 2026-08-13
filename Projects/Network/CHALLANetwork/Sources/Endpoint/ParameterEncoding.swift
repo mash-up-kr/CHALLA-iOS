@@ -38,6 +38,28 @@ public struct URLEncoding: ParameterEncoding {
         return request
     }
 
+    /// 같은 키의 반복(배열 쿼리)을 보존해야 해서 딕셔너리 대신 `URLQueryItem` 배열을 받는다.
+    /// 이스케이프·병합 규칙은 딕셔너리 encode와 동일하다.
+    public func encode(_ request: URLRequest, with queryItems: [URLQueryItem]) throws -> URLRequest {
+        var request = request
+        guard !queryItems.isEmpty else { return request }
+
+        guard let url = request.url,
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw NetworkError.invalidRequest(reason: "쿼리 인코딩 대상 URL이 유효하지 않습니다.")
+        }
+        let encoded = queryItems
+            .map { "\(Self.escape($0.name))=\(Self.escape($0.value ?? ""))" }
+            .joined(separator: "&")
+        let existing = components.percentEncodedQuery.map { $0 + "&" } ?? ""
+        components.percentEncodedQuery = existing + encoded
+        guard let newURL = components.url else {
+            throw NetworkError.invalidRequest(reason: "쿼리 병합 후 URL 생성에 실패했습니다.")
+        }
+        request.url = newURL
+        return request
+    }
+
     static func query(_ parameters: Parameters) -> String {
         parameters
             .sorted { $0.key < $1.key }

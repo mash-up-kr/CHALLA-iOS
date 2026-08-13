@@ -19,7 +19,7 @@ extension Endpoint {
             request = try encoding.encode(request, with: parameters)
 
         case let .requestQueryItems(items):
-            request = try encodeQueryItems(items, into: request)
+            request = try URLEncoding.default.encode(request, with: items)
 
         case let .requestJSONEncodable(value):
             request = try encodeJSON(value, into: request, using: encoder)
@@ -32,28 +32,6 @@ extension Endpoint {
     }
 
     // MARK: - Task별 인코딩
-
-    /// 순서와 키 반복을 보존해야 해서 `Parameters`(딕셔너리) 경로를 타지 않고 직접 인코딩한다.
-    /// 이스케이프 규칙은 `URLEncoding`과 같은 것을 쓴다 — 케이스에 따라 인코딩 결과가 달라지면 안 된다.
-    private func encodeQueryItems(_ items: [URLQueryItem], into request: URLRequest) throws -> URLRequest {
-        var request = request
-        guard !items.isEmpty else { return request }
-
-        guard let url = request.url,
-              var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            throw NetworkError.invalidRequest(reason: "쿼리 인코딩 대상 URL이 유효하지 않습니다.")
-        }
-        let encoded = items
-            .map { "\(URLEncoding.escape($0.name))=\(URLEncoding.escape($0.value ?? ""))" }
-            .joined(separator: "&")
-        let existing = components.percentEncodedQuery.map { $0 + "&" } ?? ""
-        components.percentEncodedQuery = existing + encoded
-        guard let newURL = components.url else {
-            throw NetworkError.invalidRequest(reason: "쿼리 병합 후 URL 생성에 실패했습니다.")
-        }
-        request.url = newURL
-        return request
-    }
 
     private func encodeJSON(
         _ value: any Encodable & Sendable,
