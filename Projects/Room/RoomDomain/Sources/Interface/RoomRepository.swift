@@ -15,4 +15,10 @@ public protocol RoomRepository: Sendable {
 
     /// 코드에 해당하는 방이 없으면 `RoomError.roomNotFound`를 던진다.
     func joinRoom(inviteCode: String) async throws -> RoomCard
+
+    /// 방 하나의 정보와 초대 코드 (`GET /rooms/{id}`). 없는 방이면 `RoomError.roomNotFound`를 던진다.
+    func roomInfo(id: Room.ID) async throws -> (room: Room, invitationCode: String)
+
+    /// 참여자 목록 (`GET /rooms/{id}/users`). 참여한 순서대로 돌려준다.
+    func members(roomID: Room.ID) async throws -> [RoomMember]
 }
