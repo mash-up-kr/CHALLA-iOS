@@ -54,7 +54,7 @@ struct JoinRoomFeatureTests {
 
     @Test("입장 성공은 delegate로 방을 알린다")
     func joinSuccessDelegates() async {
-        let joined = Room.previewShooting
+        let joined = RoomCard.previewShooting
         let receivedCodes = LockIsolated<[String]>([])
         let store = Self.makeStore(
             joinRoom: JoinRoomUseCase(run: { code in

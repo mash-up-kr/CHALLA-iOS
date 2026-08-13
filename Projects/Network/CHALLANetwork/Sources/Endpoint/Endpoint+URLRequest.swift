@@ -18,6 +18,9 @@ extension Endpoint {
         case let .requestParameters(parameters, encoding):
             request = try encoding.encode(request, with: parameters)
 
+        case let .requestQueryItems(items):
+            request = try URLEncoding.default.encode(request, with: items)
+
         case let .requestJSONEncodable(value):
             request = try encodeJSON(value, into: request, using: encoder)
 

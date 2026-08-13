@@ -4,6 +4,8 @@ import CHALLANetwork
 import ComposableArchitecture
 import Foundation
 import Keychain
+import RoomData
+import RoomDomain
 import UserData
 import UserDomain
 
@@ -28,6 +30,7 @@ enum CompositionRoot {
 
         registerAuth(into: &values, client: client, tokenStore: tokenStore)
         registerUser(into: &values, client: client)
+        registerRoom(into: &values, client: client)
     }
 
     private static func registerAuth(
@@ -50,5 +53,14 @@ enum CompositionRoot {
 
         values.fetchMyProfileUseCase = .live(repository: repository)
         values.setupProfileUseCase = .live(repository: repository, uploader: imageUploader)
+    }
+
+    /// client 공유 조건은 registerUser와 같다. 데모앱은 이 자리에 `InMemoryRoomRepository`를 꽂는다.
+    private static func registerRoom(into values: inout DependencyValues, client: any HTTPClient) {
+        let repository = DefaultRoomRepository(client: client)
+
+        values.fetchRoomsUseCase = .live(repository: repository)
+        values.createRoomUseCase = .live(repository: repository)
+        values.joinRoomUseCase = .live(repository: repository)
     }
 }

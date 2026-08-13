@@ -17,20 +17,20 @@ public extension Room.Status {
     }
 }
 
-/// 방 배열 하나를 두 섹션으로 갈라 담은 결과. 홈의 화면 상태가 두 배열의 비어 있음 조합으로 정해진다.
+/// 카드 배열 하나를 두 섹션으로 갈라 담은 결과. 홈의 화면 상태가 두 배열의 비어 있음 조합으로 정해진다.
 ///
 /// 섹션별로 따로 조회하지 않기 위한 타입이다 — 두 번 조회하면 그 사이에 상태가 바뀐 방이
 /// 양쪽에 나오거나 어디에도 안 나온다.
 public struct RoomBoard: Equatable, Sendable {
 
-    public let shooting: [Room]
+    public let shooting: [RoomCard]
     /// 인화 대기 + 인화 완료.
-    public let completed: [Room]
+    public let completed: [RoomCard]
 
     /// 섹션 안의 순서는 입력 배열의 순서를 따른다.
-    public init(rooms: [Room]) {
-        shooting = rooms.filter { $0.status.section == .shooting }
-        completed = rooms.filter { $0.status.section == .completed }
+    public init(cards: [RoomCard]) {
+        shooting = cards.filter { $0.room.status.section == .shooting }
+        completed = cards.filter { $0.room.status.section == .completed }
     }
 
     /// 참이면 홈은 목록 대신 빈 상태를 그린다.
