@@ -15,7 +15,8 @@ public enum StickerLayout {
     public static func placements(for photo: Photo) -> [(reaction: PhotoReaction, placement: StickerPlacement)] {
         var taken = Set<Int>()
 
-        return photo.reactions.map { reaction in
+        // id로 정렬해 배정 순서를 고정한다 — 서버가 리액션 목록 순서를 바꿔 줘도 스티커가 자리를 옮기지 않는다.
+        return photo.reactions.sorted { $0.id < $1.id }.map { reaction in
             let seed = "\(photo.id)|\(reaction.id)"
             var slot = preferredSlot(seed: seed)
 

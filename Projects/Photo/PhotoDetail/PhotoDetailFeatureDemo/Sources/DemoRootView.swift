@@ -44,22 +44,60 @@ struct DemoRootView: View {
     }
 }
 
+/// 데모가 App의 조립을 흉내내는 얇은 parent — 사진 상세의 `closeRequested`를 받아 닫힘 신호를 세운다.
+/// 실배포앱에서는 이 자리를 네비게이션을 조립하는 App이 맡는다 (아키텍처 규칙 3).
+///
+/// 데모는 SwiftUI `NavigationLink`로 화면을 띄우므로 TCA의 `@Dependency(\.dismiss)`가 아니라
+/// 뷰의 `@Environment(\.dismiss)`로 닫는다 — 그래서 리듀서는 상태 플래그만 세우고 실제 닫기는 뷰가 한다.
+@Reducer
+private struct DemoDetailFeature {
+
+    @ObservableState
+    struct State: Equatable {
+        var detail: PhotoDetailFeature.State
+        var isDismissed = false
+    }
+
+    enum Action {
+        case detail(PhotoDetailFeature.Action)
+    }
+
+    var body: some ReducerOf<Self> {
+        Scope(state: \.detail, action: \.detail) {
+            PhotoDetailFeature()
+        }
+        Reduce { state, action in
+            switch action {
+            case .detail(.delegate(.closeRequested)):
+                state.isDismissed = true
+                return .none
+            case .detail:
+                return .none
+            }
+        }
+    }
+}
+
 /// 상태 하나에 맞춰 조립한 사진 상세 화면.
 private struct PhotoDetailDemoScreen: View {
 
+    @Environment(\.dismiss) private var dismiss
+
     /// body가 다시 평가돼도 Store가 새로 만들어지지 않도록 @State로 들고 있는다.
-    @State private var store: StoreOf<PhotoDetailFeature>
+    @State private var store: StoreOf<DemoDetailFeature>
 
     init(demoState: DemoLaunchArguments.State) {
         _store = State(
             initialValue: Store(
-                initialState: PhotoDetailFeature.State(
-                    roomID: DemoFixture.roomID,
-                    roomTitle: DemoFixture.roomTitle,
-                    currentUserID: DemoFixture.currentUserID
+                initialState: DemoDetailFeature.State(
+                    detail: PhotoDetailFeature.State(
+                        roomID: DemoFixture.roomID,
+                        roomTitle: DemoFixture.roomTitle,
+                        currentUserID: DemoFixture.currentUserID
+                    )
                 )
             ) {
-                PhotoDetailFeature()._printChanges()
+                DemoDetailFeature()
             } withDependencies: {
                 CompositionRoot.registerDependencies(for: demoState, into: &$0)
             }
@@ -67,6 +105,12 @@ private struct PhotoDetailDemoScreen: View {
     }
 
     var body: some View {
-        PhotoDetailView(store: store)
+        PhotoDetailView(store: store.scope(state: \.detail, action: \.detail))
+            // 목록에서 push된 경우 pop된다. --screen으로 root에 바로 띄운 경우엔 닫을 곳이 없어 무시된다(경고 없음).
+            .onChange(of: store.isDismissed) { _, isDismissed in
+                if isDismissed {
+                    dismiss()
+                }
+            }
     }
 }

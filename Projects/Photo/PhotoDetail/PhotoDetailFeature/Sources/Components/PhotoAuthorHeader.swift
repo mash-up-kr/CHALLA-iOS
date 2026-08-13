@@ -16,7 +16,8 @@ struct PhotoAuthorHeader: View {
     var body: some View {
         VStack(spacing: Metric.rowSpacing) {
             HStack(spacing: Metric.avatarSpacing) {
-                AsyncImage(url: author.avatarURL) { image in
+                // 캐러셀에서 페이지를 넘겨도 같은 아바타를 다시 받지 않도록 DS의 캐시 이미지 뷰를 쓴다.
+                CHALLAAsyncImage(url: author.avatarURL) { image in
                     CHALLAAvatar(photo: image, size: Metric.avatarSize)
                 } placeholder: {
                     CHALLAAvatar(photo: nil, size: Metric.avatarSize)

@@ -9,4 +9,10 @@ public struct StickerPlacement: Sendable, Hashable {
     public let yRatio: Double
     /// 기울기(도). 음수는 반시계 방향.
     public let angleDegrees: Double
+
+    public init(xRatio: Double, yRatio: Double, angleDegrees: Double) {
+        self.xRatio = xRatio
+        self.yRatio = yRatio
+        self.angleDegrees = angleDegrees
+    }
 }

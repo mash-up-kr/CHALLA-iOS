@@ -228,4 +228,60 @@ struct PhotoDetailReactionTests {
 
         await store.send(.view(.reactionTapped(.clap)))
     }
+
+    @Test("같은 사진에 다른 종류를 연달아 누르면, 먼저 온 응답이 아직 대기 중인 다른 스티커를 지우지 않는다")
+    func earlierResponseKeepsOtherInFlightReaction() async {
+        let target = Fixture.photo(id: "photo-1")
+        let applied = LockIsolated<Set<ReactionKind>>([])
+        // 하트 응답을 붙잡아 둬 박수 응답이 먼저 도착하게 한다.
+        let (heartStream, heartContinuation) = AsyncStream.makeStream(of: Void.self)
+        let store = await openedTestStore(photos: [target], setReaction: { _, kind, isOn in
+            if kind == .heart {
+                await heartStream.first { _ in true }
+            }
+            applied.withValue { isOn ? $0.insert(kind) : $0.remove(kind) }
+            // 서버는 이 시점의 전체 리액션 상태를 돌려준다 (rawValue로 정렬해 순서를 고정).
+            let reactions = applied.value
+                .sorted { $0.rawValue < $1.rawValue }
+                .map { Fixture.reaction($0, by: Fixture.currentUserID) }
+            return Fixture.photo(id: "photo-1", reactions: reactions)
+        })
+
+        await store.send(.view(.reactionTapped(.heart))) {
+            $0.inFlightReactions = [Fixture.request(.heart, photoID: "photo-1")]
+            $0.photos[id: "photo-1"] = target.settingReaction(.heart, by: Fixture.currentUserID, isOn: true)
+        }
+        await store.send(.view(.reactionTapped(.clap))) {
+            $0.inFlightReactions.insert(Fixture.request(.clap, photoID: "photo-1"))
+            $0.photos[id: "photo-1"] = target
+                .settingReaction(.heart, by: Fixture.currentUserID, isOn: true)
+                .settingReaction(.clap, by: Fixture.currentUserID, isOn: true)
+        }
+
+        // 박수 응답 먼저: 서버 사진엔 박수만 있지만, 아직 대기 중인 하트는 병합으로 살아남는다.
+        await store.receive(\.reactionSucceeded) {
+            $0.inFlightReactions.remove(Fixture.request(.clap, photoID: "photo-1"))
+            $0.photos[id: "photo-1"] = Fixture.photo(
+                id: "photo-1",
+                reactions: [
+                    Fixture.reaction(.clap, by: Fixture.currentUserID),
+                    Fixture.reaction(.heart, by: Fixture.currentUserID)
+                ]
+            )
+        }
+
+        heartContinuation.yield()
+        heartContinuation.finish()
+        // 하트 응답: 서버가 전체(박수+하트)를 돌려주고 대기 요청이 없어 그대로 반영된다.
+        await store.receive(\.reactionSucceeded) {
+            $0.inFlightReactions.remove(Fixture.request(.heart, photoID: "photo-1"))
+            $0.photos[id: "photo-1"] = Fixture.photo(
+                id: "photo-1",
+                reactions: [
+                    Fixture.reaction(.clap, by: Fixture.currentUserID),
+                    Fixture.reaction(.heart, by: Fixture.currentUserID)
+                ]
+            )
+        }
+    }
 }

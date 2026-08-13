@@ -161,11 +161,15 @@ public struct PhotoDetailFeature {
                 state.alert = Self.errorAlert(title: "사진을 불러오지 못했어요", error: error, canRetry: true)
                 return .none
 
-            case let .reactionSucceeded(request, photo):
+            case let .reactionSucceeded(request, serverPhoto):
                 state.inFlightReactions.remove(request)
-                // id 서브스크립트 대입은 없는 키를 새로 추가한다 — 사라진 사진을 되살리지 않도록 막는다.
-                guard state.photos[id: photo.id] != nil else { return .none }
-                state.photos[id: photo.id] = photo
+                guard let current = state.photos[id: serverPhoto.id] else { return .none }
+                var merged = serverPhoto
+                for pending in state.inFlightReactions where pending.photoID == serverPhoto.id {
+                    let isOn = current.hasReaction(pending.kind, by: state.currentUserID)
+                    merged = merged.settingReaction(pending.kind, by: state.currentUserID, isOn: isOn)
+                }
+                state.photos[id: serverPhoto.id] = merged
                 return .none
 
             case let .reactionFailed(request, error, appliedIsOn):
@@ -214,10 +218,11 @@ public struct PhotoDetailFeature {
 
     // MARK: - Effects
 
+    /// 리액션에는 취소 키를 두지 않는다 — 진행 중 요청을 취소하면 되돌릴 기회가 사라진다(아래 setReaction 참고).
+    /// load·save 키는 후속 배선(App이 화면을 닫을 때 끊기)을 위한 자리로, 현재 취소를 거는 지점은 없다.
     private enum CancelID: Hashable {
         case load
         case save
-        case reaction(ReactionRequest)
     }
 
     private func loadPhotos(_ state: inout State) -> Effect<Action> {
@@ -260,7 +265,6 @@ public struct PhotoDetailFeature {
                 await send(.reactionFailed(request, failure, appliedIsOn: isOn))
             }
         }
-        .cancellable(id: CancelID.reaction(request))
     }
 
     private func savePhoto(_ state: inout State) -> Effect<Action> {

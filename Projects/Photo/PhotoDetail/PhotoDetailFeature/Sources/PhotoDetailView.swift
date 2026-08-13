@@ -22,6 +22,10 @@ public struct PhotoDetailView: View {
             CHALLAColor.Background.surface.ignoresSafeArea()
             glow.ignoresSafeArea()
             content
+
+            if store.isSaving {
+                savingOverlay
+            }
         }
         // 탑 내비게이션을 직접 그리므로 시스템 바는 숨긴다.
         .toolbar(.hidden, for: .navigationBar)
@@ -89,7 +93,7 @@ public struct PhotoDetailView: View {
             }
     }
 
-    /// 사진이 없을 때의 빈 자리. 카드 모양만 남긴다.
+    /// 사진이 없을 때의 빈 자리. 로딩 중이면 스피너, 끝났으면 안내 문구를 얹는다.
     private var emptyCard: some View {
         RoundedRectangle(cornerRadius: CHALLARadius.xxlarge)
             .strokeBorder(CHALLAColor.Line.normal, lineWidth: Metric.cardBorderWidth)
@@ -97,8 +101,26 @@ public struct PhotoDetailView: View {
             .overlay {
                 if store.isLoading {
                     ProgressView().tint(CHALLAColor.Label.neutral)
+                } else {
+                    // TODO: 시안에 빈 상태 표현이 없어 임의 문구다 — 빈 상태 시안이 나오면 교체한다.
+                    Text("아직 인화된 사진이 없어요")
+                        .challaFont(.body.medium.medium)
+                        .foregroundStyle(CHALLAColor.Label.neutral)
+                        .multilineTextAlignment(.center)
                 }
             }
+    }
+
+    /// 사진첩 저장이 진행되는 동안 화면을 덮는 딤 + 스피너.
+    /// 다운로드는 원본을 통째로 받는 경로라 셀룰러에서 수 초가 걸린다 — 진행 표시가 없으면 안 눌린 줄 안다.
+    private var savingOverlay: some View {
+        ZStack {
+            CHALLAColor.Material.dimmer.ignoresSafeArea()
+            ProgressView().tint(CHALLAColor.Static.white)
+        }
+        .accessibilityElement()
+        .accessibilityLabel("사진 저장 중")
+        .accessibilityAddTraits(.isModal)
     }
 
     // MARK: - 하단

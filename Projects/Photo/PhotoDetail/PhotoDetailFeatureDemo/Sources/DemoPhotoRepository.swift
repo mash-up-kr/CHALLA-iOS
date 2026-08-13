@@ -55,6 +55,10 @@ struct DemoPhotoRepository: PhotoRepository {
         do {
             let (data, _) = try await URLSession.shared.data(from: photo.imageURL)
             return data
+        } catch let error as URLError where error.code == .cancelled {
+            // 화면 이탈로 인한 취소를 network 오류로 바꾸면 "네트워크 확인" 얼럿이 잘못 뜬다.
+            // 실 구현(PhotoData)도 이 경로를 그대로 두면 안 된다 — 취소는 취소로 올린다.
+            throw CancellationError()
         } catch {
             throw PhotoError.network
         }

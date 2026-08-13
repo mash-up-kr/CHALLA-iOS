@@ -35,17 +35,16 @@ struct PhotoCard: View {
 
     // MARK: - 레이어
 
-    /// 캐시가 없어 다시 그릴 때마다 다시 받는다 — `CHALLAImageKit`(#25)이 생기면 이 자리를 바꾼다.
+    /// DS의 `CHALLAAsyncImage` — 뷰 크기에 맞춰 다운샘플하고 2단 캐시(`CHALLAImageKit`)를 태운다.
+    /// 캐러셀을 넘길 때마다 원본을 다시 받지 않는다.
     private var image: some View {
-        AsyncImage(url: photo.imageURL) { phase in
-            if let image = phase.image {
-                image
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                // 실패와 로딩을 같은 모습으로 둔다 — 시안에 실패 표현이 없다.
-                CHALLAColor.Background.level2
-            }
+        CHALLAAsyncImage(url: photo.imageURL) { image in
+            image
+                .resizable()
+                .scaledToFill()
+        } placeholder: {
+            // 실패와 로딩을 같은 모습으로 둔다 — 시안에 실패 표현이 없다.
+            CHALLAColor.Background.level2
         }
     }
 

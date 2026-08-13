@@ -14,12 +14,18 @@ struct ReactionBar: View {
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: Metric.spacing) {
-            ForEach(ReactionKind.allCases, id: \.self) { kind in
+        // 칩(58)은 고정 크기라 HStack이 줄여 주지 않는다. 사이를 Spacer로 균등 분배해
+        // 넓은 화면에선 벌어지고 좁은 기기(375pt)에선 자연히 좁아지게 한다 — 390pt(시안 기기)에선 13.
+        HStack(spacing: 0) {
+            ForEach(Array(ReactionKind.allCases.enumerated()), id: \.element) { index, kind in
                 Button { onTap(kind) } label: { chip(kind) }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(kind.accessibilityLabel) 리액션")
                     .accessibilityAddTraits(selectedKinds.contains(kind) ? [.isSelected] : [])
+
+                if index < ReactionKind.allCases.count - 1 {
+                    Spacer(minLength: 0)
+                }
             }
         }
     }
@@ -37,6 +43,4 @@ struct ReactionBar: View {
 private enum Metric {
     static let chipSize: CGFloat = 58
     static let emojiSize: CGFloat = 32
-    /// 폭 342에 58짜리 5개를 넣고 남은 간격.
-    static let spacing: CGFloat = 13
 }
