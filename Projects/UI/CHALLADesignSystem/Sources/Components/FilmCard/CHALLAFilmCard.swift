@@ -78,9 +78,9 @@ public struct CHALLAFilmCard: View {
         switch variant {
         case .beforeCapture:
             Color.clear
-        case .printed(let photo):
+        case let .printed(photo):
             fillPhoto(photo, blurred: false)
-        case .printing(let photo), .more(let photo, _):
+        case let .printing(photo), let .more(photo, _):
             fillPhoto(photo, blurred: true)
         }
     }
@@ -120,7 +120,7 @@ public struct CHALLAFilmCard: View {
 
     @ViewBuilder
     private var moreLabel: some View {
-        if case .more(_, let count) = variant {
+        if case let .more(_, count) = variant {
             Text("+\(count)")
                 .challaFont(.body.medium.medium)
                 .foregroundStyle(CHALLAColor.Static.white)
@@ -145,12 +145,16 @@ public struct CHALLAFilmCard: View {
     // MARK: - 상태 판별
 
     private var isBeforeCapture: Bool {
-        if case .beforeCapture = variant { return true }
+        if case .beforeCapture = variant {
+            return true
+        }
         return false
     }
 
     private var isMore: Bool {
-        if case .more = variant { return true }
+        if case .more = variant {
+            return true
+        }
         return false
     }
 
@@ -161,7 +165,7 @@ public struct CHALLAFilmCard: View {
         case .beforeCapture: "\(order)촬영 전 필름"
         case .printing: "\(order)인화 대기 중 필름"
         case .printed: "\(order)인화 완료 필름"
-        case .more(_, let count): "사진 \(count)장 더 있음"
+        case let .more(_, count): "사진 \(count)장 더 있음"
         }
     }
 }

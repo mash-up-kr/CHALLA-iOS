@@ -9,18 +9,18 @@ struct BaseResponseDTOTests {
     @Test("success + data가 있으면 unwrap이 payload를 돌려준다")
     func unwrapSuccess() throws {
         let json = """
-        {"success": true, "message": "ok", "data": {"accessToken": "a", "refreshToken": "r", "isNew": true}}
+        {"success": true, "message": "ok", "data": {"auth": {"accessToken": "a", "refreshToken": "r", "isNew": true}}}
         """
-        let envelope = try JSONDecoder().decode(
+        let response = try JSONDecoder().decode(
             BaseResponseDTO<LoginResponseDTO>.self,
             from: Data(json.utf8)
         )
 
-        let payload = try envelope.unwrap()
+        let payload = try response.unwrap()
 
-        #expect(payload.accessToken == "a")
-        #expect(payload.refreshToken == "r")
-        #expect(payload.isNew == true)
+        #expect(payload.auth.accessToken == "a")
+        #expect(payload.auth.refreshToken == "r")
+        #expect(payload.auth.isNew == true)
     }
 
     @Test("success=false면 unwrap이 서버 메시지를 담은 .server를 던진다")
@@ -28,13 +28,13 @@ struct BaseResponseDTOTests {
         let json = """
         {"success": false, "message": "이미 탈퇴한 계정이에요.", "data": null}
         """
-        let envelope = try JSONDecoder().decode(
+        let response = try JSONDecoder().decode(
             BaseResponseDTO<LoginResponseDTO>.self,
             from: Data(json.utf8)
         )
 
         #expect(throws: AuthError.server(message: "이미 탈퇴한 계정이에요.")) {
-            _ = try envelope.unwrap()
+            _ = try response.unwrap()
         }
     }
 
@@ -43,13 +43,13 @@ struct BaseResponseDTOTests {
         let json = """
         {"success": true, "message": "ok", "data": null}
         """
-        let envelope = try JSONDecoder().decode(
+        let response = try JSONDecoder().decode(
             BaseResponseDTO<LoginResponseDTO>.self,
             from: Data(json.utf8)
         )
 
         #expect(throws: AuthError.server(message: "ok")) {
-            _ = try envelope.unwrap()
+            _ = try response.unwrap()
         }
     }
 
@@ -58,12 +58,12 @@ struct BaseResponseDTOTests {
         let json = """
         {"success": true, "message": "ok", "data": null}
         """
-        let envelope = try JSONDecoder().decode(
+        let response = try JSONDecoder().decode(
             BaseResponseDTO<EmptyResponseDTO>.self,
             from: Data(json.utf8)
         )
 
-        try envelope.ensureSuccess() // throw되면 테스트 실패
+        try response.ensureSuccess() // throw되면 테스트 실패
     }
 
     @Test("ensureSuccess는 success=false면 .server를 던진다")
@@ -71,13 +71,13 @@ struct BaseResponseDTOTests {
         let json = """
         {"success": false, "message": "세션이 만료됐어요.", "data": null}
         """
-        let envelope = try JSONDecoder().decode(
+        let response = try JSONDecoder().decode(
             BaseResponseDTO<EmptyResponseDTO>.self,
             from: Data(json.utf8)
         )
 
         #expect(throws: AuthError.server(message: "세션이 만료됐어요.")) {
-            try envelope.ensureSuccess()
+            try response.ensureSuccess()
         }
     }
 }

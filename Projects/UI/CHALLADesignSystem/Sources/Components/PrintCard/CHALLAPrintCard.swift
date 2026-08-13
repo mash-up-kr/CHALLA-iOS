@@ -58,7 +58,8 @@ public struct CHALLAPrintCard: View {
     /// 전체 장수가 슬롯 수를 넘을 때 마지막 슬롯에 표시할 "+N" 값. 넘지 않으면 nil.
     /// 슬롯 4칸 중 사진 3칸 + 더보기 1칸이 되므로 N = 전체 - 3.
     /// (홈 시안 예: 전체 24장 → 사진 3장 + "+21")
-    static func overflowCount(totalPhotoCount: Int) -> Int? {
+    /// 순수 계산이라 MainActor 격리가 불필요하다 (ProfileBar.overflowCount와 같은 이유).
+    nonisolated static func overflowCount(totalPhotoCount: Int) -> Int? {
         let slotCount = PrintCardMetric.slots.count
         guard totalPhotoCount > slotCount else { return nil }
         return totalPhotoCount - (slotCount - 1)
@@ -177,7 +178,7 @@ private enum PrintCardMetric {
         Slot(center: CGPoint(x: 56.1, y: 65.8), angle: -5.05),
         Slot(center: CGPoint(x: 139.9, y: 64.3), angle: 5.85),
         Slot(center: CGPoint(x: 223.5, y: 65.3), angle: -5.99),
-        Slot(center: CGPoint(x: 306.7, y: 64.2), angle: 0),
+        Slot(center: CGPoint(x: 306.7, y: 64.2), angle: 0)
     ]
 
     /// 홈 스트립의 낱장 폭 (검수 기본 82와 다른 실측값 — 세로 120은 FilmCard가 계산).

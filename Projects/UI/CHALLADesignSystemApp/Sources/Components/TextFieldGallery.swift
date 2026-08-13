@@ -13,6 +13,8 @@ struct TextFieldGallery: View {
     @State private var leadingText = ""
     @State private var customBorder = ""
     @State private var customTypo = ""
+    @State private var externallyFocusedText = ""
+    @FocusState private var externalFocus: Bool
 
     var body: some View {
         ScrollView {
@@ -20,6 +22,7 @@ struct TextFieldGallery: View {
                 stateSection
                 alignmentSection
                 customizeSection
+                externalFocusSection
             }
             .padding(20)
         }
@@ -69,6 +72,29 @@ struct TextFieldGallery: View {
                 placeholder: "내용을 입력해 주세요.",
                 typography: .body.large.bold
             )
+        }
+    }
+
+    /// 외부 포커스 제어 검수: focus 바인딩을 주입하면 버튼으로 키보드를 열고 닫을 수 있다
+    /// (프로필 설정 실사용 — 제출 시 프로그래밍으로 키보드 닫기).
+    private var externalFocusSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            galleryTitle("External Focus")
+            galleryCaption("focus 바인딩 주입 — 아래 버튼으로 포커스·키보드 제어")
+            CHALLATextField(
+                text: $externallyFocusedText,
+                placeholder: "내용을 입력해 주세요.",
+                focus: $externalFocus
+            )
+            HStack(spacing: 12) {
+                CHALLATextButton("포커스 켜기", variant: .neutral, size: .small) {
+                    externalFocus = true
+                }
+                CHALLATextButton("포커스 끄기", variant: .neutral, size: .small) {
+                    externalFocus = false
+                }
+                Spacer()
+            }
         }
     }
 

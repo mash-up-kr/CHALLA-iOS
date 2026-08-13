@@ -11,14 +11,22 @@ struct CHALLAColorHexTests {
     /// UIColor 변환 반올림 허용 오차 — hex 한 단계(1/255)보다 작게 잡는다
     private let tolerance: CGFloat = 0.001
 
-    /// SwiftUI Color에는 성분 접근자가 없어 UIColor를 거쳐 sRGB 성분을 읽는다
-    private func rgba(_ color: Color) -> (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
+    /// UIColor에서 읽어낸 sRGB 성분 묶음 (린트 large_tuple 규칙상 튜플 대신 구조체).
+    private struct RGBA {
         var red: CGFloat = 0
         var green: CGFloat = 0
         var blue: CGFloat = 0
         var alpha: CGFloat = 0
-        UIColor(color).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        return (red, green, blue, alpha)
+    }
+
+    /// SwiftUI Color에는 성분 접근자가 없어 UIColor를 거쳐 sRGB 성분을 읽는다
+    private func rgba(_ color: Color) -> RGBA {
+        var components = RGBA()
+        UIColor(color).getRed(
+            &components.red, green: &components.green,
+            blue: &components.blue, alpha: &components.alpha
+        )
+        return components
     }
 
     @Test("'#' 접두사는 파싱 결과를 바꾸지 않는다")

@@ -16,9 +16,9 @@ struct AuthRequestDTOTests {
             authorizationCode: nil
         ))
 
-        #expect(dto.provider == "KAKAO")
-        #expect(dto.idToken == "id-token")
-        #expect(dto.authorizationCode == nil)
+        #expect(dto.auth.provider == "KAKAO")
+        #expect(dto.auth.idToken == "id-token")
+        #expect(dto.auth.authorizationCode == nil)
     }
 
     @Test("apple은 provider를 \"APPLE\"로 매핑하고 authorizationCode를 함께 싣는다")
@@ -29,12 +29,12 @@ struct AuthRequestDTOTests {
             authorizationCode: "auth-code"
         ))
 
-        #expect(dto.provider == "APPLE")
-        #expect(dto.idToken == "identity-token")
-        #expect(dto.authorizationCode == "auth-code")
+        #expect(dto.auth.provider == "APPLE")
+        #expect(dto.auth.idToken == "identity-token")
+        #expect(dto.auth.authorizationCode == "auth-code")
     }
 
-    @Test("JSON으로 인코딩하면 서버 표기 그대로 직렬화된다")
+    @Test("JSON으로 인코딩하면 auth 키로 감싼 서버 표기가 된다")
     func encodesToServerShape() throws {
         let dto = LoginRequestDTO(from: SocialCredential(
             provider: .kakao,
@@ -43,9 +43,10 @@ struct AuthRequestDTOTests {
         ))
 
         let data = try JSONEncoder().encode(dto)
-        let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let auth = try #require(root["auth"] as? [String: Any])
 
-        #expect(json["provider"] as? String == "KAKAO")
-        #expect(json["idToken"] as? String == "id-token")
+        #expect(auth["provider"] as? String == "KAKAO")
+        #expect(auth["idToken"] as? String == "id-token")
     }
 }

@@ -64,7 +64,7 @@ struct CHALLAButtonVariantTests {
 
     // MARK: - 비활성
 
-    // arguments 두 벌은 zip이 아니라 전수 조합(곱)이 의도다 — 이하 동일
+    /// arguments 두 벌은 zip이 아니라 전수 조합(곱)이 의도다 — 이하 동일
     @Test(
         "비활성 primary·neutral 배경은 role과 무관하게 공통 비활성 팔레트다",
         arguments: [CHALLAButtonVariant.primary, .neutral], allRoles

@@ -39,11 +39,13 @@ public struct CHALLAProfileBar: View {
     // MARK: - 표기 규칙
 
     /// 바에 그리는 아바타 최대 수 (Figma: "방 입장 순으로 9명까지만 표기").
-    static let maxVisibleAvatars = 9
+    nonisolated static let maxVisibleAvatars = 9
 
     /// 최대 표기 수를 넘을 때 "+N" 칩에 표시할 값. 넘지 않으면 nil (칩 없음).
     /// 방 정원과 무관하게 동작한다 — 정원 10명 vs 시안 "+4" 불일치는 디자이너 확인 예정.
-    static func overflowCount(totalMemberCount: Int) -> Int? {
+    /// 순수 계산이라 MainActor 격리가 불필요하다 — View 타입의 static은 기본이
+    /// MainActor라서, nonisolated가 없으면 테스트(메인 스레드 밖)에서 호출하지 못한다.
+    nonisolated static func overflowCount(totalMemberCount: Int) -> Int? {
         guard totalMemberCount > maxVisibleAvatars else { return nil }
         return totalMemberCount - maxVisibleAvatars
     }
@@ -116,7 +118,7 @@ public struct CHALLAProfileBar: View {
                     .zIndex(Double(visibleMembers.count - index))
             }
             if let overflow = Self.overflowCount(totalMemberCount: members.count) {
-                overflowChip(overflow)   // zIndex 기본 0 — 겹침의 제일 아래
+                overflowChip(overflow) // zIndex 기본 0 — 겹침의 제일 아래
                     .offset(x: CGFloat(visibleMembers.count) * ProfileBarMetric.avatarStep)
             }
         }
@@ -237,6 +239,7 @@ public struct CHALLAProfileBar: View {
 private enum ProfileBarMetric {
 
     // MARK: 바
+
     static let avatarSize: CGFloat = 30
     /// 이웃과 5pt씩 겹치도록 지름보다 5 작게 전진.
     static let avatarStep: CGFloat = avatarSize - 5
@@ -246,6 +249,7 @@ private enum ProfileBarMetric {
     static let chipBorderWidth: CGFloat = 3.67
 
     // MARK: 팝오버 틀
+
     static let panelGap: CGFloat = 14
     /// 폭은 실측 근사 — 디자이너 검수로 확정. 최대 높이는 시안 주석 450.
     static let panelWidth: CGFloat = 210
@@ -255,6 +259,7 @@ private enum ProfileBarMetric {
     static let dividerHeight: CGFloat = 1
 
     // MARK: 팝오버 내용
+
     static let codeLabelGap: CGFloat = 4
     static let codeCopyGap: CGFloat = 4
     /// 라벨 14 + 간격 4 + 코드 32.
@@ -265,6 +270,7 @@ private enum ProfileBarMetric {
     static let memberAvatarSize: CGFloat = 20
 
     // MARK: 동작
+
     /// 시안에 모션 명세 없음 — 근사값, 디자이너 검수로 확정.
     static let toggleDuration: Double = 0.15
     /// 바깥 탭 닫기용 투명 판. iPhone 최대 화면 대각선(~1,026pt)보다 충분히 크다.
@@ -278,7 +284,7 @@ private enum ProfileBarMetric {
         var body: some View {
             VStack {
                 CHALLAProfileBar(
-                    members: (1...13).map {
+                    members: (1 ... 13).map {
                         CHALLAProfileBar.Member(id: "\($0)", name: "멤버 \($0)", avatar: nil)
                     },
                     inviteCode: "1928121",

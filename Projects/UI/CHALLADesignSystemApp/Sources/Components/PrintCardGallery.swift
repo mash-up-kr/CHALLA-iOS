@@ -98,14 +98,14 @@ private struct SamplePhotosLoader: View {
             } else {
                 RoundedRectangle(cornerRadius: CHALLARadius.medium)
                     .fill(CHALLAColor.Background.level2)
-                    .frame(height: 196)   // 헤더(~66) + 스트립(130) 근사 높이
+                    .frame(height: 196) // 헤더(~66) + 스트립(130) 근사 높이
             }
         }
         .task {
             var loaded: [Image] = []
             for seed in seeds {
-                let url = URL(string: "https://picsum.photos/seed/\(seed)/300/400")!
-                guard let (data, _) = try? await URLSession.shared.data(from: url),
+                guard let url = URL(string: "https://picsum.photos/seed/\(seed)/300/400"),
+                      let (data, _) = try? await URLSession.shared.data(from: url),
                       let uiImage = UIImage(data: data) else { continue }
                 loaded.append(Image(uiImage: uiImage))
             }

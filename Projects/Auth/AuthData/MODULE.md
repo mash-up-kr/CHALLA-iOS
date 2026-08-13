@@ -11,6 +11,8 @@
 담당 범위:
 - **서버 통신** — `AuthEndpoint`(login/refresh/logout, POST) + 공통 응답 래퍼 `BaseResponseDTO` 언랩 +
   `NetworkError`와 서버 실패 응답(`success=false`)을 `AuthError`로 정규화 (`DefaultAuthRepository`).
+  요청·응답 본문은 `auth` 키로 한 번 더 감싸인다(서버 전역 규약 — user·room·photo·chat도 각자의 키를 쓴다).
+  DTO마다 `auth` 프로퍼티를 직접 두고 페이로드를 `Payload`로 중첩한다 — 별도 래퍼 타입을 만들지 않는다.
   baseURL은 이 모듈 전용이 아니라 `CHALLANetwork`의 `CHALLAAPIEnvironment.baseURL`(앱 전역 서버 값)을 그대로 쓴다.
 - **소셜 인증** — KakaoSDK(OIDC idToken, 카카오톡 미설치 시 계정 로그인 폴백)와
   AuthenticationServices(Apple)를 `@MainActor` 서비스로 감싸고, 사용자 취소를 `.cancelled`로 매핑.
