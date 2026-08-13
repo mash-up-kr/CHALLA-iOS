@@ -23,12 +23,12 @@ public struct ProfileSetupView: View {
             CHALLAColor.Background.surface
                 .ignoresSafeArea()
 
-            if store.phase == .welcome {
+            if store.showsWelcome {
                 WelcomeGlowView()
             }
 
             VStack(spacing: 0) {
-                CHALLATopNavigation.sub(title: "프로필 설정")
+                topNavigation
                 ProfileFormView(
                     headline: headline,
                     avatar: avatar,
@@ -59,10 +59,26 @@ public struct ProfileSetupView: View {
         .contentShape(Rectangle())
         .onTapGesture { send(.backgroundTapped) }
         .bind($store.isNicknameFocused, to: $isNicknameFocused)
-        .onChange(of: store.phase) { _, newPhase in
-            if newPhase == .welcome {
+        .onChange(of: store.showsWelcome) { _, showsWelcome in
+            if showsWelcome {
                 AccessibilityNotification.ScreenChanged().post()
             }
+        }
+    }
+
+    /// 최초 설정은 되돌아갈 화면이 없어 뒤로가기를 두지 않는다 (기존 동작).
+    /// 편집은 설정 화면에서 들어오므로 버튼을 낸다.
+    @ViewBuilder
+    private var topNavigation: some View {
+        if store.showsBackButton {
+            CHALLATopNavigation.sub(
+                title: navigationTitle,
+                leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") {
+                    send(.backButtonTapped)
+                }
+            )
+        } else {
+            CHALLATopNavigation.sub(title: navigationTitle)
         }
     }
 
@@ -99,17 +115,31 @@ public struct ProfileSetupView: View {
 
     // MARK: - store → 뷰 파라미터 매핑
 
+    // TODO: 편집 모드 문구 셋(타이틀·헤드라인·CTA)은 시안이 없어 임의 작성본이다 — 기획 확정 시 교체할 것.
+    private var navigationTitle: String {
+        store.mode == .edit ? "프로필 편집" : "프로필 설정"
+    }
+
     /// 문구는 뷰가 소유한다 — State에는 phase·데이터만 둔다 (토스트 문구만 예외).
     private var headline: ProfileFormHeadline {
-        if store.phase == .welcome {
+        if store.showsWelcome {
             ProfileFormHeadline(highlighted: store.nickname, text: "만나서 반가워요!")
+        } else if store.mode == .edit {
+            ProfileFormHeadline(highlighted: nil, text: "프로필을 수정해 주세요")
         } else {
             ProfileFormHeadline(highlighted: nil, text: "프로필과 닉네임을\n설정해 주세요")
         }
     }
 
+    /// 새로 고른 사진 > 서버에 있던 사진 > 실루엣.
     private var avatar: ProfileAvatarSource {
-        store.imageData.map(ProfileAvatarSource.local) ?? .placeholder
+        if let imageData = store.imageData {
+            return .local(imageData)
+        }
+        if let url = store.avatarImageURL {
+            return .remote(url)
+        }
+        return .placeholder
     }
 
     private var fieldMode: ProfileNicknameFieldMode {
@@ -120,7 +150,7 @@ public struct ProfileSetupView: View {
     private var cta: ProfileFormCTA? {
         guard store.isCTAVisible else { return nil }
         return ProfileFormCTA(
-            title: "시작하기",
+            title: store.mode == .edit ? "저장" : "시작하기",
             isEnabled: store.isCTAEnabled,
             isLoading: store.isCTALoading
         ) {

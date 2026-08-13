@@ -7,7 +7,8 @@
 (아키텍처 규칙 1: `Feature → Domain ← Data`).
 
 테마와 알림 설정을 기기에 저장하고 다시 읽으며, 시스템 알림 권한을 조회한다.
-**네트워크 의존이 없다** — 계정(로그아웃·탈퇴)은 서버 계약이 없어 아직 목이다.
+**네트워크 의존이 없다** — 테마·알림은 기기 저장이고, 프로필·계정은 다른 aggregate라
+실행 앱의 어댑터가 잇는다 (`CHALLAApp/Sources/Adapters/`).
 
 ## 프로필은 왜 여기 없나
 
@@ -48,11 +49,14 @@
 - `struct SystemNotificationPermissionProvider: NotificationPermissionProvider`
   - `UNUserNotificationCenter`로 권한을 읽고 `UIApplication`으로 설정 앱을 연다.
     iOS 16+ `openNotificationSettingsURLString`을 먼저 시도하고 안 되면 앱 설정 루트로 떨어진다
-  - **권한을 요청하지 않는다** — 화면은 상태를 읽어 배너를 그릴 뿐이고 요청은 푸시 등록 흐름의 몫이다
+  - `requestAuthorization()`은 배너 문구("앱 알림이 꺼져있어요")에 맞춰 alert·sound·badge를 한 묶음으로 요청하고,
+    granted 플래그가 아니라 **다시 읽은 실제 상태**를 돌려준다 (`.provisional`처럼 granted가 false인 허용 상태를 놓치지 않는다)
+  - 권한을 받은 뒤 원격 알림에 등록하는 일(FCM 토큰 발급)은 여기서 하지 않는다 —
+    실행 앱의 `CompositionRoot`가 이 구현을 감싸 이어붙인다
   - `UNNotificationSettings`가 `Sendable`이 아니라, 콜백 안에서 `UNAuthorizationStatus`만 꺼내
     `withCheckedContinuation`으로 넘긴다
   - **Core가 아니라 여기 있는 이유**: OS를 만지면 Core가 원칙이지만 이 모듈은 이미 `UserDefaults`를
-    만지고 있고 사용처가 이 화면 하나뿐이다. 푸시 등록 이슈에서 같은 접근이 두 번째로 필요해지면
+    만지고 있고 사용처가 이 화면 하나뿐이다. 다른 모듈에서 같은 접근이 필요해지면
     Core 모듈로 승격한다 — Domain 인터페이스가 그대로라 Feature는 안 바뀐다
 
 ## 의존 관계

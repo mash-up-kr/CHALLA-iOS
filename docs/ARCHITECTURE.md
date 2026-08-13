@@ -54,8 +54,7 @@ Projects/
 │  └─ AuthData                       (모듈) 소셜 SDK · 로그인 API · TokenProvider 구현(Keychain 사용)
 │
 ├─ User/                             (폴더) 유저 · 프로필
-│  ├─ ProfileSetupFeature            (모듈) 최초 프로필 설정 화면
-│  ├─ ProfileEditFeature             (모듈) 프로필 수정 화면
+│  ├─ ProfileSetupFeature            (모듈) 프로필 최초 설정·수정 화면 (mode로 분기)
 │  ├─ UserDomain                     (모듈) User · Profile · UserRepository(interface)
 │  └─ UserData                       (모듈) 유저 조회/수정 API 구현
 │

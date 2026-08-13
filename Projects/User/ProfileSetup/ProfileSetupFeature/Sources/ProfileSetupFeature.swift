@@ -17,9 +17,21 @@ public struct ProfileSetupFeature {
     @ObservableState
     public struct State: Equatable, Sendable {
 
+        /// 최초 설정인지 편집인지. 문구·뒤로가기·환영 연출이 갈린다.
+        public var mode: Mode = .setup
+
         public var nickname: String = ""
-        /// 선택된 프로필 이미지. nil이면 아바타가 기본 실루엣으로 돌아간다.
+        /// 새로 고른 프로필 이미지. nil이면 아직 안 골랐거나 지운 상태다.
         public var imageData: Data?
+
+        /// 서버에 저장돼 있는 프로필 이미지 URL (편집 모드 진입 시 부모가 시드).
+        ///
+        /// 표시용이기도 하지만 **저장에 필수다** — 사진을 건드리지 않았을 때 이 URL을
+        /// 그대로 되돌려 보내야 서버가 기존 사진을 지우지 않는다 (`ProfileImageChange` 참고).
+        public var remoteImageURL: URL?
+
+        /// 사진 삭제를 눌렀는지. `imageData == nil` 하나로는 "안 건드림"과 구분되지 않는다.
+        public var isPhotoRemoved = false
         /// 프로필 사진 메뉴 드로어 표시 여부.
         public var isPhotoMenuPresented = false
         /// 시스템 사진 피커 표시 여부 — 권한을 받은 뒤에만 켠다.
@@ -35,6 +47,8 @@ public struct ProfileSetupFeature {
 
         public enum Phase: Equatable, Sendable { case editing, submitting, welcome }
 
+        public enum Mode: Equatable, Sendable { case setup, edit }
+
         public struct ToastState: Equatable, Sendable {
             public var message: String
 
@@ -43,50 +57,23 @@ public struct ProfileSetupFeature {
             }
         }
 
-        public var isSubmittable: Bool {
-            NicknameRule.validate(nickname) == nil
-        }
-
-        /// != nil → 필드 빨간 테두리. 값에서 파생하므로 입력과 함께 실시간으로 풀린다.
-        /// 빈 값(`.empty`)은 오류로 칠하지 않는다 — 아직 안 쓴 것이지 잘못 쓴 것이 아니다.
-        public var nicknameViolation: NicknameRule.Violation? {
-            guard case .tooLong = NicknameRule.validate(nickname) else { return nil }
-            return .tooLong(limit: NicknameRule.maxLength)
-        }
-
-        /// 환영 화면에서만 감춘다 — 편집·제출 중에는 빈 값이어도 자리를 지키고 비활성으로 보인다.
-        public var isCTAVisible: Bool {
-            phase != .welcome
-        }
-
-        public var isCTAEnabled: Bool {
-            phase == .editing && isSubmittable
-        }
-
-        public var isCTALoading: Bool {
-            phase == .submitting
-        }
-
-        public var isFieldEditable: Bool {
-            phase == .editing
-        }
-
-        public var showsCameraBadge: Bool {
-            phase != .welcome
-        }
-
-        /// 등록된 사진이 없으면 드로어에 삭제 버튼을 내지 않는다.
-        public var canRemovePhoto: Bool {
-            imageData != nil
-        }
-
-        public init(nickname: String = "", imageData: Data? = nil) {
+        public init(
+            mode: Mode = .setup,
+            nickname: String = "",
+            imageData: Data? = nil,
+            remoteImageURL: URL? = nil
+        ) {
+            self.mode = mode
             self.nickname = nickname
             self.imageData = imageData
+            self.remoteImageURL = remoteImageURL
         }
     }
 
     // MARK: - Action
+
+    //
+    // State의 파생값은 파일 아래 `extension ProfileSetupFeature.State`에 모아 뒀다.
 
     public enum Action: BindableAction, ViewAction, Sendable {
 
@@ -104,6 +91,8 @@ public struct ProfileSetupFeature {
             case nicknameSubmitted
             case backgroundTapped
             case startButtonTapped
+            /// 편집 모드의 뒤로가기 — 변경을 버리고 돌아간다.
+            case backButtonTapped
         }
 
         case view(ViewAction)
@@ -111,8 +100,12 @@ public struct ProfileSetupFeature {
         /// parent(App)와의 유일한 통신 채널.
         @CasePathable
         public enum Delegate: Equatable, Sendable {
-            /// 환영 화면 종료 = 다음 화면으로 진행해도 좋다는 신호.
+            /// 최초 설정 완료 — 환영 화면 종료 = 다음 화면으로 진행해도 좋다는 신호.
             case setupCompleted(UserProfile)
+            /// 편집 저장 완료. 환영 연출 없이 곧바로 올린다.
+            case editCompleted(UserProfile)
+            /// 편집을 버리고 나갔다.
+            case cancelled
         }
 
         case delegate(Delegate)
@@ -210,6 +203,9 @@ public struct ProfileSetupFeature {
             case .view(.photoRemoveTapped):
                 state.isPhotoMenuPresented = false
                 state.imageData = nil
+                // 편집 모드에서는 서버에 있던 사진도 지우겠다는 뜻이다.
+                // 이 플래그가 없으면 "안 건드림"으로 읽혀 기존 사진이 남는다.
+                state.isPhotoRemoved = true
                 return .none
 
             case let .photoAuthorizationResponse(authorization):
@@ -227,6 +223,8 @@ public struct ProfileSetupFeature {
                     return toastTimer()
                 }
                 state.imageData = data
+                // 새로 골랐으니 직전의 삭제 의사는 무효다.
+                state.isPhotoRemoved = false
                 return .none
 
             case .view(.nicknameSubmitted):
@@ -244,16 +242,25 @@ public struct ProfileSetupFeature {
                 state.toast = nil // 가드를 통과했으니 남아 있을 건 제출 실패 토스트뿐
                 let draft = ProfileDraft(
                     nickname: NicknameRule.normalized(state.nickname),
-                    imageData: state.imageData
+                    image: state.imageChange
                 )
                 return .merge(
                     .cancel(id: CancelID.toast),
                     submit(draft)
                 )
 
+            case .view(.backButtonTapped):
+                // 제출 중에는 막는다 — 나가면 이펙트가 취소돼 성공도 실패도 오지 않는다.
+                guard state.phase == .editing else { return .none }
+                return .send(.delegate(.cancelled))
+
             case let .submitResponse(.success(profile)):
                 state.savedProfile = profile
                 state.nickname = profile.nickname ?? state.nickname // 서버 정규화 반영
+                // 편집은 환영 연출을 거치지 않고 바로 부모에게 넘긴다.
+                guard state.mode == .setup else {
+                    return .send(.delegate(.editCompleted(profile)))
+                }
                 state.phase = .welcome
                 return .run { [clock] send in
                     try await clock.sleep(for: Const.welcomeDuration)
@@ -307,5 +314,76 @@ public struct ProfileSetupFeature {
             }
         }
         .cancellable(id: CancelID.submit, cancelInFlight: true)
+    }
+}
+
+// MARK: - State 파생값
+
+/// 저장 프로퍼티에서 계산되는 값들. 본체가 아니라 여기 있는 이유는 `ProfileSetupFeature`의
+/// 타입 본문 길이 제한(swiftlint `type_body_length`) 때문이다.
+public extension ProfileSetupFeature.State {
+
+    var isSubmittable: Bool {
+        NicknameRule.validate(nickname) == nil
+    }
+
+    /// != nil → 필드 빨간 테두리. 값에서 파생하므로 입력과 함께 실시간으로 풀린다.
+    /// 빈 값(`.empty`)은 오류로 칠하지 않는다 — 아직 안 쓴 것이지 잘못 쓴 것이 아니다.
+    var nicknameViolation: NicknameRule.Violation? {
+        guard case .tooLong = NicknameRule.validate(nickname) else { return nil }
+        return .tooLong(limit: NicknameRule.maxLength)
+    }
+
+    /// 환영 화면에서만 감춘다 — 편집·제출 중에는 빈 값이어도 자리를 지키고 비활성으로 보인다.
+    var isCTAVisible: Bool {
+        phase != .welcome
+    }
+
+    var isCTAEnabled: Bool {
+        phase == .editing && isSubmittable
+    }
+
+    var isCTALoading: Bool {
+        phase == .submitting
+    }
+
+    var isFieldEditable: Bool {
+        phase == .editing
+    }
+
+    var showsCameraBadge: Bool {
+        phase != .welcome
+    }
+
+    /// 등록된 사진이 없으면 드로어에 삭제 버튼을 내지 않는다.
+    /// 편집 모드에서는 서버에 있던 사진도 지울 대상이다.
+    var canRemovePhoto: Bool {
+        imageData != nil || (remoteImageURL != nil && !isPhotoRemoved)
+    }
+
+    /// 아바타에 그릴 서버 이미지. 지웠으면 nil이라 실루엣으로 돌아간다.
+    var avatarImageURL: URL? {
+        isPhotoRemoved ? nil : remoteImageURL
+    }
+
+    /// 저장할 때 서버에 전달할 사진 처리 방식. 새 사진 > 삭제 > 원본 유지 순으로 판단한다.
+    var imageChange: ProfileImageChange {
+        if let imageData {
+            return .replaced(imageData)
+        }
+        if isPhotoRemoved {
+            return .removed
+        }
+        return .unchanged(remoteImageURL)
+    }
+
+    /// 편집 모드는 되돌아갈 화면이 있어 상단에 뒤로가기 버튼을 둔다.
+    var showsBackButton: Bool {
+        mode == .edit && phase == .editing
+    }
+
+    /// 환영 연출은 최초 설정에만 있다 — 편집은 저장하고 바로 설정 화면으로 돌아간다.
+    var showsWelcome: Bool {
+        mode == .setup && phase == .welcome
     }
 }

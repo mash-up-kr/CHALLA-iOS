@@ -31,10 +31,12 @@ Domain이 `CHALLADesignSystem`을 import하면 도메인이 UI에 묶이기 때�
 - `struct NotificationSetting` — `isServiceEnabled`(인화 대기·완료 등 서비스 알림)
   - `NotificationSetting.default` — 꺼짐. 시안의 기본 상태가 OFF다
   - 항목이 늘어날 것을 대비해 `Bool` 하나가 아니라 구조체로 둔다
-- `struct SettingProfile` — `nickname` · `email` · `avatarURL`
-  - **임시 모델이다.** 프로필 정본은 이슈 #33의 `UserProfile`이며, 머지되면 이 타입을 지우고 교체한다
-  - `email`은 시안에 `juy***@naver,com`처럼 마스킹되어 나온다. 마스킹 주체(서버/클라이언트)가
-    미정이라 받은 문자열을 그대로 표시한다
+- `struct SettingProfile` — `nickname` · `avatarURL`
+  - 프로필 정본은 `UserDomain.UserProfile`이지만 그 타입을 여기서 쓰지 않는다 —
+    다른 aggregate라 `SettingDomain`이 `UserDomain`에 의존하게 된다.
+    실행 앱의 `CompositionRoot`가 `UserProfile` → 이 타입으로 옮기는 어댑터를 주입한다
+  - **이메일 필드가 없다.** 시안에는 있지만 서버가 내려주지 않는다
+    (`GET /api/v1/users/me` 응답은 `id · nickname · profileImageUrl`뿐)
 - `enum NotificationAuthorizationStatus` — `.notDetermined` · `.denied` · `.authorized`
   - `UNAuthorizationStatus`를 그대로 두지 않고 화면이 필요로 하는 셋으로 좁힌다.
     `.provisional`·`.ephemeral`은 `.authorized`로 접는다 (알림이 오는 상태에서 "꺼져있어요" 배너를 띄우면 안 된다)
@@ -59,13 +61,17 @@ Domain이 `CHALLADesignSystem`을 import하면 도메인이 UI에 묶이기 때�
     `.claude/rules/architecture.md`가 "Domain·Data는 화면 단위가 아니라 aggregate 단위로 1벌만
     만든다"고 정하고 있고, 프로필의 정본은 이슈 #33의 `UserRepository`다. 여기서 조회를 또
     구현하면 같은 서버 계약이 두 곳에 생긴다. 설정 쪽은 필요한 모양만 선언하고,
-    #33 머지 후 어댑터만 `CompositionRoot`에 두면 Domain·Feature는 손댈 게 없다
+    실행 앱의 `SettingProfileProviderAdapter`가 `UserRepository`를 이 protocol에 맞춰준다
 - `protocol NotificationPermissionProvider` (구현: `SettingData`) — 시스템 알림 권한
   - `authorizationStatus() async -> NotificationAuthorizationStatus` — **권한을 요청하지는 않는다**
+  - `requestAuthorization() async -> NotificationAuthorizationStatus` — 권한을 요청하고 결과 상태를 돌려준다.
+    `.notDetermined`에서만 OS 팝업이 뜨고, 이미 정해진 상태에서는 현재 값이 그대로 온다
   - `openSystemNotificationSettings() async` — 설정 앱의 이 앱 화면을 연다. 실패하면 조용히 무시
-- `protocol AccountRepository` (구현: `SettingData`, 지금은 목) — 로그아웃·회원 탈퇴
+- `protocol AccountRepository` — 로그아웃·회원 탈퇴
   - `signOut() async throws` / `deleteAccount() async throws`
-  - 실패는 `SettingError`로 정규화해 던진다. 실 구현은 이슈 #13·#33 이후
+  - 실패는 `SettingError`로 정규화해 던진다.
+  - 구현은 `SettingData`가 아니라 실행 앱의 `AccountRepositoryAdapter`다 —
+    로그아웃은 Auth aggregate, 탈퇴는 User aggregate라 둘을 조합하는 이 동작에 단일 Domain 홈이 없다
 
 ### UseCases (`Sources/UseCases/`)
 

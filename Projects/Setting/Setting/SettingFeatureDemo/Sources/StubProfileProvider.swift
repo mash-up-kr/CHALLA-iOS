@@ -13,7 +13,6 @@ struct StubProfileProvider: SettingProfileProvider {
     /// 데모가 `AccountFeature.State.profile`에 직접 넣어야 한다. 같은 값을 두 번 적지 않는다.
     static let profile = SettingProfile(
         nickname: "나는야멋쟁이토마토",
-        email: "hap****@naver.com",
         avatarURL: nil
     )
 

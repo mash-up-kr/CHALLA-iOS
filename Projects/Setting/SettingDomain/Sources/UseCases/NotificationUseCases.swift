@@ -1,7 +1,7 @@
 import Dependencies
 import DependenciesMacros
 
-// 알림 설정 화면이 쓰는 UseCase 3종.
+// 알림 설정 화면이 쓰는 UseCase 4종.
 
 // MARK: - 불러오기
 
@@ -70,6 +70,40 @@ public extension DependencyValues {
     var updateServiceNotificationUseCase: UpdateServiceNotificationUseCase {
         get { self[UpdateServiceNotificationUseCase.self] }
         set { self[UpdateServiceNotificationUseCase.self] = newValue }
+    }
+}
+
+// MARK: - 권한 요청
+
+/// 시스템 알림 권한을 요청하고 요청 후의 상태를 돌려준다 (권한 배너를 눌렀을 때).
+///
+/// 한 번도 묻지 않은 상태(`.notDetermined`)에서만 의미가 있다 — 이미 거절한 뒤에는 앱이 다시 물을 수 없고
+/// 설정 앱으로 보내야 한다. 그 분기는 화면이 판단한다.
+@DependencyClient
+public struct RequestNotificationAuthorizationUseCase: Sendable {
+    /// 권한 조회와 마찬가지로 실패 개념이 없다 — 거절도 정상 결과다.
+    public var run: @Sendable () async -> NotificationAuthorizationStatus = { .denied }
+}
+
+extension RequestNotificationAuthorizationUseCase: TestDependencyKey {
+
+    public static func live(
+        permission: any NotificationPermissionProvider
+    ) -> RequestNotificationAuthorizationUseCase {
+        RequestNotificationAuthorizationUseCase(run: {
+            await permission.requestAuthorization()
+        })
+    }
+
+    public static let testValue = RequestNotificationAuthorizationUseCase()
+
+    public static let previewValue = RequestNotificationAuthorizationUseCase(run: { .authorized })
+}
+
+public extension DependencyValues {
+    var requestNotificationAuthorizationUseCase: RequestNotificationAuthorizationUseCase {
+        get { self[RequestNotificationAuthorizationUseCase.self] }
+        set { self[RequestNotificationAuthorizationUseCase.self] = newValue }
     }
 }
 

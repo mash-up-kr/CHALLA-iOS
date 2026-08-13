@@ -57,7 +57,6 @@ final class MockProfileProvider: SettingProfileProvider, @unchecked Sendable {
 extension SettingProfile {
     static let stub = SettingProfile(
         nickname: "나는야멋쟁이토마토",
-        email: "hap****@naver.com",
         avatarURL: nil
     )
 }

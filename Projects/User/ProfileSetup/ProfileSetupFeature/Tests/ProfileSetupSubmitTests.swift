@@ -40,8 +40,8 @@ struct ProfileSetupSubmitTests: ProfileSetupTestSupport {
             $0.nickname = "챌라" // 서버 응답 닉네임 반영
             $0.phase = .welcome
         }
-        // draft에는 정규화(trim)된 닉네임과 imageData가 동봉된다
-        #expect(receivedDrafts.value == [ProfileDraft(nickname: "챌라", imageData: imageData)])
+        // draft에는 정규화(trim)된 닉네임과 새로 고른 사진이 동봉된다
+        #expect(receivedDrafts.value == [ProfileDraft(nickname: "챌라", image: .replaced(imageData))])
 
         await clock.advance(by: .seconds(2))
         await store.receive(\.welcomeFinished)
