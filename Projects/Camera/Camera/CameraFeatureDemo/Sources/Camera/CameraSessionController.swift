@@ -2,6 +2,7 @@
 import CameraFeature
 import CoreImage
 import Observation
+import os
 
 /// 데모앱 전용 실기기 카메라 세션. `AVCaptureSession` 구성·필터 프리뷰·촬영·사진첩 저장을 전담한다.
 ///
@@ -24,8 +25,16 @@ final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchec
     private(set) var authorization: Authorization = .notDetermined
 
     /// LUT가 적용된 프리뷰 프레임 콜백. `videoQueue`에서 불린다 — 소비자(렌더러)가 스레드를 넘긴다.
-    var onPreviewImage: (@Sendable (CIImage) -> Void)?
+    /// 등록·해제(메인)와 호출(`videoQueue`)의 스레드가 달라 락으로 보호한다.
+    var onPreviewImage: (@Sendable (CIImage) -> Void)? {
+        get { onPreviewImageState.withLock { $0 } }
+        set { onPreviewImageState.withLock { $0 = newValue } }
+    }
 
+    private let onPreviewImageState = OSAllocatedUnfairLock<(@Sendable (CIImage) -> Void)?>(initialState: nil)
+
+    // AVFoundation이 GCD를 직접 요구해 async/await로 대체할 수 없는 예외다 —
+    // 세션 구성은 전용 시리얼 큐 사용이 Apple 권장이고, 프레임 콜백은 setSampleBufferDelegate(_:queue:)가 큐를 받는다.
     private let sessionQueue = DispatchQueue(label: "com.challa.camerafeaturedemo.session")
     private let videoQueue = DispatchQueue(label: "com.challa.camerafeaturedemo.video")
     private let photoOutput = AVCapturePhotoOutput()
