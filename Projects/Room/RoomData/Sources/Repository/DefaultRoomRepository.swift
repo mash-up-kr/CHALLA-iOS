@@ -49,6 +49,30 @@ public struct DefaultRoomRepository: RoomRepository {
         }
     }
 
+    public func roomInfo(id: Room.ID) async throws -> (room: Room, invitationCode: String) {
+        do {
+            let response = try await client.request(
+                RoomEndpoint.detail(id: id),
+                as: BaseResponseDTO<RoomDetailResponseDTO>.self
+            )
+            return try response.unwrap().room.toDomain(requestedID: id)
+        } catch {
+            throw RoomError.normalized(error)
+        }
+    }
+
+    public func members(roomID: Room.ID) async throws -> [RoomMember] {
+        do {
+            let response = try await client.request(
+                RoomEndpoint.members(roomID: roomID),
+                as: BaseResponseDTO<RoomMembersResponseDTO>.self
+            )
+            return try response.unwrap().users.map { $0.toDomain() }
+        } catch {
+            throw RoomError.normalized(error)
+        }
+    }
+
     // MARK: - 카드 채우기
 
     /// 생성·입장 응답은 `{ id }`뿐인데 계약은 카드를 요구한다 — 목록을 다시 받아 그 id의 카드를 찾는다.
