@@ -57,16 +57,18 @@ public struct CameraFilteredPreviewView: UIViewRepresentable {
 
         private lazy var commandQueue = device?.makeCommandQueue()
         private lazy var ciContext = device.map { CIContext(mtlDevice: $0) }
-        private let latestImage = OSAllocatedUnfairLock<CIImage?>(initialState: nil)
+        /// CIImage는 불변 객체라 스레드 간 전달이 안전하지만, 구 SDK(CI의 Xcode)에는 Sendable 표기가
+        /// 없어 unchecked 계열 API를 쓴다 — 최신 SDK에서만 통과하는 코드를 만들지 않는다.
+        private let latestImage = OSAllocatedUnfairLock<CIImage?>(uncheckedState: nil)
 
         func enqueue(_ image: CIImage) {
-            latestImage.withLock { $0 = image }
+            latestImage.withLockUnchecked { $0 = image }
         }
 
         public func mtkView(_: MTKView, drawableSizeWillChange _: CGSize) {}
 
         public func draw(in view: MTKView) {
-            guard let image = latestImage.withLock({ $0 }),
+            guard let image = latestImage.withLockUnchecked({ $0 }),
                   let ciContext,
                   let drawable = view.currentDrawable,
                   let commandBuffer = commandQueue?.makeCommandBuffer()

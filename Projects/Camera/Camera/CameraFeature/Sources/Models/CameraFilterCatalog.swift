@@ -54,8 +54,9 @@ public enum CameraFilterCatalog {
         return jpegContext.jpegRepresentation(of: output, colorSpace: colorSpace)
     }
 
-    /// JPEG 재인코딩용. `CIContext`는 스레드 안전하고 생성이 비싸 공유한다.
-    private static let jpegContext = CIContext()
+    /// JPEG 재인코딩용. `CIContext`는 스레드 안전(Apple 문서)하고 생성이 비싸 공유한다 —
+    /// 구 SDK(CI의 Xcode)에는 Sendable 표기가 없어 nonisolated(unsafe)로 선언한다.
+    private nonisolated(unsafe) static let jpegContext = CIContext()
 
     // MARK: - .cube 파싱
 
