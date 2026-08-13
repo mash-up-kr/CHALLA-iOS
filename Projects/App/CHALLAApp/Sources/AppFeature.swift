@@ -66,7 +66,7 @@ public struct AppFeature {
                 return .none
 
             case .profileResponse(.failure):
-                // 재시도로 풀리는 실패는 여기까지 오지 않는다(이펙트가 삼킨다) — 남는 건 로그인부터 다시 해야 하는 것들뿐.
+                // 미로그인(401)도 조회 실패도 결론은 같다 — 로그인부터 다시.
                 state = .login(LoginFeature.State())
                 return .none
 
@@ -92,8 +92,12 @@ public struct AppFeature {
 
     private enum CancelID { case profile }
 
-    /// 저절로 풀릴 수 있는 실패가 이어지는 동안의 대기 간격. 마지막 값이 상한이다.
+    /// 저절로 풀릴 수 있는 실패가 이어질 때의 재시도 정책.
     private enum RetryBackoff {
+        /// 첫 시도를 포함한 총 시도 횟수. 상한이 없으면 화면이 스플래시에 멈춘 채 빠져나가지 못한다.
+        static let maxAttempts = 5
+
+        /// 시도 사이의 대기 간격. 마지막 값이 상한이다.
         private static let delays: [Duration] = [.seconds(1), .seconds(2), .seconds(4)]
 
         static func delay(for attempt: Int) -> Duration {
@@ -103,16 +107,18 @@ public struct AppFeature {
 
     private func fetchMyProfile() -> Effect<Action> {
         .run { [fetchMyProfileUseCase, clock] send in
-            for attempt in 0... {
+            for attempt in 0 ..< RetryBackoff.maxAttempts {
                 do {
                     let profile = try await fetchMyProfileUseCase.run()
                     await send(.profileResponse(.success(profile)))
                     return
                 } catch is CancellationError {
                     return
-                } catch let error as UserError where error.isRetryable {
-                    // 전파·서버 일시 장애는 사용자가 손쓸 수 있는 게 없다 — 알리지 않고 아래에서 대기 후 재시도한다.
+                } catch let error as UserError
+                    where error.isRetryable && attempt < RetryBackoff.maxAttempts - 1 {
+                    // 사용자가 손쓸 수 없는 실패다 — 알리지 않고 아래에서 대기 후 재시도한다.
                 } catch {
+                    // 재시도로 풀리지 않는 실패와 마지막 시도의 실패가 함께 여기로 온다.
                     await send(.profileResponse(.failure((error as? UserError) ?? .unknown)))
                     return
                 }
