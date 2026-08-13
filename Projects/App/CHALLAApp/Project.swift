@@ -35,7 +35,9 @@ let project = Project.makeAppProject(
         .profileSetupFeature, .userData, .userDomain,
         .settingFeature, .settingData, .settingDomain,
         .notificationData, .notificationDomain,
+        .homeFeature, .roomData, .roomDomain,
         .network, .keychain,
+        .designSystem, .imageKit,
         .composableArchitecture,
         .kakaoSDKCommon, .kakaoSDKAuth, // initSDK · onOpenURL 처리용
         .firebaseCore, .firebaseMessaging // FirebaseApp.configure · FCM 토큰

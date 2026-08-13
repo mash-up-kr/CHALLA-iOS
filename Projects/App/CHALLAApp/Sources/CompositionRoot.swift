@@ -6,6 +6,8 @@ import FirebaseMessaging // 델리게이트 콜백 전에도 이미 발급된 �
 import Foundation
 import Keychain
 import NotificationData
+import RoomData
+import RoomDomain
 import SettingData
 import SettingDomain
 import UIKit // registerForRemoteNotifications — 권한 허용 직후 FCM 토큰 발급을 건다
@@ -44,6 +46,7 @@ enum CompositionRoot {
         // 로그아웃은 계정 관리 어댑터도 쓴다. 값을 돌려받아 넘기는 이유는 registerAuth 주석 참고.
         let logout = registerAuth(into: &values, client: client, tokenStore: tokenStore)
         registerUser(into: &values, client: client, repository: userRepository)
+        registerRoom(into: &values, client: client)
         registerSetting(
             into: &values,
             using: SettingCollaborators(
@@ -85,6 +88,15 @@ enum CompositionRoot {
 
         values.fetchMyProfileUseCase = .live(repository: repository)
         values.setupProfileUseCase = .live(repository: repository, uploader: imageUploader)
+    }
+
+    /// client 공유 조건은 registerUser와 같다. 데모앱은 이 자리에 `InMemoryRoomRepository`를 꽂는다.
+    private static func registerRoom(into values: inout DependencyValues, client: any HTTPClient) {
+        let repository = DefaultRoomRepository(client: client)
+
+        values.fetchRoomsUseCase = .live(repository: repository)
+        values.createRoomUseCase = .live(repository: repository)
+        values.joinRoomUseCase = .live(repository: repository)
     }
 
     /// 설정 조립이 필요로 하는 다른 aggregate의 결과물.

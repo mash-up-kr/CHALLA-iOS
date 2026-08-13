@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import HomeFeature
 import LoginFeature
 import ProfileSetupFeature
 import SettingFeature
@@ -33,9 +34,9 @@ public struct AppView: View {
                     ProfileSetupView(store: profileStore)
                 }
 
-            case let .home(profile):
-                HomePlaceholderView(profile: profile) {
-                    store.send(.settingButtonTapped)
+            case .home:
+                if let homeStore = store.scope(state: \.home?.home, action: \.home) {
+                    HomeView(store: homeStore)
                 }
 
             case .setting:

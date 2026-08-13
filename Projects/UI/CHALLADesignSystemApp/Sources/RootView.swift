@@ -20,6 +20,9 @@ struct RootView: View {
                     NavigationLink("Button") {
                         ButtonGallery()
                     }
+                    NavigationLink("AsyncImage") {
+                        AsyncImageGallery()
+                    }
                     NavigationLink("TextField") {
                         TextFieldGallery()
                     }
@@ -28,6 +31,12 @@ struct RootView: View {
                     }
                     NavigationLink("Drawer") {
                         DrawerGallery()
+                    }
+                    NavigationLink("Main Background") {
+                        MainBackgroundGallery()
+                    }
+                    NavigationLink("Photo Count Selector") {
+                        PhotoCountSelectorGallery()
                     }
                     NavigationLink("List") {
                         ListGallery()

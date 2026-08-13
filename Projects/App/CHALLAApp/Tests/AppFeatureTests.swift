@@ -1,6 +1,7 @@
 @testable import CHALLAApp
 import ComposableArchitecture
 import Foundation
+import HomeFeature
 import NotificationDomain
 import ProfileSetupFeature
 import SettingFeature
@@ -55,7 +56,7 @@ struct AppFeatureTests {
         let store = Self.store(initialState: .launching)
 
         await store.send(.profileResponse(.success(Fixture.profile))) {
-            $0 = .home(Fixture.profile)
+            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
         }
     }
 
@@ -100,7 +101,7 @@ struct AppFeatureTests {
             $0 = .launching
         }
         await store.receive(\.profileResponse.success, Fixture.profile) {
-            $0 = .home(Fixture.profile)
+            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
         }
         await store.finish()
 
@@ -109,11 +110,11 @@ struct AppFeatureTests {
 
     // MARK: - 설정 진입·이탈
 
-    @Test("홈에서 설정 버튼을 누르면 설정 화면으로 간다")
+    @Test("홈에서 설정을 누르면 설정 화면으로 간다")
     func opensSettingFromHome() async {
-        let store = Self.store(initialState: .home(Fixture.profile))
+        let store = Self.store(initialState: .home(AppFeature.HomeScreen(profile: Fixture.profile)))
 
-        await store.send(.settingButtonTapped) {
+        await store.send(.home(.delegate(.settingsTapped))) {
             $0 = .setting(AppFeature.SettingScreen(profile: Fixture.profile))
         }
     }
@@ -125,7 +126,7 @@ struct AppFeatureTests {
         )
 
         await store.send(.setting(.delegate(.backRequested))) {
-            $0 = .home(Fixture.profile)
+            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
         }
     }
 
