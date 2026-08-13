@@ -19,6 +19,7 @@ struct CameraDemoFeature {
     }
 
     @Dependency(\.cameraSession) var cameraSession
+    @Dependency(\.continuousClock) var clock
 
     var body: some ReducerOf<Self> {
         Scope(state: \.camera, action: \.camera) {
@@ -38,16 +39,22 @@ struct CameraDemoFeature {
 
             case let .captureFailed(message):
                 state.camera.toastMessage = message
-                return .run { send in
-                    try await Task.sleep(for: .seconds(3))
+                return .run { [clock] send in
+                    try await clock.sleep(for: Self.toastDuration)
                     await send(.camera(.toastDismissed))
                 }
+                .cancellable(id: CancelID.captureFailureToast, cancelInFlight: true)
 
             case .camera:
                 return .none
             }
         }
     }
+
+    private enum CancelID { case captureFailureToast }
+
+    /// CameraFeature의 촬영 불가 토스트와 같은 노출 시간.
+    private static let toastDuration: Duration = .seconds(3)
 }
 
 private enum CameraSessionDependencyKey: DependencyKey {
