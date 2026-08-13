@@ -13,21 +13,29 @@ final class MockRoomRepository: RoomRepository {
         var roomsCallCount = 0
         var createdDrafts: [RoomDraft] = []
         var joinedCodes: [String] = []
+        var roomInfoIDs: [Room.ID] = []
+        var memberRoomIDs: [Room.ID] = []
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
     private let roomsResult: Result<[RoomCard], RoomError>
     private let createResult: Result<RoomCard, RoomError>
     private let joinResult: Result<RoomCard, RoomError>
+    private let roomInfoResult: Result<(room: Room, invitationCode: String), RoomError>
+    private let membersResult: Result<[RoomMember], RoomError>
 
     init(
         roomsResult: Result<[RoomCard], RoomError> = .failure(.unknown),
         createResult: Result<RoomCard, RoomError> = .failure(.unknown),
-        joinResult: Result<RoomCard, RoomError> = .failure(.unknown)
+        joinResult: Result<RoomCard, RoomError> = .failure(.unknown),
+        roomInfoResult: Result<(room: Room, invitationCode: String), RoomError> = .failure(.unknown),
+        membersResult: Result<[RoomMember], RoomError> = .failure(.unknown)
     ) {
         self.roomsResult = roomsResult
         self.createResult = createResult
         self.joinResult = joinResult
+        self.roomInfoResult = roomInfoResult
+        self.membersResult = membersResult
     }
 
     // MARK: - 검증용 프로퍼티
@@ -47,6 +55,16 @@ final class MockRoomRepository: RoomRepository {
         state.withLock { $0.joinedCodes }
     }
 
+    /// roomInfo에 전달된 방 id (호출 순서대로).
+    var roomInfoIDs: [Room.ID] {
+        state.withLock { $0.roomInfoIDs }
+    }
+
+    /// members에 전달된 방 id (호출 순서대로).
+    var memberRoomIDs: [Room.ID] {
+        state.withLock { $0.memberRoomIDs }
+    }
+
     // MARK: - RoomRepository
 
     func rooms() async throws -> [RoomCard] {
@@ -62,5 +80,15 @@ final class MockRoomRepository: RoomRepository {
     func joinRoom(inviteCode: String) async throws -> RoomCard {
         state.withLock { $0.joinedCodes.append(inviteCode) }
         return try joinResult.get()
+    }
+
+    func roomInfo(id: Room.ID) async throws -> (room: Room, invitationCode: String) {
+        state.withLock { $0.roomInfoIDs.append(id) }
+        return try roomInfoResult.get()
+    }
+
+    func members(roomID: Room.ID) async throws -> [RoomMember] {
+        state.withLock { $0.memberRoomIDs.append(roomID) }
+        return try membersResult.get()
     }
 }
