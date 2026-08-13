@@ -21,7 +21,10 @@ import UserDomain
 /// `LoginFeatureDemo/Sources/CompositionRoot.swift`가 같은 배선을 갖는다.
 enum CompositionRoot {
 
-    static func registerLiveDependencies(into values: inout DependencyValues) {
+    static func registerLiveDependencies(
+        into values: inout DependencyValues,
+        clearImageCache: @escaping @Sendable () async -> Void = {}
+    ) {
         // 인터셉터(요청 시 토큰 읽기)와 UseCase(로그인 시 토큰 저장)가 같은 인스턴스를 공유해야 한다.
         let tokenStore = KeychainTokenStore(keychain: KeychainStore(service: "com.challa.auth"))
 
@@ -54,7 +57,8 @@ enum CompositionRoot {
                 logout: logout,
                 userRepository: userRepository,
                 tokenStore: tokenStore,
-                pushSynchronizer: pushSynchronizer
+                pushSynchronizer: pushSynchronizer,
+                clearImageCache: clearImageCache
             )
         )
     }
@@ -107,6 +111,7 @@ enum CompositionRoot {
         let userRepository: any UserRepository
         let tokenStore: any TokenStore
         let pushSynchronizer: PushTokenSynchronizer
+        let clearImageCache: @Sendable () async -> Void
     }
 
     /// 테마·알림은 기기에 저장하고, 프로필·계정은 다른 aggregate를 어댑터로 잇는다
@@ -127,7 +132,8 @@ enum CompositionRoot {
             pushToken: AccountRepositoryAdapter.PushTokenControl(
                 clear: { await pushSynchronizer.clear() },
                 restore: { await pushSynchronizer.sync() }
-            )
+            ),
+            clearImageCache: collaborators.clearImageCache
         )
 
         values.loadProfileUseCase = .live(profile: profile)

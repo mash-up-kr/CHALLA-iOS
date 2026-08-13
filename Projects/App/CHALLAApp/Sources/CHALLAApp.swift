@@ -26,7 +26,14 @@ struct CHALLAApp: App {
 
     init() {
         Self.bootstrapKakaoSDK()
-        prepareDependencies { CompositionRoot.registerLiveDependencies(into: &$0) }
+        // 로그아웃·탈퇴 시 이전 계정 이미지를 지우도록 같은 로더를 조립부에 넘긴다 (self 캡처 방지용 지역 바인딩).
+        let loader = imageLoader
+        prepareDependencies {
+            CompositionRoot.registerLiveDependencies(
+                into: &$0,
+                clearImageCache: { await loader?.removeAll() }
+            )
+        }
         store = Store(initialState: .launching) {
             AppFeature()
         }

@@ -12,6 +12,8 @@ struct AccountRepositoryAdapter: AccountRepository {
     private let userRepository: any UserRepository
     private let tokenStore: any TokenStore
     private let pushToken: PushTokenControl
+    /// 세션이 바뀌면 이전 계정의 프로필·방 이미지가 캐시에 남지 않게 비운다.
+    private let clearImageCache: @Sendable () async -> Void
 
     /// 푸시 토큰은 세션이 살아 있을 때만 해제할 수 있어서 로그아웃보다 먼저 지운다.
     /// 그런데 로그아웃이 실패하면 사용자는 로그인 상태로 남으므로, 지운 토큰을 되돌려야 한다.
@@ -26,12 +28,14 @@ struct AccountRepositoryAdapter: AccountRepository {
         logout: LogoutUseCase,
         userRepository: any UserRepository,
         tokenStore: any TokenStore,
-        pushToken: PushTokenControl
+        pushToken: PushTokenControl,
+        clearImageCache: @escaping @Sendable () async -> Void
     ) {
         self.logout = logout
         self.userRepository = userRepository
         self.tokenStore = tokenStore
         self.pushToken = pushToken
+        self.clearImageCache = clearImageCache
     }
 
     /// `LogoutUseCase`가 서버 로그아웃과 토큰 삭제까지 한다.
@@ -45,6 +49,7 @@ struct AccountRepositoryAdapter: AccountRepository {
             await pushToken.restore()
             throw SettingError(accountError: error)
         }
+        await clearImageCache()
     }
 
     /// 탈퇴 API는 서버 계정만 지운다 — **로컬 토큰은 여기서 지워야 한다.**
@@ -60,6 +65,7 @@ struct AccountRepositoryAdapter: AccountRepository {
         // 서버 계정이 사라진 뒤라 토큰 삭제 실패는 되돌릴 수 없다.
         // 다음 실행의 프로필 조회가 401을 받아 로그인 화면으로 보내므로 여기서는 무시한다.
         try? tokenStore.clear()
+        await clearImageCache()
     }
 }
 
