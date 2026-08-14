@@ -105,8 +105,8 @@ Projects/
 │  ├─ CHALLAImageKit                 (모듈) 이미지 로더 · 메모리/디스크 2단 캐시 · 다운샘플링 (#25)
 │  │                                        URLSession·ImageIO만 사용, CHALLANetwork와 무관
 │  │                                        → 상세: 모듈 MODULE.md · 도해: docs/imagekit-map.html
+│  ├─ PhotoLibrary                   (모듈) 사진첩 권한 조회·요청 (PHPhotoLibrary 래핑)
 │  ├─ Camera                         (모듈) AVFoundation 래핑
-│  ├─ Permission                     (모듈) 카메라/사진첩/푸시 권한
 │  ├─ FileStorage                    (모듈) 임시 파일 · 캐시 (이미지 캐시는 CHALLAImageKit이 자체 보유)
 │  ├─ Logger                         (모듈) os.log 래핑 — Core여도 전 레이어 공용
 │  └─ Share                          (모듈) iOS 공유하기
@@ -220,7 +220,7 @@ camera.capture()                   // 하드웨어 작동 · 파일 생성
 | 레이어 | 성격 | import 가능 대상 | 소속 모듈 |
 | :-- | :-- | :-- | :-- |
 | Shared | 순수 코드 · 사이드 이펙트 ✕ · `import Foundation`만 | 없음 | HGFoundation · HGResources |
-| Core | OS/디바이스 접점 · 사이드 이펙트 있음 | Shared | Keychain · Camera · Permission · FileStorage · Logger · Share |
+| Core | OS/디바이스 접점 · 사이드 이펙트 있음 | Shared | Keychain · PhotoLibrary · Camera · FileStorage · Logger · Share |
 | Network | 서버 접점 · **Data 전용** | Core · Shared | CHALLANetwork |
 
 - **Core와 Shared는 둘 다 전 레이어 공용**이다(규칙 4). 차이는 접근 범위가 아니라 코드 성격.

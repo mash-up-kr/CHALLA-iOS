@@ -19,7 +19,7 @@ struct IconGallery: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    /// 크기 토큰 검수: 같은 아이콘을 16~32 전 크기로 나열한다.
+    /// 크기 토큰 검수: 같은 아이콘을 14~32 전 크기로 나열한다.
     private var sizeSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             galleryTitle("Size")
@@ -36,7 +36,7 @@ struct IconGallery: View {
         }
     }
 
-    /// 20종 전수 그리드. 이름은 Figma 인벤토리와 대조하기 쉽게 에셋 이름 그대로 표기한다.
+    /// 전수 그리드. 이름은 Figma 인벤토리와 대조하기 쉽게 에셋 이름 그대로 표기한다.
     private var inventorySection: some View {
         VStack(alignment: .leading, spacing: 16) {
             galleryTitle("Inventory (\(CHALLAIcon.allCases.count)종)")

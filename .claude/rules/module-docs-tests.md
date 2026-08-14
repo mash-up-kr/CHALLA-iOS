@@ -21,5 +21,6 @@ paths: Projects/**
 - TCA Feature는 TestStore로 리듀서 동작을 검증한다.
 - 테스트 작성은 `swift-test-creator` 서브에이전트에 위임하고, 작성법은 `swift-testing` 스킬을 참고한다.
 
-> scaffold의 Tests 타깃 자동 생성은 이슈 #8에서 진행 중이다 (`makeModule(hasTests:)` + Tests.stencil).
-> MODULE.md 자동 생성은 #8 머지 후 별도 이슈로 추가한다. 그전까지는 새 모듈 생성 시 수동으로 추가한다.
+> `tuist scaffold module`은 Tests까지 함께 만든다 (`makeModule(hasTests:)` + `module/Tests.stencil`).
+> `tuist scaffold feature`는 아직 Tests를 만들지 않고, MODULE.md는 양쪽 다 만들지 않는다 —
+> 그때까지는 피처 Tests와 모든 MODULE.md를 수동으로 추가한다.

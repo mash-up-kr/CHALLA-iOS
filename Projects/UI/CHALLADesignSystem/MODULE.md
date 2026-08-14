@@ -16,7 +16,7 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 
 | API | 설명 |
 | :-- | :-- |
-| `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material) + `defaultTheme` — 사용자가 고르는 테마 색의 기본값(레몬에이드=`Primary.yellow`). 강조 요소(리스트 값 글자·스위치 켜짐·텍스트필드 포커스 테두리)가 이 색을 따른다. `Background.brand`는 `challaMainBackground()` 전용 번짐 색 |
+| `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material/Social) + `defaultTheme` — 사용자가 고르는 테마 색의 기본값(레몬에이드=`Primary.yellow`). 강조 요소(리스트 값 글자·스위치 켜짐·텍스트필드 포커스 테두리)가 이 색을 따른다. `Background.brand`는 `challaMainBackground()` 전용 번짐 색 |
 | `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`). `lineBoxInset`은 `challaFont`가 글자 상자 위아래에 더하는 여백 — 시안 간격을 옮길 때 이 값을 빼서 보정한다 |
 | `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12 / xlarge 16) |
 | `CHALLAIcon` | 아이콘 토큰 24종 + `Size`(14~32pt — 14는 방 카드 person 실측 예외) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
@@ -38,7 +38,7 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 | `CHALLADrawerAction` | 드로어 버튼 한 자리의 내용(글자·variant·role·isEnabled·동작). 푸터 액션 자리는 variant 무시하고 항상 텍스트형 |
 | `CHALLADrawerMessage` | 드로어 콘텐츠 슬롯용 제목+설명 안내 블록 (회원 탈퇴류 반복 패턴 공용화) |
 | `challaMainBackground()` | 화면 배경 View 확장 — surface 위에 하단에서 브랜드 노랑(`Background.brand`)이 번진다 (블러 먹인 타원, Figma 실측 777×594·20%). 홈·방 상세 등 화면 단위 뷰의 최상단에 붙인다 |
-| `challaDrawer(isPresented:allowsInteractiveDismiss:drawer:)` | 드로어 프레젠테이션 View 확장 — 딤·하단 등장/퇴장 스프링·끌어내려 닫기·딤 탭 닫기. `allowsInteractiveDismiss: false`면 닫기 버튼으로만 닫힘(입력 보호). 네이티브 .sheet 미사용(떠 있는 카드 모양이 안 나옴) |
+| `challaDrawer(isPresented:allowsInteractiveDismiss:bottomMargin:drawer:)` | 드로어 프레젠테이션 View 확장 — 딤·하단 등장/퇴장 스프링·끌어내려 닫기·딤 탭 닫기. `allowsInteractiveDismiss: false`면 닫기 버튼으로만 닫힘(입력 보호). `bottomMargin`은 안전 영역 하단과의 여백(기본 12), 뒤에 남는 요소를 덮어야 할 때만 낮춘다. 네이티브 .sheet 미사용(떠 있는 카드 모양이 안 나옴) |
 | `CHALLAPhotoCountSelector` | 촬영 매수 선택 줄. 숫자들을 "N장" 칩으로 나열하고 하나만 선택(라디오 성격 — 텍스트 버튼과 별개인 이유). 선택=level4 배경+Line.normal 테두리, 미선택=level2. 선택 상태 변경은 호출부 몫 |
 | `CHALLAListRow` | 리스트 행 (높이 52, 설명을 넣으면 74). 이니셜라이저 2종 — 탭 행 `init(_:description:icon:iconColor:accessory:themeColor:action:)` / 토글 행 `init(_:description:icon:iconColor:themeColor:isOn:)`. 아이콘 18pt, 이름 `.body.medium.medium`, 설명 `.body.xsmall.medium`. 제목·설명은 한 줄 고정(말줄임) |
 | `CHALLAListRowAccessory` | 탭 행의 우측 요소. `.arrow` · `.arrow(value:)` · `.check(isSelected:)` · `.empty` |
