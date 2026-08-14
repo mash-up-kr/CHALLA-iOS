@@ -42,7 +42,10 @@ Feature-facing UseCase를 정의한다. 서버·저장소의 존재를 모르며
   - `enum Violation` — `.empty` · `.tooLong(limit:)` + `userMessage` (토스트 문구, maxLength와 함께 움직임)
 
 ### Errors (`Sources/Errors/`)
-- `enum UserError` — `.invalidNickname(Violation)` · `.network` · `.unauthorized` · `.server(message:)` · `.unknown`
+- `enum UserError` — `.invalidNickname(Violation)` · `.network` · `.unauthorized` · `.server(message:)` ·
+  `.serverUnavailable` · `.unknown`
+  - `.server`는 다시 보내도 같은 답이 오는 거절(4xx·`success:false`), `.serverUnavailable`은 5xx 일시 장애로 구분한다
+  - `isRetryable` — 시간이 지나면 풀릴 수 있는 실패인지(`.network` · `.serverUnavailable`). 호출부의 재시도 판단 기준
   - `userMessage` — 토스트용 최소 문구 (임의 작성본, 기획 확정 시 일괄 교체 예정)
 
 ### Models (`Sources/Models/`)
