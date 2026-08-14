@@ -6,7 +6,7 @@ import UserDomain
 struct SetupProfileUseCaseLiveTests {
 
     private static let imageData = Data("image".utf8)
-    private static let draft = ProfileDraft(nickname: "챌라", imageData: imageData)
+    private static let draft = ProfileDraft(nickname: "챌라", image: .replaced(imageData))
     private static let uploadedURL = URL(string: "https://cdn.example.com/p.jpg")!
     private static let profile = UserProfile(
         id: 1,
@@ -52,6 +52,29 @@ struct SetupProfileUseCaseLiveTests {
 
         #expect(fixture.uploader.uploaded.isEmpty)
         #expect(fixture.repository.updates == [.init(nickname: "챌라", imageURL: nil)])
+    }
+
+    @Test("사진을 건드리지 않으면 서버에 있던 URL을 그대로 되돌려 보낸다 — 기존 사진이 지워지면 안 된다")
+    func unchangedKeepsExistingImageURL() async throws {
+        let fixture = Self.makeFixture()
+        let existing = try #require(URL(string: "https://cdn.example.com/existing.jpg"))
+
+        _ = try await fixture.useCase.run(
+            ProfileDraft(nickname: "찰나", image: .unchanged(existing))
+        )
+
+        #expect(fixture.uploader.uploaded.isEmpty) // 새로 올릴 게 없다
+        #expect(fixture.repository.updates == [.init(nickname: "찰나", imageURL: existing)])
+    }
+
+    @Test("사진을 지우면 업로드 없이 imageURL을 nil로 저장한다")
+    func removedClearsImageURL() async throws {
+        let fixture = Self.makeFixture()
+
+        _ = try await fixture.useCase.run(ProfileDraft(nickname: "찰나", image: .removed))
+
+        #expect(fixture.uploader.uploaded.isEmpty)
+        #expect(fixture.repository.updates == [.init(nickname: "찰나", imageURL: nil)])
     }
 
     @Test("업로드 실패 — 저장소를 호출하지 않는다 (사진 없는 프로필이 저장되면 안 된다)")

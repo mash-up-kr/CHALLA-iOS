@@ -20,28 +20,28 @@ enum CompositionRoot {
         switch screen {
         case let .list(state):
             switch state {
-            case .default: return make(rooms: RoomSamples.mixed)
-            case .shooting: return make(rooms: RoomSamples.shootingOnly)
-            case .printed: return make(rooms: RoomSamples.completedOnly)
-            case .empty: return make(rooms: [])
+            case .default: return make(cards: RoomSamples.mixed)
+            case .shooting: return make(cards: RoomSamples.shootingOnly)
+            case .printed: return make(cards: RoomSamples.completedOnly)
+            case .empty: return make(cards: [])
             // 응답이 오지 않게 두어 로딩 화면에 머문다.
-            case .loading: return make(rooms: RoomSamples.mixed, latency: .seconds(600))
-            case .error: return make(rooms: RoomSamples.mixed, failure: .network)
+            case .loading: return make(cards: RoomSamples.mixed, latency: .seconds(600))
+            case .error: return make(cards: RoomSamples.mixed, failure: .network)
             }
 
         // 메뉴·드로어는 목록 위에 겹쳐 뜨므로 뒤에 깔리는 목록은 기본 구성으로 둔다.
         case .menu, .create, .join:
-            return make(rooms: RoomSamples.mixed)
+            return make(cards: RoomSamples.mixed)
         }
     }
 
     private static func make(
-        rooms: [Room],
+        cards: [RoomCard],
         latency: Duration = .zero,
         failure: RoomError? = nil
     ) -> InMemoryRoomRepository {
         InMemoryRoomRepository(
-            rooms: rooms,
+            cards: cards,
             inviteCodes: RoomSamples.inviteCodes,
             latency: latency,
             failure: failure

@@ -6,7 +6,7 @@ import DependenciesMacros
 /// 형식 검사는 없다 — 형식이 미확정이라 틀린 코드는 저장소가 알려준다.
 @DependencyClient
 public struct JoinRoomUseCase: Sendable {
-    public var run: @Sendable (_ inviteCode: String) async throws -> Room
+    public var run: @Sendable (_ inviteCode: String) async throws -> RoomCard
 }
 
 extension JoinRoomUseCase: TestDependencyKey {
@@ -22,7 +22,7 @@ extension JoinRoomUseCase: TestDependencyKey {
     public static let testValue = JoinRoomUseCase()
 
     public static let previewValue = JoinRoomUseCase(
-        run: { _ in .previewShooting }
+        run: { _ in RoomCard.previewShooting }
     )
 }
 

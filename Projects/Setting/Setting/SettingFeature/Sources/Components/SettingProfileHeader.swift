@@ -19,10 +19,11 @@ struct SettingProfileHeader: View {
     var body: some View {
         // 내용 줄(68)을 블록(100) 안에서 위쪽에 붙인다 — 시안의 아바타는 세로 중앙이 아니라 위에서 8이다.
         // 줄 높이를 68로 고정하면 세로 중앙 정렬만으로 나머지도 시안과 맞는다:
-        // 아바타 68 → 오프셋 8, 텍스트 44 → 8+12=20(시안 y134), 편집 버튼 54 → 8+7=15(시안 y129).
+        // 아바타 68 → 오프셋 8, 편집 버튼 54 → 8+7=15(시안 y129).
+        // 닉네임은 한 줄이라 68 안에서 세로 중앙에 놓인다 (이메일 줄이 있던 시안과 다른 지점).
         HStack(spacing: 0) {
             ProfileAvatar()
-            texts
+            nickname
                 .padding(.leading, Metric.avatarToTextSpacing)
             Spacer(minLength: 0)
             editButton
@@ -34,20 +35,15 @@ struct SettingProfileHeader: View {
         .padding(.bottom, Metric.blockHeight - Metric.contentTopInset - Metric.contentRowHeight)
     }
 
-    // MARK: - 닉네임 · 이메일
+    // MARK: - 닉네임
 
-    private var texts: some View {
-        VStack(alignment: .leading, spacing: Metric.nicknameToEmailSpacing) {
-            Text(profile?.nickname ?? "")
-                .challaFont(.body.medium.bold)
-                .foregroundStyle(CHALLAColor.Label.normal)
-                .lineLimit(1)
-            Text(profile?.email ?? "")
-                .challaFont(.body.medium.regular)
-                .foregroundStyle(CHALLAColor.Label.alternative)
-                .lineLimit(1)
-        }
-        .accessibilityElement(children: .combine)
+    /// 시안에는 닉네임 아래 이메일 줄이 있지만 서버가 이메일을 내려주지 않아 그리지 않는다
+    /// (`MODULE.md`의 "시안 대비 알려진 차이").
+    private var nickname: some View {
+        Text(profile?.nickname ?? "")
+            .challaFont(.body.medium.bold)
+            .foregroundStyle(CHALLAColor.Label.normal)
+            .lineLimit(1)
     }
 
     // MARK: - 편집 버튼
@@ -81,6 +77,5 @@ private enum Metric {
     /// 편집 버튼 터치 영역 오른쪽 여백.
     static let trailingPadding: CGFloat = 20
     static let avatarToTextSpacing: CGFloat = 16
-    static let nicknameToEmailSpacing = ProfileTextSpacing.nicknameToEmail
     static let editTouchArea: CGFloat = 54
 }

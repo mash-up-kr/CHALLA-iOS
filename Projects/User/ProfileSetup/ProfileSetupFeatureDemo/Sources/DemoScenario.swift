@@ -27,6 +27,10 @@ struct DemoScenario {
         case photoMenu
         /// 사진 메뉴 드로어 — 등록된 사진이 있어 삭제 버튼까지 나오는 상태.
         case photoMenuWithImage
+        /// 편집 모드 — 기존 닉네임·서버 사진으로 진입한 상태.
+        case edit
+        /// 편집 모드에서 사진을 지운 상태 — 아바타가 실루엣으로 돌아간다.
+        case editPhotoRemoved
     }
 
     let screen: Screen
@@ -60,14 +64,45 @@ struct DemoScenario {
         }.pngData()
     }
 
+    /// 편집 모드 진입 상태 — 설정 화면에서 들어왔을 때 부모가 시드하는 값과 같은 모양이다.
+    ///
+    /// 서버 이미지는 실제 URL을 넣는다 — `ProfileAvatarView`가 `AsyncImage`로 그리므로
+    /// 네트워크가 없으면 회색 원으로 보인다(실루엣이 아니다).
+    private static func editState(photoRemoved: Bool) -> ProfileSetupFeature.State {
+        var state = ProfileSetupFeature.State(
+            mode: .edit,
+            nickname: sampleNickname,
+            remoteImageURL: URL(string: "https://placehold.co/200x200/png")
+        )
+        state.isPhotoRemoved = photoRemoved
+        return state
+    }
+
+    /// 최초 설정과 편집은 시드하는 값이 아예 달라 갈래를 먼저 나눈다
+    /// (한 switch에 다 넣으면 분기가 너무 많아진다).
     private static func makeScenario(
+        for screenState: ScreenState
+    ) -> (ProfileSetupFeature.State, CompositionRoot.Outcome) {
+        switch screenState {
+        case .edit:
+            return (editState(photoRemoved: false), .success)
+        case .editPhotoRemoved:
+            return (editState(photoRemoved: true), .success)
+        default:
+            return setupScenario(for: screenState)
+        }
+    }
+
+    private static func setupScenario(
         for screenState: ScreenState
     ) -> (ProfileSetupFeature.State, CompositionRoot.Outcome) {
         var state = ProfileSetupFeature.State()
 
         switch screenState {
-        case .default:
-            break // 이 상태로 띄우면 전체 플로우를 손으로 조작할 수 있다
+        // default는 이 상태로 띄워 전체 플로우를 손으로 조작하는 용도고,
+        // edit 계열은 makeScenario에서 이미 갈라져 여기로 오지 않는다.
+        case .default, .edit, .editPhotoRemoved:
+            break
 
         case .empty:
             state.isNicknameFocused = true

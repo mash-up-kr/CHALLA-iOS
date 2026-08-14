@@ -6,13 +6,13 @@ struct FetchRoomsUseCaseLiveTests {
 
     @Test("저장소가 준 목록을 순서 그대로 돌려준다")
     func returnsRepositoryRooms() async throws {
-        let rooms = [Room.previewShooting, .previewPrintWaiting, .previewPrinted]
-        let repository = MockRoomRepository(roomsResult: .success(rooms))
+        let cards = [RoomCard.previewShooting, .previewPrintWaiting, .previewPrinted]
+        let repository = MockRoomRepository(roomsResult: .success(cards))
         let useCase = FetchRoomsUseCase.live(repository: repository)
 
         let result = try await useCase.run()
 
-        #expect(result == rooms)
+        #expect(result == cards)
         #expect(repository.roomsCallCount == 1)
     }
 

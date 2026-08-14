@@ -28,8 +28,7 @@ public struct NotificationSettingFeature {
         /// 권한이 허용이 아닐 때만 배너를 보여준다 (시안에 허용 상태 배너가 없다).
         ///
         /// `.denied`뿐 아니라 `.notDetermined`도 포함한다 — 사용자 눈에는 둘 다 "알림이 꺼져 있음"이다.
-        /// TODO: 푸시 등록 이슈에서 `.notDetermined`는 설정 앱 이동이 아니라 권한 요청으로 분기할 것.
-        /// (아직 알림에 등록되지 않은 앱은 설정 앱에 알림 항목이 보이지 않을 수 있다)
+        /// 탭했을 때의 동작은 두 상태가 다르다 (`permissionBannerTapped` 처리 참고).
         public var showsPermissionBanner: Bool {
             guard let systemAuthorization else { return false }
             return systemAuthorization != .authorized
@@ -59,6 +58,9 @@ public struct NotificationSettingFeature {
 
         /// 내부 — 저장값 + 권한 상태를 한 번에 받는다.
         case notificationSettingsLoaded(NotificationSettingsSnapshot)
+
+        /// 내부 — 권한 요청이 끝난 뒤의 상태. 허용되면 배너가 사라진다.
+        case authorizationRequested(NotificationAuthorizationStatus)
     }
 
     // MARK: - Initialization
@@ -69,6 +71,7 @@ public struct NotificationSettingFeature {
 
     @Dependency(\.loadNotificationSettingsUseCase) var loadNotificationSettingsUseCase
     @Dependency(\.updateServiceNotificationUseCase) var updateServiceNotificationUseCase
+    @Dependency(\.requestNotificationAuthorizationUseCase) var requestNotificationAuthorizationUseCase
     @Dependency(\.openSystemNotificationSettingsUseCase) var openSystemNotificationSettingsUseCase
     @Dependency(\.dismiss) var dismiss
 
@@ -91,10 +94,31 @@ public struct NotificationSettingFeature {
                 return .none
 
             case .view(.permissionBannerTapped):
-                // 설정 앱으로 나가는 일이라 되돌아올 값이 없다 — 취소 ID를 붙이지 않는다.
-                return .run { [openSystemNotificationSettingsUseCase] _ in
-                    await openSystemNotificationSettingsUseCase.run()
+                switch state.systemAuthorization {
+                case .notDetermined:
+                    // 아직 묻지 않은 상태에서는 앱이 직접 물을 수 있다.
+                    // 설정 앱으로 보내면 안 된다 — 원격 알림에 등록된 적 없는 앱은
+                    // 설정 앱에 알림 항목이 보이지 않아 사용자가 켤 방법이 없다.
+                    return .run { [requestNotificationAuthorizationUseCase] send in
+                        await send(.authorizationRequested(requestNotificationAuthorizationUseCase.run()))
+                    }
+                    .cancellable(id: CancelID.requestAuthorization, cancelInFlight: true)
+
+                case .denied:
+                    // 한 번 거절하면 앱이 다시 물을 수 없다 — 설정 앱에서 켜야 한다.
+                    // 앱을 벗어나는 일이라 되돌아올 값이 없어 취소 ID를 붙이지 않는다.
+                    return .run { [openSystemNotificationSettingsUseCase] _ in
+                        await openSystemNotificationSettingsUseCase.run()
+                    }
+
+                case .authorized, nil:
+                    // 배너가 없는 상태라 탭이 올 수 없다.
+                    return .none
                 }
+
+            case let .authorizationRequested(status):
+                state.systemAuthorization = status
+                return .none
 
             case let .view(.serviceNotificationToggled(isOn)):
                 // 낙관적 갱신 — 로컬 write라 실패 경로가 없다.
@@ -117,5 +141,5 @@ public struct NotificationSettingFeature {
 
     // MARK: - Effects
 
-    private enum CancelID { case load, save }
+    private enum CancelID { case load, save, requestAuthorization }
 }

@@ -1,7 +1,7 @@
 import Foundation
 
 /// 쿼리 파라미터 별칭. 쿼리 값은 결국 문자열로 전송되므로 `[String: String]`이다.
-/// (배열·중첩 파라미터가 필요한 엔드포인트가 생기면 그때 **서버 관례**(`[]=`/반복키/콤마)에 맞춰 확장한다.)
+/// 딕셔너리라 키 반복을 표현할 수 없다 — 배열 쿼리(반복 키)는 `HTTPTask.requestQueryItems`를 쓴다.
 public typealias Parameters = [String: String]
 
 /// 파라미터를 `URLRequest`에 실어넣는 방식.
@@ -29,6 +29,28 @@ public struct URLEncoding: ParameterEncoding {
             throw NetworkError.invalidRequest(reason: "쿼리 인코딩 대상 URL이 유효하지 않습니다.")
         }
         let encoded = Self.query(parameters)
+        let existing = components.percentEncodedQuery.map { $0 + "&" } ?? ""
+        components.percentEncodedQuery = existing + encoded
+        guard let newURL = components.url else {
+            throw NetworkError.invalidRequest(reason: "쿼리 병합 후 URL 생성에 실패했습니다.")
+        }
+        request.url = newURL
+        return request
+    }
+
+    /// 같은 키의 반복(배열 쿼리)을 보존해야 해서 딕셔너리 대신 `URLQueryItem` 배열을 받는다.
+    /// 이스케이프·병합 규칙은 딕셔너리 encode와 동일하다.
+    public func encode(_ request: URLRequest, with queryItems: [URLQueryItem]) throws -> URLRequest {
+        var request = request
+        guard !queryItems.isEmpty else { return request }
+
+        guard let url = request.url,
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw NetworkError.invalidRequest(reason: "쿼리 인코딩 대상 URL이 유효하지 않습니다.")
+        }
+        let encoded = queryItems
+            .map { "\(Self.escape($0.name))=\(Self.escape($0.value ?? ""))" }
+            .joined(separator: "&")
         let existing = components.percentEncodedQuery.map { $0 + "&" } ?? ""
         components.percentEncodedQuery = existing + encoded
         guard let newURL = components.url else {

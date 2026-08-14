@@ -16,14 +16,14 @@ final class MockRoomRepository: RoomRepository {
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
-    private let roomsResult: Result<[Room], RoomError>
-    private let createResult: Result<Room, RoomError>
-    private let joinResult: Result<Room, RoomError>
+    private let roomsResult: Result<[RoomCard], RoomError>
+    private let createResult: Result<RoomCard, RoomError>
+    private let joinResult: Result<RoomCard, RoomError>
 
     init(
-        roomsResult: Result<[Room], RoomError> = .failure(.unknown),
-        createResult: Result<Room, RoomError> = .failure(.unknown),
-        joinResult: Result<Room, RoomError> = .failure(.unknown)
+        roomsResult: Result<[RoomCard], RoomError> = .failure(.unknown),
+        createResult: Result<RoomCard, RoomError> = .failure(.unknown),
+        joinResult: Result<RoomCard, RoomError> = .failure(.unknown)
     ) {
         self.roomsResult = roomsResult
         self.createResult = createResult
@@ -49,17 +49,17 @@ final class MockRoomRepository: RoomRepository {
 
     // MARK: - RoomRepository
 
-    func rooms() async throws -> [Room] {
+    func rooms() async throws -> [RoomCard] {
         state.withLock { $0.roomsCallCount += 1 }
         return try roomsResult.get()
     }
 
-    func createRoom(_ draft: RoomDraft) async throws -> Room {
+    func createRoom(_ draft: RoomDraft) async throws -> RoomCard {
         state.withLock { $0.createdDrafts.append(draft) }
         return try createResult.get()
     }
 
-    func joinRoom(inviteCode: String) async throws -> Room {
+    func joinRoom(inviteCode: String) async throws -> RoomCard {
         state.withLock { $0.joinedCodes.append(inviteCode) }
         return try joinResult.get()
     }

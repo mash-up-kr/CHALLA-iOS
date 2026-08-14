@@ -4,9 +4,9 @@ import Testing
 @Suite("CreateRoomUseCase.live")
 struct CreateRoomUseCaseLiveTests {
 
-    @Test("성공 흐름: 입력값이 저장소로 전달되고 생성된 방이 돌아온다")
+    @Test("성공 흐름: 입력값이 저장소로 전달되고 생성된 방 카드가 돌아온다")
     func passesDraftAndReturnsRoom() async throws {
-        let created = Room.previewShooting
+        let created = RoomCard.previewShooting
         let repository = MockRoomRepository(createResult: .success(created))
         let useCase = CreateRoomUseCase.live(repository: repository)
 

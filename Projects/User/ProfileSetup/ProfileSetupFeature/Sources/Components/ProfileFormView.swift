@@ -2,7 +2,7 @@ import CHALLADesignSystem
 import SwiftUI
 
 /// 프로필 폼 (헤드라인 + 카드 + CTA) — store를 모르는 파라미터 뷰.
-/// ProfileEdit 착수 시 `Projects/User/ProfileFormUI`로 승격 예정이라 UserDomain도 참조하지 않는다.
+/// 다른 화면이 같은 폼을 필요로 하면 공유 모듈로 뺄 수 있게 UserDomain도 참조하지 않는다.
 ///
 /// 세로 배치: 콘텐츠 블록은 내비 하단 ~ CTA 슬롯 상단의 정중앙이고,
 /// CTA 슬롯(위 여백 8 + 높이 54)은 버튼이 없어도 자리를 예약한다 — CTA 등장 시 카드가 움직이지 않는다.

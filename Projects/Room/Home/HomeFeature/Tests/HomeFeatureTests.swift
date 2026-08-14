@@ -9,7 +9,7 @@ struct HomeFeatureTests {
 
     /// 스위트가 @MainActor라 static도 메인 액터에 묶이는데, 이 값은 UseCase의 @Sendable
     /// 클로저 안에서 읽힌다. 값 타입 상수라 격리가 필요 없어 nonisolated로 푼다.
-    private nonisolated static let rooms = [Room.previewShooting, .previewPrintWaiting, .previewPrinted]
+    private nonisolated static let cards = [RoomCard.previewShooting, .previewPrintWaiting, .previewPrinted]
 
     private static func makeStore(
         initialState: HomeFeature.State = HomeFeature.State(nickname: "찰나"),
@@ -38,14 +38,14 @@ struct HomeFeatureTests {
 
     @Test("화면 등장 시 목록을 조회해 State에 담는다")
     func taskLoadsRooms() async {
-        let store = Self.makeStore(fetchRooms: FetchRoomsUseCase(run: { Self.rooms }))
+        let store = Self.makeStore(fetchRooms: FetchRoomsUseCase(run: { Self.cards }))
 
         await store.send(.view(.task)) {
             $0.loadState = .loading
         }
         await store.receive(\.roomsResponse.success) {
             $0.loadState = .loaded
-            $0.rooms = IdentifiedArray(uniqueElements: Self.rooms)
+            $0.cards = IdentifiedArray(uniqueElements: Self.cards)
         }
     }
 
@@ -68,7 +68,7 @@ struct HomeFeatureTests {
     @Test("조회 실패는 얼럿을 띄우고, 다시 시도가 성공하면 목록이 채워진다")
     func failureThenRetrySucceeds() async {
         // 첫 호출은 실패, 두 번째는 성공 — 재시도가 실제로 재조회하는지 본다.
-        let results = LockIsolated<[Result<[Room], RoomError>]>([.failure(.network), .success(Self.rooms)])
+        let results = LockIsolated<[Result<[RoomCard], RoomError>]>([.failure(.network), .success(Self.cards)])
         let store = Self.makeStore(
             fetchRooms: FetchRoomsUseCase(run: { try results.withValue { $0.removeFirst() }.get() })
         )
@@ -90,14 +90,14 @@ struct HomeFeatureTests {
         }
         await store.receive(\.roomsResponse.success) {
             $0.loadState = .loaded
-            $0.rooms = IdentifiedArray(uniqueElements: Self.rooms)
+            $0.cards = IdentifiedArray(uniqueElements: Self.cards)
         }
     }
 
     @Test("목록이 있는 상태의 재조회 실패는 본문을 건드리지 않는다")
     func refetchFailureKeepsList() async {
         var state = HomeFeature.State(nickname: "찰나")
-        state.rooms = IdentifiedArray(uniqueElements: Self.rooms)
+        state.cards = IdentifiedArray(uniqueElements: Self.cards)
         state.loadState = .loaded
         let store = Self.makeStore(
             initialState: state,
@@ -114,7 +114,7 @@ struct HomeFeatureTests {
         // 보여줄 목록이 남아 있으므로 실패 안내 대신 목록을 그대로 그린다.
         #expect(store.state.errorMessage == nil)
         #expect(!store.state.showsLoading)
-        #expect(store.state.rooms.count == Self.rooms.count)
+        #expect(store.state.cards.count == Self.cards.count)
     }
 
     @Test("드로어가 열려 있으면 조회 실패 얼럿으로 덮지 않는다")
@@ -143,13 +143,13 @@ struct HomeFeatureTests {
         state.loadState = .loading
         let store = Self.makeStore(
             initialState: state,
-            fetchRooms: FetchRoomsUseCase(run: { Self.rooms })
+            fetchRooms: FetchRoomsUseCase(run: { Self.cards })
         )
 
         await store.send(.view(.task))
         await store.receive(\.roomsResponse.success) {
             $0.loadState = .loaded
-            $0.rooms = IdentifiedArray(uniqueElements: Self.rooms)
+            $0.cards = IdentifiedArray(uniqueElements: Self.cards)
         }
     }
 
@@ -158,11 +158,11 @@ struct HomeFeatureTests {
     @Test("카드를 탭하면 해당 방을 delegate로 알린다")
     func roomTappedDelegates() async {
         var state = HomeFeature.State(nickname: "찰나")
-        state.rooms = IdentifiedArray(uniqueElements: Self.rooms)
+        state.cards = IdentifiedArray(uniqueElements: Self.cards)
         state.loadState = .loaded
         let store = Self.makeStore(initialState: state)
 
-        await store.send(.view(.roomTapped(Room.previewShooting.id)))
+        await store.send(.view(.roomTapped(RoomCard.previewShooting.id)))
         await store.receive(\.delegate.roomSelected, .previewShooting)
     }
 
@@ -170,7 +170,7 @@ struct HomeFeatureTests {
     func unknownRoomTapIgnored() async {
         let store = Self.makeStore()
 
-        await store.send(.view(.roomTapped("ghost")))
+        await store.send(.view(.roomTapped(-999)))
     }
 
     @Test("설정 버튼은 delegate로 위임한다")
@@ -198,16 +198,16 @@ struct HomeFeatureTests {
 
     @Test("드로어가 방 생성을 알리면 드로어를 닫고 목록 맨 앞에 넣은 뒤 delegate로 넘긴다")
     func createdRoomClosesDrawerAndPrepends() async {
-        let created = Room.previewPrinted
+        let created = RoomCard.previewPrinted
         var state = HomeFeature.State(nickname: "찰나")
-        state.rooms = IdentifiedArray(uniqueElements: [Room.previewShooting])
+        state.cards = IdentifiedArray(uniqueElements: [RoomCard.previewShooting])
         state.loadState = .loaded
         state.destination = .createRoom(CreateRoomFeature.State())
         let store = Self.makeStore(initialState: state)
 
         await store.send(.destination(.presented(.createRoom(.delegate(.created(created)))))) {
             $0.destination = nil
-            $0.rooms.insert(created, at: 0)
+            $0.cards.insert(created, at: 0)
         }
         await store.receive(\.delegate.roomCreated, created)
     }
@@ -229,16 +229,16 @@ struct HomeFeatureTests {
 
     @Test("드로어가 입장을 알리면 드로어를 닫고 목록 맨 앞에 넣은 뒤 delegate로 넘긴다")
     func joinedRoomClosesDrawerAndPrepends() async {
-        let joined = Room.previewPrintWaiting
+        let joined = RoomCard.previewPrintWaiting
         var state = HomeFeature.State(nickname: "찰나")
-        state.rooms = IdentifiedArray(uniqueElements: [Room.previewShooting])
+        state.cards = IdentifiedArray(uniqueElements: [RoomCard.previewShooting])
         state.loadState = .loaded
         state.destination = .joinRoom(JoinRoomFeature.State())
         let store = Self.makeStore(initialState: state)
 
         await store.send(.destination(.presented(.joinRoom(.delegate(.joined(joined)))))) {
             $0.destination = nil
-            $0.rooms.insert(joined, at: 0)
+            $0.cards.insert(joined, at: 0)
         }
         await store.receive(\.delegate.roomJoined, joined)
     }
@@ -247,25 +247,20 @@ struct HomeFeatureTests {
     func rejoiningExistingRoomUpdatesInPlace() async {
         // 갱신된 방(인원 +1)을 받는 상황 — insert만 하면 같은 id가 두 번 들어간다.
         // updateOrInsert의 at: 0은 새 방에만 적용되므로 이 방은 원래 자리에 남는다.
-        let updated = Room(
-            id: Room.previewPrintWaiting.id,
-            name: Room.previewPrintWaiting.name,
-            status: Room.previewPrintWaiting.status,
-            memberCount: Room.previewPrintWaiting.memberCount + 1,
-            photoCount: Room.previewPrintWaiting.photoCount,
-            shotCount: Room.previewPrintWaiting.shotCount,
-            coverImageURL: nil,
+        let updated = RoomCard(
+            room: RoomCard.previewPrintWaiting.room,
+            memberCount: RoomCard.previewPrintWaiting.memberCount + 1,
             thumbnailURLs: []
         )
         var state = HomeFeature.State(nickname: "찰나")
-        state.rooms = IdentifiedArray(uniqueElements: [.previewShooting, .previewPrintWaiting])
+        state.cards = IdentifiedArray(uniqueElements: [.previewShooting, .previewPrintWaiting])
         state.loadState = .loaded
         state.destination = .joinRoom(JoinRoomFeature.State())
         let store = Self.makeStore(initialState: state)
 
         await store.send(.destination(.presented(.joinRoom(.delegate(.joined(updated)))))) {
             $0.destination = nil
-            $0.rooms = IdentifiedArray(uniqueElements: [.previewShooting, updated])
+            $0.cards = IdentifiedArray(uniqueElements: [.previewShooting, updated])
         }
         await store.receive(\.delegate.roomJoined, updated)
     }
