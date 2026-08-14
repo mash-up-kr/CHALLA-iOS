@@ -42,6 +42,9 @@ public enum CHALLAColor {
         public static let level2 = Color(hex: "242424")
         public static let level3 = Color(hex: "2F2F2F")
         public static let level4 = Color(hex: "3B3B3B")
+        /// 화면 하단 배경에 번지는 브랜드 노랑. 단독으로 칠하지 않고
+        /// `challaMainBackground()`가 흐리게 번지게 쓴다 (`Primary.yellow`보다 밝은 시안 별도 값).
+        public static let brand = Color(hex: "EAFF00")
     }
 
     /// Status 팔레트 (상태 피드백: 성공/주의/위험)

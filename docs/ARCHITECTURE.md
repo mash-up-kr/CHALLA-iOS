@@ -54,16 +54,15 @@ Projects/
 │  └─ AuthData                       (모듈) 소셜 SDK · 로그인 API · TokenProvider 구현(Keychain 사용)
 │
 ├─ User/                             (폴더) 유저 · 프로필
-│  ├─ ProfileSetupFeature            (모듈) 최초 프로필 설정 화면
-│  ├─ ProfileEditFeature             (모듈) 프로필 수정 화면
+│  ├─ ProfileSetupFeature            (모듈) 프로필 최초 설정·수정 화면 (mode로 분기)
 │  ├─ UserDomain                     (모듈) User · Profile · UserRepository(interface)
 │  └─ UserData                       (모듈) 유저 조회/수정 API 구현
 │
-├─ Home/                             (폴더) 홈  (Domain/Data 없음)
-│  └─ HomeFeature                    (모듈) 방 목록 · Empty · 생성/입장/상세 진입
-│                                          └ RoomDomain.fetchRooms 재사용
-│
 ├─ Room/   ⭐                        (폴더) 도메인/데이터 통합 · Feature는 화면별 유지
+│  ├─ Home/                          (폴더) 홈 피처 묶음 — 방 목록을 그리므로 Room 그룹 소속
+│  │  ├─ HomeFeature                 (모듈) 방 목록 · Empty · 생성/입장/상세 진입
+│  │  │                                    └ RoomDomain.fetchRooms 재사용 (홈 전용 Domain/Data 없음)
+│  │  └─ HomeFeatureDemo             (앱)   피처 데모앱 — Mock 주입 · 상태별 실행 인자
 │  ├─ RoomDomain                     (모듈) ★ 방 도메인 공용 — Feature 5개가 공유
 │  │   ├─ Entities/                        Room · Participant · InviteCode · RoomID
 │  │   │   └─ FilmStatus                   촬영중 · 인화대기 · 완료  ← Film 도메인 흡수
@@ -103,9 +102,12 @@ Projects/
 │
 ├─ Core/                             (폴더) OS/디바이스 래핑 인프라 (Network 제외)
 │  ├─ Keychain                       (모듈) 범용 보안 저장소 — 토큰은 손님 중 하나
+│  ├─ CHALLAImageKit                 (모듈) 이미지 로더 · 메모리/디스크 2단 캐시 · 다운샘플링 (#25)
+│  │                                        URLSession·ImageIO만 사용, CHALLANetwork와 무관
+│  │                                        → 상세: 모듈 MODULE.md · 도해: docs/imagekit-map.html
 │  ├─ Camera                         (모듈) AVFoundation 래핑
 │  ├─ Permission                     (모듈) 카메라/사진첩/푸시 권한
-│  ├─ FileStorage                    (모듈) 임시 파일 · 캐시
+│  ├─ FileStorage                    (모듈) 임시 파일 · 캐시 (이미지 캐시는 CHALLAImageKit이 자체 보유)
 │  ├─ Logger                         (모듈) os.log 래핑 — Core여도 전 레이어 공용
 │  └─ Share                          (모듈) iOS 공유하기
 │
@@ -119,7 +121,7 @@ Projects/
    └─ HGResources                    (모듈) 공통 리소스 접근 헬퍼
 
 Tuist/
-└─ Package.swift                     # 외부 패키지 (모듈 아님) — TCA · Firebase · Kingfisher · KakaoSDK …
+└─ Package.swift                     # 외부 패키지 (모듈 아님) — TCA · Firebase · KakaoSDK …
 ```
 
 ---

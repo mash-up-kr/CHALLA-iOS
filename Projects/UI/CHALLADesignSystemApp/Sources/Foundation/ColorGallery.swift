@@ -28,7 +28,8 @@ struct ColorGallery: View {
                 ("Level 1", CHALLAColor.Background.level1),
                 ("Level 2", CHALLAColor.Background.level2),
                 ("Level 3", CHALLAColor.Background.level3),
-                ("Level 4", CHALLAColor.Background.level4)
+                ("Level 4", CHALLAColor.Background.level4),
+                ("Brand", CHALLAColor.Background.brand)
             ])
 
             colorSection("Status", colors: [

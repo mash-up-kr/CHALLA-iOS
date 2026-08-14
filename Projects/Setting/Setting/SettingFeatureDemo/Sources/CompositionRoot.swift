@@ -91,13 +91,23 @@ enum CompositionRoot {
         into values: inout DependencyValues
     ) {
         // 기본값은 `.denied` — 시안(`ref_notification.png`)이 배너가 보이는 상태다.
-        let permission = StubNotificationPermissionProvider(
-            status: state == .permissionOn ? .authorized : .denied
-        )
+        let permission = StubNotificationPermissionProvider(status: Self.authorizationStatus(for: state))
 
         values.loadNotificationSettingsUseCase = .live(settings: settings, permission: permission)
         values.updateServiceNotificationUseCase = .live(settings: settings)
+        values.requestNotificationAuthorizationUseCase = .live(permission: permission)
         values.openSystemNotificationSettingsUseCase = .live(permission: permission)
+    }
+
+    /// `.notDetermined`와 `.denied`는 배너가 같지만 탭했을 때 갈리므로 인자로 구분한다.
+    private static func authorizationStatus(
+        for state: DemoLaunchArguments.State
+    ) -> NotificationAuthorizationStatus {
+        switch state {
+        case .permissionOn: .authorized
+        case .permissionNotDetermined: .notDetermined
+        default: .denied
+        }
     }
 
     // MARK: - 계정

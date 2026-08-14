@@ -5,12 +5,18 @@ import SwiftUI
 /// 필름 낱장들이 기울어져 겹친 스택이 놓인다.
 /// 상태(`Status`) 하나가 칩 색과 낱장 표현(blur/선명)을 동시에 결정한다.
 ///
-/// 사진은 이미 로드된 `Image` 배열을 받는다 — URL 로딩은 호출부 책임이라
-/// 이 컴포넌트는 네트워크의 존재를 모른다. 탭 동작도 호출부가 Button 등으로 감싼다.
+/// 사진은 URL 또는 이미 로드된 `Image` 배열로 받는다. URL을 넘기면 낱장마다
+/// ``CHALLAAsyncImage``가 자기 슬롯 크기로 로드하고, 로드 전에는 빈 낱장을 그린다.
+/// 탭 동작은 호출부가 Button 등으로 감싼다.
 ///
 /// ```swift
+/// // 화면 — URL을 넘긴다
 /// CHALLAPrintCard(status: .printing, title: "친구들과 강릉 여행",
-///                 memberCount: 11, photos: photos, totalPhotoCount: 24)
+///                 memberCount: 11, photoURLs: room.thumbnailURLs, totalPhotoCount: 24)
+///
+/// // 갤러리·Preview — 번들 이미지를 넘긴다
+/// CHALLAPrintCard(status: .printing, title: "친구들과 강릉 여행",
+///                 memberCount: 11, photos: samples, totalPhotoCount: 24)
 /// ```
 public struct CHALLAPrintCard: View {
 
@@ -26,19 +32,54 @@ public struct CHALLAPrintCard: View {
 
     // MARK: - 프로퍼티와 init
 
+    /// 낱장에 넣을 사진의 출처.
+    ///
+    /// 화면은 URL을, 갤러리·Preview는 번들 이미지를 쓴다.
+    /// 검수는 네트워크 없이 그려야 해서 두 경로가 함께 필요하다.
+    private enum PhotoSource {
+        case images([Image])
+        case urls([URL])
+
+        /// 슬롯에 놓을 수 있는 사진 수.
+        var count: Int {
+            switch self {
+            case let .images(images): return images.count
+            case let .urls(urls): return urls.count
+            }
+        }
+    }
+
     private let status: Status
     private let title: String
     private let memberCount: Int
-    private let photos: [Image]
+    private let source: PhotoSource
     private let totalPhotoCount: Int
 
     /// - Parameters:
     ///   - status: 인화 상태.
     ///   - title: 방 이름.
     ///   - memberCount: 참여 인원 수.
-    ///   - photos: 표시할 사진 — 앞에서부터 슬롯 4칸에 배치하며 초과분은 버린다.
+    ///   - photoURLs: 표시할 사진 URL — 앞에서부터 슬롯 4칸에 배치하며 초과분은 버린다.
     ///     4칸보다 적으면 있는 만큼만 놓는다 (시안 없음 — 디자이너 확인 예정).
     ///   - totalPhotoCount: 방의 전체 장수. 4장을 넘으면 마지막 슬롯이 "+N"이 된다.
+    public init(
+        status: Status,
+        title: String,
+        memberCount: Int,
+        photoURLs: [URL],
+        totalPhotoCount: Int
+    ) {
+        self.status = status
+        self.title = title
+        self.memberCount = memberCount
+        self.source = .urls(photoURLs)
+        self.totalPhotoCount = totalPhotoCount
+    }
+
+    /// 로드된 이미지를 직접 넘기는 생성자 — 검수앱 갤러리·Preview·테스트용.
+    ///
+    /// - Parameters:
+    ///   - photos: 표시할 사진. 배치 규칙은 URL 생성자와 같다.
     public init(
         status: Status,
         title: String,
@@ -49,7 +90,7 @@ public struct CHALLAPrintCard: View {
         self.status = status
         self.title = title
         self.memberCount = memberCount
-        self.photos = photos
+        self.source = .images(photos)
         self.totalPhotoCount = totalPhotoCount
     }
 
@@ -133,8 +174,8 @@ public struct CHALLAPrintCard: View {
     private var strip: some View {
         ZStack {
             ForEach(Array(PrintCardMetric.slots.enumerated()), id: \.offset) { index, slot in
-                if let variant = slotVariant(at: index) {
-                    CHALLAFilmCard(variant: variant, width: PrintCardMetric.filmWidth)
+                if index < source.count {
+                    slotFilm(at: index)
                         .rotationEffect(.degrees(slot.angle))
                         .position(slot.center)
                 }
@@ -144,17 +185,32 @@ public struct CHALLAPrintCard: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// 슬롯 하나에 들어갈 낱장 상태. 놓을 사진이 없으면 nil (슬롯 비움).
-    /// 마지막 슬롯은 전체 장수가 넘칠 때 "+N"이 된다 — 상태와 무관하게 항상 blur (시안 스펙).
-    private func slotVariant(at index: Int) -> CHALLAFilmCard.Variant? {
-        guard index < photos.count else { return nil }
-        let photo = photos[index]
+    /// 슬롯 한 칸의 낱장. URL이면 로드될 때까지 빈 낱장을 그려 자리를 잡는다.
+    @ViewBuilder
+    private func slotFilm(at index: Int) -> some View {
+        switch source {
+        case let .images(images):
+            filmCard(photo: images[index], at: index)
+        case let .urls(urls):
+            CHALLAAsyncImage(url: urls[index]) { image in
+                filmCard(photo: image, at: index)
+            } placeholder: {
+                CHALLAFilmCard(variant: .beforeCapture, width: PrintCardMetric.filmWidth)
+            }
+        }
+    }
 
+    /// 사진 한 장을 슬롯 규칙에 맞는 낱장으로 만든다.
+    /// 마지막 슬롯은 전체 장수가 넘칠 때 "+N"이 된다 — 상태와 무관하게 항상 blur (시안 스펙).
+    private func filmCard(photo: Image, at index: Int) -> CHALLAFilmCard {
         let isLastSlot = index == PrintCardMetric.slots.count - 1
         if isLastSlot, let overflow = Self.overflowCount(totalPhotoCount: totalPhotoCount) {
-            return .more(photo: photo, count: overflow)
+            return CHALLAFilmCard(variant: .more(photo: photo, count: overflow), width: PrintCardMetric.filmWidth)
         }
-        return status == .printing ? .printing(photo: photo) : .printed(photo: photo)
+        let variant: CHALLAFilmCard.Variant = status == .printing
+            ? .printing(photo: photo)
+            : .printed(photo: photo)
+        return CHALLAFilmCard(variant: variant, width: PrintCardMetric.filmWidth)
     }
 
     /// VoiceOver가 읽을 한 문장.

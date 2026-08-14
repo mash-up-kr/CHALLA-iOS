@@ -9,12 +9,14 @@ public extension Project {
     ///   - hasResource: 리소스(폰트/애셋) 유무
     ///   - hasTests: 테스트 타깃(<모듈명>Tests, Tests/** 규약) 포함 여부
     ///   - dependencies: 이 모듈(타깃)이 의존하는 대상 (호출부에서 헬퍼로 명시)
+    ///   - testDependencies: 테스트에서만 필요한 의존 (`Tests/Support`의 목이 쓰는 타입 등)
     /// - Swift 언어 모드는 `.challaBase()`가 6.0으로 고정한다 (프로젝트별로 낮출 수 없다).
     static func makeModule(
         name: String,
         hasResource: Bool = false,
         hasTests: Bool = false,
-        dependencies: [TargetDependency] = []
+        dependencies: [TargetDependency] = [],
+        testDependencies: [TargetDependency] = []
     ) -> Project {
         var targets = [
             Target.makeModuleTarget(
@@ -24,7 +26,9 @@ public extension Project {
             )
         ]
         if hasTests {
-            targets.append(Target.makeTestTarget(name: name))
+            targets.append(
+                Target.makeTestTarget(name: name, additionalDependencies: testDependencies)
+            )
         }
 
         return Project(
@@ -54,6 +58,9 @@ public extension Project {
     ///     (ci_post_clone.sh가 CI_BUILD_NUMBER를 넘겨 업로드마다 자동 증가 — 수동 +1 커밋 불필요)
     ///   - additionalInfoPlist: 앱별 추가 Info.plist 항목 (URL 스킴 등). 기본 항목과 겹치면 이 값이 이긴다
     ///   - entitlements: 앱 엔타이틀먼트 (예: Sign in with Apple). 없으면 nil
+    ///   - hasTests: 테스트 타깃(<앱이름>Tests, Tests/** 규약) 포함 여부.
+    ///     실배포앱은 조립(화면 전이·의존성 배선) 자체가 검증 대상이라 켠다. 데모·검수앱은 끈다
+    ///   - signing: 서명 방식. 기본은 자동이고, 팀 프로파일을 직접 지정할 때만 `.manual`을 쓴다
     ///   - usesAPIEnvironment: true면 백엔드 서버 Info.plist 값(`API_SCHEME`/`API_HOST`/`API_PORT`)과
     ///     필요 시 ATS 예외를 자동으로 주입한다 (`Configs/Shared.xcconfig` 기준). 서버를 호출하는 앱만 켠다.
     ///   - dependencies: 앱이 의존하는 대상 (디자인 시스템 앱=DS 모듈, 데모앱=피처+데이터 등)
@@ -66,6 +73,8 @@ public extension Project {
         buildNumber: String,
         additionalInfoPlist: [String: Plist.Value] = [:],
         entitlements: Entitlements? = nil,
+        hasTests: Bool = false,
+        signing: AppSigning = .automatic,
         usesAPIEnvironment: Bool = false,
         dependencies: [TargetDependency] = []
     ) -> Project {
@@ -82,24 +91,28 @@ public extension Project {
         }
         infoPlist.merge(additionalInfoPlist) { _, new in new }
 
-        // 빌드 번호: TUIST_BUILD_NUMBER 환경변수가 있으면(CI) 그 값, 없으면(로컬) 파라미터 값.
-        // xcconfig 주입이 아닌 generate 시점 결정이라 빌드 설정 우선순위(base > xcconfig)에 안 밀린다.
-        // (ProjectDescription. 명시: 우리 헬퍼의 Environment enum과 이름이 겹침)
-        let resolvedBuildNumber = ProjectDescription.Environment.buildNumber.getString(default: buildNumber)
-
-        // 서명·버전 빌드 설정. DEVELOPMENT_TEAM과 백엔드 서버 값은 Configs/Shared.xcconfig에서 주입.
-        let settings: Settings = .settings(
-            base: [
-                "CODE_SIGN_STYLE": "Automatic",
-                "MARKETING_VERSION": .string(marketingVersion),
-                "CURRENT_PROJECT_VERSION": .string(resolvedBuildNumber),
-                "SWIFT_VERSION": .string(Environment.swiftVersion)
-            ],
-            configurations: [
-                .debug(name: .debug, xcconfig: .relativeToRoot("Configs/Shared.xcconfig")),
-                .release(name: .release, xcconfig: .relativeToRoot("Configs/Shared.xcconfig"))
-            ]
-        )
+        var targets: [Target] = [
+            .target(
+                name: name,
+                destinations: Environment.destinations,
+                product: .app,
+                bundleId: bundleId,
+                deploymentTargets: Environment.deploymentTarget,
+                infoPlist: .extendingDefault(with: infoPlist),
+                sources: ["Sources/**"],
+                resources: ["Resources/**"],
+                entitlements: entitlements,
+                dependencies: dependencies,
+                settings: appSettings(
+                    marketingVersion: marketingVersion,
+                    buildNumber: buildNumber,
+                    signing: signing
+                )
+            )
+        ]
+        if hasTests {
+            targets.append(Target.makeTestTarget(name: name))
+        }
 
         return Project(
             name: name,
@@ -108,19 +121,40 @@ public extension Project {
                 defaultKnownRegions: ["en", "ko"],
                 developmentRegion: "ko"
             ),
-            targets: [
-                .target(
-                    name: name,
-                    destinations: Environment.destinations,
-                    product: .app,
-                    bundleId: bundleId,
-                    deploymentTargets: Environment.deploymentTarget,
-                    infoPlist: .extendingDefault(with: infoPlist),
-                    sources: ["Sources/**"],
-                    resources: ["Resources/**"],
-                    entitlements: entitlements,
-                    dependencies: dependencies,
-                    settings: settings
+            targets: targets
+        )
+    }
+
+    /// 서명·버전 빌드 설정. DEVELOPMENT_TEAM과 백엔드 서버 값은 `Configs/Shared.xcconfig`에서 주입한다.
+    private static func appSettings(
+        marketingVersion: String,
+        buildNumber: String,
+        signing: AppSigning
+    ) -> Settings {
+        // 빌드 번호: TUIST_BUILD_NUMBER 환경변수가 있으면(CI) 그 값, 없으면(로컬) 파라미터 값.
+        // xcconfig 주입이 아닌 generate 시점 결정이라 빌드 설정 우선순위(base > xcconfig)에 안 밀린다.
+        // (ProjectDescription. 명시: 우리 헬퍼의 Environment enum과 이름이 겹침)
+        let resolvedBuildNumber = ProjectDescription.Environment.buildNumber.getString(default: buildNumber)
+
+        var base: SettingsDictionary = [
+            "MARKETING_VERSION": .string(marketingVersion),
+            "CURRENT_PROJECT_VERSION": .string(resolvedBuildNumber),
+            "SWIFT_VERSION": .string(Environment.swiftVersion)
+        ]
+        base.merge(signing.baseSettings) { _, new in new }
+
+        return .settings(
+            base: base,
+            configurations: [
+                .debug(
+                    name: .debug,
+                    settings: signing.debugSettings,
+                    xcconfig: .relativeToRoot("Configs/Shared.xcconfig")
+                ),
+                .release(
+                    name: .release,
+                    settings: signing.releaseSettings,
+                    xcconfig: .relativeToRoot("Configs/Shared.xcconfig")
                 )
             ]
         )

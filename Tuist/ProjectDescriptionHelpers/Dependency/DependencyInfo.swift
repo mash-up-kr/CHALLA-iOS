@@ -3,6 +3,14 @@ import ProjectDescription
 /// 모듈 의존성 선언 헬퍼. 각 Project.swift는 `.project(target:path:)`를 직접 쓰지 않고 여기 값을 쓴다.
 public extension TargetDependency {
 
+    // MARK: - Core
+
+    /// CHALLAImageKit 모듈에 대한 의존성.
+    static let imageKit = TargetDependency.project(
+        target: "CHALLAImageKit",
+        path: .relativeToRoot("Projects/Core/CHALLAImageKit")
+    )
+
     // MARK: - UI
 
     static let designSystem = TargetDependency.project(
@@ -30,6 +38,21 @@ public extension TargetDependency {
     static let loginFeature = TargetDependency.project(
         target: "LoginFeature",
         path: .relativeToRoot("Projects/Auth/Login/LoginFeature")
+    )
+
+    // MARK: - Room
+
+    static let roomDomain = TargetDependency.project(
+        target: "RoomDomain",
+        path: .relativeToRoot("Projects/Room/RoomDomain")
+    )
+    static let roomData = TargetDependency.project(
+        target: "RoomData",
+        path: .relativeToRoot("Projects/Room/RoomData")
+    )
+    static let homeFeature = TargetDependency.project(
+        target: "HomeFeature",
+        path: .relativeToRoot("Projects/Room/Home/HomeFeature")
     )
 
     // MARK: - User
@@ -62,6 +85,17 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Setting/Setting/SettingFeature")
     )
 
+    // MARK: - Notification
+
+    static let notificationDomain = TargetDependency.project(
+        target: "NotificationDomain",
+        path: .relativeToRoot("Projects/Notification/NotificationDomain")
+    )
+    static let notificationData = TargetDependency.project(
+        target: "NotificationData",
+        path: .relativeToRoot("Projects/Notification/NotificationData")
+    )
+
     // MARK: - Core
 
     static let keychain = TargetDependency.project(
@@ -82,4 +116,8 @@ public extension TargetDependency {
     static let kakaoSDKCommon = TargetDependency.external(name: "KakaoSDKCommon")
     static let kakaoSDKAuth = TargetDependency.external(name: "KakaoSDKAuth")
     static let kakaoSDKUser = TargetDependency.external(name: "KakaoSDKUser")
+    /// `FirebaseApp.configure()` — Messaging이 전이로 끌어오지만 import 하려면 직접 걸어야 한다.
+    static let firebaseCore = TargetDependency.external(name: "FirebaseCore")
+    /// FCM 토큰 발급·갱신 (`Messaging`, `MessagingDelegate`).
+    static let firebaseMessaging = TargetDependency.external(name: "FirebaseMessaging")
 }

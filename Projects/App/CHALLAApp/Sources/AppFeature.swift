@@ -1,9 +1,11 @@
 import ComposableArchitecture
+import HomeFeature
 import LoginFeature
 import ProfileSetupFeature
+import SettingFeature
 import UserDomain
 
-/// 앱 루트 리듀서 — 진입할 때마다 내 프로필을 조회해 첫 화면을 고르고, 로그인·프로필 설정이 끝나면 다음 화면으로 넘긴다.
+/// 앱 루트 리듀서 — 진입할 때마다 내 프로필을 조회해 첫 화면을 고르고, 각 화면이 끝나면 다음 화면으로 넘긴다.
 @Reducer
 public struct AppFeature {
 
@@ -15,8 +17,9 @@ public struct AppFeature {
         case launching
         case login(LoginFeature.State)
         case profileSetup(ProfileSetupFeature.State)
-        // TODO: HomeFeature가 생기면 그 State로 교체할 것.
-        case home(UserProfile)
+        case home(HomeScreen)
+        case setting(SettingScreen)
+        case profileEdit(ProfileEditScreen)
 
         /// 화면 전환만 식별한다 — 자식 State 변화(닉네임 입력 등)에는 반응하지 않는다.
         public var screenID: ScreenID {
@@ -25,11 +28,61 @@ public struct AppFeature {
             case .login: return .login
             case .profileSetup: return .profileSetup
             case .home: return .home
+            case .setting: return .setting
+            case .profileEdit: return .profileEdit
             }
         }
 
         public enum ScreenID: Equatable, Sendable {
-            case launching, login, profileSetup, home
+            case launching, login, profileSetup, home, setting, profileEdit
+        }
+    }
+
+    /// 홈 화면 State + 설정으로 넘길 프로필.
+    ///
+    /// `HomeFeature.State`는 인사말용 닉네임·이미지만 들고 있다. 설정·프로필 편집은 전체 `UserProfile`이
+    /// 필요해서, 홈에 들어올 때 받은 프로필을 여기 함께 두었다가 설정 진입 때 넘긴다.
+    @ObservableState
+    public struct HomeScreen: Equatable {
+        public var profile: UserProfile
+        public var home: HomeFeature.State
+
+        public init(profile: UserProfile) {
+            self.profile = profile
+            self.home = HomeFeature.State(
+                nickname: profile.nickname ?? "",
+                profileImageURL: profile.imageURL
+            )
+        }
+    }
+
+    /// 설정 화면 State + 홈 복귀용 프로필.
+    ///
+    /// 프로필을 함께 두는 이유: 홈이 닉네임을 표시하는데, 설정에서 뒤로가면 재조회 없이 바로 그려야 한다.
+    @ObservableState
+    public struct SettingScreen: Equatable {
+        public var profile: UserProfile
+        public var setting: SettingFeature.State
+
+        public init(profile: UserProfile, setting: SettingFeature.State = .init()) {
+            self.profile = profile
+            self.setting = setting
+        }
+    }
+
+    /// 프로필 편집 화면 State + 취소 시 복원할 프로필.
+    @ObservableState
+    public struct ProfileEditScreen: Equatable {
+        public var profile: UserProfile
+        public var edit: ProfileSetupFeature.State
+
+        public init(profile: UserProfile) {
+            self.profile = profile
+            self.edit = ProfileSetupFeature.State(
+                mode: .edit,
+                nickname: profile.nickname ?? "",
+                remoteImageURL: profile.imageURL
+            )
         }
     }
 
@@ -40,6 +93,9 @@ public struct AppFeature {
         case profileResponse(Result<UserProfile, UserError>)
         case login(LoginFeature.Action)
         case profileSetup(ProfileSetupFeature.Action)
+        case home(HomeFeature.Action)
+        case setting(SettingFeature.Action)
+        case profileEdit(ProfileSetupFeature.Action)
     }
 
     // MARK: - Init
@@ -50,6 +106,7 @@ public struct AppFeature {
 
     @Dependency(\.fetchMyProfileUseCase) var fetchMyProfileUseCase
     @Dependency(\.continuousClock) var clock
+    @Dependency(\.pushTokenSynchronizer) var pushTokenSynchronizer
 
     // MARK: - Body
 
@@ -61,7 +118,7 @@ public struct AppFeature {
 
             case let .profileResponse(.success(profile)):
                 state = profile.isProfileCompleted
-                    ? .home(profile)
+                    ? .home(HomeScreen(profile: profile))
                     : .profileSetup(ProfileSetupFeature.State())
                 return .none
 
@@ -72,13 +129,62 @@ public struct AppFeature {
 
             case .login(.delegate(.loginSucceeded)):
                 state = .launching
-                return fetchMyProfile()
+                // 여기서 한번 sync 처리.
+                return .merge(
+                    fetchMyProfile(),
+                    .run { [pushTokenSynchronizer] _ in await pushTokenSynchronizer.sync() }
+                )
 
             case let .profileSetup(.delegate(.setupCompleted(profile))):
-                state = .home(profile)
+                state = .home(HomeScreen(profile: profile))
                 return .none
 
-            case .login, .profileSetup:
+            // MARK: - 홈 delegate
+
+            // 홈이 알리는 화면 전환 요청 — Feature끼리는 서로를 모르므로 조립은 App이 한다 (규칙 3).
+            case .home(.delegate(.settingsTapped)):
+                guard case let .home(screen) = state else { return .none }
+                state = .setting(SettingScreen(profile: screen.profile))
+                return .none
+
+            case .home(.delegate(.roomSelected)):
+                // TODO: 방 상세 Feature가 생기면 여기서 push한다.
+                return .none
+
+            case .home(.delegate(.roomCreated)), .home(.delegate(.roomJoined)):
+                // TODO: 방 상세 Feature가 생기면 만든·입장한 방으로 바로 진입할지 기획과 정해 여기서 조립한다.
+                return .none
+
+            // MARK: - 설정 delegate
+
+            case .setting(.delegate(.backRequested)):
+                guard case let .setting(screen) = state else { return .none }
+                state = .home(HomeScreen(profile: screen.profile))
+                return .none
+
+            case .setting(.delegate(.editProfileRequested)):
+                guard case let .setting(screen) = state else { return .none }
+                state = .profileEdit(ProfileEditScreen(profile: screen.profile))
+                return .none
+
+            case .setting(.delegate(.signedOut)), .setting(.delegate(.accountDeleted)):
+                state = .login(LoginFeature.State())
+                return .none
+
+            // MARK: - 프로필 편집 delegate
+
+            case let .profileEdit(.delegate(.editCompleted(profile))):
+                // 설정 State를 새로 만들어 헤더가 바뀐 닉네임을 다시 읽게 한다
+                // (`onAppear`가 `profile == nil`일 때만 조회한다).
+                state = .setting(SettingScreen(profile: profile))
+                return .none
+
+            case .profileEdit(.delegate(.cancelled)):
+                guard case let .profileEdit(screen) = state else { return .none }
+                state = .setting(SettingScreen(profile: screen.profile))
+                return .none
+
+            case .login, .profileSetup, .home, .setting, .profileEdit:
                 return .none
             }
         }
@@ -87,6 +193,22 @@ public struct AppFeature {
         }
         .ifCaseLet(\.profileSetup, action: \.profileSetup) {
             ProfileSetupFeature()
+        }
+        // 래퍼(HomeScreen·SettingScreen·ProfileEditScreen)를 한 겹 벗겨 자식 리듀서에 넘긴다.
+        .ifCaseLet(\.home, action: \.home) {
+            Scope(state: \.home, action: \.self) {
+                HomeFeature()
+            }
+        }
+        .ifCaseLet(\.setting, action: \.setting) {
+            Scope(state: \.setting, action: \.self) {
+                SettingFeature()
+            }
+        }
+        .ifCaseLet(\.profileEdit, action: \.profileEdit) {
+            Scope(state: \.edit, action: \.self) {
+                ProfileSetupFeature()
+            }
         }
     }
 

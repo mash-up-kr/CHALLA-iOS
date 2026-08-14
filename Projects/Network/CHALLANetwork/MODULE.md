@@ -37,7 +37,8 @@ Repository에 주입해도 안전하다. `Response`는 비-Sendable `HTTPURLResp
 ### 요청 선언 (Data가 채택)
 - `protocol Endpoint` — `baseURL` · `path` · `method` · `task` · `headers`
 - `enum HTTPMethod` — `.get` `.post` `.put` `.patch` `.delete`
-- `enum HTTPTask` — `.requestPlain` · `.requestData` · `.requestParameters(parameters:encoding:)` · `.requestJSONEncodable` · `.uploadMultipart`
+- `enum HTTPTask` — `.requestPlain` · `.requestData` · `.requestParameters(parameters:encoding:)` · `.requestQueryItems([URLQueryItem])` · `.requestJSONEncodable` · `.uploadMultipart`
+  - `.requestQueryItems`는 같은 키가 반복되는 배열 쿼리(`?status=A&status=B`) 전용 — `Parameters`는 딕셔너리라 키 반복을 표현할 수 없다
 - `protocol ParameterEncoding` / `struct URLEncoding`(쿼리스트링) · `typealias Parameters = [String: String]`
 - `struct MultipartFormData`
 - `protocol AccessTokenAuthorizable` · `enum AuthorizationType`(`.none`/`.bearer`)

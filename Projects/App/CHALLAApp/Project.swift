@@ -24,12 +24,22 @@ let project = Project.makeAppProject(
     // 실제 파일로 둔다(.dictionary가 아니라) — dictionary면 generate마다 Derived에 다시 쓰여서,
     // Xcode 빌드 중에 generate가 돌면 "Entitlements file was modified during the build"로 실패한다.
     entitlements: .file(path: "CHALLAApp.entitlements"), // Sign in with Apple
+    hasTests: true, // AppFeature의 화면 전이가 검증 대상이다
+    signing: .manual(
+        debugProfile: "CHALLA_iOS_Development_2026",
+        releaseProfile: "CHALLA_iOS_AppStore_2026"
+    ),
     usesAPIEnvironment: true,
     dependencies: [
         .loginFeature, .authData, .authDomain,
         .profileSetupFeature, .userData, .userDomain,
+        .settingFeature, .settingData, .settingDomain,
+        .notificationData, .notificationDomain,
+        .homeFeature, .roomData, .roomDomain,
         .network, .keychain,
+        .designSystem, .imageKit,
         .composableArchitecture,
-        .kakaoSDKCommon, .kakaoSDKAuth // initSDK · onOpenURL 처리용
+        .kakaoSDKCommon, .kakaoSDKAuth, // initSDK · onOpenURL 처리용
+        .firebaseCore, .firebaseMessaging // FirebaseApp.configure · FCM 토큰
     ]
 )

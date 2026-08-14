@@ -102,6 +102,7 @@ struct ProfileSetupPhotoTests: ProfileSetupTestSupport {
         await store.send(.view(.photoRemoveTapped)) {
             $0.isPhotoMenuPresented = false
             $0.imageData = nil
+            $0.isPhotoRemoved = true
         }
         #expect(store.state.canRemovePhoto == false) // 기본 아바타로 되돌아간다
     }
