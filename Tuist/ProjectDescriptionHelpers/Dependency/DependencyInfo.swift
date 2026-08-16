@@ -55,6 +55,11 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Room/Home/HomeFeature")
     )
 
+    static let roomDetailFeature = TargetDependency.project(
+        target: "RoomDetailFeature",
+        path: .relativeToRoot("Projects/Room/RoomDetail/RoomDetailFeature")
+    )
+
     // MARK: - User
 
     static let userDomain = TargetDependency.project(
