@@ -17,7 +17,7 @@ extension CopyToPasteboard: DependencyKey {
         await MainActor.run { UIPasteboard.general.string = text }
     }
 
-    /// 미구현 — 테스트가 갈아끼우지 않은 채 호출되면 시끄럽게 실패한다.
+    /// 미구현 — 테스트가 갈아끼우지 않은 채 호출되면 테스트 실패로 보고된다.
     /// (liveValue만 두면 테스트 문맥에서 .testValue 접근 자체가 실패로 보고된다.)
     static let testValue = CopyToPasteboard()
 }
