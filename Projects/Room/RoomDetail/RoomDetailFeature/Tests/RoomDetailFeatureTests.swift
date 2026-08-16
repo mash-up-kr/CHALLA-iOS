@@ -27,13 +27,15 @@ struct RoomDetailFeatureTests {
     private static func makeStore(
         initialState: RoomDetailFeature.State = .init(room: .previewShooting),
         fetchDetail: FetchRoomDetailUseCase = .testValue,
-        copy: CopyToPasteboard = .testValue
+        copy: CopyToPasteboard = .testValue,
+        clock: any Clock<Duration> = TestClock()
     ) -> TestStoreOf<RoomDetailFeature> {
         TestStore(initialState: initialState) {
             RoomDetailFeature()
         } withDependencies: {
             $0.fetchRoomDetailUseCase = fetchDetail
             $0.copyToPasteboard = copy
+            $0.continuousClock = clock
         }
     }
 
@@ -104,19 +106,26 @@ struct RoomDetailFeatureTests {
 
     // MARK: - 복사
 
-    @Test("복사 버튼은 초대 코드를 클립보드 의존성에 넘긴다")
+    @Test("복사 버튼은 초대 코드를 클립보드 의존성에 넘기고, 토스트를 띄웠다가 2초 뒤 거둔다")
     func copySendsCode() async {
         let copied = LockIsolated<String?>(nil)
+        let clock = TestClock()
         var state = RoomDetailFeature.State(room: .previewShooting)
         state.detail = Self.detail
         state.detailLoad = .loaded
         let store = Self.makeStore(
             initialState: state,
-            copy: CopyToPasteboard(run: { text in copied.setValue(text) })
+            copy: CopyToPasteboard(run: { text in copied.setValue(text) }),
+            clock: clock
         )
 
-        await store.send(.view(.copyInviteCodeTapped))
-        await store.finish()
+        await store.send(.view(.copyInviteCodeTapped)) {
+            $0.toast = "초대 코드를 복사했어요"
+        }
+        await clock.advance(by: .seconds(2))
+        await store.receive(\.toastDismissed) {
+            $0.toast = nil
+        }
 
         #expect(copied.value == "1928121")
     }

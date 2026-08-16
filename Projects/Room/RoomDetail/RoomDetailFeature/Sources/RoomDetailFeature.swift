@@ -18,6 +18,8 @@ public struct RoomDetailFeature {
         public var detailLoad: LoadState = .notRequested
         /// 아바타 탭으로 여는 초대 코드 팝오버.
         public var isInvitePopoverPresented = false
+        /// 복사 완료 안내 토스트 문구. nil이면 숨김 — 타이머가 일정 시간 뒤 거둔다.
+        public var toast: String?
 
         public init(room: Room) {
             self.room = room
@@ -39,6 +41,7 @@ public struct RoomDetailFeature {
         /// 팝오버 열림 상태 — `CHALLAProfileBar`가 바 탭·바깥 탭을 Binding으로 직접 쓴다.
         case binding(BindingAction<State>)
         case detailResponse(Result<RoomDetail, RoomError>)
+        case toastDismissed
         case delegate(Delegate)
 
         public enum View: Sendable {
@@ -66,6 +69,7 @@ public struct RoomDetailFeature {
 
     @Dependency(\.fetchRoomDetailUseCase) var fetchRoomDetailUseCase
     @Dependency(\.copyToPasteboard) var copyToPasteboard
+    @Dependency(\.continuousClock) var clock
 
     // MARK: - Body
 
@@ -106,9 +110,17 @@ public struct RoomDetailFeature {
 
             case .view(.copyInviteCodeTapped):
                 guard let code = state.detail?.invitationCode else { return .none }
-                return .run { [copyToPasteboard] _ in
-                    await copyToPasteboard.run(code)
-                }
+                state.toast = Const.copyToastMessage
+                return .merge(
+                    .run { [copyToPasteboard] _ in
+                        await copyToPasteboard.run(code)
+                    },
+                    toastTimer()
+                )
+
+            case .toastDismissed:
+                state.toast = nil
+                return .none
 
             case .view(.shootButtonTapped):
                 return .send(.delegate(.shootTapped))
@@ -122,7 +134,13 @@ public struct RoomDetailFeature {
         }
     }
 
-    private enum CancelID { case detail }
+    private enum CancelID { case detail, toast }
+
+    private enum Const {
+        // TODO: 노출 시간은 기획 미확정 — ProfileSetup과 같은 임시값. 확정 시 교체할 것.
+        static let toastDuration: Duration = .seconds(2)
+        static let copyToastMessage = "초대 코드를 복사했어요"
+    }
 
     private func fetchDetail(id: Room.ID) -> Effect<Action> {
         .run { [fetchRoomDetailUseCase] send in
@@ -137,5 +155,14 @@ public struct RoomDetailFeature {
             }
         }
         .cancellable(id: CancelID.detail, cancelInFlight: true)
+    }
+
+    /// 일정 시간 뒤 토스트를 거둔다. 복사를 연타하면 이전 타이머를 취소해 노출 시간이 처음부터 다시 센다.
+    private func toastTimer() -> Effect<Action> {
+        .run { [clock] send in
+            try await clock.sleep(for: Const.toastDuration)
+            await send(.toastDismissed)
+        }
+        .cancellable(id: CancelID.toast, cancelInFlight: true)
     }
 }

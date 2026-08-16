@@ -22,6 +22,8 @@ public struct RoomDetailView: View {
             )
             slotGrid
                 .overlay(alignment: .top) { memberBar }
+                // 참여자 바보다 나중에 선언해 열린 팝오버 위에 그려지게 한다 (시안 5604:19185).
+                .overlay(alignment: .top) { toastLayer }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .challaMainBackground()
@@ -74,6 +76,17 @@ public struct RoomDetailView: View {
         }
     }
 
+    // MARK: - 토스트
+
+    /// 복사 완료 안내. 표시 시간은 리듀서의 타이머가 정하고, 여기는 문구가 있는 동안만 그린다.
+    @ViewBuilder
+    private var toastLayer: some View {
+        if let toast = store.toast {
+            CHALLAToast(toast)
+                .padding(.top, RoomDetailMetric.toastTopPadding)
+        }
+    }
+
     // MARK: - 하단 동작
 
     private var bottomActions: some View {
@@ -119,6 +132,8 @@ private enum RoomDetailMetric {
     static let gridTopPadding: CGFloat = 20
     /// 그리드 하단 — 하단 버튼(54)에 가려지지 않을 여유.
     static let gridBottomPadding: CGFloat = 78
+    /// 토스트 내림 — 시안 top 122 − 상단 바 하단 114.
+    static let toastTopPadding: CGFloat = 8
     /// 채팅 버튼과 사진 찍기 버튼 사이 (시안 8).
     static let actionSpacing: CGFloat = 8
     /// 버튼 위 여백 (시안 8).
