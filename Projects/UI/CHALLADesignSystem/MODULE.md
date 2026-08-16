@@ -18,7 +18,7 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 | :-- | :-- |
 | `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material/Social) + `defaultTheme` — 사용자가 고르는 테마 색의 기본값(레몬에이드=`Primary.yellow`). 강조 요소(리스트 값 글자·스위치 켜짐·텍스트필드 포커스 테두리)가 이 색을 따른다. `Background.brand`는 `challaMainBackground()` 전용 번짐 색 |
 | `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`). `lineBoxInset`은 `challaFont`가 글자 상자 위아래에 더하는 여백 — 시안 간격을 옮길 때 이 값을 빼서 보정한다 |
-| `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12 / xlarge 16) |
+| `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12 / xlarge 16 / xxlarge 44.5) |
 | `CHALLAIcon` | 아이콘 토큰 24종 + `Size`(14~32pt — 14는 방 카드 person 실측 예외) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
 | `CHALLAHitTarget` | HIG 최소 터치 타깃(44pt) 정책 — `minimum` + `inset(for:)` + 도형 확장 헬퍼 `expandedToHitTarget(from:)`. DS 컴포넌트로 담기 애매한 Feature의 일회성 탭 요소에도 사용 |
 | `CHALLAFontRegister` | 커스텀 폰트 등록. 앱 진입점(@main) init에서 1회 호출 |
@@ -148,6 +148,8 @@ AppView(store: store)
 - 아이콘 추가 절차: Figma 인벤토리 등록 → SVG export → `Resources/Icons.xcassets`에
   imageset 추가(template 렌더링 + 벡터 보존 필수) → `CHALLAIcon`에 케이스 추가
   (갤러리는 `allCases` 기반이라 자동 반영)
+- `DownloadSimple`은 Zeplin에서 asset export가 되지 않아 Figma 원본 대신 직접 그린 SVG다
+  (Phosphor Bold 기준, 다른 아이콘과 같은 획 두께 2.25). 원본 export를 받으면 교체한다
 
 ## 검증 방법
 

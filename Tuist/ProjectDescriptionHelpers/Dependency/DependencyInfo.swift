@@ -108,6 +108,17 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Notification/NotificationData")
     )
 
+    // MARK: - Photo
+
+    static let photoDomain = TargetDependency.project(
+        target: "PhotoDomain",
+        path: .relativeToRoot("Projects/Photo/PhotoDomain")
+    )
+    static let photoDetailFeature = TargetDependency.project(
+        target: "PhotoDetailFeature",
+        path: .relativeToRoot("Projects/Photo/PhotoDetail/PhotoDetailFeature")
+    )
+
     // MARK: - Core
 
     static let keychain = TargetDependency.project(

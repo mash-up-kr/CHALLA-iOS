@@ -76,6 +76,10 @@ public enum CHALLAColor {
     /// Material 팔레트 (모달 뒤 딤 처리 등, 반투명)
     public enum Material {
         public static let dimmer = Color(hex: "171719", opacity: 0.52)
+        /// 사진·콘텐츠 위에 떠 있는 요소의 배경 — 툴팁, 사진 상세의 리액션 칩이 함께 쓴다.
+        /// Figma는 이 색에 backdrop blur 12를 겹치지만, 배경이 어두운 화면에서는 차이가 작아
+        /// 현재 사용처는 단색으로만 쓴다.
+        public static let floating = Color(hex: "000000", opacity: 0.77)
     }
 
     /// Social 팔레트 (소셜 로그인 버튼 브랜드 색)
