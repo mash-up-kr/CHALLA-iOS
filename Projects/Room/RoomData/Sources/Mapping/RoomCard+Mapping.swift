@@ -21,7 +21,7 @@ extension RoomListResponseDTO.RoomDTO {
                 remainedPhotoCount: remainedPhotoCount,
                 createdAt: createdAt,
                 expiresAt: expiresAt,
-                // 인화 전 방에는 null이 정상. 값이 있는데 파싱에 실패하면 이 값만 nil로 두고 방은 유지한다.
+                // 촬영 중에는 null이 정상 (인화 대기부터 완료 예정 시각). 파싱 실패 시 이 값만 nil로 두고 방은 유지한다.
                 photoPrintCompletedAt: photoPrintCompletedAt.flatMap(ServerDate.parse)
             ),
             memberCount: memberCount,
