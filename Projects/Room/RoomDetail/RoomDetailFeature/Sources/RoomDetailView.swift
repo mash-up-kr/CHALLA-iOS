@@ -89,18 +89,13 @@ public struct RoomDetailView: View {
 
     // MARK: - 하단 동작
 
+    /// 방 상태에 따라 갈린다 — 촬영 중: 채팅+사진 찍기 / 인화 대기: 채팅+카운트다운 /
+    /// 인화 완료: 아무것도 없음 (시안 5604:19636 — 채팅 버튼도 없다).
+    @ViewBuilder
     private var bottomActions: some View {
-        HStack(spacing: RoomDetailMetric.actionSpacing) {
-            CHALLAIconButton(
-                .chatTeardropDots,
-                accessibilityLabel: "채팅",
-                variant: .primary,
-                size: .large
-            ) {
-                send(.chatButtonTapped)
-            }
-
-            if store.room.status == .shooting {
+        switch store.room.status {
+        case .shooting:
+            actionRow {
                 CHALLATextButton(
                     "사진 찍기",
                     variant: .theme,
@@ -110,12 +105,63 @@ public struct RoomDetailView: View {
                 ) {
                     send(.shootButtonTapped)
                 }
-            } else {
-                Spacer()
             }
+        case .printWaiting:
+            actionRow {
+                if let completedAt = store.room.photoPrintCompletedAt {
+                    countdownBar(until: completedAt)
+                } else {
+                    Spacer() // 완료 예정 시각이 없으면(파싱 실패) 바 없이 채팅만 남긴다
+                }
+            }
+        case .printed:
+            EmptyView()
+        }
+    }
+
+    private func actionRow(@ViewBuilder trailing: () -> some View) -> some View {
+        HStack(spacing: RoomDetailMetric.actionSpacing) {
+            CHALLAIconButton(
+                .chatTeardropDots,
+                accessibilityLabel: "채팅",
+                variant: .primary,
+                size: .large
+            ) {
+                send(.chatButtonTapped)
+            }
+            trailing()
         }
         .padding(.horizontal, RoomDetailMetric.horizontalPadding)
         .padding(.top, RoomDetailMetric.actionTopPadding)
+    }
+
+    /// 인화 완료까지 남은 시간. 초마다 다시 그린다 — 남은 값은 State에 두지 않고
+    /// 완료 예정 시각(photoPrintCompletedAt)에서 그때그때 계산한다.
+    private func countdownBar(until completedAt: Date) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            Text("\(PrintCountdown.text(until: completedAt, now: context.date)) 후 인화 완료")
+                .challaFont(.body.large.bold)
+                // 비활성 버튼 팔레트(Label.disabled)와 다른 색이라 버튼 재사용 대신 직접 그린다.
+                .foregroundStyle(CHALLAColor.Label.alternative)
+        }
+        .frame(maxWidth: .infinity, minHeight: RoomDetailMetric.countdownBarHeight)
+        .background {
+            RoundedRectangle(cornerRadius: CHALLARadius.large)
+                .fill(CHALLAColor.Background.level2)
+        }
+    }
+}
+
+// MARK: - 카운트다운 표기
+
+/// 인화 완료까지 남은 시간 표기 규칙.
+enum PrintCountdown {
+
+    /// "2:59:58" — 시는 자릿수 제한 없이, 분·초는 두 자리. 0 아래로 내려가지 않는다
+    /// (완료 시각이 지나도 서버 상태가 갱신될 때까지 0:00:00으로 고정).
+    static func text(until end: Date, now: Date) -> String {
+        let remaining = max(0, Int(end.timeIntervalSince(now)))
+        return "\(remaining / 3600):" + String(format: "%02d:%02d", remaining % 3600 / 60, remaining % 60)
     }
 }
 
@@ -138,6 +184,8 @@ private enum RoomDetailMetric {
     static let actionSpacing: CGFloat = 8
     /// 버튼 위 여백 (시안 8).
     static let actionTopPadding: CGFloat = 8
+    /// 카운트다운 바 높이 — 하단 버튼(.large 54)과 나란히 놓여 같은 높이를 쓴다.
+    static let countdownBarHeight: CGFloat = 54
 }
 
 // MARK: - Preview
@@ -158,6 +206,42 @@ private enum RoomDetailMetric {
             RoomDetailFeature()
         } withDependencies: {
             $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in throw RoomError.network })
+        }
+    )
+}
+
+#Preview("인화 대기 (카운트다운)") {
+    // 고정 픽스처(previewPrintWaiting)는 완료 시각이 과거라 0:00:00만 보인다 — 시안 값으로 직접 만든다.
+    let room = Room(
+        id: -2,
+        title: "성수동 필름 산책",
+        status: .printWaiting,
+        totalPhotoCount: 48,
+        remainedPhotoCount: 0,
+        createdAt: .now,
+        expiresAt: .now.addingTimeInterval(60 * 60 * 24 * 30),
+        photoPrintCompletedAt: .now.addingTimeInterval(2 * 3600 + 59 * 60 + 58)
+    )
+    RoomDetailView(
+        store: Store(initialState: RoomDetailFeature.State(room: room)) {
+            RoomDetailFeature()
+        } withDependencies: {
+            // previewValue는 촬영 중인 방을 돌려줘서 진입 조회가 이 방을 덮어쓴다 — 같은 방을 돌려주게 한다.
+            $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in
+                RoomDetail(room: room, invitationCode: "1928121", members: RoomDetail.preview.members)
+            })
+        }
+    )
+}
+
+#Preview("인화 완료 (하단 동작 없음)") {
+    RoomDetailView(
+        store: Store(initialState: RoomDetailFeature.State(room: .previewPrinted)) {
+            RoomDetailFeature()
+        } withDependencies: {
+            $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in
+                RoomDetail(room: .previewPrinted, invitationCode: "1928121", members: RoomDetail.preview.members)
+            })
         }
     )
 }
