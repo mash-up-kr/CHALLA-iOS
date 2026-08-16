@@ -13,7 +13,7 @@ public struct PhotoDetailFeature {
     @ObservableState
     public struct State: Equatable {
 
-        public let roomID: String
+        public let roomID: Int64
         /// 탑 내비게이션 타이틀.
         public let roomTitle: String
         /// 리액션을 남기는 주체.
@@ -36,7 +36,7 @@ public struct PhotoDetailFeature {
         }
 
         public init(
-            roomID: String,
+            roomID: Int64,
             roomTitle: String,
             currentUserID: String,
             initialPhotoID: Photo.ID? = nil

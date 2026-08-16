@@ -17,7 +17,7 @@ struct DemoPhotoRepository: PhotoRepository {
     /// 응답이 즉시 오면 로딩 표시를 볼 수 없어 일부러 늦춘다.
     private let latency: Duration = .milliseconds(600)
 
-    func photos(inRoom _: String) async throws -> [Photo] {
+    func photos(inRoom _: Int64) async throws -> [Photo] {
         switch scenario {
         case let .populated(store):
             try await Task.sleep(for: latency)

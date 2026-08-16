@@ -4,7 +4,7 @@ import DependenciesMacros
 /// 방의 인화된 사진을 찍힌 순서대로 가져온다.
 @DependencyClient
 public struct FetchRoomPhotosUseCase: Sendable {
-    public var run: @Sendable (_ roomID: String) async throws -> [Photo]
+    public var run: @Sendable (_ roomID: Int64) async throws -> [Photo]
 }
 
 extension FetchRoomPhotosUseCase: TestDependencyKey {

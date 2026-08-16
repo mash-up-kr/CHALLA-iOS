@@ -180,7 +180,7 @@ private enum Metric {
     PhotoDetailView(
         store: Store(
             initialState: PhotoDetailFeature.State(
-                roomID: "room-1",
+                roomID: -1,
                 roomTitle: "해피하우스 강릉 여행",
                 currentUserID: "user-1"
             )
