@@ -67,17 +67,17 @@ struct RoomDetailFeatureTests {
 
     // MARK: - 팝오버
 
-    @Test("아바타 탭은 팝오버를 토글하고, 조회가 성공한 상태면 재조회하지 않는다")
-    func memberBarToggles() async {
+    @Test("팝오버가 열리고 닫혀도, 조회가 성공한 상태면 재조회하지 않는다")
+    func popoverToggleDoesNotRefetchWhenLoaded() async {
         var state = RoomDetailFeature.State(room: .previewShooting)
         state.detail = Self.detail
         state.detailLoad = .loaded
         let store = Self.makeStore(initialState: state) // fetchDetail이 testValue — 호출되면 미구현 실패
 
-        await store.send(.view(.memberBarTapped)) {
+        await store.send(.binding(.set(\.isInvitePopoverPresented, true))) {
             $0.isInvitePopoverPresented = true
         }
-        await store.send(.view(.memberBarTapped)) {
+        await store.send(.binding(.set(\.isInvitePopoverPresented, false))) {
             $0.isInvitePopoverPresented = false
         }
     }
@@ -91,7 +91,7 @@ struct RoomDetailFeatureTests {
             fetchDetail: FetchRoomDetailUseCase(run: { _ in Self.detail })
         )
 
-        await store.send(.view(.memberBarTapped)) {
+        await store.send(.binding(.set(\.isInvitePopoverPresented, true))) {
             $0.isInvitePopoverPresented = true
             $0.detailLoad = .loading
         }

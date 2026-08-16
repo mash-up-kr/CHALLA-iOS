@@ -34,15 +34,16 @@ public struct RoomDetailFeature {
 
     // MARK: - Action
 
-    public enum Action: ViewAction, Sendable {
+    public enum Action: BindableAction, ViewAction, Sendable {
         case view(View)
+        /// 팝오버 열림 상태 — `CHALLAProfileBar`가 바 탭·바깥 탭을 Binding으로 직접 쓴다.
+        case binding(BindingAction<State>)
         case detailResponse(Result<RoomDetail, RoomError>)
         case delegate(Delegate)
 
         public enum View: Sendable {
             case task
             case backButtonTapped
-            case memberBarTapped
             case copyInviteCodeTapped
             case shootButtonTapped
             case chatButtonTapped
@@ -69,6 +70,8 @@ public struct RoomDetailFeature {
     // MARK: - Body
 
     public var body: some ReducerOf<Self> {
+        BindingReducer()
+
         Reduce { state, action in
             switch action {
             case .view(.task):
@@ -89,13 +92,16 @@ public struct RoomDetailFeature {
             case .view(.backButtonTapped):
                 return .send(.delegate(.closeTapped))
 
-            case .view(.memberBarTapped):
-                state.isInvitePopoverPresented.toggle()
-                // 여는 순간 조회가 실패해 있으면 다시 시도한다 — 얼럿 없이 여기가 복구 지점이다.
+            // BindingReducer가 열림 값을 먼저 쓴다. 여는 순간 조회가 실패해 있으면
+            // 다시 시도한다 — 얼럿 없이 여기가 복구 지점이다.
+            case .binding(\.isInvitePopoverPresented):
                 if state.isInvitePopoverPresented, state.detailLoad == .failed {
                     state.detailLoad = .loading
                     return fetchDetail(id: state.room.id)
                 }
+                return .none
+
+            case .binding:
                 return .none
 
             case .view(.copyInviteCodeTapped):
