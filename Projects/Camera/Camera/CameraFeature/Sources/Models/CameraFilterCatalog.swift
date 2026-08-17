@@ -38,10 +38,10 @@ public enum CameraFilterCatalog {
         return filter
     }
 
-    /// 촬영본 JPEG에 LUT를 입혀 다시 인코딩한다. 필터가 없거나 실패하면 nil (호출부가 원본 저장).
-    public static func filteredJPEG(from data: Data, filterID: CameraFilter.ID?) -> Data? {
-        guard let filterID,
-              let lut = lutFilter(id: filterID),
+    /// 촬영본 JPEG에 LUT를 입혀 다시 인코딩한다.
+    /// LUT가 아직 등록 전이거나 인코딩에 실패하면 nil (호출부가 원본 저장).
+    public static func filteredJPEG(from data: Data, filterID: CameraFilter.ID) -> Data? {
+        guard let lut = lutFilter(id: filterID),
               // EXIF 회전을 픽셀에 미리 굽는다 — LUT 출력을 새로 인코딩하면 원본 메타데이터가 사라진다
               let image = CIImage(data: data, options: [.applyOrientationProperty: true])
         else { return nil }

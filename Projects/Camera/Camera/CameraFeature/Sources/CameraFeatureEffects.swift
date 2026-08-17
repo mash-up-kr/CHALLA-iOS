@@ -49,13 +49,11 @@ extension CameraFeature {
     func upload(
         jpegData: Data,
         roomID: ShootableRoom.ID,
-        filterID: CameraFilter.ID?
+        filterID: CameraFilter.ID
     ) -> Effect<Action> {
         .run { [uploadPhoto] send in
             do {
-                // TODO: 백엔드 확인 — cameraFilterName이 필수라 무필터 촬영 시 보낼 값이 정해지지 않았다.
-                //       (서버 필터 목록에 "원본" 항목이 포함되는지 확인 후 확정)
-                let remained = try await uploadPhoto.run(jpegData, roomID, filterID ?? "")
+                let remained = try await uploadPhoto.run(jpegData, roomID, filterID)
                 await send(.uploadResponse(roomID: roomID, .success(remained)))
             } catch let error as PhotoError {
                 await send(.uploadResponse(roomID: roomID, .failure(error)))

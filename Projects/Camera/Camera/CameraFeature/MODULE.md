@@ -19,6 +19,7 @@
   기본값은 `CameraPreviewPlaceholder`(단색 그라디언트)고, 실기기 연동 시에는
   `CameraFilteredPreviewView`(Metal 렌더러)에 `CameraPreviewFrameSource` 구현을 물려 넣는다.
 - 셔터를 눌러 촬영이 허용되면 `Action.Delegate.captureRequested(roomID:filterID:)`가 나간다.
+  **필터 없는 촬영은 없다** — 목록이 오면 첫 필터가 자동 선택되고, 아직 안 왔을 때의 셔터는 흘려보낸다.
   하드웨어 캡처는 이 delegate를 받는 쪽(App 또는 데모앱)이 수행하고, 결과 JPEG을
   `Action.captureCompleted(roomID:filterID:jpegData:)`로 되돌려주면 리듀서가
   `UploadPhotoUseCase`(발급→스토리지 PUT→완료 통보)로 업로드한다. 응답의 `remainedPhotoCount`로

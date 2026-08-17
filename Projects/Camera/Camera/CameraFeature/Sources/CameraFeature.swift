@@ -97,7 +97,7 @@ public struct CameraFeature {
         /// 조립 지점이 하드웨어 촬영을 마치고 결과 JPEG을 돌려주는 통로.
         /// 방·필터는 `delegate(.captureRequested)`에 실었던 값을 그대로 되돌려 받는다 —
         /// 업로드 중 사용자가 방을 바꿔도 촬영 당시의 방으로 올라간다.
-        case captureCompleted(roomID: ShootableRoom.ID, filterID: CameraFilter.ID?, jpegData: Data)
+        case captureCompleted(roomID: ShootableRoom.ID, filterID: CameraFilter.ID, jpegData: Data)
         case uploadResponse(roomID: ShootableRoom.ID, Result<Int, PhotoError>)
         case toastDismissed
 
@@ -105,7 +105,7 @@ public struct CameraFeature {
         public enum Delegate: Equatable, Sendable {
             /// 셔터가 눌렸고 촬영이 허용된 상태. 조립 지점이 하드웨어 촬영 후
             /// `captureCompleted`로 JPEG을 되돌려주면 업로드까지 이어진다.
-            case captureRequested(roomID: ShootableRoom.ID, filterID: CameraFilter.ID?)
+            case captureRequested(roomID: ShootableRoom.ID, filterID: CameraFilter.ID)
         }
 
         case delegate(Delegate)
@@ -150,8 +150,12 @@ public struct CameraFeature {
                     state.toastMessage = toastMessage
                     return dismissToastAfterDelay()
                 }
-                guard let roomID = state.selectedRoomID else { return .none }
-                return .send(.delegate(.captureRequested(roomID: roomID, filterID: state.selectedFilterID)))
+                // 필터 없는 촬영은 없다 — 목록이 아직 안 왔으면 셔터를 흘려보낸다
+                // (목록이 오는 즉시 첫 필터가 선택되므로 이 상태는 진입 직후 잠깐뿐이다).
+                guard let roomID = state.selectedRoomID, let filterID = state.selectedFilterID else {
+                    return .none
+                }
+                return .send(.delegate(.captureRequested(roomID: roomID, filterID: filterID)))
 
             case .view(.zoomBadgeTapped):
                 state.zoom.cycle()

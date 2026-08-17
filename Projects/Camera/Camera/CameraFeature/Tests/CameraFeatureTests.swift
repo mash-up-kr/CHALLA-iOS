@@ -66,6 +66,19 @@ struct CameraFeatureControlTests {
         await store.send(.view(.shutterButtonTapped))
     }
 
+    @Test("필터 목록이 아직 안 왔으면 셔터를 눌러도 촬영이 나가지 않는다")
+    func shutterDoesNothingWithoutFilter() async {
+        let store = TestStore(
+            initialState: CameraFeature.State(
+                rooms: IdentifiedArray(uniqueElements: CameraFeatureTestFixtures.rooms)
+            )
+        ) {
+            CameraFeature()
+        }
+
+        await store.send(.view(.shutterButtonTapped))
+    }
+
     @Test("배율 버튼을 탭하면 1x → 2x → 3x → 1x로 순환한다")
     func zoomBadgeCycles() async {
         let store = TestStore(initialState: CameraFeature.State()) {
