@@ -54,35 +54,21 @@ struct DemoScenario: Equatable {
     }
 }
 
-// MARK: - Mock State
+// MARK: - 초기 State
 
+/// 방·필터 데이터는 `CompositionRoot`가 시나리오별 저장소로 꽂고, 리듀서가 진입 시 스스로 불러온다 —
+/// 여기서는 데이터로 만들 수 없는 초기 연출(플래시·토스트)만 구성한다.
 extension DemoScenario {
-
-    private static let rooms = IdentifiedArray(uniqueElements: [
-        CameraRoom(id: "1", name: "방이름방이름방이름1", remainingCards: 6, totalCards: 24),
-        CameraRoom(id: "2", name: "방이름방이름방이름2", remainingCards: 6, totalCards: 24),
-        CameraRoom(id: "3", name: "방이름방이름방이름3", remainingCards: 3, totalCards: 48),
-        CameraRoom(id: "4", name: "방이름방이름방이름4", remainingCards: 3, totalCards: 48),
-        // 말줄임 확인용 — 시안 SelectRoom 3행이 긴 이름 케이스다
-        CameraRoom(id: "5", name: "방이름방이름방이름5방이름방이름방이름5", remainingCards: 3, totalCards: 48)
-    ])
-
-    private static let soldOutRooms = IdentifiedArray(uniqueElements: [
-        CameraRoom(id: "3", name: "방이름방이름방이름3", remainingCards: 0, totalCards: 48)
-    ])
 
     var featureState: CameraFeature.State {
         switch (screen, state) {
         case (.camera, .default):
-            CameraFeature.State(
-                rooms: Self.rooms,
-                selectedRoomID: "3",
-                flashMode: .off
-            )
+            CameraFeature.State(flashMode: .off)
 
         case (.camera, .error):
+            // 토스트 초기 노출 — 셔터를 누르지 않고도 시안 상태를 그대로 띄운다.
+            // 촬영 불가 자체는 소진된 방이 로드되면 리듀서가 다시 계산한다.
             CameraFeature.State(
-                rooms: Self.soldOutRooms,
                 captureAvailability: .noCardsLeft,
                 toastMessage: CameraCaptureAvailability.noCardsLeft.demoToastMessage
             )
@@ -92,7 +78,6 @@ extension DemoScenario {
 
 private extension CameraCaptureAvailability {
 
-    /// 토스트 초기 노출 시나리오용 — 셔터를 누르지 않고도 시안 상태를 그대로 띄운다.
     var demoToastMessage: String? {
         guard case let .unavailable(_, toastMessage) = self else { return nil }
         return toastMessage

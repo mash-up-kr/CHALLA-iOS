@@ -35,6 +35,8 @@ struct DemoRootView: View {
     private func cameraScreen(_ scenario: DemoScenario) -> some View {
         let demoStore = Store(initialState: CameraDemoFeature.State(camera: scenario.featureState)) {
             CameraDemoFeature()._printChanges()
+        } withDependencies: {
+            CompositionRoot.registerDependencies(for: scenario, into: &$0)
         }
         let cameraStore = demoStore.scope(state: \.camera, action: \.camera)
 

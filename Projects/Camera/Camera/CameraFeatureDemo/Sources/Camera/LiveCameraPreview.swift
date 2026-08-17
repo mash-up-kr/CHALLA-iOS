@@ -25,6 +25,10 @@ struct LiveCameraPreview: View {
             .onChange(of: store.selectedFilterID) { _, filterID in
                 session.setPreviewFilter(id: filterID)
             }
+            // 선택 시점에 LUT가 아직 안 내려온 경우 — 등록이 끝나면 같은 필터를 다시 적용한다.
+            .onChange(of: store.preparedFilterIDs) { _, _ in
+                session.setPreviewFilter(id: store.selectedFilterID)
+            }
     }
 
     @ViewBuilder

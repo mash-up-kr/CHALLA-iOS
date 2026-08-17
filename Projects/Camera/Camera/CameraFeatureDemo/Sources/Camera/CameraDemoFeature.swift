@@ -27,11 +27,16 @@ struct CameraDemoFeature {
         }
         Reduce { state, action in
             switch action {
-            case let .camera(.delegate(.captureRequested(_, filterID))):
+            case let .camera(.delegate(.captureRequested(roomID, filterID))):
                 let flashMode = state.camera.flashMode
                 return .run { send in
                     do {
-                        try await cameraSession.captureAndSavePhoto(flashMode: flashMode, filterID: filterID)
+                        let jpegData = try await cameraSession.captureAndSavePhoto(
+                            flashMode: flashMode,
+                            filterID: filterID
+                        )
+                        // 저장까지 끝난 촬영본을 feature에 돌려줘 업로드(장수 차감)로 잇는다.
+                        await send(.camera(.captureCompleted(roomID: roomID, filterID: filterID, jpegData: jpegData)))
                     } catch {
                         await send(.captureFailed(error.localizedDescription))
                     }

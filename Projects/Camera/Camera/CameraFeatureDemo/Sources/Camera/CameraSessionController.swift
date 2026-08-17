@@ -3,6 +3,7 @@ import CameraFeature
 import CoreImage
 import Observation
 import os
+import PhotoDomain
 
 /// 데모앱 전용 실기기 카메라 세션. `AVCaptureSession` 구성·필터 프리뷰·촬영·사진첩 저장을 전담한다.
 ///
@@ -92,12 +93,14 @@ final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchec
         }
     }
 
-    /// 촬영 후 선택 필터를 입힌 JPEG을 사진첩(Add-only)에 저장한다. `PHPhotoLibraryAddOnly` 권한만
+    /// 촬영 후 선택 필터를 입힌 JPEG을 사진첩(Add-only)에 저장하고 그 JPEG을 돌려준다 —
+    /// 호출부가 업로드로 잇는다. `PHPhotoLibraryAddOnly` 권한만
     /// 요구한다 — 추가만 하면 되므로 `PhotoLibrary` 모듈의 읽기·선택 권한(`.readWrite`)까지는 필요 없다.
-    func captureAndSavePhoto(flashMode: CameraFlashMode, filterID: CameraFilter.ID?) async throws {
+    func captureAndSavePhoto(flashMode: CameraFlashMode, filterID: CameraFilter.ID?) async throws -> Data {
         let data = try await capturePhotoData(flashMode: flashMode)
         let filtered = CameraFilterCatalog.filteredJPEG(from: data, filterID: filterID) ?? data
         try await PhotoLibrarySaver.save(jpegData: filtered)
+        return filtered
     }
 
     private func capturePhotoData(flashMode: CameraFlashMode) async throws -> Data {
