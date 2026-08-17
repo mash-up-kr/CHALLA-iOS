@@ -6,6 +6,8 @@ import FirebaseMessaging // 델리게이트 콜백 전에도 이미 발급된 �
 import Foundation
 import Keychain
 import NotificationData
+import PhotoData
+import PhotoDomain
 import RoomData
 import RoomDomain
 import SettingData
@@ -50,6 +52,7 @@ enum CompositionRoot {
         let logout = registerAuth(into: &values, client: client, tokenStore: tokenStore)
         registerUser(into: &values, client: client, repository: userRepository)
         registerRoom(into: &values, client: client)
+        registerPhoto(into: &values, client: client)
         registerSetting(
             into: &values,
             using: SettingCollaborators(
@@ -101,6 +104,17 @@ enum CompositionRoot {
         values.fetchRoomsUseCase = .live(repository: repository)
         values.createRoomUseCase = .live(repository: repository)
         values.joinRoomUseCase = .live(repository: repository)
+        values.fetchShootableRoomsUseCase = .live(repository: repository)
+    }
+
+    /// client 공유 조건은 registerUser와 같다. 카메라 화면이 앱에 조립되면 이 배선을 그대로 쓴다.
+    private static func registerPhoto(into values: inout DependencyValues, client: any HTTPClient) {
+        let filterRepository = DefaultCameraFilterRepository(client: client)
+        let uploader = DefaultPhotoUploader(client: client)
+
+        values.fetchCameraFiltersUseCase = .live(repository: filterRepository)
+        values.loadFilterLUTUseCase = .live(repository: filterRepository)
+        values.uploadPhotoUseCase = .live(uploader: uploader)
     }
 
     /// 설정 조립이 필요로 하는 다른 aggregate의 결과물.
