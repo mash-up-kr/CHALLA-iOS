@@ -43,6 +43,7 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 | `CHALLAListRow` | 리스트 행 (높이 52, 설명을 넣으면 74). 이니셜라이저 2종 — 탭 행 `init(_:description:icon:iconColor:accessory:themeColor:action:)` / 토글 행 `init(_:description:icon:iconColor:themeColor:isOn:)`. 아이콘 18pt, 이름 `.body.medium.medium`, 설명 `.body.xsmall.medium`. 제목·설명은 한 줄 고정(말줄임) |
 | `CHALLAListRowAccessory` | 탭 행의 우측 요소. `.arrow` · `.arrow(value:)` · `.check(isSelected:)` · `.empty` |
 | `CHALLAToast` | 잠시 나타났다 사라지는 알림 (`init(_ message:icon:variant:)`). 높이 50(위아래 9 + 콘텐츠 32), 좌우 16, 간격 8, radius 12, 반투명 `Background.level1` 77% + ultraThinMaterial. 내용만큼 넓어지고 320에서 멈춘다(한 줄 고정, 말줄임). `icon` 생략 = 시안의 `leadingIcon = false`(글자만). `variant`(`.normal` 기본 / `.negative`)는 **아이콘 색만** 정하고 배경·글자색은 공통. 등장·문구 교체 시 VoiceOver 낭독. **표시 시간·배치는 담는 쪽 책임**. 시안의 `positive`·`cautionary`와 `normal`의 기본 아이콘은 렌더된 적이 없어 미구현 — 디자이너 문의 중 |
+| `CHALLATooltip` | 특정 요소를 가리키는 안내 말풍선 (`init(_ message:position:arrowAlignment:)`). `position`(`.top` 기본/`.bottom`/`.leading`/`.trailing`)은 앵커 기준 툴팁이 놓이는 방향 — 화살표는 반대편 모서리에서 앵커를 가리킨다. `arrowAlignment`(`.leading` 기본/`.center`/`.trailing`)는 화살표가 모서리에 붙는 위치(모서리 끝 8 안쪽, 세로 모서리에선 leading=위). 안쪽 여백 10, radius 10, 반투명 `Background.level2` 77% + ultraThinMaterial, 글자 `.description.large.medium`. 폭은 내용만큼(최소 64), 내용 폭 256에서 줄바꿈. 말풍선과 화살표(Zeplin 원본 벡터 20×8)는 한 패스로 union — 반투명이라 따로 칠하면 겹침이 진해진다. **표시 시점·배치는 담는 쪽 책임** |
 | `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음. 제목이 있으면 헤더 블록 44 고정(위 16 + 글자 상자 16 + 아래 12), 제목은 한 줄 고정(말줄임) |
 | `CHALLAFilmCard` | 필름 낱장 카드 (3:4 고정 비율). Variant 4종(촬영 전 dashed / 인화대기 blur / 인화완료 / 더보기 `+N`) × 순번(`slotNumber`) 옵션. `width` 지정 시 고정(홈 82·인화 카드 90), nil이면 부모 폭 채움(방 상세 그리드) — 세로는 내부 계산. `aspectRatio` 공개(placeholder 크기 계산용) |
 | `CHALLACardItem` | 촬영 중 방 카드 (시안 고정 200×266). 대표 사진 + 딤 2겹(검정 스크림·노랑 틴트) + 제목·인원 + 카메라 카운트 뱃지. 사진은 로드된 `Image?` — nil이면 바닥색. 탭은 호출부가 Button으로 감쌈 |
@@ -163,3 +164,4 @@ AppView(store: store)
   - `CHALLAColorHexTests` — hex 파싱과 잘못된 입력의 검정 fallback
   - `CHALLAHitTargetTests` — 44pt 터치 타깃 인셋 계산
   - `CHALLAPrintCardTests` · `CHALLAProfileBarTests` — 더보기·넘침 수량(`+N`) 경계값
+  - `CHALLATooltipTests` — 툴팁 패스 기하 (방향별 화살표 돌출·정렬 좌표, union 겹침 구멍, rect 경계)
