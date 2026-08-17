@@ -40,6 +40,18 @@ struct KeychainTokenStoreTests {
         #expect(store.loadRefreshToken() == nil)
     }
 
+    @Test("clear는 토큰 항목뿐 아니라 같은 service의 다른 항목까지 비운다")
+    func clearWipesWholeService() throws {
+        let keychain = MockKeychain()
+        let store = KeychainTokenStore(keychain: keychain)
+        try store.save(Self.token)
+        try keychain.save(Data("legacy".utf8), for: "challa.auth.legacy")
+
+        try store.clear()
+
+        #expect(keychain.itemCount == 0)
+    }
+
     @Test("TokenProvider.accessToken()은 저장된 accessToken을 돌려준다")
     func tokenProviderReadsAccessToken() async throws {
         let store = KeychainTokenStore(keychain: MockKeychain())
