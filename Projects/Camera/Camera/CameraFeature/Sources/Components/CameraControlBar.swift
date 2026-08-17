@@ -9,10 +9,12 @@ struct CameraControlBar: View {
     static let height: CGFloat = 80
 
     let flashMode: CameraFlashMode
-    /// 셔터를 누른 순간 안쪽 흰 원이 살짝 작아졌다가 돌아온다 (촬영 피드백).
-    let isCapturing: Bool
+    /// 셔터를 누른 순간 안쪽 흰 원이 살짝 작아졌다가 돌아온다 (탭 피드백).
+    let isShutterPressed: Bool
     /// 안내 스낵바가 떠 있는 동안 셔터에 흰 글로우를 둘러 주목시킨다 (시안 camera_snackBar_1·2).
     let isShutterHighlighted: Bool
+    /// 앞선 촬영이 끝날 때까지 셔터를 잠근다 (연타 방지).
+    let isShutterEnabled: Bool
     let onFlashTap: () -> Void
     let onShutterTap: () -> Void
     let onCameraSwitchTap: () -> Void
@@ -54,7 +56,7 @@ struct CameraControlBar: View {
             Circle()
                 .fill(CHALLAColor.Label.normal)
                 .frame(width: ControlBarMetric.shutterInnerSize, height: ControlBarMetric.shutterInnerSize)
-                .scaleEffect(isCapturing ? ControlBarMetric.shutterPressedScale : 1)
+                .scaleEffect(isShutterPressed ? ControlBarMetric.shutterPressedScale : 1)
                 .frame(width: ControlBarMetric.shutterOuterSize, height: ControlBarMetric.shutterOuterSize)
                 .overlay {
                     Circle()
@@ -68,6 +70,8 @@ struct CameraControlBar: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        // 잠긴 동안에도 색은 그대로 둔다 — 시안에 셔터 비활성 상태가 없고, 촬영은 곧 끝난다.
+        .disabled(!isShutterEnabled)
         .accessibilityLabel("촬영")
     }
 }
@@ -91,19 +95,19 @@ private enum ControlBarMetric {
 #Preview {
     VStack(spacing: 24) {
         CameraControlBar(
-            flashMode: .on, isCapturing: false, isShutterHighlighted: false,
+            flashMode: .on, isShutterPressed: false, isShutterHighlighted: false, isShutterEnabled: true,
             onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {}
         )
         CameraControlBar(
-            flashMode: .off, isCapturing: false, isShutterHighlighted: false,
+            flashMode: .off, isShutterPressed: false, isShutterHighlighted: false, isShutterEnabled: true,
             onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {}
         )
         CameraControlBar(
-            flashMode: .on, isCapturing: true, isShutterHighlighted: false,
+            flashMode: .on, isShutterPressed: true, isShutterHighlighted: false, isShutterEnabled: true,
             onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {}
         )
         CameraControlBar(
-            flashMode: .on, isCapturing: false, isShutterHighlighted: true,
+            flashMode: .on, isShutterPressed: false, isShutterHighlighted: true, isShutterEnabled: true,
             onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {}
         )
     }

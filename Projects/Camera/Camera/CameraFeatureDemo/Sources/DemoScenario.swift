@@ -79,7 +79,7 @@ extension DemoScenario {
         switch (screen, state) {
         // 안내는 심지 않고 리듀서가 진입 시 스스로 띄우게 둔다 — 등장 연출과 단계 전환을 그대로 확인한다.
         case (.camera, .default), (.camera, .coach):
-            return CameraFeature.State(rooms: rooms, filters: filters, flashMode: .off)
+            return CameraFeature.State(rooms: rooms, filters: filters)
 
         case (.camera, .error):
             // 토스트 초기 노출 — 셔터를 누르지 않고도 시안 상태를 그대로 띄운다.

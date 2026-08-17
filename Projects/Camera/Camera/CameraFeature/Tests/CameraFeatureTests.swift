@@ -11,14 +11,19 @@ import Testing
 @MainActor
 struct CameraFeatureControlTests {
 
+    @Test("진입 시 플래시는 꺼져 있다")
+    func flashStartsOff() {
+        #expect(CameraFeatureTestFixtures.state().flashMode == .off)
+    }
+
     @Test("플래시 버튼을 누르면 켜짐 ↔ 꺼짐이 뒤집힌다")
     func flashToggles() async {
         let store = TestStore(initialState: CameraFeatureTestFixtures.state()) {
             CameraFeature()
         }
 
-        await store.send(.view(.flashButtonTapped)) { $0.flashMode = .off }
         await store.send(.view(.flashButtonTapped)) { $0.flashMode = .on }
+        await store.send(.view(.flashButtonTapped)) { $0.flashMode = .off }
     }
 
     @Test("카메라 전환 버튼을 누르면 전·후면이 뒤집힌다")
@@ -37,8 +42,61 @@ struct CameraFeatureControlTests {
             CameraFeature()
         }
 
-        await store.send(.view(.shutterButtonTapped))
+        await store.send(.view(.shutterButtonTapped)) { $0.isCapturing = true }
         await store.receive(.delegate(.captureRequested(roomID: 1, filterID: "필터2")))
+    }
+
+    @Test("셔터를 연타해도 촬영은 한 번만 나간다")
+    func shutterIgnoresRepeatedTapsWhileCapturing() async {
+        let store = TestStore(initialState: .fixture(selectedFilterID: "필터2")) {
+            CameraFeature()
+        }
+
+        await store.send(.view(.shutterButtonTapped)) { $0.isCapturing = true }
+        await store.receive(.delegate(.captureRequested(roomID: 1, filterID: "필터2")))
+
+        // 촬영이 도는 동안의 추가 탭은 아무 일도 하지 않는다.
+        await store.send(.view(.shutterButtonTapped))
+        await store.send(.view(.shutterButtonTapped))
+    }
+
+    @Test("촬영본이 돌아오면 셔터가 다시 열린다")
+    func shutterReopensAfterCapture() async {
+        let store = TestStore(initialState: .fixture(selectedFilterID: "필터2")) {
+            CameraFeature()
+        } withDependencies: {
+            $0.uploadPhotoUseCase.run = { _, _, _ in 5 }
+        }
+
+        await store.send(.view(.shutterButtonTapped)) { $0.isCapturing = true }
+        await store.receive(.delegate(.captureRequested(roomID: 1, filterID: "필터2")))
+
+        await store.send(.captureCompleted(roomID: 1, filterID: "필터2", jpegData: Data("jpeg".utf8))) {
+            $0.isCapturing = false
+        }
+        await store.receive(.uploadResponse(roomID: 1, .success(5))) {
+            $0.rooms[id: 1] = ShootableRoom(id: 1, title: "방1", remainedPhotoCount: 5, totalPhotoCount: 24)
+        }
+    }
+
+    @Test("촬영이 실패해도 셔터가 다시 열리고 실패를 알린다")
+    func shutterReopensAfterCaptureFailure() async {
+        let clock = TestClock()
+        let store = TestStore(initialState: .fixture(selectedFilterID: "필터2")) {
+            CameraFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
+        }
+
+        await store.send(.view(.shutterButtonTapped)) { $0.isCapturing = true }
+        await store.receive(.delegate(.captureRequested(roomID: 1, filterID: "필터2")))
+
+        await store.send(.captureFailed(message: "촬영에 실패했어요.")) {
+            $0.isCapturing = false
+            $0.toastMessage = "촬영에 실패했어요."
+        }
+        await clock.advance(by: .seconds(3))
+        await store.receive(.toastDismissed) { $0.toastMessage = nil }
     }
 
     @Test("촬영이 막혀 있으면 셔터가 토스트를 띄우고 3초 뒤 스스로 사라진다")
@@ -73,6 +131,16 @@ struct CameraFeatureControlTests {
         }
 
         await store.send(.view(.shutterButtonTapped))
+    }
+
+    @Test("위·아래로 쓸어내리면 화면을 닫아 달라고 알린다")
+    func dismissSwipeRequestsClose() async {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state()) {
+            CameraFeature()
+        }
+
+        await store.send(.view(.dismissSwiped))
+        await store.receive(.delegate(.closeRequested))
     }
 
     @Test("배율 버튼을 탭하면 1x → 2x → 3x → 1x로 순환한다")

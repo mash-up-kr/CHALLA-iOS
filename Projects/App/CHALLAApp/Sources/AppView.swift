@@ -12,6 +12,9 @@ import SwiftUI
 /// `SettingView`가 자기 `NavigationStack`을 소유하므로 여기서 push하지 않고 화면을 교체한다 —
 /// 중첩 `NavigationStack`은 동작이 깨진다 (`SettingFeature/MODULE.md`).
 /// 앱에 `NavigationStack`이 하나도 없어 이 방식으로 충돌이 생기지 않는다.
+///
+/// 카메라만 아래에서 올라오고 내려가며 교체된다 — 시트처럼 덮었다 걷히는 화면이기 때문이다.
+/// 나머지 화면은 페이드로 바뀌므로, 카메라가 올라오는 동안 이전 화면이 뒤에서 흐려지며 비친다.
 public struct AppView: View {
 
     @Bindable private var store: StoreOf<AppFeature>
@@ -29,30 +32,36 @@ public struct AppView: View {
             switch store.state {
             case .launching:
                 LaunchingView()
+                    .transition(.opacity)
 
             case .login:
                 if let loginStore = store.scope(state: \.login, action: \.login) {
                     LoginView(store: loginStore)
+                        .transition(.opacity)
                 }
 
             case .profileSetup:
                 if let profileStore = store.scope(state: \.profileSetup, action: \.profileSetup) {
                     ProfileSetupView(store: profileStore)
+                        .transition(.opacity)
                 }
 
             case .home:
                 if let homeStore = store.scope(state: \.home?.home, action: \.home) {
                     HomeView(store: homeStore)
+                        .transition(.opacity)
                 }
 
             case .setting:
                 if let settingStore = store.scope(state: \.setting?.setting, action: \.setting) {
                     SettingView(store: settingStore)
+                        .transition(.opacity)
                 }
 
             case .profileEdit:
                 if let editStore = store.scope(state: \.profileEdit?.edit, action: \.profileEdit) {
                     ProfileSetupView(store: editStore)
+                        .transition(.opacity)
                 }
 
             case .camera:
@@ -60,9 +69,11 @@ public struct AppView: View {
                     CameraView(store: cameraStore) {
                         LiveCameraPreview(session: cameraSession, store: cameraStore)
                     }
+                    .transition(.move(edge: .bottom))
                 }
             }
         }
+        .animation(.snappy, value: store.screenID)
         .task { store.send(.task) }
         // 네비게이션 없이 뷰를 갈아끼우므로 VoiceOver는 화면이 바뀐 걸 스스로 알지 못한다.
         .onChange(of: store.screenID) {

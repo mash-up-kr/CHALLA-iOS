@@ -190,6 +190,7 @@ public struct AppFeature {
 
             // MARK: - 카메라 delegate
 
+            // 홈을 새로 만들어 방 목록을 다시 받는다 — 촬영으로 남은 장수가 줄었을 수 있다.
             case .camera(.camera(.delegate(.closeRequested))):
                 guard case let .camera(screen) = state else { return .none }
                 state = .home(HomeScreen(profile: screen.profile))

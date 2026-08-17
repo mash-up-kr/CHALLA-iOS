@@ -22,6 +22,8 @@ public struct CameraFeature {
         public var zoom: CameraZoom
         public var isRoomSelectionPresented: Bool
         public var toastMessage: String?
+        /// 촬영을 맡긴 뒤 결과가 돌아오기 전까지 참. 이 동안 셔터를 잠가 연타로 여러 장이 찍히는 것을 막는다.
+        public var isCapturing: Bool
         /// 노출 중인 온보딩 안내 단계. nil이면 안내가 없다.
         public var coachMark: CameraCoachMark?
         /// 안내를 이미 시작했는지. 화면이 다시 그려져도 안내가 되풀이되지 않게 막는다.
@@ -40,7 +42,7 @@ public struct CameraFeature {
             selectedRoomID: ShootableRoom.ID? = nil,
             selectedFilterID: CameraFilter.ID? = nil,
             preparedFilterIDs: Set<CameraFilter.ID> = [],
-            flashMode: CameraFlashMode = .on,
+            flashMode: CameraFlashMode = .off,
             cameraPosition: CameraPosition = .back,
             zoom: CameraZoom = CameraZoom(),
             isRoomSelectionPresented: Bool = false,
@@ -58,6 +60,7 @@ public struct CameraFeature {
             self.zoom = zoom
             self.isRoomSelectionPresented = isRoomSelectionPresented
             self.toastMessage = toastMessage
+            isCapturing = false
             self.coachMark = coachMark
             // 안내를 띄운 채로 시작하는 프리뷰·데모는 이미 시작한 것으로 본다.
             self.hasStartedCoachMark = hasStartedCoachMark || coachMark != nil
@@ -93,7 +96,8 @@ public struct CameraFeature {
             case roomSelectionDismissed
             case roomSelected(ShootableRoom.ID)
             case coachMarkActionTapped
-            case closeButtonTapped
+            /// 위나 아래로 충분히 쓸어내려 화면을 닫으려 한다.
+            case dismissSwiped
         }
 
         case view(ViewAction)
@@ -107,6 +111,8 @@ public struct CameraFeature {
         /// 방·필터는 `delegate(.captureRequested)`에 실었던 값을 그대로 되돌려 받는다 —
         /// 업로드 중 사용자가 방을 바꿔도 촬영 당시의 방으로 올라간다.
         case captureCompleted(roomID: ShootableRoom.ID, filterID: CameraFilter.ID, jpegData: Data)
+        /// 조립 지점의 하드웨어 촬영·저장이 실패했다. 이 통로로 알려야 셔터가 다시 열린다.
+        case captureFailed(message: String)
         case uploadResponse(roomID: ShootableRoom.ID, Result<Int, PhotoError>)
         case toastDismissed
 
@@ -155,6 +161,10 @@ public struct CameraFeature {
                 return .none
 
             case .view(.shutterButtonTapped):
+                // 앞선 촬영이 끝나기 전의 연타는 버린다. 촬영 불가 토스트보다 먼저 본다 —
+                // 연타 중에 장수가 0이 되면 누른 만큼 토스트가 쌓인다.
+                guard !state.isCapturing else { return .none }
+
                 if let toastMessage = state.captureAvailability.toastMessage {
                     state.toastMessage = toastMessage
                     return dismissToastAfterDelay()
@@ -164,9 +174,10 @@ public struct CameraFeature {
                 guard let roomID = state.selectedRoomID, let filterID = state.selectedFilterID else {
                     return .none
                 }
+                state.isCapturing = true
                 return .send(.delegate(.captureRequested(roomID: roomID, filterID: filterID)))
 
-            case .view(.closeButtonTapped):
+            case .view(.dismissSwiped):
                 return .send(.delegate(.closeRequested))
 
             case .view(.zoomBadgeTapped):
@@ -204,8 +215,16 @@ public struct CameraFeature {
                 state.preparedFilterIDs.insert(filterID)
                 return .none
 
+            // 촬영본을 받은 시점에 셔터를 다시 연다 — 업로드가 끝날 때까지 기다리면
+            // 서버 왕복 동안 다음 장을 못 찍는다.
             case let .captureCompleted(roomID, filterID, jpegData):
+                state.isCapturing = false
                 return upload(jpegData: jpegData, roomID: roomID, filterID: filterID)
+
+            case let .captureFailed(message):
+                state.isCapturing = false
+                state.toastMessage = message
+                return dismissToastAfterDelay()
 
             case let .uploadResponse(roomID, .success(remainedPhotoCount)):
                 if let room = state.rooms[id: roomID] {

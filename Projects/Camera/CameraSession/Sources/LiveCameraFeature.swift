@@ -19,14 +19,11 @@ public struct LiveCameraFeature {
 
     public enum Action {
         case camera(CameraFeature.Action)
-        /// 촬영·저장 실패를 카메라 화면의 토스트로 보여주기 위한 내부 액션.
-        case captureFailed(String)
     }
 
     public init() {}
 
     @Dependency(\.cameraSession) var cameraSession
-    @Dependency(\.continuousClock) var clock
 
     public var body: some ReducerOf<Self> {
         Scope(state: \.camera, action: \.camera) {
@@ -45,28 +42,15 @@ public struct LiveCameraFeature {
                         // 저장까지 끝난 촬영본을 feature에 돌려줘 업로드(장수 차감)로 잇는다.
                         await send(.camera(.captureCompleted(roomID: roomID, filterID: filterID, jpegData: jpegData)))
                     } catch {
-                        await send(.captureFailed(error.localizedDescription))
+                        await send(.camera(.captureFailed(message: error.localizedDescription)))
                     }
                 }
-
-            case let .captureFailed(message):
-                state.camera.toastMessage = message
-                return .run { [clock] send in
-                    try await clock.sleep(for: Self.toastDuration)
-                    await send(.camera(.toastDismissed))
-                }
-                .cancellable(id: CancelID.captureFailureToast, cancelInFlight: true)
 
             case .camera:
                 return .none
             }
         }
     }
-
-    private enum CancelID { case captureFailureToast }
-
-    /// CameraFeature의 촬영 불가 토스트와 같은 노출 시간.
-    private static let toastDuration: Duration = .seconds(3)
 }
 
 // MARK: - 카메라 세션 주입

@@ -9,8 +9,8 @@ import SwiftUI
 /// 뷰파인더 → 조작 3버튼 → 필터 띠 순의 상단 묶음과, 방 버튼 + 남은 장수의 하단 묶음을 위아래로 벌려 놓는다.
 /// 뷰는 상태 렌더링과 `send(...)` 전달만 한다 — 배율 계산·촬영 차단·토스트 수명은 전부 리듀서 책임이다.
 ///
-/// 프리뷰 화면은 `preview` 슬롯으로 주입한다. AVFoundation 연동 전까지는 기본값인
-/// `CameraPreviewPlaceholder`가 들어가고, 카메라가 붙으면 앱 조립 지점에서 실제 프리뷰를 넘긴다.
+/// 프리뷰 화면은 `preview` 슬롯으로 주입한다 — 조립 지점이 실기기 프리뷰를 넘기고,
+/// 넘기지 않으면 기본값인 `CameraPreviewPlaceholder`가 들어간다.
 @ViewAction(for: CameraFeature.self)
 public struct CameraView<Preview: View>: View {
 
@@ -21,6 +21,12 @@ public struct CameraView<Preview: View>: View {
     /// 화면 연출일 뿐이라 뷰 로컬 상태로만 관리한다.
     @State private var isShutterFeedbackActive = false
 
+    /// 닫기 스와이프를 손가락만큼 따라가는 오프셋. 놓으면 0으로 돌아가거나 화면이 닫힌다.
+    @State private var dismissDragHeight: CGFloat = 0
+
+    /// 핀치 줌이 진행 중인지. 두 손가락이 세로로 벌어지는 것을 닫기 스와이프로 오인하지 않게 막는다.
+    @State private var isMagnifying = false
+
     public init(store: StoreOf<CameraFeature>, @ViewBuilder preview: @escaping () -> Preview) {
         self.store = store
         self.preview = preview
@@ -28,7 +34,41 @@ public struct CameraView<Preview: View>: View {
 
     public var body: some View {
         content
+            .offset(y: dismissDragHeight)
+            // 뷰파인더의 핀치 줌과 같은 자리에서 시작되므로 서로 가로채지 않게 병행 인식으로 붙인다.
+            .simultaneousGesture(dismissGesture)
+            // 스와이프가 유일한 닫기 수단이라 VoiceOver의 escape 제스처에도 같은 동작을 연다.
+            .accessibilityAction(.escape) { send(.dismissSwiped) }
             .task { await send(.task).finish() }
+    }
+
+    /// 위·아래 어느 쪽으로든 충분히 쓸어내리면 화면을 닫는다.
+    private var dismissGesture: some Gesture {
+        DragGesture(minimumDistance: CameraViewMetric.dismissDragMinimum)
+            .onChanged { value in
+                guard canDismiss(by: value) else {
+                    dismissDragHeight = 0 // 닫기가 아닌 것으로 판명되면 따라 움직이던 화면을 되돌린다
+                    return
+                }
+                dismissDragHeight = value.translation.height
+            }
+            .onEnded { value in
+                defer { withAnimation(.snappy) { dismissDragHeight = 0 } }
+                guard canDismiss(by: value) else { return }
+                if abs(value.translation.height) > CameraViewMetric.dismissDragThreshold {
+                    send(.dismissSwiped)
+                }
+            }
+    }
+
+    /// 닫기로 볼 수 있는 끌기인지. 같은 자리에서 시작되는 다른 동작을 걸러낸다 —
+    /// 핀치 줌(두 손가락이 세로로 벌어져도 닫히면 안 된다) · 가로 끌기(필터 띠 스크롤) ·
+    /// 방 선택 드로어를 끌어내릴 때 · 안내 스낵바가 조작을 막고 있을 때.
+    private func canDismiss(by value: DragGesture.Value) -> Bool {
+        !isMagnifying
+            && !store.isRoomSelectionPresented
+            && !store.isCoachMarkPresented
+            && abs(value.translation.height) > abs(value.translation.width)
     }
 
     private var content: some View {
@@ -43,9 +83,6 @@ public struct CameraView<Preview: View>: View {
                         ))
                     bottomSection
                 }
-
-                closeButton
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
                 toast
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -76,15 +113,22 @@ public struct CameraView<Preview: View>: View {
                 isShutterFlashing: isShutterFeedbackActive,
                 isDimmed: store.isCoachMarkPresented,
                 onZoomBadgeTap: { send(.zoomBadgeTapped) },
-                onMagnificationChanged: { send(.zoomMagnificationChanged($0)) },
-                onMagnificationEnded: { send(.zoomMagnificationEnded) },
+                onMagnificationChanged: { magnification in
+                    isMagnifying = true
+                    send(.zoomMagnificationChanged(magnification))
+                },
+                onMagnificationEnded: {
+                    isMagnifying = false
+                    send(.zoomMagnificationEnded)
+                },
                 preview: preview
             )
 
             CameraControlBar(
                 flashMode: store.flashMode,
-                isCapturing: isShutterFeedbackActive,
+                isShutterPressed: isShutterFeedbackActive,
                 isShutterHighlighted: store.isCoachMarkPresented,
+                isShutterEnabled: !store.isCapturing,
                 onFlashTap: { send(.flashButtonTapped) },
                 onShutterTap: handleShutterTap,
                 onCameraSwitchTap: { send(.cameraSwitchButtonTapped) }
@@ -112,26 +156,6 @@ public struct CameraView<Preview: View>: View {
             .padding(.horizontal, CameraViewMetric.bottomHorizontalPadding)
             .padding(.bottom, CameraViewMetric.screenBottomPadding)
             .coachMarkDimmed(store.isCoachMarkPresented)
-        }
-    }
-
-    /// 촬영을 그만두고 돌아가는 길.
-    /// TODO: 시안에 이 버튼이 없다 — 위치·아이콘은 임의 배치이므로 디자이너 확인 후 확정할 것.
-    ///       (없으면 카메라에 들어온 뒤 빠져나갈 방법이 없어 임시로 둔다)
-    @ViewBuilder
-    private var closeButton: some View {
-        if !store.isCoachMarkPresented { // 안내 중에는 다른 조작을 막는 규칙을 따른다
-            Button {
-                send(.closeButtonTapped)
-            } label: {
-                CHALLAIcon.close.image(size: .size24, color: CHALLAColor.Label.normal)
-                    .frame(width: CameraViewMetric.closeButtonSize, height: CameraViewMetric.closeButtonSize)
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("닫기")
-            .padding(.leading, CameraViewMetric.closeButtonLeading)
-            .padding(.top, CameraViewMetric.closeButtonTop)
         }
     }
 
@@ -211,10 +235,11 @@ private enum CameraViewMetric {
     static let bottomSpacing: CGFloat = 12
     static let bottomHorizontalPadding: CGFloat = 40
     static let toastTopInset: CGFloat = 112
-    /// 닫기 버튼 — 시안에 없어 임의 배치다 (`closeButton` TODO 참고).
-    static let closeButtonSize: CGFloat = 44
-    static let closeButtonLeading: CGFloat = 8
-    static let closeButtonTop: CGFloat = 4
+
+    /// 닫기 스와이프의 시작 문턱과 닫히는 거리 — 시안 육안 근사값, 디자이너 검수로 확정한다.
+    /// 시작 문턱이 없으면 탭할 때 손가락이 흔들리는 것만으로 화면이 밀린다.
+    static let dismissDragMinimum: CGFloat = 20
+    static let dismissDragThreshold: CGFloat = 120
     /// 안내 스낵바: 시안 366×50 @(12,752) — 좌우 12, 아래는 홈 인디케이터 세이프에어리어 안쪽 8.
     static let snackBarHorizontalMargin: CGFloat = 12
     static let snackBarBottomPadding: CGFloat = 8
