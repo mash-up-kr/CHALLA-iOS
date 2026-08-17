@@ -1,10 +1,6 @@
 import ProjectDescription
 import ProjectDescriptionHelpers
 
-/// 리소스(필터 LUT .cube)가 있지만 makeModule의 "리소스=dynamic" 정책 대신 static framework로 직접 구성한다.
-/// dynamic으로 만들면 정적인 TCA 계열 의존성이 이 dylib과 앱 바이너리에 각각 복제 링크되어,
-/// @TaskLocal 기반 @Dependency 주입이 이미지 간에 갈라질 수 있기 때문 (LoginFeature와 같은 판단).
-/// 리소스는 Tuist가 합성하는 리소스 번들 + Bundle.module 접근자로 그대로 동작한다.
 let project = Project(
     name: "CameraFeature",
     organizationName: Environment.organizationName,
@@ -22,8 +18,7 @@ let project = Project(
             deploymentTargets: Environment.deploymentTarget,
             infoPlist: .default,
             sources: ["Sources/**"],
-            resources: ["Resources/**"],
-            dependencies: [.composableArchitecture, .designSystem]
+            dependencies: [.composableArchitecture, .designSystem, .roomDomain, .photoDomain]
         ),
         .target(
             name: "CameraFeatureTests",
@@ -33,7 +28,7 @@ let project = Project(
             deploymentTargets: Environment.deploymentTarget,
             infoPlist: .default,
             sources: ["Tests/**"],
-            dependencies: [.target(name: "CameraFeature"), .composableArchitecture]
+            dependencies: [.target(name: "CameraFeature"), .composableArchitecture, .roomDomain, .photoDomain]
         )
     ]
 )

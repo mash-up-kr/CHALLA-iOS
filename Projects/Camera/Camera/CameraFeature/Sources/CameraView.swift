@@ -1,5 +1,7 @@
 import CHALLADesignSystem
 import ComposableArchitecture
+import PhotoDomain
+import RoomDomain
 import SwiftUI
 
 /// 카메라 화면
@@ -25,6 +27,11 @@ public struct CameraView<Preview: View>: View {
     }
 
     public var body: some View {
+        content
+            .task { await send(.task).finish() }
+    }
+
+    private var content: some View {
         GeometryReader { proxy in
             ZStack {
                 VStack(spacing: 0) {
@@ -88,10 +95,10 @@ public struct CameraView<Preview: View>: View {
     private var bottomSection: some View {
         if let room = store.selectedRoom {
             VStack(spacing: CameraViewMetric.bottomSpacing) {
-                RoomSelectButton(roomName: room.name) {
+                RoomSelectButton(roomName: room.title) {
                     send(.roomSelectButtonTapped)
                 }
-                RemainingCardsLabel(remaining: room.remainingCards, total: room.totalCards)
+                RemainingCardsLabel(remaining: room.remainedPhotoCount, total: room.totalPhotoCount)
             }
             .padding(.horizontal, CameraViewMetric.bottomHorizontalPadding)
             .padding(.bottom, CameraViewMetric.screenBottomPadding)
@@ -190,12 +197,13 @@ private extension CameraFeature.State {
         flashMode: CameraFlashMode = .on,
         selectedFilterID: CameraFilter.ID? = nil
     ) -> Self {
-        let rooms: [CameraRoom] = captureAvailability.isAvailable
-            ? [CameraRoom(id: "1", name: "방이름방이름방이름3", remainingCards: 3, totalCards: 48)]
-            : [CameraRoom(id: "1", name: "방이름방이름방이름3", remainingCards: 0, totalCards: 48)]
+        let rooms: [ShootableRoom] = captureAvailability.isAvailable
+            ? [ShootableRoom(id: -1, title: "방이름방이름방이름3", remainedPhotoCount: 3, totalPhotoCount: 48)]
+            : [ShootableRoom(id: -1, title: "방이름방이름방이름3", remainedPhotoCount: 0, totalPhotoCount: 48)]
 
         return Self(
             rooms: IdentifiedArray(uniqueElements: rooms),
+            filters: IdentifiedArray(uniqueElements: CameraFilter.previewFilters),
             selectedFilterID: selectedFilterID,
             flashMode: flashMode,
             captureAvailability: captureAvailability
@@ -209,12 +217,17 @@ private extension CameraFeature.State {
 
 #Preview("플래시 꺼짐 · Warm 필터") {
     CameraView(
-        store: Store(initialState: .demo(flashMode: .off, selectedFilterID: "warm")) { CameraFeature() }
+        store: Store(initialState: .demo(flashMode: .off, selectedFilterID: "Warm")) { CameraFeature() }
     )
 }
 
 #Preview("촬영 불가") {
     CameraView(
-        store: Store(initialState: .demo(captureAvailability: .noCardsLeft)) { CameraFeature() }
+        store: Store(initialState: .demo(captureAvailability: .noCardsLeft)) {
+            CameraFeature()
+        } withDependencies: {
+            // previewValue 기본 방 목록(장수 있음)이 초기 상태를 덮지 않게 소진된 방으로 고정한다.
+            $0.fetchShootableRoomsUseCase.run = { [.previewSoldOut] }
+        }
     )
 }
