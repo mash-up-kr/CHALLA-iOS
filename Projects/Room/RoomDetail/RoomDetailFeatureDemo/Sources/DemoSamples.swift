@@ -17,6 +17,10 @@ enum DemoSamples {
     private static let createdAt = Date(timeIntervalSince1970: 1_784_000_000)
     private static let expiresAt = createdAt.addingTimeInterval(Room.previewLifetime)
 
+    /// 인화 완료까지 남은 시간. 타입을 명시해 둔다 —
+    /// 리터럴 곱셈을 인자 자리에 그대로 두면 타입 추론이 제한 시간을 넘긴다.
+    private static let secondsUntilPrinted: TimeInterval = 2 * 3600 + 59 * 60 + 58
+
     /// 상태별로 보여줄 방. 슬롯 수(총 촬영 장수)와 남은 장수가 상태마다 다르다.
     static func room(for state: DemoScreen.DetailState) -> Room {
         switch state {
@@ -34,7 +38,7 @@ enum DemoSamples {
                 createdAt: createdAt,
                 expiresAt: expiresAt,
                 // 시안 문구("2:59:58 후 인화 완료")와 같은 값에서 시작해 실제로 줄어든다.
-                photoPrintCompletedAt: Date.now.addingTimeInterval(2 * 3600 + 59 * 60 + 58)
+                photoPrintCompletedAt: Date.now.addingTimeInterval(secondsUntilPrinted)
             )
         case .printed:
             return Room(

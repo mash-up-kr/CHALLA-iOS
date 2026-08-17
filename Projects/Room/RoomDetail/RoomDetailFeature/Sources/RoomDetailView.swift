@@ -274,6 +274,9 @@ private func previewPhotos(count: Int) -> [Photo] {
 
 #Preview("인화 대기 (카운트다운)") {
     // 고정 픽스처(previewPrintWaiting)는 완료 시각이 과거라 0:00:00만 보인다 — 시안 값으로 직접 만든다.
+    // 타입을 명시해 둔다 — 리터럴 곱셈을 인자 자리에 그대로 두면 타입 추론이 제한 시간을 넘긴다.
+    let secondsUntilExpiry: TimeInterval = 60 * 60 * 24 * 30 //      30일
+    let secondsUntilPrinted: TimeInterval = 2 * 3600 + 59 * 60 + 58 // 2:59:58
     let room = Room(
         id: -2,
         title: "성수동 필름 산책",
@@ -281,8 +284,8 @@ private func previewPhotos(count: Int) -> [Photo] {
         totalPhotoCount: 48,
         remainedPhotoCount: 0,
         createdAt: .now,
-        expiresAt: .now.addingTimeInterval(60 * 60 * 24 * 30),
-        photoPrintCompletedAt: .now.addingTimeInterval(2 * 3600 + 59 * 60 + 58)
+        expiresAt: .now.addingTimeInterval(secondsUntilExpiry),
+        photoPrintCompletedAt: .now.addingTimeInterval(secondsUntilPrinted)
     )
     RoomDetailView(
         store: Store(initialState: RoomDetailFeature.State(room: room)) {
