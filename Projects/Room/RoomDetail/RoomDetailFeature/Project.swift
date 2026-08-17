@@ -13,7 +13,8 @@ let project = Project(
     targets: [
         .makeModuleTarget(
             name: "RoomDetailFeature",
-            dependencies: [.roomDomain, .composableArchitecture, .designSystem]
+            // .photoDomain: 사진 그리드가 인화된 사진 목록을 조회한다 (ARCHITECTURE.md — 결과 그리드는 방 상세가 흡수).
+            dependencies: [.roomDomain, .photoDomain, .composableArchitecture, .designSystem]
         ),
         .target(
             name: "RoomDetailFeatureTests",
@@ -23,8 +24,8 @@ let project = Project(
             deploymentTargets: Environment.deploymentTarget,
             infoPlist: .default,
             sources: ["Tests/**"],
-            // .roomDomain: 테스트가 Room·RoomDetail로 리듀서 동작을 검증한다.
-            dependencies: [.target(name: "RoomDetailFeature"), .roomDomain, .composableArchitecture]
+            // 테스트가 Room·RoomDetail·Photo 값을 직접 만들어 리듀서에 넣는다.
+            dependencies: [.target(name: "RoomDetailFeature"), .roomDomain, .photoDomain, .composableArchitecture]
         )
     ]
 )

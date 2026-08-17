@@ -1,10 +1,15 @@
 import CHALLADesignSystem
 import ComposableArchitecture
+import PhotoDomain
 import RoomDomain
 import SwiftUI
 
 /// 방 상세 화면. 슬롯 그리드가 본문이고, 참여자 바가 그 위에 겹쳐 뜬다.
-/// 방 상태에 따라 하단이 갈린다 — 촬영 중이면 사진 찍기 버튼, 그 외에는 채팅 버튼만.
+///
+/// 화면이 갈리는 기준이 두 가지로 나뉜다.
+/// - 그리드는 사진 개수를 본다 — 찍힌 자리는 사진, 남은 자리는 빈 칸.
+///   사진은 인화 완료면 선명하게, 그 전이면 블러로 그린다.
+/// - 하단은 방 상태를 본다 — 촬영 중은 사진 찍기, 인화 대기는 카운트다운, 인화 완료는 없음.
 @ViewAction(for: RoomDetailFeature.self)
 public struct RoomDetailView: View {
 
@@ -31,14 +36,14 @@ public struct RoomDetailView: View {
         .task { send(.task) }
     }
 
-    // MARK: - 슬롯 그리드
+    // MARK: - 슬롯 그리드 (사진 개수 기준)
 
-    /// 총 촬영 장수만큼 빈 슬롯을 깐다. 슬롯 크기는 FilmCard가 비율로 정하므로 열만 나눈다.
+    /// 총 촬영 장수만큼 슬롯을 깐다. 슬롯 크기는 FilmCard가 비율로 정하므로 열만 나눈다.
     private var slotGrid: some View {
         ScrollView {
             LazyVGrid(columns: Self.columns, spacing: RoomDetailMetric.slotSpacing) {
                 ForEach(1 ... max(store.room.totalPhotoCount, 1), id: \.self) { number in
-                    CHALLAFilmCard(variant: .beforeCapture, slotNumber: number)
+                    slot(number: number)
                 }
             }
             .padding(.horizontal, RoomDetailMetric.horizontalPadding)
@@ -53,6 +58,35 @@ public struct RoomDetailView: View {
         repeating: GridItem(.flexible(), spacing: RoomDetailMetric.slotSpacing),
         count: RoomDetailMetric.columnCount
     )
+
+    /// 슬롯 한 칸 — 사진이 있으면 사진, 없으면 빈 칸.
+    /// 촬영 중에 찍은 사진도 블러로 보이고, 인화가 끝나야 선명해진다.
+    /// 사진 조회가 실패하면 아직 안 찍힌 자리와 같은 모습이 된다.
+    @ViewBuilder
+    private func slot(number: Int) -> some View {
+        if number <= store.photos.count {
+            CHALLAAsyncImage(url: store.photos[number - 1].imageURL) { image in
+                CHALLAFilmCard(
+                    variant: store.room.status == .printed
+                        ? .printed(photo: image)
+                        : .printing(photo: image),
+                    slotNumber: number
+                )
+            } placeholder: {
+                loadingSlot
+            }
+        } else {
+            CHALLAFilmCard(variant: .beforeCapture, slotNumber: number)
+        }
+    }
+
+    /// 사진을 받아오는 동안의 자리. 점선(촬영 전)을 쓰지 않는 이유는 찍힌 자리인데
+    /// 안 찍힌 것처럼 보이기 때문이다 — 카드 크기는 FilmCard와 같은 비율로 맞춘다.
+    private var loadingSlot: some View {
+        RoundedRectangle(cornerRadius: CHALLARadius.medium)
+            .fill(CHALLAColor.Background.level2)
+            .aspectRatio(CHALLAFilmCard.aspectRatio, contentMode: .fit)
+    }
 
     // MARK: - 참여자 바
 
@@ -87,9 +121,9 @@ public struct RoomDetailView: View {
         }
     }
 
-    // MARK: - 하단 동작
+    // MARK: - 하단 동작 (방 상태 기준)
 
-    /// 방 상태에 따라 갈린다 — 촬영 중: 채팅+사진 찍기 / 인화 대기: 채팅+카운트다운 /
+    /// 촬영 중: 채팅 + 사진 찍기 / 인화 대기: 채팅 + 카운트다운 /
     /// 인화 완료: 아무것도 없음 (시안 5604:19636 — 채팅 버튼도 없다).
     @ViewBuilder
     private var bottomActions: some View {
@@ -190,12 +224,38 @@ private enum RoomDetailMetric {
 
 // MARK: - Preview
 
+/// 프리뷰용 가짜 사진. picsum 사진 6장을 돌려 쓴다 — 슬롯마다 다른 URL을 주면
+/// 수십 건이 한꺼번에 나가 picsum이 막고, 같은 URL은 로더가 캐시로 재사용해 6번만 받는다.
+private func previewPhotos(count: Int) -> [Photo] {
+    (0 ..< count).compactMap { index in
+        guard let url = URL(string: "https://picsum.photos/seed/challa-slot\(index % 6)/300/400") else { return nil }
+        return Photo(
+            id: "\(index)",
+            imageURL: url,
+            author: PhotoAuthor(id: "author", nickname: "찰나둥이"),
+            capturedAt: .now
+        )
+    }
+}
+
 #Preview("촬영 중") {
     RoomDetailView(
         store: Store(initialState: RoomDetailFeature.State(room: .previewShooting)) {
             RoomDetailFeature()
         } withDependencies: {
             $0.fetchRoomDetailUseCase = .previewValue
+        }
+    )
+}
+
+#Preview("촬영 중 (12장 찍힘)") {
+    RoomDetailView(
+        store: Store(initialState: RoomDetailFeature.State(room: .previewShooting)) {
+            RoomDetailFeature()
+        } withDependencies: {
+            $0.fetchRoomDetailUseCase = .previewValue
+            // 24칸 중 12장 찍힌 상태 — 찍은 자리는 블러, 남은 자리는 빈 칸으로 섞여 보인다.
+            $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in previewPhotos(count: 12) })
         }
     )
 }
@@ -230,6 +290,10 @@ private enum RoomDetailMetric {
             $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in
                 RoomDetail(room: room, invitationCode: "1928121", members: RoomDetail.preview.members)
             })
+            // 인화 대기는 다 찍었을 때만 들어오는 상태라 빈 슬롯이 없다 (남은 장수 0).
+            $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
+                previewPhotos(count: room.totalPhotoCount)
+            })
         }
     )
 }
@@ -241,6 +305,9 @@ private enum RoomDetailMetric {
         } withDependencies: {
             $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in
                 RoomDetail(room: .previewPrinted, invitationCode: "1928121", members: RoomDetail.preview.members)
+            })
+            $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
+                previewPhotos(count: Room.previewPrinted.totalPhotoCount)
             })
         }
     )

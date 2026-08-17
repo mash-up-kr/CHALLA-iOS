@@ -11,6 +11,8 @@ let project = Project.makeAppProject(
     usesAPIEnvironment: false, // InMemory 저장소만 쓴다 — 서버 주소 불필요
     dependencies: [
         .roomDetailFeature, .roomDomain,
+        // TODO: PhotoData가 생기면 가짜 사진 조회 대신 실구현을 주입한다.
+        .photoDomain,
         .roomData, // 데모앱은 조립 지점이라 Data 직접 의존 허용 (아키텍처 규칙 2의 예외)
         .composableArchitecture
     ]

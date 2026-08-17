@@ -1,6 +1,7 @@
 @testable import RoomDetailFeature
 import ComposableArchitecture
 import Foundation
+import PhotoDomain
 import RoomDomain
 import Testing
 
@@ -25,9 +26,19 @@ struct RoomDetailFeatureTests {
         members: RoomDetail.preview.members
     )
 
+    private nonisolated static let photos = [
+        Photo(
+            id: "1",
+            imageURL: URL(string: "https://img.example.com/1.jpg")!,
+            author: PhotoAuthor(id: "u1", nickname: "찰나둥이"),
+            capturedAt: Date(timeIntervalSince1970: 0)
+        )
+    ]
+
     private static func makeStore(
         initialState: RoomDetailFeature.State = .init(room: .previewShooting),
         fetchDetail: FetchRoomDetailUseCase = .testValue,
+        fetchPhotos: FetchRoomPhotosUseCase = .testValue,
         copy: CopyToPasteboard = .testValue,
         clock: any Clock<Duration> = TestClock()
     ) -> TestStoreOf<RoomDetailFeature> {
@@ -35,6 +46,7 @@ struct RoomDetailFeatureTests {
             RoomDetailFeature()
         } withDependencies: {
             $0.fetchRoomDetailUseCase = fetchDetail
+            $0.fetchRoomPhotosUseCase = fetchPhotos
             $0.copyToPasteboard = copy
             $0.continuousClock = clock
         }
@@ -42,9 +54,12 @@ struct RoomDetailFeatureTests {
 
     // MARK: - 조회
 
-    @Test("진입 시 상세를 조회해 초대 코드·참여자를 채우고 방 정보도 최신화한다")
-    func taskLoadsDetail() async {
-        let store = Self.makeStore(fetchDetail: FetchRoomDetailUseCase(run: { _ in Self.detail }))
+    @Test("진입 시 상세와 사진을 함께 조회한다")
+    func taskLoadsDetailAndPhotos() async {
+        let store = Self.makeStore(
+            fetchDetail: FetchRoomDetailUseCase(run: { _ in Self.detail }),
+            fetchPhotos: FetchRoomPhotosUseCase(run: { _ in Self.photos })
+        )
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
@@ -54,11 +69,17 @@ struct RoomDetailFeatureTests {
             $0.detail = Self.detail
             $0.room = Self.fresherRoom // 홈에서 받은 값(남은 12장)이 서버 값(5장)으로 덮인다
         }
+        await store.receive(\.photosResponse.success) {
+            $0.photos = Self.photos
+        }
     }
 
-    @Test("조회 실패는 얼럿 없이 실패 상태만 기록한다")
+    @Test("상세 조회 실패는 얼럿 없이 실패 상태만 기록한다")
     func failureIsSilent() async {
-        let store = Self.makeStore(fetchDetail: FetchRoomDetailUseCase(run: { _ in throw RoomError.network }))
+        let store = Self.makeStore(
+            fetchDetail: FetchRoomDetailUseCase(run: { _ in throw RoomError.network }),
+            fetchPhotos: FetchRoomPhotosUseCase(run: { _ in [] })
+        )
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
@@ -66,6 +87,25 @@ struct RoomDetailFeatureTests {
         await store.receive(\.detailResponse.failure) {
             $0.detailLoad = .failed // 이게 전부다 — 얼럿 State 자체가 없다
         }
+        await store.receive(\.photosResponse.success) // 사진 0장 — 상태 변화 없음
+    }
+
+    @Test("사진 조회 실패는 얼럿 없이 빈 그리드로 둔다")
+    func photoFailureIsSilent() async {
+        let store = Self.makeStore(
+            fetchDetail: FetchRoomDetailUseCase(run: { _ in Self.detail }),
+            fetchPhotos: FetchRoomPhotosUseCase(run: { _ in throw PhotoError.network })
+        )
+
+        await store.send(.view(.task)) {
+            $0.detailLoad = .loading
+        }
+        await store.receive(\.detailResponse.success) {
+            $0.detailLoad = .loaded
+            $0.detail = Self.detail
+            $0.room = Self.fresherRoom
+        }
+        await store.receive(\.photosResponse.failure) // 상태 변화 없음 — 슬롯이 빈 모습 그대로
     }
 
     // MARK: - 팝오버
