@@ -101,6 +101,11 @@ enum CompositionRoot {
         values.fetchRoomsUseCase = .live(repository: repository)
         values.createRoomUseCase = .live(repository: repository)
         values.joinRoomUseCase = .live(repository: repository)
+        values.fetchRoomDetailUseCase = .live(repository: repository)
+
+        // 방 상세의 사진 그리드가 쓰는 fetchRoomPhotosUseCase는 등록하지 않는다 —
+        // 실서버 구현(PhotoData)이 아직 없다. 미등록 상태로 두면 호출 시 런타임 경고가 뜨고
+        // 그리드는 빈 칸으로 남는다. 구현이 생기면 여기서 등록한다.
     }
 
     /// 설정 조립이 필요로 하는 다른 aggregate의 결과물.
