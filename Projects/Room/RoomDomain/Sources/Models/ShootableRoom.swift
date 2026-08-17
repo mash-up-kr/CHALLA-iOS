@@ -29,7 +29,4 @@ public extension ShootableRoom {
         ShootableRoom(id: -2, title: "성수동 필름 산책", remainedPhotoCount: 3, totalPhotoCount: 48),
         ShootableRoom(id: -3, title: "찰나 첫 모임", remainedPhotoCount: 12, totalPhotoCount: 72)
     ]
-
-    /// 장수 소진 화면 재현용.
-    static let previewSoldOut = ShootableRoom(id: -4, title: "장수 소진된 방", remainedPhotoCount: 0, totalPhotoCount: 48)
 }

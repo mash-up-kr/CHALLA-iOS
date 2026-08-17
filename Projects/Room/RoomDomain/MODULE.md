@@ -76,7 +76,7 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 - `struct ShootableRoom` — 카메라의 방 선택 목록 한 줄 (`GET /rooms/shootable` 응답 한 줄에 대응).
   `id: Room.ID` · `title` · `remainedPhotoCount` · `totalPhotoCount`
   - 촬영 화면은 제목·남은 장수만 필요해 `Room` 전체가 아니라 이 축약형을 쓴다
-  - `previewRooms` · `previewSoldOut` 상수 (id 음수 규칙은 `Room` 샘플과 같다)
+  - `previewRooms` 상수 (id 음수 규칙은 `Room` 샘플과 같다)
 
 ### Rules (`Sources/Rules/`)
 
