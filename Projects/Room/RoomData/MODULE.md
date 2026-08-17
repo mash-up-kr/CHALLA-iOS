@@ -59,8 +59,9 @@
   - 상세 응답(`RoomDetailResponseDTO`)만 id가 nullable — 스키마 특이점, 매핑이 요청 id로
     메꾼다 (백엔드 확인 TODO)
 - `Endpoint/RoomEndpoint` — rooms(배열 쿼리) · create · join · detail · members 선언. 전부 `.bearer`
-- `Mapping/` — `toDomain()`(DTO→RoomCard), `ServerDate`(타임존 유무·소수점 초 유무 4형식 파싱,
-  타임존 없는 표기는 백엔드 확인 전까지 KST 가정 TODO), `RoomError.normalized`(취소는 통과,
+- `Mapping/` — `toDomain()`(DTO→RoomCard·RoomDetail), `ServerDate`(소수점 초 자릿수만 다른 3형식
+  파싱 — 마이크로초 6·밀리초 3·생략. 타임존 표기 없이 UTC로 내려온다, 백엔드 확정 2026-08-13),
+  `RoomError.normalized`(취소는 통과,
   401→unauthorized, 404→roomNotFound·409→roomFull은 잠정 — 스웨거에 에러 정의가 없음 TODO)
   - 필수 날짜(createdAt·expiresAt) 파싱 실패는 그 방을 오류 처리, 인화 완료 시각은 인화 전 null이
     정상이라 형식이 깨져도 그 값만 nil
@@ -83,7 +84,7 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `DefaultRoomRepositoryTests` — 상태 3개 배열 쿼리·bearer 확인, `success:false` 언랩(서버 메시지
   보존), transport→`.network` 정규화, 생성·입장의 본문 계약과 재조회 왕복(POST→GET 순서),
   재조회 실패 시 `.unknown`, 404·409 잠정 매핑, 상세·참여자의 경로·응답 매핑과 404→`.roomNotFound`
-- `RoomCardMappingTests` — 필드 이동·`shotPhotoCount` 계산, 상태 3종 1:1, 날짜 4형식 파싱,
+- `RoomCardMappingTests` — 필드 이동·`shotPhotoCount` 계산, 상태 3종 1:1, 날짜 3형식 파싱,
   필수 날짜 위반 시 `.unknown`, 인화 시각 관대 처리, 깨진 썸네일 URL 걸러내기
 - `RoomDetailMappingTests` — 서버 id 사용 / id nil이면 요청 id로 메꿈 / 필수 날짜 정책 동일 /
   참여자 매핑(닉네임 nil 통과·깨진 URL 버림)
