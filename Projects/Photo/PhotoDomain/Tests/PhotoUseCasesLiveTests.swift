@@ -71,3 +71,37 @@ struct UploadPhotoUseCaseLiveTests {
         }
     }
 }
+
+@Suite("카메라 안내 UseCase.live")
+struct CameraOnboardingUseCasesLiveTests {
+
+    @Test("본 적 없으면 안내를 띄우라고 답한다")
+    func showsWhenNeverSeen() async {
+        let useCase = ShouldShowCameraCoachMarkUseCase.live(
+            repository: MockCameraOnboardingRepository(hasSeen: false)
+        )
+
+        #expect(await useCase.run())
+    }
+
+    @Test("이미 본 적 있으면 안내를 띄우지 말라고 답한다")
+    func hidesWhenAlreadySeen() async {
+        let useCase = ShouldShowCameraCoachMarkUseCase.live(
+            repository: MockCameraOnboardingRepository(hasSeen: true)
+        )
+
+        #expect(await !useCase.run())
+    }
+
+    @Test("봤다고 기록하면 이후 조회에서 띄우지 않는다")
+    func markingSeenStops() async {
+        let repository = MockCameraOnboardingRepository(hasSeen: false)
+        let mark = MarkCameraCoachMarkSeenUseCase.live(repository: repository)
+        let shouldShow = ShouldShowCameraCoachMarkUseCase.live(repository: repository)
+
+        await mark.run()
+
+        #expect(repository.didMarkSeen)
+        #expect(await !shouldShow.run())
+    }
+}

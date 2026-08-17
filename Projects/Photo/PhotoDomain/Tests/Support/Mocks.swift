@@ -41,6 +41,28 @@ final class MockCameraFilterRepository: CameraFilterRepository {
     }
 }
 
+/// 안내 노출 기록을 메모리에 들고 있는 `CameraOnboardingRepository` 목.
+final class MockCameraOnboardingRepository: CameraOnboardingRepository {
+
+    private let state: OSAllocatedUnfairLock<Bool>
+
+    init(hasSeen: Bool = false) {
+        state = OSAllocatedUnfairLock(initialState: hasSeen)
+    }
+
+    var didMarkSeen: Bool {
+        state.withLock { $0 }
+    }
+
+    func hasSeenCoachMark() async -> Bool {
+        state.withLock { $0 }
+    }
+
+    func markCoachMarkSeen() async {
+        state.withLock { $0 = true }
+    }
+}
+
 /// 업로드 인자를 캡처하고 지정한 결과를 돌려주는 `PhotoUploader` 목.
 final class MockPhotoUploader: PhotoUploader {
 

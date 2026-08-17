@@ -28,6 +28,17 @@
   `init(filters:lutDataByName:latency:failure:)`. 넘겨준 목록·LUT를 그대로 돌려준다
 - `actor InMemoryPhotoUploader: PhotoUploader` — `init(remainedPhotoCounts:latency:failure:)`.
   방별 남은 장수를 실서버처럼 차감해 돌려주고, 소진된 방이면 `.photoExhausted`를 던진다
+- `struct DefaultCameraOnboardingRepository: CameraOnboardingRepository` — `init(storage:)`
+  (기본값 `UserDefaultsCameraOnboardingStorage`). 카메라 안내 노출 여부를 기기에 남긴다 —
+  이 저장소만 서버를 타지 않는다
+- `actor InMemoryCameraOnboardingRepository: CameraOnboardingRepository` — `init(hasSeen:)`.
+  앱을 끄면 사라져 데모에서 안내를 매번 다시 볼 수 있다
+
+### Storage (`Sources/Storage/`)
+
+- `protocol CameraOnboardingStorage` · `struct UserDefaultsCameraOnboardingStorage` —
+  `UserDefaults`를 한 겹 감싼다. 테스트가 실제 저장소를 건드려 서로 간섭하지 않게 하려는 것이며,
+  `SettingData.SettingsStorage`와 같은 판단이다 (Data 모듈끼리 import하지 않으려고 따로 둔다)
 
 ## 내부 구성 (internal — 서버 계약이 바뀌면 여기만 바뀐다)
 
@@ -59,3 +70,5 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `DefaultPhotoUploaderTests` — 발급→PUT→완료 3단계 순서와 각 단계의 인증·본문 계약,
   PUT 실패 시 완료 통보 생략, 409→`.photoExhausted` 잠정 매핑
 - `InMemoryPhotoUploaderTests` — 차감·소진·주입 실패
+- `DefaultCameraOnboardingRepositoryTests` — 기록 없음 = 미열람, 기록 후 유지, 앱 재실행 시 유지
+  (`Tests/Support/InMemoryCameraOnboardingStorage`로 실제 `UserDefaults`를 건드리지 않는다)

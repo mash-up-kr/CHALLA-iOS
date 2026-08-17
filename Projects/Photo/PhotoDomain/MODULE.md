@@ -36,14 +36,19 @@
   - 서명 URL 발급 → 스토리지 PUT → 완료 통보의 다단계 절차를 한 호출로 감춘다
     (`ProfileImageUploader`와 같은 구조)
   - 구현체 계약: 실패는 반드시 `PhotoError`로 정규화해 던진다
+- `protocol CameraOnboardingRepository` — `hasSeenCoachMark() -> Bool` · `markCoachMarkSeen()`
+  - 카메라 진입 안내를 이미 봤는지 기억한다. 기기에만 남기고 서버에 올리지 않는다
 
 ### UseCases (`@DependencyClient` — `liveValue` 없음)
 
 - `FetchCameraFiltersUseCase` (`\.fetchCameraFiltersUseCase`) — 필터 목록 조회 (`-> [CameraFilter]`)
 - `LoadFilterLUTUseCase` (`\.loadFilterLUTUseCase`) — 필터 하나의 LUT 원본 바이트 (`-> Data`)
 - `UploadPhotoUseCase` (`\.uploadPhotoUseCase`) — 사진 업로드 후 남은 장수 (`-> Int`)
+- `ShouldShowCameraCoachMarkUseCase` (`\.shouldShowCameraCoachMarkUseCase`) — 카메라 최초 진입인지 (`-> Bool`)
+- `MarkCameraCoachMarkSeenUseCase` (`\.markCameraCoachMarkSeenUseCase`) — 안내를 끝까지 본 것으로 기록
 
-셋 다 `static func live(...)` · `testValue` · `previewValue`를 갖는다.
+전부 `static func live(...)` · `testValue` · `previewValue`를 갖는다.
+안내 관련 둘은 기기 저장값만 다뤄 실패 개념이 없다 — 던지지 않는다.
 
 ## 의존성
 
@@ -58,6 +63,7 @@ mise exec -- tuist test PhotoDomain
 ```
 
 Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/Mocks`의
-`MockCameraFilterRepository`·`MockPhotoUploader`로 인터페이스만 갈아끼워 검증한다.
+`MockCameraFilterRepository`·`MockPhotoUploader`·`MockCameraOnboardingRepository`로
+인터페이스만 갈아끼워 검증한다.
 
-- `PhotoUseCasesLiveTests` — 세 UseCase의 결과 전달·인자 전달·오류 전파
+- `PhotoUseCasesLiveTests` — UseCase들의 결과 전달·인자 전달·오류 전파, 안내 노출 판단·기록
