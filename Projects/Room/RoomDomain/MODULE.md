@@ -51,8 +51,8 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 
 ### Interface (`Sources/Interface/` — 구현: RoomData)
 
-- `protocol RoomRepository` — `rooms() -> [RoomCard]` · `createRoom(_:) -> RoomCard` ·
-  `joinRoom(inviteCode:) -> RoomCard`
+- `protocol RoomRepository` — `rooms() -> [RoomCard]` · `shootableRooms() -> [ShootableRoom]` ·
+  `createRoom(_:) -> RoomCard` · `joinRoom(inviteCode:) -> RoomCard`
   - 구현체 계약: 실패는 반드시 `RoomError`로 번역해 던진다. 입력값 검증은 UseCase가 이미 마쳤다
   - 생성·입장도 카드를 돌려준다 — 홈이 성공 직후 목록에 꽂을 수 있어야 하고, 서버 응답이
     부실해도(id만 주는 등) 그 사정은 구현체가 흡수한다
@@ -73,6 +73,10 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
     양쪽에 나오거나 어디에도 안 나온다
 - `enum RoomSection` — `.shooting` / `.completed`
 - `Room.Status.section` — 상태 셋을 섹션 둘로 줄인다
+- `struct ShootableRoom` — 카메라의 방 선택 목록 한 줄 (`GET /rooms/shootable` 응답 한 줄에 대응).
+  `id: Room.ID` · `title` · `remainedPhotoCount` · `totalPhotoCount`
+  - 촬영 화면은 제목·남은 장수만 필요해 `Room` 전체가 아니라 이 축약형을 쓴다
+  - `previewRooms` · `previewSoldOut` 상수 (id 음수 규칙은 `Room` 샘플과 같다)
 
 ### Rules (`Sources/Rules/`)
 
@@ -86,18 +90,21 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
 ### UseCases (`@DependencyClient` — `liveValue` 없음)
 
 - `FetchRoomsUseCase` (`\.fetchRoomsUseCase`) — 방 카드 목록 조회 (`-> [RoomCard]`)
+- `FetchShootableRoomsUseCase` (`\.fetchShootableRoomsUseCase`) — 촬영 가능한 방 목록 조회
+  (`-> [ShootableRoom]`, 카메라의 방 선택 드로어용)
 - `CreateRoomUseCase` (`\.createRoomUseCase`) — `RoomNameRule` 적용 후 생성 (`-> RoomCard`).
   규칙 위반이면 저장소를 부르지 않고 `.invalidRoomName`
 - `JoinRoomUseCase` (`\.joinRoomUseCase`) — `InviteCodeRule` 적용 후 입장 (`-> RoomCard`).
   빈 코드면 `.invalidInviteCode`
 
-셋 다 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
+넷 다 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
 
 ## 의존성
 
 - **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (TCA 전이 의존, `Tuist/Package.swift` 경유)
-- **이 모듈에 의존**: `HomeFeature`(UseCase를 `@Dependency`로 주입받음) ·
-  `RoomData`(인터페이스 구현) · 합성 루트(`CHALLAApp`·`HomeFeatureDemo` — `.live(repository:)` 조립)
+- **이 모듈에 의존**: `HomeFeature`·`CameraFeature`(UseCase를 `@Dependency`로 주입받음) ·
+  `RoomData`(인터페이스 구현) · 합성 루트(`CHALLAApp`·`HomeFeatureDemo`·`CameraFeatureDemo` —
+  `.live(repository:)` 조립)
 
 ## 테스트 실행 방법
 
@@ -114,5 +121,6 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `RoomBoardTests` — 상태 셋 → 섹션 둘 분류, 섹션 안 순서 유지, 빈 판단
 - `RoomErrorTests` — `userMessage` 각 케이스, 빈 서버 메시지의 기본 문구 대체, 연관값까지 보는 동등성
 - `FetchRoomsUseCaseLiveTests` — 저장소 결과 그대로 전달, 오류 전파
+- `FetchShootableRoomsUseCaseLiveTests` — 저장소 결과 그대로 전달, 오류 전파
 - `CreateRoomUseCaseLiveTests` — 이름 정규화·자르기 순서, 규칙 위반 시 저장소 미호출, 오류 전파
 - `JoinRoomUseCaseLiveTests` — 코드 정규화 후 전달, 빈 코드 가드, `.roomNotFound` 전파
