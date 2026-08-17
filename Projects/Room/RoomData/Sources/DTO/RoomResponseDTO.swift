@@ -33,6 +33,19 @@ struct RoomListResponseDTO: Decodable, Sendable {
     }
 }
 
+/// `GET /rooms/shootable` 응답 페이로드 (`BaseResponseDTO.data`).
+struct ShootableRoomListResponseDTO: Decodable, Sendable {
+
+    let rooms: [ShootableRoomDTO]
+
+    struct ShootableRoomDTO: Decodable, Sendable {
+        let id: Int64
+        let title: String
+        let remainedPhotoCount: Int
+        let totalPhotoCount: Int
+    }
+}
+
 /// `POST /rooms` · `POST /rooms/join` 응답 페이로드. 둘 다 `{ room: { id } }` 하나뿐이라 공유한다.
 /// 방 전체는 안 온다 — 저장소가 목록 재조회로 카드를 채운다 (`DefaultRoomRepository` 참고).
 struct RoomIDResponseDTO: Decodable, Sendable {
