@@ -13,7 +13,7 @@ let project = Project(
     targets: [
         .makeModuleTarget(
             name: "HomeFeature",
-            dependencies: [.roomDomain, .composableArchitecture, .designSystem]
+            dependencies: [.roomDomain, .photoDomain, .composableArchitecture, .designSystem]
         ),
         .target(
             name: "HomeFeatureTests",
@@ -24,7 +24,7 @@ let project = Project(
             infoPlist: .default,
             sources: ["Tests/**"],
             // .roomDomain: 테스트가 Room 엔티티·RoomError로 리듀서 동작을 검증한다.
-            dependencies: [.target(name: "HomeFeature"), .roomDomain, .composableArchitecture]
+            dependencies: [.target(name: "HomeFeature"), .roomDomain, .photoDomain, .composableArchitecture]
         )
     ]
 )
