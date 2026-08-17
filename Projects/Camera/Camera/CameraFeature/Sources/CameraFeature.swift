@@ -250,4 +250,72 @@ public struct CameraFeature {
             }
         }
     }
+
+    /// 받아 온 필터들의 LUT를 한꺼번에 내려받아 등록한다.
+    func prepareLUTs(for filters: IdentifiedArrayOf<CameraFilter>) -> Effect<Action> {
+        .merge(filters.map(prepareLUT))
+    }
+
+    /// LUT 하나를 내려받아 카탈로그에 등록한다. 실패해도 화면은 계속 쓸 수 있어야 하므로
+    /// (그 필터만 무보정 통과) 오류를 사용자에게 알리지 않고 삼킨다.
+    func prepareLUT(_ filter: CameraFilter) -> Effect<Action> {
+        .run { [loadFilterLUT] send in
+            guard let data = try? await loadFilterLUT.run(filter),
+                  CameraFilterCatalog.register(cubeData: data, for: filter.id)
+            else { return }
+            await send(.filterLUTPrepared(filter.id))
+        }
+    }
+
+    func upload(
+        jpegData: Data,
+        roomID: ShootableRoom.ID,
+        filterID: CameraFilter.ID
+    ) -> Effect<Action> {
+        .run { [uploadPhoto] send in
+            do {
+                let remained = try await uploadPhoto.run(jpegData, roomID, filterID)
+                await send(.uploadResponse(roomID: roomID, .success(remained)))
+            } catch let error as PhotoError {
+                await send(.uploadResponse(roomID: roomID, .failure(error)))
+            } catch is CancellationError {
+            } catch {
+                await send(.uploadResponse(roomID: roomID, .failure(.unknown)))
+            }
+        }
+    }
+
+    /// 최초 진입이면 잠깐 뜸을 들였다가 안내 1단계를 띄운다.
+    /// 이미 본 적 있거나(기기 기록) 이번 화면에서 이미 시작했으면 아무것도 하지 않는다.
+    func startCoachMark(_ state: inout State) -> Effect<Action> {
+        guard !state.hasStartedCoachMark else { return .none }
+        state.hasStartedCoachMark = true
+        return .run { [shouldShowCoachMark, clock] send in
+            guard await shouldShowCoachMark.run() else { return }
+            try await clock.sleep(for: CameraCoachMark.presentationDelay)
+            await send(.coachMarkDelayElapsed)
+        }
+        .cancellable(id: CancelID.coachMark, cancelInFlight: true)
+    }
+
+    /// 안내를 끝까지 본 것으로 기록한다. 실패 개념이 없어 화면에 알리지 않는다.
+    func markCoachMarkAsSeen() -> Effect<Action> {
+        .run { [markCoachMarkSeen] _ in
+            await markCoachMarkSeen.run()
+        }
+    }
+
+    func dismissToastAfterDelay() -> Effect<Action> {
+        .run { [clock] send in // 비-Sendable self 대신 의존성 값만 캡처
+            try await clock.sleep(for: Self.toastDuration)
+            await send(.toastDismissed)
+        }
+        .cancellable(id: CancelID.toast, cancelInFlight: true)
+    }
+
+    enum CancelID { case toast, coachMark }
+
+    static var toastDuration: Duration {
+        .seconds(3)
+    }
 }
