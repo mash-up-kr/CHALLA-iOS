@@ -79,7 +79,7 @@ public struct LoggingInterceptor: Interceptor {
     private static let chunkByteLimit = 800
 
     /// 문자 경계를 지키면서 UTF-8 바이트 수 기준으로 자른다 — 문자 단위로 자르면 한글이 상한을 넘길 수 있다.
-    static func split(_ string: String, byteLimit: Int) -> [String] {
+    private static func split(_ string: String, byteLimit: Int) -> [String] {
         var chunks: [String] = []
         var current = ""
         var currentBytes = 0
