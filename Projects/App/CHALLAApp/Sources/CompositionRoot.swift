@@ -113,12 +113,15 @@ enum CompositionRoot {
         let uploader = DefaultPhotoUploader(client: client)
         // 안내 노출 기록만 서버가 아니라 기기에 남는다 (`CameraOnboardingRepository` 주석 참고).
         let onboarding = DefaultCameraOnboardingRepository()
+        let cameraPermission = SystemCameraPermissionProvider()
 
         values.fetchCameraFiltersUseCase = .live(repository: filterRepository)
         values.loadFilterLUTUseCase = .live(repository: filterRepository)
         values.uploadPhotoUseCase = .live(uploader: uploader)
         values.shouldShowCameraCoachMarkUseCase = .live(repository: onboarding)
         values.markCameraCoachMarkSeenUseCase = .live(repository: onboarding)
+        values.requestCameraPermissionUseCase = .live(permission: cameraPermission)
+        values.openCameraSettingsUseCase = .live(permission: cameraPermission)
     }
 
     /// 설정 조립이 필요로 하는 다른 aggregate의 결과물.

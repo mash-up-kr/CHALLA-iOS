@@ -1,3 +1,5 @@
+import CameraFeature
+import CameraSession
 import ComposableArchitecture
 import HomeFeature
 import LoginFeature
@@ -13,6 +15,10 @@ import SwiftUI
 public struct AppView: View {
 
     @Bindable private var store: StoreOf<AppFeature>
+
+    /// 실기기 카메라 세션. 리듀서(`LiveCameraFeature`)와 프리뷰가 같은 인스턴스를 봐야 하므로
+    /// `@Dependency`로 공유되는 live 값을 뷰에서도 그대로 가져와 프리뷰에 넘긴다.
+    @Dependency(\.cameraSession) private var cameraSession
 
     public init(store: StoreOf<AppFeature>) {
         self.store = store
@@ -47,6 +53,13 @@ public struct AppView: View {
             case .profileEdit:
                 if let editStore = store.scope(state: \.profileEdit?.edit, action: \.profileEdit) {
                     ProfileSetupView(store: editStore)
+                }
+
+            case .camera:
+                if let cameraStore = store.scope(state: \.camera?.live.camera, action: \.camera.camera) {
+                    CameraView(store: cameraStore) {
+                        LiveCameraPreview(session: cameraSession, store: cameraStore)
+                    }
                 }
             }
         }
