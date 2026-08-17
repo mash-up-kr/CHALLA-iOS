@@ -27,12 +27,13 @@ public struct RoomDetailView: View {
             )
             slotGrid
                 .overlay(alignment: .top) { memberBar }
-                // 참여자 바보다 나중에 선언해 열린 팝오버 위에 그려지게 한다 (시안 5604:19185).
+                // 참여자 바보다 나중에 선언해 열린 팝오버 위에 그려지게 한다.
                 .overlay(alignment: .top) { toastLayer }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .challaMainBackground()
         .overlay(alignment: .bottom) { bottomActions }
+        .alert($store.scope(state: \.alert, action: \.alert))
         .task { send(.task) }
     }
 
@@ -91,6 +92,7 @@ public struct RoomDetailView: View {
     // MARK: - 참여자 바
 
     /// 상세가 조회되기 전에는 그리지 않는다 — 참여자를 모른 채 빈 캡슐만 뜨는 것을 막는다.
+    /// 조회에 실패하면 얼럿이 다시 시도를 받는다.
     /// 팝오버(초대 코드·전체 리스트)와 열림 토글은 `CHALLAProfileBar`가 담당한다.
     @ViewBuilder
     private var memberBar: some View {
@@ -260,7 +262,7 @@ private func previewPhotos(count: Int) -> [Photo] {
     )
 }
 
-#Preview("조회 실패 (참여자 바 없음)") {
+#Preview("조회 실패 (다시 불러오기)") {
     RoomDetailView(
         store: Store(initialState: RoomDetailFeature.State(room: .previewShooting)) {
             RoomDetailFeature()

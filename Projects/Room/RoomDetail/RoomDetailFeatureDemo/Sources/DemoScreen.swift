@@ -25,7 +25,7 @@ enum DemoScreen: Hashable {
         case printed
         /// 초대 코드 팝오버가 열린 촬영 중 화면.
         case invite
-        /// 상세 조회 실패 — 참여자 바가 뜨지 않는다.
+        /// 상세 조회 실패 — 얼럿이 뜨고, 다시 시도해도 실패하면 다시 뜬다.
         case error
     }
 }

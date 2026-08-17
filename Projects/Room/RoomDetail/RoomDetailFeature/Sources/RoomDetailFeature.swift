@@ -23,13 +23,15 @@ public struct RoomDetailFeature {
         public var toast: String?
         /// 인화된 사진들 (찍힌 순). 그리드가 배열 순서를 슬롯 번호와 짝짓는다.
         public var photos: [Photo] = []
+        /// 조회 실패 얼럿. 다시 시도해도 실패하면 다시 뜬다.
+        @Presents public var alert: AlertState<Action.Alert>?
 
         public init(room: Room) {
             self.room = room
         }
     }
 
-    /// 조회가 안 끝난 것과 실패한 것을 구분한다 — 실패했을 때만 팝오버가 재시도를 건다.
+    /// 조회가 안 끝난 것과 실패한 것을 구분한다.
     public enum LoadState: Equatable, Sendable {
         case notRequested
         case loading
@@ -46,7 +48,12 @@ public struct RoomDetailFeature {
         case detailResponse(Result<RoomDetail, RoomError>)
         case photosResponse(Result<[Photo], PhotoError>)
         case toastDismissed
+        case alert(PresentationAction<Alert>)
         case delegate(Delegate)
+
+        public enum Alert: Equatable, Sendable {
+            case retryTapped
+        }
 
         public enum View: Sendable {
             case task
@@ -85,7 +92,8 @@ public struct RoomDetailFeature {
 
         Reduce { state, action in
             switch action {
-            case .view(.task):
+            // 진입과 재시도가 같은 일을 한다 — 상세와 사진을 다시 부른다.
+            case .view(.task), .alert(.presented(.retryTapped)):
                 state.detailLoad = .loading
                 // 사진은 방 상태를 따지지 않고 부른다 — 촬영 중이면 빈 배열이 오고 그리드도 빈 슬롯을 그린다.
                 // 상태로 걸러내면 홈에서 받은 상태가 낡은 경우(그 사이 인화 단계로 넘어간 방)를 따라잡아야 한다.
@@ -107,24 +115,25 @@ public struct RoomDetailFeature {
                 return .none
 
             case .photosResponse(.failure):
-                // 상세 조회 실패와 같은 정책 — 얼럿 없이 슬롯을 빈 모습으로 둔다.
+                // 사진만 실패하면 얼럿을 띄우지 않는다 — 상세가 성공했으면 화면 대부분이 그려져 있고,
+                // 상세까지 실패했다면 그쪽 얼럿의 "다시 시도"가 사진도 함께 부른다.
                 return .none
 
-            case .detailResponse(.failure):
+            case let .detailResponse(.failure(error)):
                 state.detailLoad = .failed
+                // TODO: 얼럿 제목·버튼 문구는 임의 작성본 — 기획 정책 확정 시 교체할 것 (홈과 같은 상태).
+                state.alert = AlertState {
+                    TextState("방 정보를 불러오지 못했어요")
+                } actions: {
+                    ButtonState(action: .retryTapped) { TextState("다시 시도") }
+                    ButtonState(role: .cancel) { TextState("확인") }
+                } message: {
+                    TextState(error.userMessage)
+                }
                 return .none
 
             case .view(.backButtonTapped):
                 return .send(.delegate(.closeTapped))
-
-            // BindingReducer가 열림 값을 먼저 쓴다. 여는 순간 조회가 실패해 있으면
-            // 다시 시도한다 — 얼럿 없이 여기가 복구 지점이다.
-            case .binding(\.isInvitePopoverPresented):
-                if state.isInvitePopoverPresented, state.detailLoad == .failed {
-                    state.detailLoad = .loading
-                    return fetchDetail(id: state.room.id)
-                }
-                return .none
 
             case .binding:
                 return .none
@@ -149,10 +158,14 @@ public struct RoomDetailFeature {
             case .view(.chatButtonTapped):
                 return .send(.delegate(.chatTapped))
 
+            case .alert:
+                return .none
+
             case .delegate:
                 return .none
             }
         }
+        .ifLet(\.$alert, action: \.alert)
     }
 
     private enum CancelID { case detail, photos, toast }

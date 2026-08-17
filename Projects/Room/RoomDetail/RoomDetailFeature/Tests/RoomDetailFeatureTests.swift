@@ -74,8 +74,8 @@ struct RoomDetailFeatureTests {
         }
     }
 
-    @Test("상세 조회 실패는 얼럿 없이 실패 상태만 기록한다")
-    func failureIsSilent() async {
+    @Test("상세 조회가 실패하면 얼럿으로 알린다")
+    func detailFailureShowsAlert() async {
         let store = Self.makeStore(
             fetchDetail: FetchRoomDetailUseCase(run: { _ in throw RoomError.network }),
             fetchPhotos: FetchRoomPhotosUseCase(run: { _ in [] })
@@ -85,12 +85,20 @@ struct RoomDetailFeatureTests {
             $0.detailLoad = .loading
         }
         await store.receive(\.detailResponse.failure) {
-            $0.detailLoad = .failed // 이게 전부다 — 얼럿 State 자체가 없다
+            $0.detailLoad = .failed
+            $0.alert = AlertState {
+                TextState("방 정보를 불러오지 못했어요")
+            } actions: {
+                ButtonState(action: .retryTapped) { TextState("다시 시도") }
+                ButtonState(role: .cancel) { TextState("확인") }
+            } message: {
+                TextState(RoomError.network.userMessage)
+            }
         }
         await store.receive(\.photosResponse.success) // 사진 0장 — 상태 변화 없음
     }
 
-    @Test("사진 조회 실패는 얼럿 없이 빈 그리드로 둔다")
+    @Test("사진만 실패하면 얼럿 없이 빈 그리드로 둔다")
     func photoFailureIsSilent() async {
         let store = Self.makeStore(
             fetchDetail: FetchRoomDetailUseCase(run: { _ in Self.detail }),
@@ -110,12 +118,12 @@ struct RoomDetailFeatureTests {
 
     // MARK: - 팝오버
 
-    @Test("팝오버가 열리고 닫혀도, 조회가 성공한 상태면 재조회하지 않는다")
+    @Test("팝오버를 여닫아도 조회를 다시 걸지 않는다")
     func popoverToggleDoesNotRefetchWhenLoaded() async {
         var state = RoomDetailFeature.State(room: .previewShooting)
         state.detail = Self.detail
         state.detailLoad = .loaded
-        let store = Self.makeStore(initialState: state) // fetchDetail이 testValue — 호출되면 미구현 실패
+        let store = Self.makeStore(initialState: state) // 조회 의존성이 testValue — 호출되면 미구현 실패
 
         await store.send(.binding(.set(\.isInvitePopoverPresented, true))) {
             $0.isInvitePopoverPresented = true
@@ -125,23 +133,29 @@ struct RoomDetailFeatureTests {
         }
     }
 
-    @Test("조회가 실패한 상태에서 팝오버를 열면 재조회한다")
-    func openingPopoverRetriesAfterFailure() async {
+    /// 사진 조회에는 따로 재시도 수단이 없다 — 상세 얼럿의 "다시 시도"가 둘을 함께 부른다.
+    @Test("얼럿에서 다시 시도하면 상세와 사진을 함께 조회한다")
+    func alertRetryRefetchesBoth() async {
         var state = RoomDetailFeature.State(room: .previewShooting)
         state.detailLoad = .failed
+        state.alert = AlertState { TextState("방 정보를 불러오지 못했어요") }
         let store = Self.makeStore(
             initialState: state,
-            fetchDetail: FetchRoomDetailUseCase(run: { _ in Self.detail })
+            fetchDetail: FetchRoomDetailUseCase(run: { _ in Self.detail }),
+            fetchPhotos: FetchRoomPhotosUseCase(run: { _ in Self.photos })
         )
 
-        await store.send(.binding(.set(\.isInvitePopoverPresented, true))) {
-            $0.isInvitePopoverPresented = true
+        await store.send(.alert(.presented(.retryTapped))) {
+            $0.alert = nil
             $0.detailLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.room = Self.fresherRoom
+        }
+        await store.receive(\.photosResponse.success) {
+            $0.photos = Self.photos
         }
     }
 

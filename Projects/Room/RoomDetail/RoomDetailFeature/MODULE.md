@@ -29,12 +29,14 @@
 
 - `State(room:)` — 홈에서 받은 `Room`을 품고 시작한다. 첫 프레임부터 제목·슬롯 그리드가 그려지고,
   초대 코드·참여자·사진은 진입 후 조회로 채운다
-  - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` · `toast`
+  - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` · `toast` · `alert`
 - `Action.delegate` — `closeTapped` · `shootTapped` · `chatTapped`
 - 진입 시 상세와 사진을 병렬 조회한다. 방 상태로 거르지 않는다 — 촬영 중에도 찍은 사진이 필요하고,
   거르면 홈에서 받은 상태가 낡은 경우를 따라잡는 분기가 더 생긴다
-- 조회 실패는 얼럿 없이 화면을 비워 둔다. 참여자 바가 뜨지 않고 슬롯은 빈 칸이 되며,
-  팝오버를 여는 순간 상세를 다시 조회한다(복구 지점)
+- 상세 조회가 실패하면 홈과 같은 방식으로 얼럿을 띄운다("다시 시도" / "확인").
+  다시 시도해도 실패하면 얼럿이 또 뜬다 — 성공할 때까지 복구 경로가 남는다
+- 사진만 실패하면 얼럿을 띄우지 않는다. 상세가 성공했으면 화면 대부분이 그려져 있고,
+  상세까지 실패했다면 그 얼럿의 "다시 시도"가 사진도 함께 부른다
 
 ### RoomDetailView
 
@@ -51,7 +53,7 @@
 ## 의존성
 
 - **이 모듈이 의존**: `RoomDomain` · `PhotoDomain` · `ComposableArchitecture` · `CHALLADesignSystem`
-- **이 모듈에 의존**: `CHALLAApp`(조립 예정) · `RoomDetailFeatureDemo`(데모)
+- **이 모듈에 의존**: `CHALLAApp`(조립) · `RoomDetailFeatureDemo`(데모)
 
 ## 알려진 미구현
 
@@ -67,7 +69,7 @@
 mise exec -- tuist test RoomDetailFeature
 ```
 
-TCA `TestStore`로 리듀서를 검증한다 — 진입 조회(상세+사진), 실패 정책, 팝오버 재조회,
+TCA `TestStore`로 리듀서를 검증한다 — 진입 조회(상세+사진), 실패 얼럿과 재시도,
 클립보드 복사와 토스트 타이머(`TestClock`), delegate 위임, 카운트다운 표기 규칙.
 
 화면 확인은 데모앱으로 한다. 상태별로 실행 인자를 받는다:
