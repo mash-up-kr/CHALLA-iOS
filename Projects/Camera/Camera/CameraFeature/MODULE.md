@@ -9,17 +9,22 @@
 
 **UI·필터(LUT)·서버 연동까지 구현돼 있다.** AVFoundation 캡처만 조립 지점 몫이다.
 
-- 방 목록·필터 목록은 진입 시(`view(.task)`) 리듀서가 `@Dependency` UseCase로 직접 불러온다 —
-  `FetchShootableRoomsUseCase`(RoomDomain, `GET /rooms/shootable`) ·
-  `FetchCameraFiltersUseCase`/`LoadFilterLUTUseCase`(PhotoDomain, `GET /shoots/camera-filters`).
-  촬영 가능 여부(`captureAvailability`)는 선택된 방의 남은 장수로 리듀서가 다시 계산한다.
-- 필터 LUT는 내려받는 대로 `CameraFilterCatalog.register`로 등록되고 `preparedFilterIDs`에 표시된다.
+- **방 목록·필터 목록은 이 화면이 조회하지 않는다.** 진입 버튼(홈의 촬영 버튼 · 방 상세의 사진 찍기)을
+  누른 시점에 부르는 쪽이 미리 받아 두고, 둘 다 성공했을 때만 `State(rooms:filters:)`로 넘기며 들어온다.
+  조회에 실패하면 애초에 이 화면으로 넘어오지 않으므로, 여기에는 목록 로딩·조회 실패 상태가 없다.
+  쓰는 UseCase는 `FetchShootableRoomsUseCase`(RoomDomain, `GET /rooms/shootable`) ·
+  `FetchCameraFiltersUseCase`(PhotoDomain, `GET /shoots/camera-filters`)이며, 호출은 부르는 쪽 몫이다.
+  방 상세처럼 방이 정해진 경로는 `selectedRoomID`를 함께 넘긴다.
+- 촬영 가능 여부(`captureAvailability`)는 선택된 방의 남은 장수에서 나오는 계산값이라 따로 들고 있지 않는다.
+- LUT 파일(.cube)만 이 화면이 진입 후 `LoadFilterLUTUseCase`로 내려받는다 —
+  파일이 10개 남짓이라 다 받을 때까지 진입을 막으면 버튼이 오래 멎는다.
+  내려받는 대로 `CameraFilterCatalog.register`로 등록되고 `preparedFilterIDs`에 표시된다.
   실제 색 변환은 조립 지점의 카메라 세션이 `CameraFilterCatalog`로 id를 LUT에 매핑해 수행한다.
 - 뷰파인더에 들어갈 실제 카메라 프리뷰는 `CameraView(store:preview:)`의 `preview` 슬롯으로 주입한다.
   기본값은 `CameraPreviewPlaceholder`(단색 그라디언트)고, 실기기 연동 시에는
   `CameraFilteredPreviewView`(Metal 렌더러)에 `CameraPreviewFrameSource` 구현을 물려 넣는다.
 - 셔터를 눌러 촬영이 허용되면 `Action.Delegate.captureRequested(roomID:filterID:)`가 나간다.
-  **필터 없는 촬영은 없다** — 목록이 오면 첫 필터가 자동 선택되고, 아직 안 왔을 때의 셔터는 흘려보낸다.
+  **필터 없는 촬영은 없다** — 진입 시 첫 필터가 자동 선택된다.
   하드웨어 캡처는 이 delegate를 받는 쪽(App 또는 데모앱)이 수행하고, 결과 JPEG을
   `Action.captureCompleted(roomID:filterID:jpegData:)`로 되돌려주면 리듀서가
   `UploadPhotoUseCase`(발급→스토리지 PUT→완료 통보)로 업로드한다. 응답의 `remainedPhotoCount`로
@@ -37,7 +42,7 @@
 
 | 타입 | 설명 |
 | :-- | :-- |
-| `CameraFeature` | 화면 리듀서. `State` · `Action`(`view` / 서버 응답 / `captureCompleted` / `delegate` / `toastDismissed`) |
+| `CameraFeature` | 화면 리듀서. `State(rooms:filters:selectedRoomID:…)`(방·필터는 필수 — 진입 전에 받아 넘긴다) · `Action`(`view` / `filterLUTPrepared` / `captureCompleted` / `uploadResponse` / `delegate` / `toastDismissed`) |
 | `CameraView<Preview>` | 화면 뷰. `init(store:preview:)` · `init(store:)`(플레이스홀더 프리뷰) |
 | `CameraPreviewPlaceholder` | AVFoundation 연동 전 뷰파인더를 채우는 대역 뷰 |
 | `CameraCardsLevel` | 남은 장수 표시 단계 (`normal` · `low` · `unavailable`) |
@@ -92,7 +97,7 @@ DS에 없는 형태(52pt 원형 아이콘 버튼, 44pt 알약 방 버튼)만 이
 mise exec -- tuist test CameraFeature
 ```
 
-`TestStore`로 플래시·카메라 전환·셔터(가능/불가)·배율(핀치·탭·범위·문구)·필터 로드/선택·방 목록 로드/선택·업로드(장수 갱신·소진 차단·실패 토스트)·토스트 수명·온보딩 안내(뜸 후 노출·단계 진행·재노출 차단)를 검증한다.
+`TestStore`로 플래시·카메라 전환·셔터(가능/불가/방·필터 없음)·배율(핀치·탭·범위·문구)·진입 상태(첫 방 선택·지정 방·소진 방)·LUT 준비(정상/깨진 파일)·필터/방 선택·업로드(장수 갱신·소진 차단·실패 토스트)·토스트 수명·온보딩 안내(뜸 후 노출·단계 진행·재노출 차단)를 검증한다.
 
 ## 데모앱
 
@@ -115,6 +120,10 @@ FlashOn·SelectRoom은 아직 인자로 띄우지 못한다 — 목록에서 들
 LUT 프리뷰 프레임 공급(`CameraPreviewFrameSource` 구현), 촬영본 필터 적용,
 `delegate(.captureRequested)`를 받아 사진첩 Add-only 저장 후 `captureCompleted`로 되돌림).
 시뮬레이터에서는 프리뷰 자리에 `CameraPreviewPlaceholder`가 그대로 남는다.
+
+진입 경로도 실앱과 같은 모양으로 재현한다 — `CameraEntryView`가 카메라를 띄우기 전에
+방·필터 목록을 먼저 받고, 둘 다 성공했을 때만 `CameraView`로 넘어간다(실패하면 그 자리에서 알린다).
+실앱에서 홈·방 상세의 진입 버튼이 할 일을 데모에서는 이 화면이 대신한다.
 
 방·필터·업로드 데이터는 `CompositionRoot`가 InMemory 구현(RoomData·PhotoData)으로 꽂는다 —
 로그인이 없어 실서버를 못 부르고, 필터 LUT는 코드에서 생성한 목 .cube 데이터로 제공한다

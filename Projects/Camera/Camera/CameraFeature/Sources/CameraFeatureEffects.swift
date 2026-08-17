@@ -7,32 +7,9 @@ import RoomDomain
 /// (본체는 상태 전이만 읽히도록 남긴다).
 extension CameraFeature {
 
-    func loadRooms() -> Effect<Action> {
-        .run { [fetchShootableRooms] send in
-            do {
-                let rooms = try await fetchShootableRooms.run()
-                await send(.roomsResponse(.success(rooms)))
-            } catch let error as RoomError {
-                await send(.roomsResponse(.failure(error)))
-            } catch is CancellationError {
-            } catch {
-                await send(.roomsResponse(.failure(.unknown)))
-            }
-        }
-    }
-
-    func loadFilters() -> Effect<Action> {
-        .run { [fetchCameraFilters] send in
-            do {
-                let filters = try await fetchCameraFilters.run()
-                await send(.filtersResponse(.success(filters)))
-            } catch let error as PhotoError {
-                await send(.filtersResponse(.failure(error)))
-            } catch is CancellationError {
-            } catch {
-                await send(.filtersResponse(.failure(.unknown)))
-            }
-        }
+    /// 받아 온 필터들의 LUT를 한꺼번에 내려받아 등록한다.
+    func prepareLUTs(for filters: IdentifiedArrayOf<CameraFilter>) -> Effect<Action> {
+        .merge(filters.map(prepareLUT))
     }
 
     /// LUT 하나를 내려받아 카탈로그에 등록한다. 실패해도 화면은 계속 쓸 수 있어야 하므로

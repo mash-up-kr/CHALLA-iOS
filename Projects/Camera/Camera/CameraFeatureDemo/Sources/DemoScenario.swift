@@ -1,6 +1,8 @@
 import CameraFeature
 import ComposableArchitecture
 import Foundation
+import PhotoDomain
+import RoomDomain
 
 /// 데모앱이 실행 인자로 받는 진입 지점.
 struct DemoScenario: Equatable {
@@ -66,21 +68,25 @@ struct DemoScenario: Equatable {
 
 // MARK: - 초기 State
 
-/// 방·필터 데이터는 `CompositionRoot`가 시나리오별 저장소로 꽂고, 리듀서가 진입 시 스스로 불러온다 —
-/// 여기서는 데이터로 만들 수 없는 초기 연출(플래시·토스트)만 구성한다.
+/// 방·필터는 진입 화면(`CameraEntryView`)이 미리 받아 넘긴다 —
+/// 여기서는 데이터로 만들 수 없는 초기 연출(플래시·토스트)만 얹는다.
 extension DemoScenario {
 
-    var featureState: CameraFeature.State {
+    func featureState(rooms: [ShootableRoom], filters: [CameraFilter]) -> CameraFeature.State {
+        let rooms = IdentifiedArray(uniqueElements: rooms)
+        let filters = IdentifiedArray(uniqueElements: filters)
+
         switch (screen, state) {
         // 안내는 심지 않고 리듀서가 진입 시 스스로 띄우게 둔다 — 등장 연출과 단계 전환을 그대로 확인한다.
         case (.camera, .default), (.camera, .coach):
-            CameraFeature.State(flashMode: .off)
+            return CameraFeature.State(rooms: rooms, filters: filters, flashMode: .off)
 
         case (.camera, .error):
             // 토스트 초기 노출 — 셔터를 누르지 않고도 시안 상태를 그대로 띄운다.
-            // 촬영 불가 자체는 소진된 방이 로드되면 리듀서가 다시 계산한다.
-            CameraFeature.State(
-                captureAvailability: .noCardsLeft,
+            // 촬영 불가 자체는 소진된 방(장수 0)이 넘어오면 리듀서가 알아서 판단한다.
+            return CameraFeature.State(
+                rooms: rooms,
+                filters: filters,
                 toastMessage: CameraCaptureAvailability.noCardsLeft.demoToastMessage
             )
         }

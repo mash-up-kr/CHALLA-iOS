@@ -20,7 +20,6 @@ public struct CameraFeature {
         public var flashMode: CameraFlashMode
         public var cameraPosition: CameraPosition
         public var zoom: CameraZoom
-        public var captureAvailability: CameraCaptureAvailability
         public var isRoomSelectionPresented: Bool
         public var toastMessage: String?
         /// 노출 중인 온보딩 안내 단계. nil이면 안내가 없다.
@@ -28,16 +27,22 @@ public struct CameraFeature {
         /// 안내를 이미 시작했는지. 화면이 다시 그려져도 안내가 되풀이되지 않게 막는다.
         public var hasStartedCoachMark: Bool
 
+        /// 방·필터는 진입 전에 받아 둔 것을 넘겨받는다 — 이 화면은 목록을 스스로 조회하지 않는다.
+        /// 목록 조회에 실패하면 애초에 이 화면으로 넘어오지 않으므로, 빈 목록으로 들어오는 경우는 없다.
+        ///
+        /// - Parameters:
+        ///   - rooms: 촬영 가능한 방 목록 (`GET /rooms/shootable`).
+        ///   - filters: 서버 필터 목록 (`GET /shoots/camera-filters`). LUT 파일은 이 화면이 내려받는다.
+        ///   - selectedRoomID: 들어온 경로가 방을 지정할 때 넘긴다 (방 상세 → 사진 찍기). nil이면 첫 방.
         public init(
-            rooms: IdentifiedArrayOf<ShootableRoom> = [],
+            rooms: IdentifiedArrayOf<ShootableRoom>,
+            filters: IdentifiedArrayOf<CameraFilter>,
             selectedRoomID: ShootableRoom.ID? = nil,
-            filters: IdentifiedArrayOf<CameraFilter> = [],
             selectedFilterID: CameraFilter.ID? = nil,
             preparedFilterIDs: Set<CameraFilter.ID> = [],
             flashMode: CameraFlashMode = .on,
             cameraPosition: CameraPosition = .back,
             zoom: CameraZoom = CameraZoom(),
-            captureAvailability: CameraCaptureAvailability = .available,
             isRoomSelectionPresented: Bool = false,
             toastMessage: String? = nil,
             coachMark: CameraCoachMark? = nil,
@@ -51,7 +56,6 @@ public struct CameraFeature {
             self.flashMode = flashMode
             self.cameraPosition = cameraPosition
             self.zoom = zoom
-            self.captureAvailability = captureAvailability
             self.isRoomSelectionPresented = isRoomSelectionPresented
             self.toastMessage = toastMessage
             self.coachMark = coachMark
@@ -61,6 +65,12 @@ public struct CameraFeature {
 
         public var selectedRoom: ShootableRoom? {
             selectedRoomID.flatMap { rooms[id: $0] }
+        }
+
+        /// 촬영 가능 여부는 선택된 방의 남은 장수만으로 정해진다 — 따로 들고 있으면 방과 어긋난다.
+        public var captureAvailability: CameraCaptureAvailability {
+            guard let selectedRoom else { return .available }
+            return selectedRoom.remainedPhotoCount > 0 ? .available : .noCardsLeft
         }
 
         public var isCoachMarkPresented: Bool {
@@ -90,8 +100,6 @@ public struct CameraFeature {
         /// 진입 후 안내를 띄우기까지의 뜸. 최초 진입이 아니면 오지 않는다.
         case coachMarkDelayElapsed
 
-        case roomsResponse(Result<[ShootableRoom], RoomError>)
-        case filtersResponse(Result<[CameraFilter], PhotoError>)
         /// LUT가 카탈로그에 등록됐다 — 실패한 필터는 이 액션이 오지 않고 무보정 통과로 남는다.
         case filterLUTPrepared(CameraFilter.ID)
         /// 조립 지점이 하드웨어 촬영을 마치고 결과 JPEG을 돌려주는 통로.
@@ -114,8 +122,6 @@ public struct CameraFeature {
     public init() {}
 
     @Dependency(\.continuousClock) var clock
-    @Dependency(\.fetchShootableRoomsUseCase) var fetchShootableRooms
-    @Dependency(\.fetchCameraFiltersUseCase) var fetchCameraFilters
     @Dependency(\.loadFilterLUTUseCase) var loadFilterLUT
     @Dependency(\.uploadPhotoUseCase) var uploadPhoto
     @Dependency(\.shouldShowCameraCoachMarkUseCase) var shouldShowCoachMark
@@ -125,7 +131,7 @@ public struct CameraFeature {
         Reduce { state, action in
             switch action {
             case .view(.task):
-                return .merge(loadRooms(), loadFilters(), startCoachMark(&state))
+                return .merge(prepareLUTs(for: state.filters), startCoachMark(&state))
 
             case .coachMarkDelayElapsed:
                 state.coachMark = .first
@@ -186,31 +192,7 @@ public struct CameraFeature {
                 guard state.rooms[id: roomID] != nil else { return .none }
                 state.selectedRoomID = roomID
                 state.isRoomSelectionPresented = false
-                updateCaptureAvailability(&state)
                 return .none
-
-            case let .roomsResponse(.success(rooms)):
-                state.rooms = IdentifiedArray(uniqueElements: rooms)
-                if state.selectedRoomID.flatMap({ state.rooms[id: $0] }) == nil {
-                    state.selectedRoomID = rooms.first?.id
-                }
-                updateCaptureAvailability(&state)
-                return .none
-
-            case let .roomsResponse(.failure(error)):
-                state.toastMessage = error.userMessage
-                return dismissToastAfterDelay()
-
-            case let .filtersResponse(.success(filters)):
-                state.filters = IdentifiedArray(uniqueElements: filters)
-                if state.selectedFilterID.flatMap({ state.filters[id: $0] }) == nil {
-                    state.selectedFilterID = filters.first?.id
-                }
-                return .merge(filters.map(prepareLUT))
-
-            case let .filtersResponse(.failure(error)):
-                state.toastMessage = error.userMessage
-                return dismissToastAfterDelay()
 
             case let .filterLUTPrepared(filterID):
                 state.preparedFilterIDs.insert(filterID)
@@ -228,7 +210,6 @@ public struct CameraFeature {
                         totalPhotoCount: room.totalPhotoCount
                     )
                 }
-                updateCaptureAvailability(&state)
                 return .none
 
             case let .uploadResponse(_, .failure(error)):
@@ -243,16 +224,5 @@ public struct CameraFeature {
                 return .none
             }
         }
-    }
-
-    // MARK: - 촬영 가능 여부
-
-    /// 선택된 방의 남은 장수로 촬영 가능 여부를 다시 정한다. 방이 아직 없으면 건드리지 않는다
-    /// (초기 상태를 직접 구성하는 프리뷰·데모의 설정을 존중한다).
-    /// 선택된 방의 남은 장수로 촬영 가능 여부를 다시 정한다. 방이 아직 없으면 건드리지 않는다
-    /// (초기 상태를 직접 구성하는 프리뷰·데모의 설정을 존중한다).
-    private func updateCaptureAvailability(_ state: inout State) {
-        guard let room = state.selectedRoom else { return }
-        state.captureAvailability = room.remainedPhotoCount > 0 ? .available : .noCardsLeft
     }
 }

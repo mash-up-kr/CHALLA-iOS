@@ -9,19 +9,15 @@ struct CameraFeatureCoachMarkTests {
     @Test("최초 진입이면 뜸을 들인 뒤 안내 1단계가 뜬다")
     func coachMarkAppearsOnFirstEntry() async {
         let clock = TestClock()
-        let store = TestStore(initialState: CameraFeature.State()) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state()) {
             CameraFeature()
         } withDependencies: {
             $0.continuousClock = clock
-            $0.fetchShootableRoomsUseCase.run = { [] }
-            $0.fetchCameraFiltersUseCase.run = { [] }
+            $0.loadFilterLUTUseCase.run = { _ in Data() } // 안내만 보는 테스트라 LUT 등록은 통과시킨다
             $0.shouldShowCameraCoachMarkUseCase.run = { true }
         }
 
         await store.send(.view(.task)) { $0.hasStartedCoachMark = true }
-        await store.receive(.roomsResponse(.success([])))
-        await store.receive(.filtersResponse(.success([])))
-
         await clock.advance(by: CameraCoachMark.presentationDelay)
         await store.receive(.coachMarkDelayElapsed) { $0.coachMark = .shutterCost }
     }
@@ -29,19 +25,15 @@ struct CameraFeatureCoachMarkTests {
     @Test("이미 본 적 있으면 진입해도 안내가 뜨지 않는다")
     func coachMarkStaysHiddenAfterSeen() async {
         let clock = TestClock()
-        let store = TestStore(initialState: CameraFeature.State()) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state()) {
             CameraFeature()
         } withDependencies: {
             $0.continuousClock = clock
-            $0.fetchShootableRoomsUseCase.run = { [] }
-            $0.fetchCameraFiltersUseCase.run = { [] }
+            $0.loadFilterLUTUseCase.run = { _ in Data() } // 안내만 보는 테스트라 LUT 등록은 통과시킨다
             $0.shouldShowCameraCoachMarkUseCase.run = { false }
         }
 
         await store.send(.view(.task)) { $0.hasStartedCoachMark = true }
-        await store.receive(.roomsResponse(.success([])))
-        await store.receive(.filtersResponse(.success([])))
-
         // 뜸이 지나도 coachMarkDelayElapsed가 오지 않아야 한다.
         await clock.advance(by: CameraCoachMark.presentationDelay)
     }
@@ -49,7 +41,7 @@ struct CameraFeatureCoachMarkTests {
     @Test("액션을 누르면 2단계로 넘어가고, 한 번 더 누르면 안내가 끝나며 봤다고 기록된다")
     func coachMarkAdvancesAndRecordsSeen() async {
         let seenRecorded = LockIsolated(false)
-        let store = TestStore(initialState: CameraFeature.State(coachMark: .shutterCost)) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state(coachMark: .shutterCost)) {
             CameraFeature()
         } withDependencies: {
             $0.markCameraCoachMarkSeenUseCase.run = { seenRecorded.setValue(true) }
@@ -66,12 +58,11 @@ struct CameraFeatureCoachMarkTests {
     func coachMarkStartsOnlyOncePerScreen() async {
         let clock = TestClock()
         let showCallCount = LockIsolated(0)
-        let store = TestStore(initialState: CameraFeature.State(hasStartedCoachMark: true)) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state(hasStartedCoachMark: true)) {
             CameraFeature()
         } withDependencies: {
             $0.continuousClock = clock
-            $0.fetchShootableRoomsUseCase.run = { [] }
-            $0.fetchCameraFiltersUseCase.run = { [] }
+            $0.loadFilterLUTUseCase.run = { _ in Data() } // 안내만 보는 테스트라 LUT 등록은 통과시킨다
             $0.shouldShowCameraCoachMarkUseCase.run = {
                 showCallCount.withValue { $0 += 1 }
                 return true
@@ -79,21 +70,18 @@ struct CameraFeatureCoachMarkTests {
         }
 
         await store.send(.view(.task))
-        await store.receive(.roomsResponse(.success([])))
-        await store.receive(.filtersResponse(.success([])))
-
         await clock.advance(by: CameraCoachMark.presentationDelay)
         #expect(showCallCount.value == 0) // 기록을 물어보지도 않는다
     }
 
     @Test("안내가 떠 있으면 화면이 안내 모드로 바뀐다")
     func coachMarkDrivesPresentationFlag() {
-        #expect(CameraFeature.State(coachMark: .shutterCost).isCoachMarkPresented)
-        #expect(!CameraFeature.State().isCoachMarkPresented)
+        #expect(CameraFeatureTestFixtures.state(coachMark: .shutterCost).isCoachMarkPresented)
+        #expect(!CameraFeatureTestFixtures.state().isCoachMarkPresented)
     }
 
     @Test("안내를 띄운 채로 시작하면 이미 시작한 것으로 본다 — 진입 시 1단계로 되돌아가지 않는다")
     func presetCoachMarkCountsAsStarted() {
-        #expect(CameraFeature.State(coachMark: .shutterCaution).hasStartedCoachMark)
+        #expect(CameraFeatureTestFixtures.state(coachMark: .shutterCaution).hasStartedCoachMark)
     }
 }

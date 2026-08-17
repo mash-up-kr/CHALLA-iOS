@@ -217,22 +217,25 @@ private enum CameraViewMetric {
 
 private extension CameraFeature.State {
 
+    /// 촬영 가능 여부는 방의 남은 장수로 정해지므로, 소진 화면은 `remainedPhotoCount: 0`인 방으로 만든다.
     static func demo(
-        captureAvailability: CameraCaptureAvailability = .available,
+        remainedPhotoCount: Int = 3,
         flashMode: CameraFlashMode = .on,
         selectedFilterID: CameraFilter.ID? = nil,
         coachMark: CameraCoachMark? = nil
     ) -> Self {
-        let rooms: [ShootableRoom] = captureAvailability.isAvailable
-            ? [ShootableRoom(id: -1, title: "방이름방이름방이름3", remainedPhotoCount: 3, totalPhotoCount: 48)]
-            : [ShootableRoom(id: -1, title: "방이름방이름방이름3", remainedPhotoCount: 0, totalPhotoCount: 48)]
-
-        return Self(
-            rooms: IdentifiedArray(uniqueElements: rooms),
+        Self(
+            rooms: [
+                ShootableRoom(
+                    id: -1,
+                    title: "방이름방이름방이름3",
+                    remainedPhotoCount: remainedPhotoCount,
+                    totalPhotoCount: 48
+                )
+            ],
             filters: IdentifiedArray(uniqueElements: CameraFilter.previewFilters),
             selectedFilterID: selectedFilterID,
             flashMode: flashMode,
-            captureAvailability: captureAvailability,
             coachMark: coachMark
         )
     }
@@ -257,12 +260,5 @@ private extension CameraFeature.State {
 }
 
 #Preview("촬영 불가") {
-    CameraView(
-        store: Store(initialState: .demo(captureAvailability: .noCardsLeft)) {
-            CameraFeature()
-        } withDependencies: {
-            // previewValue 기본 방 목록(장수 있음)이 초기 상태를 덮지 않게 소진된 방으로 고정한다.
-            $0.fetchShootableRoomsUseCase.run = { [.previewSoldOut] }
-        }
-    )
+    CameraView(store: Store(initialState: .demo(remainedPhotoCount: 0)) { CameraFeature() })
 }

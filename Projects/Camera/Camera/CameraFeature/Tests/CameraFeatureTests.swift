@@ -13,7 +13,7 @@ struct CameraFeatureControlTests {
 
     @Test("플래시 버튼을 누르면 켜짐 ↔ 꺼짐이 뒤집힌다")
     func flashToggles() async {
-        let store = TestStore(initialState: CameraFeature.State(flashMode: .on)) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state()) {
             CameraFeature()
         }
 
@@ -23,7 +23,7 @@ struct CameraFeatureControlTests {
 
     @Test("카메라 전환 버튼을 누르면 전·후면이 뒤집힌다")
     func cameraPositionToggles() async {
-        let store = TestStore(initialState: CameraFeature.State()) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state()) {
             CameraFeature()
         }
 
@@ -44,7 +44,7 @@ struct CameraFeatureControlTests {
     @Test("촬영이 막혀 있으면 셔터가 토스트를 띄우고 3초 뒤 스스로 사라진다")
     func shutterShowsToastWhenBlocked() async {
         let clock = TestClock()
-        let store = TestStore(initialState: .fixture(captureAvailability: .noCardsLeft)) {
+        let store = TestStore(initialState: .fixture(rooms: CameraFeatureTestFixtures.soldOutRooms)) {
             CameraFeature()
         } withDependencies: {
             $0.continuousClock = clock
@@ -59,20 +59,16 @@ struct CameraFeatureControlTests {
 
     @Test("선택된 방이 없으면 셔터를 눌러도 아무 일도 일어나지 않는다")
     func shutterDoesNothingWithoutRoom() async {
-        let store = TestStore(initialState: CameraFeature.State()) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state(rooms: [])) {
             CameraFeature()
         }
 
         await store.send(.view(.shutterButtonTapped))
     }
 
-    @Test("필터 목록이 아직 안 왔으면 셔터를 눌러도 촬영이 나가지 않는다")
+    @Test("필터가 없으면 셔터를 눌러도 촬영이 나가지 않는다")
     func shutterDoesNothingWithoutFilter() async {
-        let store = TestStore(
-            initialState: CameraFeature.State(
-                rooms: IdentifiedArray(uniqueElements: CameraFeatureTestFixtures.rooms)
-            )
-        ) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state(filters: [])) {
             CameraFeature()
         }
 
@@ -81,7 +77,7 @@ struct CameraFeatureControlTests {
 
     @Test("배율 버튼을 탭하면 1x → 2x → 3x → 1x로 순환한다")
     func zoomBadgeCycles() async {
-        let store = TestStore(initialState: CameraFeature.State()) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state()) {
             CameraFeature()
         }
 
@@ -92,7 +88,7 @@ struct CameraFeatureControlTests {
 
     @Test("핀치 배율은 제스처 시작 배율에 누적되고, 끝나면 그 자리에서 이어진다")
     func pinchAccumulatesFromGestureStart() async {
-        let store = TestStore(initialState: CameraFeature.State()) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state()) {
             CameraFeature()
         }
 
@@ -110,7 +106,7 @@ struct CameraFeatureControlTests {
 
     @Test("아무리 줄여도 최소 배율 아래로 내려가지 않는다")
     func zoomStopsAtLowerBound() async {
-        let store = TestStore(initialState: CameraFeature.State(zoom: CameraZoom(factor: 4))) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state(zoom: CameraZoom(factor: 4))) {
             CameraFeature()
         }
 
@@ -122,7 +118,7 @@ struct CameraFeatureControlTests {
 
     @Test("아무리 키워도 최대 배율 위로 올라가지 않는다")
     func zoomStopsAtUpperBound() async {
-        let store = TestStore(initialState: CameraFeature.State()) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state()) {
             CameraFeature()
         }
 
@@ -159,61 +155,39 @@ struct CameraFeatureControlTests {
 @MainActor
 struct CameraFeatureDataFlowTests {
 
-    @Test("방 목록이 오면 첫 방이 선택된다")
-    func roomsLoadSelectsFirstRoom() async {
-        let store = TestStore(initialState: CameraFeature.State()) {
-            CameraFeature()
-        }
+    @Test("진입 시 받은 방 중 첫 방이 선택된다")
+    func firstRoomIsSelectedOnEntry() {
+        let state = CameraFeatureTestFixtures.state()
 
-        await store.send(.roomsResponse(.success(CameraFeatureTestFixtures.rooms))) {
-            $0.rooms = IdentifiedArray(uniqueElements: CameraFeatureTestFixtures.rooms)
-            $0.selectedRoomID = 1
-        }
+        #expect(state.selectedRoomID == 1)
+        #expect(state.captureAvailability == .available)
     }
 
-    @Test("장수가 소진된 방만 오면 촬영이 막힌다")
-    func soldOutRoomBlocksCapture() async {
-        let soldOut = ShootableRoom(id: 3, title: "소진된 방", remainedPhotoCount: 0, totalPhotoCount: 48)
-        let store = TestStore(initialState: CameraFeature.State()) {
-            CameraFeature()
-        }
+    @Test("들어온 경로가 방을 지정하면 그 방으로 시작한다 — 방 상세에서 들어오는 경우")
+    func entryCanPickRoom() {
+        let state = CameraFeatureTestFixtures.state(selectedRoomID: 2)
 
-        await store.send(.roomsResponse(.success([soldOut]))) {
-            $0.rooms = [soldOut]
-            $0.selectedRoomID = 3
-            $0.captureAvailability = .noCardsLeft
-        }
+        #expect(state.selectedRoomID == 2)
     }
 
-    @Test("방 목록 로드에 실패하면 토스트를 띄운다")
-    func roomsLoadFailureShowsToast() async {
-        let clock = TestClock()
-        let store = TestStore(initialState: CameraFeature.State()) {
-            CameraFeature()
-        } withDependencies: {
-            $0.continuousClock = clock
-        }
+    @Test("장수가 소진된 방으로 들어오면 촬영이 막힌 채 시작한다")
+    func soldOutRoomBlocksCaptureOnEntry() {
+        let state = CameraFeatureTestFixtures.state(rooms: CameraFeatureTestFixtures.soldOutRooms)
 
-        await store.send(.roomsResponse(.failure(.network))) {
-            $0.toastMessage = RoomError.network.userMessage
-        }
-        await clock.advance(by: .seconds(3))
-        await store.receive(.toastDismissed) { $0.toastMessage = nil }
+        #expect(state.captureAvailability == .noCardsLeft)
     }
 
-    @Test("필터 목록이 오면 첫 필터가 선택되고, LUT 등록이 끝나면 준비 완료로 표시된다")
-    func filtersLoadAndPrepareLUT() async throws {
+    @Test("진입하면 받아 온 필터들의 LUT를 내려받아 준비 완료로 표시한다")
+    func prepareLUTsOnEntry() async throws {
         let filter = try CameraFeatureTestFixtures.filter(name: "필터1")
-        let store = TestStore(initialState: CameraFeature.State()) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state(filters: [filter])) {
             CameraFeature()
         } withDependencies: {
             $0.loadFilterLUTUseCase.run = { _ in Data(CameraFeatureTestFixtures.validCubeText.utf8) }
+            $0.shouldShowCameraCoachMarkUseCase.run = { false }
         }
 
-        await store.send(.filtersResponse(.success([filter]))) {
-            $0.filters = [filter]
-            $0.selectedFilterID = filter.id
-        }
+        await store.send(.view(.task)) { $0.hasStartedCoachMark = true }
         await store.receive(.filterLUTPrepared(filter.id)) {
             $0.preparedFilterIDs = [filter.id]
         }
@@ -222,17 +196,16 @@ struct CameraFeatureDataFlowTests {
     @Test("LUT 파일이 깨져 있으면 그 필터만 준비 없이 남는다 — 목록·선택은 그대로다")
     func brokenLUTLeavesFilterUnprepared() async throws {
         let filter = try CameraFeatureTestFixtures.filter(name: "깨진필터")
-        let store = TestStore(initialState: CameraFeature.State()) {
+        let store = TestStore(initialState: CameraFeatureTestFixtures.state(filters: [filter])) {
             CameraFeature()
         } withDependencies: {
             $0.loadFilterLUTUseCase.run = { _ in Data("깨진 파일".utf8) }
+            $0.shouldShowCameraCoachMarkUseCase.run = { false }
         }
 
-        await store.send(.filtersResponse(.success([filter]))) {
-            $0.filters = [filter]
-            $0.selectedFilterID = filter.id
-        }
+        await store.send(.view(.task)) { $0.hasStartedCoachMark = true }
         // filterLUTPrepared가 오지 않아야 한다 — TestStore가 남은 액션 없이 끝나는 것으로 검증된다.
+        #expect(store.state.selectedFilterID == filter.id)
     }
 
     @Test("필터를 고르면 선택이 바뀐다")
@@ -286,14 +259,14 @@ struct CameraFeatureDataFlowTests {
         await store.send(.view(.roomSelected(3))) {
             $0.selectedRoomID = 3
             $0.isRoomSelectionPresented = false
-            $0.captureAvailability = .noCardsLeft
         }
+        #expect(store.state.captureAvailability == .noCardsLeft)
         await store.send(.view(.roomSelectButtonTapped)) { $0.isRoomSelectionPresented = true }
         await store.send(.view(.roomSelected(1))) {
             $0.selectedRoomID = 1
             $0.isRoomSelectionPresented = false
-            $0.captureAvailability = .available
         }
+        #expect(store.state.captureAvailability == .available)
     }
 
     @Test("목록에 없는 방 id는 무시한다 — 드로어도 그대로 열려 있다")
@@ -340,8 +313,8 @@ struct CameraFeatureDataFlowTests {
         await store.send(.captureCompleted(roomID: 1, filterID: "필터1", jpegData: Data("jpeg".utf8)))
         await store.receive(.uploadResponse(roomID: 1, .success(0))) {
             $0.rooms[id: 1] = ShootableRoom(id: 1, title: "방1", remainedPhotoCount: 0, totalPhotoCount: 24)
-            $0.captureAvailability = .noCardsLeft
         }
+        #expect(store.state.captureAvailability == .noCardsLeft)
     }
 
     @Test("업로드에 실패하면 토스트를 띄우고 3초 뒤 스스로 사라진다")
@@ -372,6 +345,16 @@ enum CameraFeatureTestFixtures {
         ShootableRoom(id: 2, title: "방2", remainedPhotoCount: 3, totalPhotoCount: 48)
     ]
 
+    /// 선택된 방이 소진된 상태를 만들 때 쓴다 — 촬영 가능 여부는 방에서 나온다.
+    static let soldOutRooms: [ShootableRoom] = [
+        ShootableRoom(id: 1, title: "소진된 방", remainedPhotoCount: 0, totalPhotoCount: 24)
+    ]
+
+    static let filters: [CameraFilter] = ["필터1", "필터2", "필터3"].compactMap { name in
+        URL(string: "https://test.invalid/\(name).cube")
+            .map { CameraFilter(name: name, fileURL: $0) }
+    }
+
     static func filter(name: String) throws -> CameraFilter {
         let fileURL = try #require(URL(string: "https://test.invalid/\(name).cube"))
         return CameraFilter(name: name, fileURL: fileURL)
@@ -379,6 +362,29 @@ enum CameraFeatureTestFixtures {
 
     /// 2×2×2 최소 크기의 정상 .cube 텍스트 (8행 × RGB).
     static let validCubeText = "LUT_3D_SIZE 2\n" + String(repeating: "0 0 0\n", count: 8)
+
+    /// 진입 전에 방·필터를 이미 받아 둔 상태 — 실제 진입 경로와 같은 모양이다.
+    static func state(
+        rooms: [ShootableRoom] = rooms,
+        filters: [CameraFilter] = filters,
+        selectedRoomID: ShootableRoom.ID? = nil,
+        selectedFilterID: CameraFilter.ID? = nil,
+        zoom: CameraZoom = CameraZoom(),
+        isRoomSelectionPresented: Bool = false,
+        coachMark: CameraCoachMark? = nil,
+        hasStartedCoachMark: Bool = false
+    ) -> CameraFeature.State {
+        CameraFeature.State(
+            rooms: IdentifiedArray(uniqueElements: rooms),
+            filters: IdentifiedArray(uniqueElements: filters),
+            selectedRoomID: selectedRoomID,
+            selectedFilterID: selectedFilterID,
+            zoom: zoom,
+            isRoomSelectionPresented: isRoomSelectionPresented,
+            coachMark: coachMark,
+            hasStartedCoachMark: hasStartedCoachMark
+        )
+    }
 }
 
 private extension CameraFeature.State {
@@ -386,19 +392,11 @@ private extension CameraFeature.State {
     static func fixture(
         rooms: [ShootableRoom] = CameraFeatureTestFixtures.rooms,
         selectedFilterID: CameraFilter.ID? = nil,
-        captureAvailability: CameraCaptureAvailability = .available,
         isRoomSelectionPresented: Bool = false
     ) -> Self {
-        CameraFeature.State(
-            rooms: IdentifiedArray(uniqueElements: rooms),
-            filters: IdentifiedArray(
-                uniqueElements: ["필터1", "필터2", "필터3"].compactMap { name in
-                    URL(string: "https://test.invalid/\(name).cube")
-                        .map { CameraFilter(name: name, fileURL: $0) }
-                }
-            ),
+        CameraFeatureTestFixtures.state(
+            rooms: rooms,
             selectedFilterID: selectedFilterID,
-            captureAvailability: captureAvailability,
             isRoomSelectionPresented: isRoomSelectionPresented
         )
     }
