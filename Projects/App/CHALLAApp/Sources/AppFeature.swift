@@ -168,14 +168,28 @@ public struct AppFeature {
                 state = .setting(SettingScreen(profile: screen.profile))
                 return .none
 
-            case .home(.delegate(.roomSelected)):
-                // TODO: [#57] 여기서 방 상세 화면으로 바꾼다.
-                // 방 상세가 보내는 delegate 처리도 이 리듀서에 함께 넣는다 —
-                // 뒤로가기는 홈 복귀, 촬영은 CameraFeature, 채팅은 아직 모듈이 없다.
+            // 목록에서 고른 방, 방금 만든 방, 초대 코드로 들어간 방 모두 상세로 들어간다.
+            case let .home(.delegate(.roomSelected(card))),
+                 let .home(.delegate(.roomCreated(card))),
+                 let .home(.delegate(.roomJoined(card))):
+                guard case let .home(screen) = state else { return .none }
+                state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: card.room))
                 return .none
 
-            case .home(.delegate(.roomCreated)), .home(.delegate(.roomJoined)):
-                // TODO: 방 상세 Feature가 생기면 만든·입장한 방으로 바로 진입할지 기획과 정해 여기서 조립한다.
+            // MARK: - 방 상세 delegate
+
+            case .roomDetail(.delegate(.closeTapped)):
+                guard case let .roomDetail(screen) = state else { return .none }
+                // 홈 State를 새로 만들어 목록을 다시 조회한다 — 방에서 사진을 찍고 나왔을 수 있다.
+                state = .home(HomeScreen(profile: screen.profile))
+                return .none
+
+            case .roomDetail(.delegate(.shootTapped)):
+                // TODO: CameraFeature로 연결한다. 촬영을 마치고 방 상세로 돌아오는 흐름까지 함께 정한다.
+                return .none
+
+            case .roomDetail(.delegate(.chatTapped)):
+                // TODO: 채팅 모듈이 생기면 연결한다.
                 return .none
 
             // MARK: - 설정 delegate
