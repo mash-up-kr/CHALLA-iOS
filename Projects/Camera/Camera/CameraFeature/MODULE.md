@@ -23,6 +23,11 @@
   `Action.captureCompleted(roomID:filterID:jpegData:)`로 되돌려주면 리듀서가
   `UploadPhotoUseCase`(발급→스토리지 PUT→완료 통보)로 업로드한다. 응답의 `remainedPhotoCount`로
   그 방의 남은 장수를 갱신하고, 0이면 촬영을 막는다. 실패는 토스트로 알린다.
+- 진입하면 잠깐 뜸을 들인 뒤 온보딩 안내 스낵바가 2단계로 뜬다 (`CameraCoachMark` — 시안 camera_snackBar_1·2).
+  안내 중에는 뷰파인더를 흐리고 어둡게 덮고, 필터 띠·하단 블록의 밝기를 낮추면서 조작도 막고, 셔터에 글로우를 두른다.
+  액션("다음" → "확인")을 눌러야 넘어가며 마지막 단계에서 사라진다.
+  `hasStartedCoachMark`가 한 화면 수명 안에서 되풀이 노출만 막는다 —
+  **설치 후 최초 1회만 띄우는 저장은 아직 없다** (App 조립 시 저장소를 붙여야 한다).
 
 ## 공개 API
 
@@ -32,6 +37,7 @@
 | `CameraView<Preview>` | 화면 뷰. `init(store:preview:)` · `init(store:)`(플레이스홀더 프리뷰) |
 | `CameraPreviewPlaceholder` | AVFoundation 연동 전 뷰파인더를 채우는 대역 뷰 |
 | `CameraCardsLevel` | 남은 장수 표시 단계 (`normal` · `low` · `unavailable`) |
+| `CameraCoachMark` | 온보딩 안내 단계 (`shutterCost` · `shutterCaution`). 단계별 `message` · `actionTitle` |
 | `CameraFilterCatalog` | 서버에서 내려받은 LUT의 등록소. `register(cubeData:for:)`(다운로드 원자료 파싱·등록) · `lutFilter(id:)`(id → 새 `CIColorCube`) · `filteredJPEG(from:filterID:)`(촬영본 후처리) |
 | `CameraFilteredPreviewView` | LUT 입힌 프레임(`CIImage`)을 Metal로 그리는 프리뷰 뷰 — `preview` 슬롯용 |
 | `CameraPreviewFrameSource` | 프리뷰 프레임 공급자 프로토콜. 카메라 세션(조립 지점 소유)이 구현한다 |
@@ -53,6 +59,7 @@
 | 방 이름 버튼 | 방 선택 드로어(`CHALLADrawer`)를 연다 |
 | 셔터 (촬영 가능) | `delegate(.captureRequested)` → 조립 지점 캡처 → `captureCompleted` → 업로드·장수 갱신 |
 | 셔터 (촬영 불가) | 서버가 준 문구로 토스트를 3초 띄운다. 뷰파인더는 안내 문구로 대체돼 있다 |
+| 안내 스낵바 액션 | 1단계("다음") → 2단계("확인") → 안내 종료. 안내 중에는 다른 조작이 막힌다 |
 
 ## 디자인 근거 (Zeplin)
 
@@ -62,11 +69,13 @@
 | SelectRoom (드로어) | https://zpl.io/RmNMzyN |
 | FlashOff | https://zpl.io/GnzEAx9 |
 | 촬영 불가능 | https://zpl.io/xnBm6MX |
+| camera_snackBar_1 (안내 1단계) | https://zpl.io/vnBnEwj |
+| camera_snackBar_2 (안내 2단계) | https://zpl.io/4EAEgLX |
 
 실측값은 컴포넌트별 파일 하단의 private metric enum에 둔다 (DS 컨벤션과 동일).
 
 DS에 없는 형태(52pt 원형 아이콘 버튼, 44pt 알약 방 버튼)만 이 모듈에서 만들고,
-드로어 껍데기·토스트·아이콘·색·타이포는 `CHALLADesignSystem`을 그대로 쓴다.
+드로어 껍데기·토스트·스낵바·아이콘·색·타이포는 `CHALLADesignSystem`을 그대로 쓴다.
 
 ## 의존
 
@@ -79,7 +88,7 @@ DS에 없는 형태(52pt 원형 아이콘 버튼, 44pt 알약 방 버튼)만 이
 mise exec -- tuist test CameraFeature
 ```
 
-`TestStore`로 플래시·카메라 전환·셔터(가능/불가)·배율(핀치·탭·범위·문구)·필터 로드/선택·방 목록 로드/선택·업로드(장수 갱신·소진 차단·실패 토스트)·토스트 수명을 검증한다.
+`TestStore`로 플래시·카메라 전환·셔터(가능/불가)·배율(핀치·탭·범위·문구)·필터 로드/선택·방 목록 로드/선택·업로드(장수 갱신·소진 차단·실패 토스트)·토스트 수명·온보딩 안내(뜸 후 노출·단계 진행·재노출 차단)를 검증한다.
 
 ## 데모앱
 
@@ -92,6 +101,8 @@ xcrun simctl launch booted com.challa.camerafeature.demo --screen camera --state
 | `--screen` | `--state` | 대응 시안 |
 | :-- | :-- | :-- |
 | `camera` | `default` | FlashOff |
+| `camera` | `coach` | 진입 후 안내 1단계 (camera_snackBar_1) |
+| `camera` | `coach-2` | 안내 2단계 (camera_snackBar_2) |
 | `camera` | `error` | 촬영 불가능 + 토스트 |
 
 인자를 주지 않으면 시나리오 목록이 뜬다.

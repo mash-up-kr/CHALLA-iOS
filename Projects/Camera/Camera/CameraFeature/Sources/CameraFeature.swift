@@ -23,6 +23,10 @@ public struct CameraFeature {
         public var captureAvailability: CameraCaptureAvailability
         public var isRoomSelectionPresented: Bool
         public var toastMessage: String?
+        /// 노출 중인 온보딩 안내 단계. nil이면 안내가 없다.
+        public var coachMark: CameraCoachMark?
+        /// 안내를 이미 시작했는지. 화면이 다시 그려져도 안내가 되풀이되지 않게 막는다.
+        public var hasStartedCoachMark: Bool
 
         public init(
             rooms: IdentifiedArrayOf<ShootableRoom> = [],
@@ -35,7 +39,9 @@ public struct CameraFeature {
             zoom: CameraZoom = CameraZoom(),
             captureAvailability: CameraCaptureAvailability = .available,
             isRoomSelectionPresented: Bool = false,
-            toastMessage: String? = nil
+            toastMessage: String? = nil,
+            coachMark: CameraCoachMark? = nil,
+            hasStartedCoachMark: Bool = false
         ) {
             self.rooms = rooms
             self.selectedRoomID = selectedRoomID ?? rooms.first?.id
@@ -48,10 +54,17 @@ public struct CameraFeature {
             self.captureAvailability = captureAvailability
             self.isRoomSelectionPresented = isRoomSelectionPresented
             self.toastMessage = toastMessage
+            self.coachMark = coachMark
+            // 안내를 띄운 채로 시작하는 프리뷰·데모는 이미 시작한 것으로 본다.
+            self.hasStartedCoachMark = hasStartedCoachMark || coachMark != nil
         }
 
         public var selectedRoom: ShootableRoom? {
             selectedRoomID.flatMap { rooms[id: $0] }
+        }
+
+        public var isCoachMarkPresented: Bool {
+            coachMark != nil
         }
     }
 
@@ -69,9 +82,13 @@ public struct CameraFeature {
             case roomSelectButtonTapped
             case roomSelectionDismissed
             case roomSelected(ShootableRoom.ID)
+            case coachMarkActionTapped
         }
 
         case view(ViewAction)
+
+        /// 진입 후 안내를 띄우기까지의 뜸.
+        case coachMarkDelayElapsed
 
         case roomsResponse(Result<[ShootableRoom], RoomError>)
         case filtersResponse(Result<[CameraFilter], PhotoError>)
@@ -106,7 +123,15 @@ public struct CameraFeature {
         Reduce { state, action in
             switch action {
             case .view(.task):
-                return .merge(loadRooms(), loadFilters())
+                return .merge(loadRooms(), loadFilters(), startCoachMark(&state))
+
+            case .coachMarkDelayElapsed:
+                state.coachMark = .first
+                return .none
+
+            case .view(.coachMarkActionTapped):
+                state.coachMark = state.coachMark?.next
+                return .none
 
             case .view(.flashButtonTapped):
                 state.flashMode.toggle()
@@ -216,81 +241,10 @@ public struct CameraFeature {
 
     /// 선택된 방의 남은 장수로 촬영 가능 여부를 다시 정한다. 방이 아직 없으면 건드리지 않는다
     /// (초기 상태를 직접 구성하는 프리뷰·데모의 설정을 존중한다).
+    /// 선택된 방의 남은 장수로 촬영 가능 여부를 다시 정한다. 방이 아직 없으면 건드리지 않는다
+    /// (초기 상태를 직접 구성하는 프리뷰·데모의 설정을 존중한다).
     private func updateCaptureAvailability(_ state: inout State) {
         guard let room = state.selectedRoom else { return }
         state.captureAvailability = room.remainedPhotoCount > 0 ? .available : .noCardsLeft
-    }
-
-    // MARK: - Effects
-
-    private func loadRooms() -> Effect<Action> {
-        .run { [fetchShootableRooms] send in
-            do {
-                let rooms = try await fetchShootableRooms.run()
-                await send(.roomsResponse(.success(rooms)))
-            } catch let error as RoomError {
-                await send(.roomsResponse(.failure(error)))
-            } catch is CancellationError {
-            } catch {
-                await send(.roomsResponse(.failure(.unknown)))
-            }
-        }
-    }
-
-    private func loadFilters() -> Effect<Action> {
-        .run { [fetchCameraFilters] send in
-            do {
-                let filters = try await fetchCameraFilters.run()
-                await send(.filtersResponse(.success(filters)))
-            } catch let error as PhotoError {
-                await send(.filtersResponse(.failure(error)))
-            } catch is CancellationError {
-            } catch {
-                await send(.filtersResponse(.failure(.unknown)))
-            }
-        }
-    }
-
-    /// LUT 하나를 내려받아 카탈로그에 등록한다. 실패해도 화면은 계속 쓸 수 있어야 하므로
-    /// (그 필터만 무보정 통과) 오류를 사용자에게 알리지 않고 삼킨다.
-    private func prepareLUT(_ filter: CameraFilter) -> Effect<Action> {
-        .run { [loadFilterLUT] send in
-            guard let data = try? await loadFilterLUT.run(filter),
-                  CameraFilterCatalog.register(cubeData: data, for: filter.id)
-            else { return }
-            await send(.filterLUTPrepared(filter.id))
-        }
-    }
-
-    private func upload(
-        jpegData: Data,
-        roomID: ShootableRoom.ID,
-        filterID: CameraFilter.ID?
-    ) -> Effect<Action> {
-        .run { [uploadPhoto] send in
-            do {
-                // TODO: 백엔드 확인 — cameraFilterName이 필수라 무필터 촬영 시 보낼 값이 정해지지 않았다.
-                //       (서버 필터 목록에 "원본" 항목이 포함되는지 확인 후 확정)
-                let remained = try await uploadPhoto.run(jpegData, roomID, filterID ?? "")
-                await send(.uploadResponse(roomID: roomID, .success(remained)))
-            } catch let error as PhotoError {
-                await send(.uploadResponse(roomID: roomID, .failure(error)))
-            } catch is CancellationError {
-            } catch {
-                await send(.uploadResponse(roomID: roomID, .failure(.unknown)))
-            }
-        }
-    }
-
-    private enum CancelID { case toast }
-
-    private static let toastDuration: Duration = .seconds(3)
-
-    private func dismissToastAfterDelay() -> Effect<Action> {
-        .run { [clock] send in // 비-Sendable self 대신 의존성 값만 캡처
-            try await clock.sleep(for: Self.toastDuration)
-            await send(.toastDismissed)
-        }
-        .cancellable(id: CancelID.toast, cancelInFlight: true)
     }
 }

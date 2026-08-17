@@ -350,6 +350,71 @@ struct CameraFeatureDataFlowTests {
     }
 }
 
+// MARK: - 온보딩 안내
+
+@MainActor
+struct CameraFeatureCoachMarkTests {
+
+    @Test("진입하면 뜸을 들인 뒤 안내 1단계가 뜬다")
+    func coachMarkAppearsAfterDelay() async {
+        let clock = TestClock()
+        let store = TestStore(initialState: CameraFeature.State()) {
+            CameraFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.fetchShootableRoomsUseCase.run = { [] }
+            $0.fetchCameraFiltersUseCase.run = { [] }
+        }
+
+        await store.send(.view(.task)) { $0.hasStartedCoachMark = true }
+        await store.receive(.roomsResponse(.success([])))
+        await store.receive(.filtersResponse(.success([])))
+
+        await clock.advance(by: CameraCoachMark.presentationDelay)
+        await store.receive(.coachMarkDelayElapsed) { $0.coachMark = .shutterCost }
+    }
+
+    @Test("액션을 누르면 2단계로 넘어가고, 한 번 더 누르면 안내가 끝난다")
+    func coachMarkAdvancesAndFinishes() async {
+        let store = TestStore(initialState: CameraFeature.State(coachMark: .shutterCost)) {
+            CameraFeature()
+        }
+
+        await store.send(.view(.coachMarkActionTapped)) { $0.coachMark = .shutterCaution }
+        await store.send(.view(.coachMarkActionTapped)) { $0.coachMark = nil }
+    }
+
+    @Test("안내가 끝난 뒤 다시 진입해도 안내는 되풀이되지 않는다")
+    func coachMarkDoesNotRepeat() async {
+        let clock = TestClock()
+        let store = TestStore(initialState: CameraFeature.State(hasStartedCoachMark: true)) {
+            CameraFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.fetchShootableRoomsUseCase.run = { [] }
+            $0.fetchCameraFiltersUseCase.run = { [] }
+        }
+
+        await store.send(.view(.task))
+        await store.receive(.roomsResponse(.success([])))
+        await store.receive(.filtersResponse(.success([])))
+
+        // 뜸이 지나도 coachMarkDelayElapsed가 오지 않아야 한다.
+        await clock.advance(by: CameraCoachMark.presentationDelay)
+    }
+
+    @Test("안내가 떠 있으면 화면이 안내 모드로 바뀐다")
+    func coachMarkDrivesPresentationFlag() {
+        #expect(CameraFeature.State(coachMark: .shutterCost).isCoachMarkPresented)
+        #expect(!CameraFeature.State().isCoachMarkPresented)
+    }
+
+    @Test("안내를 띄운 채로 시작하면 이미 시작한 것으로 본다 — 진입 시 1단계로 되돌아가지 않는다")
+    func presetCoachMarkCountsAsStarted() {
+        #expect(CameraFeature.State(coachMark: .shutterCaution).hasStartedCoachMark)
+    }
+}
+
 // MARK: - Fixtures
 
 enum CameraFeatureTestFixtures {

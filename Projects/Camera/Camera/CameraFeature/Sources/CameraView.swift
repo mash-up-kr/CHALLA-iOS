@@ -46,6 +46,9 @@ public struct CameraView<Preview: View>: View {
 
                 toast
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+                coachMarkSnackBar
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
         }
         // ZStack 안에 넣으면(형제로 두면) 다른 형제들의 상단 SafeArea 회피가 함께 풀린다 —
@@ -68,6 +71,7 @@ public struct CameraView<Preview: View>: View {
                 zoom: store.zoom,
                 captureAvailability: store.captureAvailability,
                 isShutterFlashing: isShutterFeedbackActive,
+                isDimmed: store.isCoachMarkPresented,
                 onZoomBadgeTap: { send(.zoomBadgeTapped) },
                 onMagnificationChanged: { send(.zoomMagnificationChanged($0)) },
                 onMagnificationEnded: { send(.zoomMagnificationEnded) },
@@ -77,6 +81,7 @@ public struct CameraView<Preview: View>: View {
             CameraControlBar(
                 flashMode: store.flashMode,
                 isCapturing: isShutterFeedbackActive,
+                isShutterHighlighted: store.isCoachMarkPresented,
                 onFlashTap: { send(.flashButtonTapped) },
                 onShutterTap: handleShutterTap,
                 onCameraSwitchTap: { send(.cameraSwitchButtonTapped) }
@@ -87,6 +92,7 @@ public struct CameraView<Preview: View>: View {
                 selectedFilterID: store.selectedFilterID,
                 onSelect: { send(.filterSelected($0)) }
             )
+            .coachMarkDimmed(store.isCoachMarkPresented)
         }
         .padding(.top, CameraViewMetric.screenTopPadding)
     }
@@ -102,7 +108,23 @@ public struct CameraView<Preview: View>: View {
             }
             .padding(.horizontal, CameraViewMetric.bottomHorizontalPadding)
             .padding(.bottom, CameraViewMetric.screenBottomPadding)
+            .coachMarkDimmed(store.isCoachMarkPresented)
         }
+    }
+
+    private var coachMarkSnackBar: some View {
+        ZStack(alignment: .bottom) {
+            if let coachMark = store.coachMark {
+                CHALLASnackBar(
+                    coachMark.message,
+                    action: .init(coachMark.actionTitle) { send(.coachMarkActionTapped) }
+                )
+                .padding(.horizontal, CameraViewMetric.snackBarHorizontalMargin)
+                .padding(.bottom, CameraViewMetric.snackBarBottomPadding)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: store.coachMark)
     }
 
     /// 촬영 가능 여부와 무관하게 셔터를 눌렀다는 감각(블랙아웃 · 버튼 축소)부터 즉시 준다 —
@@ -166,6 +188,9 @@ private enum CameraViewMetric {
     static let bottomSpacing: CGFloat = 12
     static let bottomHorizontalPadding: CGFloat = 40
     static let toastTopInset: CGFloat = 112
+    /// 안내 스낵바: 시안 366×50 @(12,752) — 좌우 12, 아래는 홈 인디케이터 세이프에어리어 안쪽 8.
+    static let snackBarHorizontalMargin: CGFloat = 12
+    static let snackBarBottomPadding: CGFloat = 8
     /// 상단 뭉치·하단 뭉치 사이 여백 상한. 시안(844pt 캔버스) 기준 여백은 약 157pt —
     /// 상한이 없으면 화면이 커질수록 이 여백만 한없이 늘어난다.
     static let middleGapMaximum: CGFloat = 160
@@ -195,7 +220,8 @@ private extension CameraFeature.State {
     static func demo(
         captureAvailability: CameraCaptureAvailability = .available,
         flashMode: CameraFlashMode = .on,
-        selectedFilterID: CameraFilter.ID? = nil
+        selectedFilterID: CameraFilter.ID? = nil,
+        coachMark: CameraCoachMark? = nil
     ) -> Self {
         let rooms: [ShootableRoom] = captureAvailability.isAvailable
             ? [ShootableRoom(id: -1, title: "방이름방이름방이름3", remainedPhotoCount: 3, totalPhotoCount: 48)]
@@ -206,7 +232,8 @@ private extension CameraFeature.State {
             filters: IdentifiedArray(uniqueElements: CameraFilter.previewFilters),
             selectedFilterID: selectedFilterID,
             flashMode: flashMode,
-            captureAvailability: captureAvailability
+            captureAvailability: captureAvailability,
+            coachMark: coachMark
         )
     }
 }
@@ -219,6 +246,14 @@ private extension CameraFeature.State {
     CameraView(
         store: Store(initialState: .demo(flashMode: .off, selectedFilterID: "Warm")) { CameraFeature() }
     )
+}
+
+#Preview("안내 1단계 (camera_snackBar_1)") {
+    CameraView(store: Store(initialState: .demo(coachMark: .shutterCost)) { CameraFeature() })
+}
+
+#Preview("안내 2단계 (camera_snackBar_2)") {
+    CameraView(store: Store(initialState: .demo(coachMark: .shutterCaution)) { CameraFeature() })
 }
 
 #Preview("촬영 불가") {

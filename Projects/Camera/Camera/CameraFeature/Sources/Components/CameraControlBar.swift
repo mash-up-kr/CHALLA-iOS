@@ -11,6 +11,8 @@ struct CameraControlBar: View {
     let flashMode: CameraFlashMode
     /// 셔터를 누른 순간 안쪽 흰 원이 살짝 작아졌다가 돌아온다 (촬영 피드백).
     let isCapturing: Bool
+    /// 안내 스낵바가 떠 있는 동안 셔터에 흰 글로우를 둘러 주목시킨다 (시안 camera_snackBar_1·2).
+    let isShutterHighlighted: Bool
     let onFlashTap: () -> Void
     let onShutterTap: () -> Void
     let onCameraSwitchTap: () -> Void
@@ -58,6 +60,11 @@ struct CameraControlBar: View {
                     Circle()
                         .strokeBorder(CHALLAColor.Primary.yellow, lineWidth: ControlBarMetric.shutterRingWidth)
                 }
+                .shadow(
+                    color: CHALLAColor.Static.white
+                        .opacity(isShutterHighlighted ? ControlBarMetric.shutterGlowOpacity : 0),
+                    radius: ControlBarMetric.shutterGlowRadius
+                )
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -75,13 +82,30 @@ private enum ControlBarMetric {
     static let shutterRingWidth: CGFloat = 3.33
     /// 셔터를 누르면 안쪽 흰 원이 이 비율까지 줄었다가 돌아온다 — 시안 육안 근사값, 디자이너 검수로 확정한다.
     static let shutterPressedScale: CGFloat = 0.85
+
+    /// 안내 스낵바 노출 중 셔터 강조 글로우 (시안 outer 0/0 blur20 rgba(255,255,255,0.5))
+    static let shutterGlowRadius: CGFloat = 10
+    static let shutterGlowOpacity: Double = 0.5
 }
 
 #Preview {
     VStack(spacing: 24) {
-        CameraControlBar(flashMode: .on, isCapturing: false, onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {})
-        CameraControlBar(flashMode: .off, isCapturing: false, onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {})
-        CameraControlBar(flashMode: .on, isCapturing: true, onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {})
+        CameraControlBar(
+            flashMode: .on, isCapturing: false, isShutterHighlighted: false,
+            onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {}
+        )
+        CameraControlBar(
+            flashMode: .off, isCapturing: false, isShutterHighlighted: false,
+            onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {}
+        )
+        CameraControlBar(
+            flashMode: .on, isCapturing: true, isShutterHighlighted: false,
+            onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {}
+        )
+        CameraControlBar(
+            flashMode: .on, isCapturing: false, isShutterHighlighted: true,
+            onFlashTap: {}, onShutterTap: {}, onCameraSwitchTap: {}
+        )
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(CHALLAColor.Static.black)
