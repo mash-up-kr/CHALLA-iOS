@@ -62,6 +62,8 @@ public struct RoomDetailFeature {
             case closeTapped
             case shootTapped
             case chatTapped
+            // TODO: [#57] 슬롯 탭으로 사진 상세를 여는 photoTapped(Photo.ID)를 추가한다.
+            // 뷰의 slot(number:)에 탭을 달고, App이 PhotoDetailFeature를 연다.
         }
     }
 

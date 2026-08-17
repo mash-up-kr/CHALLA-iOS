@@ -148,7 +148,9 @@ public struct AppFeature {
                 return .none
 
             case .home(.delegate(.roomSelected)):
-                // TODO: 방 상세 Feature가 생기면 여기서 push한다.
+                // TODO: [#57] 여기서 방 상세 화면으로 바꾼다.
+                // 방 상세가 보내는 delegate 처리도 이 리듀서에 함께 넣는다 —
+                // 뒤로가기는 홈 복귀, 촬영은 CameraFeature, 채팅은 아직 모듈이 없다.
                 return .none
 
             case .home(.delegate(.roomCreated)), .home(.delegate(.roomJoined)):
