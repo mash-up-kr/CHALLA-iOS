@@ -68,6 +68,43 @@ struct KeychainStoreTests {
         try store.delete(for: key)
     }
 
+    @Test("deleteAll은 service 안의 모든 항목을 지운다 (키를 몰라도 초기화된다)")
+    func deleteAllRemovesEveryItem() throws {
+        let service = makeService()
+        let store = KeychainStore(service: service)
+        defer { try? store.deleteAll() }
+
+        try store.save(Data("a".utf8), for: "key.a")
+        try store.save(Data("b".utf8), for: "key.b")
+
+        try store.deleteAll()
+
+        #expect(itemCount(service: service) == 0)
+        #expect(try store.load(for: "key.a") == nil)
+        #expect(try store.load(for: "key.b") == nil)
+    }
+
+    @Test("deleteAll은 다른 service의 항목까지 지우지 않는다")
+    func deleteAllStaysWithinService() throws {
+        let storeA = makeStore()
+        let storeB = makeStore()
+        defer { try? storeB.deleteAll() }
+
+        try storeA.save(Data("a".utf8), for: key)
+        try storeB.save(Data("b".utf8), for: key)
+
+        try storeA.deleteAll()
+
+        #expect(try storeB.load(for: key) == Data("b".utf8))
+    }
+
+    @Test("빈 service를 deleteAll해도 오류를 던지지 않는다")
+    func deleteAllOnEmptyServiceDoesNotThrow() throws {
+        let store = makeStore()
+
+        try store.deleteAll()
+    }
+
     @Test("같은 키에 두 번 저장하면 최신값으로 덮어쓴다")
     func saveTwiceOverwrites() throws {
         let store = makeStore()
