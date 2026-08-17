@@ -111,10 +111,14 @@ enum CompositionRoot {
     private static func registerPhoto(into values: inout DependencyValues, client: any HTTPClient) {
         let filterRepository = DefaultCameraFilterRepository(client: client)
         let uploader = DefaultPhotoUploader(client: client)
+        // 안내 노출 기록만 서버가 아니라 기기에 남는다 (`CameraOnboardingRepository` 주석 참고).
+        let onboarding = DefaultCameraOnboardingRepository()
 
         values.fetchCameraFiltersUseCase = .live(repository: filterRepository)
         values.loadFilterLUTUseCase = .live(repository: filterRepository)
         values.uploadPhotoUseCase = .live(uploader: uploader)
+        values.shouldShowCameraCoachMarkUseCase = .live(repository: onboarding)
+        values.markCameraCoachMarkSeenUseCase = .live(repository: onboarding)
     }
 
     /// 설정 조립이 필요로 하는 다른 aggregate의 결과물.

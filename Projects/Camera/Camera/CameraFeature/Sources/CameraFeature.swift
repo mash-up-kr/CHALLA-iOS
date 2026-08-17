@@ -87,7 +87,7 @@ public struct CameraFeature {
 
         case view(ViewAction)
 
-        /// 진입 후 안내를 띄우기까지의 뜸.
+        /// 진입 후 안내를 띄우기까지의 뜸. 최초 진입이 아니면 오지 않는다.
         case coachMarkDelayElapsed
 
         case roomsResponse(Result<[ShootableRoom], RoomError>)
@@ -118,6 +118,8 @@ public struct CameraFeature {
     @Dependency(\.fetchCameraFiltersUseCase) var fetchCameraFilters
     @Dependency(\.loadFilterLUTUseCase) var loadFilterLUT
     @Dependency(\.uploadPhotoUseCase) var uploadPhoto
+    @Dependency(\.shouldShowCameraCoachMarkUseCase) var shouldShowCoachMark
+    @Dependency(\.markCameraCoachMarkSeenUseCase) var markCoachMarkSeen
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -131,7 +133,9 @@ public struct CameraFeature {
 
             case .view(.coachMarkActionTapped):
                 state.coachMark = state.coachMark?.next
-                return .none
+                // 마지막 단계까지 넘겼다 — 다음 진입부터는 띄우지 않도록 기록한다.
+                guard state.coachMark == nil else { return .none }
+                return markCoachMarkAsSeen()
 
             case .view(.flashButtonTapped):
                 state.flashMode.toggle()

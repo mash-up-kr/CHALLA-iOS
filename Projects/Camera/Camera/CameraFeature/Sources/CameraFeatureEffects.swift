@@ -66,15 +66,24 @@ extension CameraFeature {
         }
     }
 
-    /// 진입 직후 잠깐 뜸을 들였다가 안내 1단계를 띄운다. 이미 시작했으면 아무것도 하지 않는다.
+    /// 최초 진입이면 잠깐 뜸을 들였다가 안내 1단계를 띄운다.
+    /// 이미 본 적 있거나(기기 기록) 이번 화면에서 이미 시작했으면 아무것도 하지 않는다.
     func startCoachMark(_ state: inout State) -> Effect<Action> {
         guard !state.hasStartedCoachMark else { return .none }
         state.hasStartedCoachMark = true
-        return .run { [clock] send in
+        return .run { [shouldShowCoachMark, clock] send in
+            guard await shouldShowCoachMark.run() else { return }
             try await clock.sleep(for: CameraCoachMark.presentationDelay)
             await send(.coachMarkDelayElapsed)
         }
         .cancellable(id: CancelID.coachMark, cancelInFlight: true)
+    }
+
+    /// 안내를 끝까지 본 것으로 기록한다. 실패 개념이 없어 화면에 알리지 않는다.
+    func markCoachMarkAsSeen() -> Effect<Action> {
+        .run { [markCoachMarkSeen] _ in
+            await markCoachMarkSeen.run()
+        }
     }
 
     func dismissToastAfterDelay() -> Effect<Action> {

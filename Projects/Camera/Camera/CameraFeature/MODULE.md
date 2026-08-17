@@ -23,11 +23,14 @@
   `Action.captureCompleted(roomID:filterID:jpegData:)`로 되돌려주면 리듀서가
   `UploadPhotoUseCase`(발급→스토리지 PUT→완료 통보)로 업로드한다. 응답의 `remainedPhotoCount`로
   그 방의 남은 장수를 갱신하고, 0이면 촬영을 막는다. 실패는 토스트로 알린다.
-- 진입하면 잠깐 뜸을 들인 뒤 온보딩 안내 스낵바가 2단계로 뜬다 (`CameraCoachMark` — 시안 camera_snackBar_1·2).
-  안내 중에는 뷰파인더를 흐리고 어둡게 덮고, 필터 띠·하단 블록의 밝기를 낮추면서 조작도 막고, 셔터에 글로우를 두른다.
-  액션("다음" → "확인")을 눌러야 넘어가며 마지막 단계에서 사라진다.
-  `hasStartedCoachMark`가 한 화면 수명 안에서 되풀이 노출만 막는다 —
-  **설치 후 최초 1회만 띄우는 저장은 아직 없다** (App 조립 시 저장소를 붙여야 한다).
+- **카메라에 처음 들어왔을 때만** 잠깐 뜸을 들인 뒤 온보딩 안내 스낵바가 2단계로 뜬다
+  (`CameraCoachMark` — 시안 camera_snackBar_1·2). 안내 중에는 뷰파인더를 흐리고 어둡게 덮고,
+  필터 띠·하단 블록의 밝기를 낮추면서 조작도 막고, 셔터에 글로우를 두른다.
+  액션("다음" → "확인")을 눌러야 넘어가며, 마지막 단계를 넘기면 사라지면서
+  `MarkCameraCoachMarkSeenUseCase`로 기록돼 다음 진입부터는 뜨지 않는다.
+  진입 시 노출 여부는 `ShouldShowCameraCoachMarkUseCase`(PhotoDomain)가 판단한다 —
+  기록은 기기에만 남는다(`CameraOnboardingRepository`). 상태의 `hasStartedCoachMark`는
+  한 화면 수명 안에서 조회가 되풀이되는 것만 막는 별도 장치다.
 
 ## 공개 API
 

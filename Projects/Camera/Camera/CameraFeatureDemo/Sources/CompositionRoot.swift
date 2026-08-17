@@ -27,7 +27,17 @@ enum CompositionRoot {
             remainedPhotoCounts: remainedPhotoCounts(for: scenario)
         )
         values.uploadPhotoUseCase = .live(uploader: uploader)
+
+        // 안내 시나리오만 기록을 앱 실행 내내 공유한다 — 화면을 나갔다 다시 들어오면
+        // "다음 진입부터는 안 뜬다"가 그대로 재현되고, 앱을 다시 켜면 처음부터 다시 볼 수 있다.
+        let onboarding = scenario.showsCoachMark
+            ? Self.sharedOnboarding
+            : InMemoryCameraOnboardingRepository(hasSeen: true)
+        values.shouldShowCameraCoachMarkUseCase = .live(repository: onboarding)
+        values.markCameraCoachMarkSeenUseCase = .live(repository: onboarding)
     }
+
+    private static let sharedOnboarding = InMemoryCameraOnboardingRepository()
 
     // MARK: - 방 구성
 

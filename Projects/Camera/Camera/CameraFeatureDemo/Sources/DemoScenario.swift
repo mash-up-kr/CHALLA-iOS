@@ -37,6 +37,12 @@ struct DemoScenario: Equatable {
         }
     }
 
+    /// 최초 진입 안내를 띄울 시나리오인지. 안내를 보려고 들어온 시나리오에서만 켠다 —
+    /// 나머지는 이미 본 것으로 두고 안내 없는 평상시 화면을 보여준다.
+    var showsCoachMark: Bool {
+        state == .coach
+    }
+
     /// 실행 인자에서 시나리오를 읽는다. `--screen`이 없으면 nil (목록 화면).
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> DemoScenario? {
         guard let rawScreen = value(of: "--screen", in: arguments),
