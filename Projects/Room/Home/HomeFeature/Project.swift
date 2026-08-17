@@ -13,7 +13,7 @@ let project = Project(
     targets: [
         .makeModuleTarget(
             name: "HomeFeature",
-            dependencies: [.roomDomain, .photoDomain, .composableArchitecture, .designSystem]
+            dependencies: [.roomDomain, .photoDomain, .photoLibrary, .composableArchitecture, .designSystem]
         ),
         .target(
             name: "HomeFeatureTests",
@@ -24,7 +24,11 @@ let project = Project(
             infoPlist: .default,
             sources: ["Tests/**"],
             // .roomDomain: 테스트가 Room 엔티티·RoomError로 리듀서 동작을 검증한다.
-            dependencies: [.target(name: "HomeFeature"), .roomDomain, .photoDomain, .composableArchitecture]
+            dependencies: [
+                .target(name: "HomeFeature"), .roomDomain, .photoDomain,
+                .photoLibrary, // 촬영 진입이 묻는 사진첩 권한을 테스트가 값으로 갈아끼운다
+                .composableArchitecture
+            ]
         )
     ]
 )

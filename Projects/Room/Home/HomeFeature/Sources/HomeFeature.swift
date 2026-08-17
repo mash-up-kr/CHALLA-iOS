@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import Foundation
 import PhotoDomain
+import PhotoLibrary
 import RoomDomain
 
 /// 홈 화면. 방 목록을 한 번 가져와 촬영 중·촬영 완료 두 섹션으로 나눠 보여준다.
@@ -124,7 +125,8 @@ public struct HomeFeature {
 
         public enum Alert: Equatable, Sendable {
             case retryTapped
-            case openCameraSettingsTapped
+            /// 카메라·사진첩 얼럿이 함께 쓴다 — 둘 다 앱 설정 화면 한 곳으로 간다.
+            case openSettingsTapped
         }
 
         case destination(PresentationAction<Destination.Action>)
@@ -139,6 +141,7 @@ public struct HomeFeature {
     @Dependency(\.fetchCameraFiltersUseCase) var fetchCameraFiltersUseCase
     @Dependency(\.requestCameraPermissionUseCase) var requestCameraPermissionUseCase
     @Dependency(\.openCameraSettingsUseCase) var openCameraSettingsUseCase
+    @Dependency(\.photoLibraryPermission) var photoLibraryPermission
 
     // MARK: - Body
 
@@ -194,7 +197,7 @@ public struct HomeFeature {
                 state.destination = .alert(error.alert)
                 return .none
 
-            case .destination(.presented(.alert(.openCameraSettingsTapped))):
+            case .destination(.presented(.alert(.openSettingsTapped))):
                 return .run { [openCameraSettingsUseCase] _ in
                     await openCameraSettingsUseCase.run()
                 }
@@ -255,28 +258,40 @@ public struct HomeFeature {
         case prepareShoot
     }
 
-    /// 촬영에 필요한 세 가지를 한꺼번에 받는다 — 방 목록·필터 목록·카메라 권한.
+    /// 촬영에 필요한 네 가지를 한꺼번에 받는다 — 방 목록·필터 목록·카메라 권한·사진첩 저장 권한.
     /// 권한 창이 뜨는 동안에도 조회는 계속 나가므로, 사용자가 허용을 누를 때쯤이면 목록이 이미 와 있다.
     ///
-    /// 셋 중 하나라도 어긋나면 카메라로 넘어가지 않는다 — 반쪽짜리 화면을 띄우지 않기 위해서다.
+    /// 하나라도 어긋나면 카메라로 넘어가지 않는다 — 반쪽짜리 화면을 띄우지 않기 위해서다.
+    /// 사진첩 권한도 여기서 막는 이유: 촬영본은 사진첩에 저장한 뒤 업로드로 이어지므로,
+    /// 저장 권한 없이 들어가면 셔터를 누르는 족족 실패한다.
     /// 권한 거절을 조회 실패보다 먼저 보는 이유: 조회가 실패해도 사용자가 먼저 할 일은 권한 허용이다.
     private func prepareShoot(roomID: Room.ID) -> Effect<Action> {
-        .run { [fetchShootableRoomsUseCase, fetchCameraFiltersUseCase, requestCameraPermissionUseCase] send in
-            async let isPermitted = requestCameraPermissionUseCase.run()
+        .run { [fetchShootableRoomsUseCase, fetchCameraFiltersUseCase, requestCameraPermissionUseCase, photoLibraryPermission] send in
+            /// 시스템 권한 팝업은 한 번에 하나만 뜬다 — 카메라를 먼저 묻고 이어서 사진첩을 묻는다.
+            @Sendable func requestPermissions() async -> ShootPreparationError? {
+                guard await requestCameraPermissionUseCase.run() else { return .cameraPermissionDenied }
+                // 저장만 하면 되므로 읽기 권한(.readWrite)까지는 요구하지 않는다.
+                guard await photoLibraryPermission.request(.addOnly).allowsSaving else {
+                    return .photoLibraryPermissionDenied
+                }
+                return nil
+            }
+
+            async let denial = requestPermissions()
             async let rooms = fetchShootableRoomsUseCase.run()
             async let filters = fetchCameraFiltersUseCase.run()
 
             do {
                 let entry = try await CameraEntry(roomID: roomID, rooms: rooms, filters: filters)
-                guard await isPermitted else {
-                    await send(.shootPreparationResponse(.failure(.cameraPermissionDenied)))
+                if let denial = await denial {
+                    await send(.shootPreparationResponse(.failure(denial)))
                     return
                 }
                 await send(.shootPreparationResponse(.success(entry)))
             } catch is CancellationError {
             } catch {
-                guard await isPermitted else {
-                    await send(.shootPreparationResponse(.failure(.cameraPermissionDenied)))
+                if let denial = await denial {
+                    await send(.shootPreparationResponse(.failure(denial)))
                     return
                 }
                 await send(.shootPreparationResponse(.failure(.loadFailed(message: error.entryMessage))))

@@ -10,10 +10,14 @@ TCA로 작성하며 `RoomDomain`의 UseCase를 `@Dependency`로 주입받는다 
 (규칙 3: Feature끼리 직접 참조하지 않는다).
 
 **촬영 진입은 홈이 준비까지 마친다.** 촬영 중 카드 하단의 촬영 뱃지를 누르면 촬영 가능 방 목록·필터 목록
-조회와 카메라 권한 요청을 한꺼번에 걸고(`async let` 3개), 셋이 모두 갖춰졌을 때만
+조회와 권한 요청을 한꺼번에 걸고(`async let` 3개), 모두 갖춰졌을 때만
 `delegate(.cameraRequested)`를 보낸다. 준비 중에는 그 카드의 뱃지가 스피너로 바뀌고 다시 눌리지 않는다.
 권한이 거절되면 설정 앱으로 보내는 얼럿을, 조회가 실패하면 실패 얼럿을 띄우고 카메라로 넘어가지 않는다 —
 반쪽짜리 카메라 화면(목록 없음·검은 프리뷰)을 띄우지 않기 위해서다.
+
+**권한은 카메라 · 사진첩(`.addOnly`) 둘을 이 시점에 이어서 묻는다.** 촬영본은 사진첩에 저장한 뒤
+업로드로 이어지므로, 저장 권한 없이 들어가면 셔터를 누르는 족족 실패한다. 시스템 팝업은 한 번에 하나만
+뜨기 때문에 둘을 병렬로 걸지 않고 카메라 → 사진첩 순서로 묻는다 (카메라가 거절되면 사진첩은 묻지 않는다).
 
 **부모/자식 책임 분리**: 두 드로어는 각자 리듀서를 갖고, 성공을 `delegate`로 알리기만 한다.
 드로어를 닫고 목록에 반영하는 것은 홈이 한다 — 목록은 홈의 State라 자식이 손댈 수 없고,
@@ -32,7 +36,8 @@ App(또는 데모앱)이 쓰는 것만 열려 있다. 드로어 뷰와 내부 �
     `.cameraRequested(CameraEntry)`
 - `struct CameraEntry` — 카메라 화면을 띄우는 재료(누른 방 id + 촬영 가능 방 목록 + 필터 목록).
   카메라 화면은 목록을 스스로 조회하지 않아서, 홈이 미리 받아 이 묶음으로 넘긴다
-- `enum ShootPreparationError` — 촬영 준비 실패 (`.cameraPermissionDenied` · `.loadFailed(message:)`)
+- `enum ShootPreparationError` — 촬영 준비 실패
+  (`.cameraPermissionDenied` · `.photoLibraryPermissionDenied` · `.loadFailed(message:)`)
 
 `CreateRoomFeature` · `JoinRoomFeature`는 `Destination`에 담기느라 `public`이지만 App이 직접 쓰지 않는다.
 
@@ -55,7 +60,7 @@ App(또는 데모앱)이 쓰는 것만 열려 있다. 드로어 뷰와 내부 �
 
 ## 의존성
 
-- **이 모듈이 의존**: `RoomDomain` · `CHALLADesignSystem` · `ComposableArchitecture`
+- **이 모듈이 의존**: `RoomDomain` · `PhotoDomain` · `PhotoLibrary` · `CHALLADesignSystem` · `ComposableArchitecture`
 - **이 모듈에 의존**: `HomeFeatureDemo` · (예정) `CHALLAApp`
 
 ## 알려진 임시 구현

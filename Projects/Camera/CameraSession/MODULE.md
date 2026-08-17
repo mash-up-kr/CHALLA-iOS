@@ -22,7 +22,8 @@
 이미 허용을 받아 뒀다는 뜻이라, `start(position:)`은 허용된 상태를 전제로 세션을 구성한다.
 권한 요청은 `PhotoDomain.CameraPermissionProvider`(구현: `PhotoData`)가 맡는다.
 
-사진첩 권한만 예외로 저장 직전에 요청한다 — 촬영 전에는 필요 없는 권한이라 미리 묻지 않는다.
+사진첩 권한도 카메라와 같이 진입 버튼이 미리 받아 둔다. `PhotoLibrarySaver`가 저장 직전에 한 번 더
+질의하는 것은 이 모듈만 단독으로 쓰는 경로(데모앱 등)를 위한 보루다 — 이미 결정된 상태면 팝업은 뜨지 않는다.
 
 실행 앱 Info.plist에 `NSCameraUsageDescription`·`NSPhotoLibraryAddUsageDescription`이 있어야 한다
 (없으면 접근하는 순간 크래시한다).
