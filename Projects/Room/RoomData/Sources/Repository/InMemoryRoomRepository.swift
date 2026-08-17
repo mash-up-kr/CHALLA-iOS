@@ -119,6 +119,9 @@ public actor InMemoryRoomRepository: RoomRepository {
 
     // MARK: - 초대 코드
 
+    /// 초대 코드 자릿수. 서버가 발급하는 코드와 같은 길이로 맞춘다.
+    private static let invitationCodeDigits = 7
+
     /// 방 상세가 보여줄 초대 코드. 데모 시나리오에 등록된 방은 입장용 매핑(코드 → 방)을 거꾸로 찾는다.
     /// 매핑에 없는 방 — 데모앱에서 "방 만들기"로 방금 생성한 방 — 은 발급해 줄 서버가 없으므로
     /// id로 일곱 자리를 지어낸다 (예: id -1000 → "0001000"). 초대 코드는 계약상 필수라 비워둘 수 없다.
@@ -126,7 +129,9 @@ public actor InMemoryRoomRepository: RoomRepository {
         if let code = inviteCodes.first(where: { $0.value == id })?.key {
             return code
         }
-        return String(format: "%07d", abs(id) % 10_000_000)
+        // 뒤 일곱 자리만 남기고 앞을 0으로 채운다.
+        let tail = String(abs(id)).suffix(Self.invitationCodeDigits)
+        return String(repeating: "0", count: Self.invitationCodeDigits - tail.count) + tail
     }
 
     // MARK: - 공통 처리
