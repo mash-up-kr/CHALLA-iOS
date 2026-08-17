@@ -38,6 +38,9 @@
   - 구현체 계약: 실패는 반드시 `PhotoError`로 정규화해 던진다
 - `protocol CameraOnboardingRepository` — `hasSeenCoachMark() -> Bool` · `markCoachMarkSeen()`
   - 카메라 진입 안내를 이미 봤는지 기억한다. 기기에만 남기고 서버에 올리지 않는다
+- `protocol CameraPermissionProvider` — `requestAccess() -> Bool` · `openSystemSettings()`
+  - 촬영 진입 버튼이 목록 조회와 함께 권한을 받아 둔다. 이미 거절한 뒤에는 다시 물을 수 없어
+    `false`가 오고, 호출부가 설정 앱으로 안내한다
 
 ### UseCases (`@DependencyClient` — `liveValue` 없음)
 
@@ -46,9 +49,11 @@
 - `UploadPhotoUseCase` (`\.uploadPhotoUseCase`) — 사진 업로드 후 남은 장수 (`-> Int`)
 - `ShouldShowCameraCoachMarkUseCase` (`\.shouldShowCameraCoachMarkUseCase`) — 카메라 최초 진입인지 (`-> Bool`)
 - `MarkCameraCoachMarkSeenUseCase` (`\.markCameraCoachMarkSeenUseCase`) — 안내를 끝까지 본 것으로 기록
+- `RequestCameraPermissionUseCase` (`\.requestCameraPermissionUseCase`) — 카메라 접근 허용 여부 (`-> Bool`)
+- `OpenCameraSettingsUseCase` (`\.openCameraSettingsUseCase`) — 설정 앱의 이 앱 화면 열기
 
 전부 `static func live(...)` · `testValue` · `previewValue`를 갖는다.
-안내 관련 둘은 기기 저장값만 다뤄 실패 개념이 없다 — 던지지 않는다.
+안내·권한 관련 넷은 기기 저장값과 OS 권한만 다뤄 실패 개념이 없다 — 던지지 않는다.
 
 ## 의존성
 

@@ -34,6 +34,11 @@
 - `actor InMemoryCameraOnboardingRepository: CameraOnboardingRepository` — `init(hasSeen:)`.
   앱을 끄면 사라져 데모에서 안내를 매번 다시 볼 수 있다
 
+### System (`Sources/System/`)
+
+- `struct SystemCameraPermissionProvider: CameraPermissionProvider` — `AVCaptureDevice` 권한 요청과
+  설정 앱 열기. OS를 만지지만 Core가 아니라 여기 있다 (`SystemNotificationPermissionProvider`와 같은 판단)
+
 ### Storage (`Sources/Storage/`)
 
 - `protocol CameraOnboardingStorage` · `struct UserDefaultsCameraOnboardingStorage` —
