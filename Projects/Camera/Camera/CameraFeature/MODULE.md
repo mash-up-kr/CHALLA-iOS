@@ -77,22 +77,6 @@
 | 안내 스낵바 액션 | 1단계("다음") → 2단계("확인") → 안내 종료. 안내 중에는 다른 조작이 막힌다 |
 | 위·아래 스와이프 | 손가락을 따라 화면이 밀리고, 충분히 끌면 `delegate(.closeRequested)`로 닫기를 요청한다. 뷰파인더 위에서도 핀치 줌과 함께 동작한다 |
 
-## 디자인 근거 (Zeplin)
-
-| 화면 | 링크 |
-| :-- | :-- |
-| FlashOn | https://zpl.io/QMW0Rr9 |
-| SelectRoom (드로어) | https://zpl.io/RmNMzyN |
-| FlashOff | https://zpl.io/GnzEAx9 |
-| 촬영 불가능 | https://zpl.io/xnBm6MX |
-| camera_snackBar_1 (안내 1단계) | https://zpl.io/vnBnEwj |
-| camera_snackBar_2 (안내 2단계) | https://zpl.io/4EAEgLX |
-
-실측값은 컴포넌트별 파일 하단의 private metric enum에 둔다 (DS 컨벤션과 동일).
-
-DS에 없는 형태(52pt 원형 아이콘 버튼, 44pt 알약 방 버튼)만 이 모듈에서 만들고,
-드로어 껍데기·토스트·스낵바·아이콘·색·타이포는 `CHALLADesignSystem`을 그대로 쓴다.
-
 ## 의존
 
 - 의존하는 모듈: `CHALLADesignSystem`, `ComposableArchitecture`, `RoomDomain`, `PhotoDomain`
