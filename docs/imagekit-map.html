@@ -155,6 +155,21 @@
 
   .policy-note { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 8px 0 0; }
 
+  /* ── 트러블슈팅(전체 폭) ─────────────────────── */
+  .trouble {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 18px;
+  }
+  .trouble h3 { margin: 0 0 4px; font-size: 16px; }
+  .trouble p { font-size: 14px; color: var(--muted); line-height: 1.75; margin: 0; }
+  .trouble p b { color: var(--ink); font-weight: 600; }
+  .trouble-sub { margin-bottom: 14px !important; }
+  .trouble-label {
+    margin: 18px 0 6px !important; font-size: 12px; letter-spacing: 0.06em;
+    color: var(--accent) !important; font-weight: 600;
+  }
+  .trouble table td:first-child { width: 42%; }
+
   /* ── 정리 정책 목록(클릭 확장) ─────────────── */
   .pol-list { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
   .pol {
@@ -294,7 +309,7 @@
       <text class="elabel" data-f="net" x="720" y="374">검증 통과한 원본 바이트</text>
 
       <path class="edge" data-f="net" d="M598,436 C 490,436 442,390 433,336"/>
-      <text class="elabel" data-f="net" x="470" y="420">HEIC 바이트 저장</text>
+      <text class="elabel" data-f="net" x="470" y="420">JPEG 바이트 저장</text>
 
       <path class="edge" data-f="net" d="M598,456 C 330,486 158,420 150,336"/>
       <text class="elabel" data-f="net" x="200" y="452">UIImage + cost 저장</text>
@@ -327,7 +342,7 @@
       </g>
       <g class="node" data-f="net" data-play="net" tabindex="0">
         <rect x="600" y="404" width="222" height="68"/>
-        <text class="nt" x="711" y="430" text-anchor="middle">다운샘플 + HEIC 인코딩</text>
+        <text class="nt" x="711" y="430" text-anchor="middle">다운샘플 + JPEG 인코딩</text>
         <text class="ns" x="711" y="450" text-anchor="middle">Task.detached(.utility) — 액터 밖</text>
       </g>
     </svg>
@@ -388,7 +403,7 @@
       <div class="comp"><span class="name">ImageDownsampler</span><span class="kind struct">struct</span>
         <div class="role">ImageIO 썸네일 디코딩으로 타깃 픽셀만큼만 디코딩. 상태 없는 동기 CPU 작업 — 실행 위치는 호출부 책임.</div></div>
       <div class="comp"><span class="name">ImageDataEncoder</span><span class="kind struct">struct</span>
-        <div class="role">다운샘플된 <code>CGImage</code>를 HEIC 바이트로 재인코딩(디스크 저장용). 포맷 정책 교체 지점.</div></div>
+        <div class="role">다운샘플된 <code>CGImage</code>를 JPEG 바이트로 재인코딩(디스크 저장용). 포맷 정책 교체 지점 — HEIC에서 바꾼 이유는 아래 8절.</div></div>
       <div class="comp"><span class="name">ImageCacheKey · PixelSize</span><span class="kind struct">struct</span>
         <div class="role"><code>PixelSize</code>는 pt·scale을 <code>ceil(pt × scale)</code> 픽셀로 환산해 보관 — 캐시 키의 크기 성분이자 다운샘플 타깃.
         <code>ImageCacheKey</code>(URL + PixelSize)는 세 곳의 키다: 로더의 <code>inFlight</code> 맵(중복 제거),
@@ -458,7 +473,7 @@
           <summary><span class="t">디스크 조회</span><span class="s">DiskImageCache(actor) · SHA256 파일명</span><span class="stop-badge">여기서 반환</span></summary>
           <div class="body">
             <p><span class="tag hit">히트</span> 파일을 읽고 <b>수정일을 지금으로 갱신</b>한다 — LRU 삭제 순서에서 뒤로 밀린다.
-            저장된 바이트는 이미 다운샘플된 HEIC라 다운샘플 없이 디코딩만 하면 된다 — <code>Task.detached</code>(utility)에서 디코딩 후
+            저장된 바이트는 이미 다운샘플된 JPEG라 다운샘플 없이 디코딩만 하면 된다 — <code>Task.detached</code>(utility)에서 디코딩 후
             메모리 캐시로 승격하고 반환.</p>
             <p><span class="tag off">미스 / 디코딩 실패</span> 조용히 네트워크로 폴백한다. 파일이 없거나 손상돼도 에러를 내지 않는다 —
             OS가 Caches 폴더를 언제든 지울 수 있다는 전제로 짠 코드다.</p>
@@ -486,13 +501,13 @@
       <div class="step" data-id="process">
         <span class="dot">5</span>
         <details>
-          <summary><span class="t">다운샘플 + HEIC 인코딩</span><span class="s">Task.detached(.utility) — 액터 밖 CPU 작업</span></summary>
+          <summary><span class="t">다운샘플 + JPEG 인코딩</span><span class="s">Task.detached(.utility) — 액터 밖 CPU 작업</span></summary>
           <div class="body">
             <p><code>CGImageSourceCreateThumbnailAtIndex</code>로 원본 바이트를 <b>타깃 픽셀 크기로만</b> 디코딩한다.
             4000×3000 원본을 전부 펼치면 45MB(4000×3000×4바이트)지만, 360×360 셀에 필요한 건 0.5MB — 원본 비트맵은 메모리에 아예 생기지 않는다.</p>
-            <p>디코딩 시 EXIF 회전을 반영해 세로 사진이 눕지 않게 하고, 같은 클로저에서 HEIC로 재인코딩까지 마친다
+            <p>디코딩 시 EXIF 회전을 반영해 세로 사진이 눕지 않게 하고, 같은 클로저에서 JPEG로 재인코딩까지 마친다
             (디스크 저장용 — 같은 화질에서 JPEG보다 작다. 인코딩 실패는 <code>encodingFailed</code>.
-            HEIC 경로에서 알파 채널은 손실될 수 있는데, 불투명한 필름 사진 중심이라 v1에서 수용한 결정).
+            JPEG는 알파 채널을 담지 못하는데, 불투명한 필름 사진 중심이라 v1에서 수용한 결정).
             무거운 CPU 작업이라 액터 밖(<code>detached</code>, utility 우선순위)에서 실행해 로더가 다른 요청을 계속 받게 한다.</p>
           </div>
         </details>
@@ -503,10 +518,10 @@
         <details>
           <summary><span class="t">저장 후 반환</span><span class="s">디스크 store(+LRU 방출) · 메모리 insert(cost)</span><span class="stop-badge">여기서 반환</span></summary>
           <div class="body">
-            <p>HEIC 바이트는 디스크에(저장 직후 용량 초과분을 LRU로 방출), <code>UIImage</code>는 cost(<code>bytesPerRow × height</code>)와 함께
+            <p>JPEG 바이트는 디스크에(저장 직후 용량 초과분을 LRU로 방출), <code>UIImage</code>는 cost(<code>bytesPerRow × height</code>)와 함께
             메모리에 넣는다. 다음 요청부터는 1단계에서 끝난다.</p>
             <p><b>저장이 두 캐시에 각각인 이유</b> — "디스크에만 넣고 메모리는 승격으로 채우면 되지 않나" 싶지만,
-            디스크가 가진 건 HEIC 압축 바이트라 그 경로로 올리려면 방금 만든 이미지를 <b>다시 디코딩</b>해야 한다.
+            디스크가 가진 건 JPEG 압축 바이트라 그 경로로 올리려면 방금 만든 이미지를 <b>다시 디코딩</b>해야 한다.
             지금 손에 있는 <code>UIImage</code>를 바로 메모리에 넣으면 그 비용이 0이다.
             승격 경로는 "앱 재실행 뒤 디스크에서 처음 꺼낼 때"를 위한 것이다.</p>
           </div>
@@ -537,8 +552,8 @@
       <div class="lane-title">&nbsp;&nbsp;&nbsp;&nbsp;└ 같은 CGImage에서 갈라지는 저장 경로</div>
       <div class="lane-flow">
         <span class="chip">CGImage<small>다운샘플된 비트맵</small></span>
-        <span class="arrow"><b>ImageDataEncoder</b>HEIC 인코딩</span>
-        <span class="chip">Data<small>HEIC 바이트</small></span>
+        <span class="arrow"><b>ImageDataEncoder</b>JPEG 인코딩</span>
+        <span class="chip">Data<small>JPEG 바이트</small></span>
         <span class="arrow"><b>DiskImageCache.store</b>SHA256 파일명</span>
         <span class="chip">디스크 캐시 파일<small>Caches/CHALLAImageCache/ · 저장 직후 용량 검사 → 초과분 LRU 삭제</small></span>
       </div>
@@ -546,9 +561,9 @@
     <div class="lane">
       <div class="lane-title">디스크 경로 (재실행 후 첫 조회)</div>
       <div class="lane-flow">
-        <span class="chip">디스크 캐시 파일<small>이미 다운샘플된 HEIC</small></span>
+        <span class="chip">디스크 캐시 파일<small>이미 다운샘플된 JPEG</small></span>
         <span class="arrow"><b>DiskImageCache.data(for:)</b>파일 읽기 + 수정일 갱신(LRU)</span>
-        <span class="chip">Data<small>HEIC 바이트</small></span>
+        <span class="chip">Data<small>JPEG 바이트</small></span>
         <span class="arrow"><b>CGImageSource</b>디코딩만 (다운샘플 불필요)</span>
         <span class="chip">CGImage</span>
         <span class="arrow"><b>UIImage(cgImage:scale:)</b></span>
@@ -557,7 +572,7 @@
         <span class="chip">메모리 캐시 항목<small>다음 요청은 1단계 히트</small></span>
       </div>
     </div>
-    <p class="aside"><b>왜 디스크에는 UIImage가 아니라 HEIC 바이트를 저장하나</b> —
+    <p class="aside"><b>왜 디스크에는 UIImage가 아니라 압축 바이트를 저장하나</b> —
     메모리 캐시는 디코딩 비용이 0인 <code>UIImage</code>를, 디스크는 앱 재실행에도 살아남아야 하는 파일(<code>Data</code>)을 담는다.
     층마다 저장 타입이 다른 이유다. 디스크의 바이트는 저장 시점에 이미 타깃 크기라, 다시 읽을 때 다운샘플이 필요 없다.</p>
   </section>
@@ -575,7 +590,7 @@
 이미지 높이:            300줄      (height)
 cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대략적인 메모리 크기</pre>
     <p>디스크의 파일 용량과는 전혀 다른 값이다. 같은 이미지라도:</p>
-    <pre class="figure">디스크의 HEIC 파일         50KB   (압축된 크기 — DiskImageCache가 세는 값)
+    <pre class="figure">디스크의 JPEG 파일         50KB   (압축된 크기 — DiskImageCache가 세는 값)
 디코딩 후 메모리 비트맵    360KB   (펼쳐진 픽셀 크기 — MemoryImageCache가 세는 값 = cost)</pre>
 
     <h3>어디로 흘러가나</h3>
@@ -602,12 +617,12 @@ cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대�
     <pre class="figure">네트워크 경로 — 파이프라인 5단계(다운샘플 직후)에서 계산
               ProcessedImage(image, encodedData, cost)
                               │        │           └ memory.insert의 비용 신고
-                              │        └ 디스크 저장 (HEIC 바이트)
+                              │        └ 디스크 저장 (JPEG 바이트)
                               └ 화면 반환 + 메모리 캐시
 
 디스크 경로   — 파이프라인 3단계(디스크 히트를 디코딩한 직후)에서 계산
               CachedImage(image, cost)
-              — 디스크의 HEIC를 다시 펼쳤으니 메모리 비용도 다시 계산해서 승격에 사용</pre>
+              — 디스크의 JPEG를 다시 펼쳤으니 메모리 비용도 다시 계산해서 승격에 사용</pre>
     <p class="aside"><b>정리</b> — cost는 나중에 꺼내 쓰는 값이 아니라, 만들자마자 <code>memory.insert</code>로 넘겨
     메모리 캐시의 용량 관리(합산 → 상한 초과 시 LRU 방출)에 바로 쓰이는 값이다.
     상한(<code>memoryCostLimitBytes</code>, 기본은 기기 메모리의 10%) · 이미지별 신고값(cost) · 방출 시점과 순서까지 전부 이 모듈이 정하므로, 방출 동작을 테스트로 고정할 수 있다.</p>
@@ -832,6 +847,47 @@ cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대�
     <p class="section-note">PR <a href="https://github.com/DEV-CHALLA/CHALLA-iOS/pull/44">#44</a>에서 받은 지적과 반영 결과.
     이 문서의 정책 대부분이 여기서 다시 정해졌다.</p>
 
+    <div class="trouble">
+      <h3>디스크 저장 포맷이 HEIC였다 — 시뮬레이터에서 사진이 한 장도 뜨지 않았다</h3>
+      <p class="trouble-sub">#57(방 상세) 그리드에서 발견. 실행할 때마다 되기도 하고 안 되기도 해 원인 파악이 오래 걸렸다.</p>
+
+      <p class="trouble-label">멈춘 지점</p>
+<pre class="figure">다운로드 <em>OK</em>  →  축소(다운샘플) <em>OK</em>  →  HEIC 인코딩 <em>여기서 멈춤</em>  →  디스크 저장  →  이미지 반환
+                                                    │
+                                          이 한 덩어리가 끝나야
+                                          이미지가 나오므로
+                                          화면은 계속 placeholder</pre>
+
+      <p class="trouble-label">진단 근거</p>
+      <div class="twrap"><table>
+        <tr><th>관측</th><th>말해주는 것</th></tr>
+        <tr><td>로드 <b>시작 60건 · 완료 4건</b> (완료된 4건은 URL 없는 아바타)</td><td class="why">취소도 실패도 아니다 — <code>ImageLoader.image(...)</code>에서 응답이 없다</td></tr>
+        <tr><td>프로세스 스택에 <code>codecsessionpool</code> · <code>VCPHEVC.videocodec</code></td><td class="why">멈춘 곳이 비디오 코덱이다</td></tr>
+        <tr><td>캐시 폴더 <b>파일 0개</b> (빈 캐시로 시작해도)</td><td class="why">다운로드는 됐고 저장 직전에 멈췄다</td></tr>
+      </table></div>
+
+      <p class="trouble-label">원인</p>
+      <p>HEIC는 껍데기 이름이고, 실제 압축은 <b>HEVC(동영상 코덱)</b>가 한다. 그래서 인코딩·디코딩이 VideoToolbox의
+      <b>코덱 세션</b>(개수가 정해진 공유 자원)을 거친다. 시뮬레이터에는 하드웨어 HEVC가 없어 소프트웨어 경로로 우회하는데,
+      사진 여러 장을 동시에 인코딩하면 세션에서 서로 물려 멈춘다.</p>
+
+      <p class="trouble-label">해결</p>
+      <p>저장 포맷을 <b>JPEG(품질 0.9)</b>로 교체했다. JPEG는 코덱 세션 같은 공유 자원을 쓰지 않고 CPU에서 바로 끝난다.
+      4회 연속 실행에서 시작 60건 = 완료 60건으로 결정적으로 동작한다.</p>
+
+      <div class="twrap"><table>
+        <tr><th>바뀐 것</th><th>그대로인 것</th></tr>
+        <tr><td>디스크에 쓰는 바이트의 포맷 (HEIC → JPEG)</td><td class="why">2단 캐시 구조 · 캐시 키(URL + 픽셀 크기) · LRU 방출 · 만료 정리 · 중복 요청 병합</td></tr>
+        <tr><td>재실행 후 그 파일을 읽는 디코딩 경로</td><td class="why">서버에서 받는 원본 포맷 · 화면 표시(메모리의 UIImage) · 업로드 포맷</td></tr>
+      </table></div>
+
+      <p class="aside"><b>대가</b> 같은 화질에서 파일이 1.5~2배 커진다. 저장 대상이 화면 크기로 줄인 썸네일(장당 수~수십 KB)이고
+      디스크 상한이 500MB라 여유가 있다. 알파 채널을 담지 못하는 것은 기존 HEIC 경로도 같았다.<br>
+      <b>기기/시뮬레이터를 분기하지 않은 이유</b> 기기에서는 하드웨어 코덱이라 HEIC도 동작했을 가능성이 크지만,
+      개발 중에 재현되지 않는 차이를 남기면 같은 문제를 다시 만난다. 포맷을 유지한 채 "이미지를 먼저 돌려주고 인코딩·저장은 뒤에서" 하는
+      구조 개선도 가능하지만, 시뮬레이터의 느린 HEVC 자체는 그대로 남는다.</p>
+    </div>
+
     <div class="policies">
       <div class="policy">
         <h3>메모리 캐시가 OS 정책에 의존한다</h3>
@@ -892,7 +948,7 @@ cost = 1,200 × 300 = <em>360,000바이트</em>  ← 디코딩된 상태의 대�
       <div class="policy">
         <h3>인코더를 public으로 열어달라 <span class="rv-tag">받아들이지 않음</span></h3>
         <p class="rv-quote">internal이라 모듈 밖에서 재사용할 수 없어서 PR #45의 프로필 이미지 업로더에서 JPEG 인코딩을 별도 구현하고 있는 거 같아요. 포맷 정책이 두 곳으로 분산된 상태가 되어서…</p>
-        <p><b>판단</b> 열어도 못 쓴다. 이건 디스크 저장용 HEIC 인코더인데 업로드는 <code>image/jpeg·png·webp</code>만 허용하고 다르면 S3가 403을 낸다.
+        <p><b>판단</b> 열어도 못 쓴다. 이건 디스크 저장용 인코더인데 업로드는 <code>image/jpeg·png·webp</code>만 허용하고 다르면 S3가 403을 낸다.
         같은 정책이 흩어진 게 아니라 <b>로컬 저장 포맷과 서버 계약이라는 서로 다른 정책</b>이다. 대신 경계를 문서에 명시했다.</p>
         <p class="rv-meta">@k-nh · 코드 변경 없음</p>
       </div>
