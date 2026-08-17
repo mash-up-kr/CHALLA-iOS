@@ -104,8 +104,7 @@ xcrun simctl launch booted com.challa.camerafeature.demo --screen camera --state
 | `--screen` | `--state` | 대응 시안 |
 | :-- | :-- | :-- |
 | `camera` | `default` | FlashOff |
-| `camera` | `coach` | 진입 후 안내 1단계 (camera_snackBar_1) |
-| `camera` | `coach-2` | 안내 2단계 (camera_snackBar_2) |
+| `camera` | `coach` | 최초 진입 안내 (camera_snackBar_1 → "다음" → camera_snackBar_2) |
 | `camera` | `error` | 촬영 불가능 + 토스트 |
 
 인자를 주지 않으면 시나리오 목록이 뜬다.

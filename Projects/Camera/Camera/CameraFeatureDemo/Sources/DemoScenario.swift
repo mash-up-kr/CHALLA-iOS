@@ -12,10 +12,8 @@ struct DemoScenario: Equatable {
     enum State: String {
         case `default`
         case error
-        /// 진입 직후 — 뜸을 들인 뒤 안내 1단계(camera_snackBar_1)가 뜬다.
+        /// 최초 진입 — 뜸을 들인 뒤 안내 1단계가 뜨고, "다음"을 누르면 2단계로 이어진다.
         case coach
-        /// 안내 2단계(camera_snackBar_2)를 바로 띄운다.
-        case coach2
     }
 
     let screen: Screen
@@ -24,15 +22,13 @@ struct DemoScenario: Equatable {
     static let all: [DemoScenario] = [
         DemoScenario(screen: .camera, state: .default),
         DemoScenario(screen: .camera, state: .coach),
-        DemoScenario(screen: .camera, state: .coach2),
         DemoScenario(screen: .camera, state: .error)
     ]
 
     var label: String {
         switch (screen, state) {
         case (.camera, .default): "카메라"
-        case (.camera, .coach): "카메라 진입 — 안내 1단계 (camera_snackBar_1)"
-        case (.camera, .coach2): "카메라 — 안내 2단계 (camera_snackBar_2)"
+        case (.camera, .coach): "카메라 최초 진입 — 안내 (camera_snackBar_1 → 2)"
         case (.camera, .error): "카메라 — 촬영 불가 + 토스트"
         }
     }
@@ -76,15 +72,9 @@ extension DemoScenario {
 
     var featureState: CameraFeature.State {
         switch (screen, state) {
-        case (.camera, .default):
+        // 안내는 심지 않고 리듀서가 진입 시 스스로 띄우게 둔다 — 등장 연출과 단계 전환을 그대로 확인한다.
+        case (.camera, .default), (.camera, .coach):
             CameraFeature.State(flashMode: .off)
-
-        // 안내를 심지 않고 리듀서가 진입 시 스스로 띄우게 둔다 — 등장 연출까지 그대로 확인한다.
-        case (.camera, .coach):
-            CameraFeature.State(flashMode: .off)
-
-        case (.camera, .coach2):
-            CameraFeature.State(flashMode: .off, coachMark: .shutterCaution)
 
         case (.camera, .error):
             // 토스트 초기 노출 — 셔터를 누르지 않고도 시안 상태를 그대로 띄운다.

@@ -43,7 +43,7 @@ enum CompositionRoot {
 
     private static func cards(for scenario: DemoScenario) -> [RoomCard] {
         switch scenario.state {
-        case .default, .coach, .coach2:
+        case .default, .coach:
             return [
                 card(id: -1, title: "방이름방이름방이름1", remained: 6, total: 24),
                 card(id: -2, title: "방이름방이름방이름2", remained: 6, total: 24),
