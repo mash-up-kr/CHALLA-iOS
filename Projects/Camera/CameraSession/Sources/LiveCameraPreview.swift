@@ -4,13 +4,20 @@ import SwiftUI
 
 /// `CameraView`의 `preview` 슬롯에 주입하는 실기기 카메라 프리뷰.
 /// 세션 시작·정지는 이 뷰의 생명주기를 따르고, 카메라 전환·줌·필터는 `store` 상태 변화를 그대로 반영한다.
-struct LiveCameraPreview: View {
+///
+/// 권한은 여기서 묻지 않는다 — 이 화면에 들어왔다는 것은 진입 버튼이 이미 허용을 받아 뒀다는 뜻이다.
+public struct LiveCameraPreview: View {
 
-    let session: CameraSessionController
-    let store: StoreOf<CameraFeature>
+    private let session: CameraSessionController
+    private let store: StoreOf<CameraFeature>
 
-    var body: some View {
-        content
+    public init(session: CameraSessionController, store: StoreOf<CameraFeature>) {
+        self.session = session
+        self.store = store
+    }
+
+    public var body: some View {
+        CameraFilteredPreviewView(source: session)
             .task {
                 session.setPreviewFilter(id: store.selectedFilterID)
                 await session.start(position: store.cameraPosition)
@@ -28,28 +35,6 @@ struct LiveCameraPreview: View {
             // 선택 시점에 LUT가 아직 안 내려온 경우 — 등록이 끝나면 같은 필터를 다시 적용한다.
             .onChange(of: store.preparedFilterIDs) { _, _ in
                 session.setPreviewFilter(id: store.selectedFilterID)
-            }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        switch session.authorization {
-        case .authorized:
-            CameraFilteredPreviewView(source: session)
-        case .denied:
-            deniedMessage
-        case .notDetermined:
-            CameraPreviewPlaceholder()
-        }
-    }
-
-    private var deniedMessage: some View {
-        CameraPreviewPlaceholder()
-            .overlay {
-                Text("설정 앱에서 카메라 접근을 허용해주세요.")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 24)
             }
     }
 }

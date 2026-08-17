@@ -44,6 +44,9 @@ public struct CameraView<Preview: View>: View {
                     bottomSection
                 }
 
+                closeButton
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
                 toast
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
@@ -109,6 +112,26 @@ public struct CameraView<Preview: View>: View {
             .padding(.horizontal, CameraViewMetric.bottomHorizontalPadding)
             .padding(.bottom, CameraViewMetric.screenBottomPadding)
             .coachMarkDimmed(store.isCoachMarkPresented)
+        }
+    }
+
+    /// 촬영을 그만두고 돌아가는 길.
+    /// TODO: 시안에 이 버튼이 없다 — 위치·아이콘은 임의 배치이므로 디자이너 확인 후 확정할 것.
+    ///       (없으면 카메라에 들어온 뒤 빠져나갈 방법이 없어 임시로 둔다)
+    @ViewBuilder
+    private var closeButton: some View {
+        if !store.isCoachMarkPresented { // 안내 중에는 다른 조작을 막는 규칙을 따른다
+            Button {
+                send(.closeButtonTapped)
+            } label: {
+                CHALLAIcon.close.image(size: .size24, color: CHALLAColor.Label.normal)
+                    .frame(width: CameraViewMetric.closeButtonSize, height: CameraViewMetric.closeButtonSize)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("닫기")
+            .padding(.leading, CameraViewMetric.closeButtonLeading)
+            .padding(.top, CameraViewMetric.closeButtonTop)
         }
     }
 
@@ -188,6 +211,10 @@ private enum CameraViewMetric {
     static let bottomSpacing: CGFloat = 12
     static let bottomHorizontalPadding: CGFloat = 40
     static let toastTopInset: CGFloat = 112
+    /// 닫기 버튼 — 시안에 없어 임의 배치다 (`closeButton` TODO 참고).
+    static let closeButtonSize: CGFloat = 44
+    static let closeButtonLeading: CGFloat = 8
+    static let closeButtonTop: CGFloat = 4
     /// 안내 스낵바: 시안 366×50 @(12,752) — 좌우 12, 아래는 홈 인디케이터 세이프에어리어 안쪽 8.
     static let snackBarHorizontalMargin: CGFloat = 12
     static let snackBarBottomPadding: CGFloat = 8

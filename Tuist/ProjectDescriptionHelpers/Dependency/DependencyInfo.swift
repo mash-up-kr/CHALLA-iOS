@@ -102,6 +102,11 @@ public extension TargetDependency {
         target: "CameraFeature",
         path: .relativeToRoot("Projects/Camera/Camera/CameraFeature")
     )
+    /// 실기기 카메라 배선(AVFoundation). 실행 앱과 데모앱이 함께 쓴다.
+    static let cameraSession = TargetDependency.project(
+        target: "CameraSession",
+        path: .relativeToRoot("Projects/Camera/CameraSession")
+    )
 
     // MARK: - Notification
 

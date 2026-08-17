@@ -15,7 +15,7 @@ let project = Project.makeAppProject(
         "NSPhotoLibraryAddUsageDescription": .string("촬영한 사진을 저장하려면 사진첩 접근이 필요해요.")
     ],
     dependencies: [
-        .cameraFeature,
+        .cameraFeature, .cameraSession,
         .roomDomain, .roomData,
         .photoDomain, .photoData,
         .composableArchitecture

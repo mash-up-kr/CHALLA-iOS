@@ -1,27 +1,34 @@
 import CameraFeature
 import ComposableArchitecture
 
-/// `CameraFeature`를 감싸 `.delegate(.captureRequested)`를 실제 촬영·저장으로 잇는다.
-/// `CameraFeature` 자신은 카메라 하드웨어를 모른다 — 실 연동은 앱 조립 지점 몫이라는 설계를
-/// 데모앱에서 그대로 따른다 (CameraFeature.Action.Delegate 주석 참고).
+/// `CameraFeature`를 감싸 `delegate(.captureRequested)`를 실제 촬영·저장으로 잇는다.
+///
+/// `CameraFeature` 자신은 카메라 하드웨어를 모른다 — 실 연동은 조립 지점 몫이라는 설계 때문에,
+/// 실행 앱과 데모앱이 똑같이 필요한 이 배선만 따로 모아 둔다.
 @Reducer
-struct CameraDemoFeature {
+public struct LiveCameraFeature {
 
     @ObservableState
-    struct State: Equatable {
-        var camera: CameraFeature.State
+    public struct State: Equatable {
+        public var camera: CameraFeature.State
+
+        public init(camera: CameraFeature.State) {
+            self.camera = camera
+        }
     }
 
-    enum Action {
+    public enum Action {
         case camera(CameraFeature.Action)
-        /// 촬영·저장 실패를 기존 토스트 UI로 보여주기 위한 데모 전용 액션.
+        /// 촬영·저장 실패를 카메라 화면의 토스트로 보여주기 위한 내부 액션.
         case captureFailed(String)
     }
+
+    public init() {}
 
     @Dependency(\.cameraSession) var cameraSession
     @Dependency(\.continuousClock) var clock
 
-    var body: some ReducerOf<Self> {
+    public var body: some ReducerOf<Self> {
         Scope(state: \.camera, action: \.camera) {
             CameraFeature()
         }
@@ -29,7 +36,7 @@ struct CameraDemoFeature {
             switch action {
             case let .camera(.delegate(.captureRequested(roomID, filterID))):
                 let flashMode = state.camera.flashMode
-                return .run { send in
+                return .run { [cameraSession] send in // 비-Sendable self 대신 의존성 값만 캡처
                     do {
                         let jpegData = try await cameraSession.captureAndSavePhoto(
                             flashMode: flashMode,
@@ -62,11 +69,14 @@ struct CameraDemoFeature {
     private static let toastDuration: Duration = .seconds(3)
 }
 
+// MARK: - 카메라 세션 주입
+
+/// 리듀서와 프리뷰 뷰가 같은 세션을 봐야 해서 `@Dependency`로 한 인스턴스를 공유한다.
 private enum CameraSessionDependencyKey: DependencyKey {
     static let liveValue = CameraSessionController()
 }
 
-extension DependencyValues {
+public extension DependencyValues {
     var cameraSession: CameraSessionController {
         get { self[CameraSessionDependencyKey.self] }
         set { self[CameraSessionDependencyKey.self] = newValue }

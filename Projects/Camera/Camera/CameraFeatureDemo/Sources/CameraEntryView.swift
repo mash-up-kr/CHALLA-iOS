@@ -1,4 +1,5 @@
 import CameraFeature
+import CameraSession
 import ComposableArchitecture
 import PhotoDomain
 import RoomDomain
@@ -52,16 +53,16 @@ struct CameraEntryView: View {
     }
 
     private func cameraScreen(rooms: [ShootableRoom], filters: [CameraFilter]) -> some View {
-        let demoStore = Store(
-            initialState: CameraDemoFeature.State(
+        let liveStore = Store(
+            initialState: LiveCameraFeature.State(
                 camera: scenario.featureState(rooms: rooms, filters: filters)
             )
         ) {
-            CameraDemoFeature()._printChanges()
+            LiveCameraFeature()._printChanges()
         } withDependencies: {
             CompositionRoot.registerDependencies(for: scenario, into: &$0)
         }
-        let cameraStore = demoStore.scope(state: \.camera, action: \.camera)
+        let cameraStore = liveStore.scope(state: \.camera, action: \.camera)
 
         return CameraView(store: cameraStore) {
             LiveCameraPreview(session: cameraSession, store: cameraStore)

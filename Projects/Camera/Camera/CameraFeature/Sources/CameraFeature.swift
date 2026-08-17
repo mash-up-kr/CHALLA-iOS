@@ -93,6 +93,7 @@ public struct CameraFeature {
             case roomSelectionDismissed
             case roomSelected(ShootableRoom.ID)
             case coachMarkActionTapped
+            case closeButtonTapped
         }
 
         case view(ViewAction)
@@ -114,6 +115,8 @@ public struct CameraFeature {
             /// 셔터가 눌렸고 촬영이 허용된 상태. 조립 지점이 하드웨어 촬영 후
             /// `captureCompleted`로 JPEG을 되돌려주면 업로드까지 이어진다.
             case captureRequested(roomID: ShootableRoom.ID, filterID: CameraFilter.ID)
+            /// 촬영을 그만두고 이전 화면으로 돌아간다. 어디로 돌아갈지는 App이 정한다.
+            case closeRequested
         }
 
         case delegate(Delegate)
@@ -162,6 +165,9 @@ public struct CameraFeature {
                     return .none
                 }
                 return .send(.delegate(.captureRequested(roomID: roomID, filterID: filterID)))
+
+            case .view(.closeButtonTapped):
+                return .send(.delegate(.closeRequested))
 
             case .view(.zoomBadgeTapped):
                 state.zoom.cycle()

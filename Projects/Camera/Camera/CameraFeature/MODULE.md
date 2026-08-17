@@ -7,7 +7,7 @@
 
 ## 지금 구현 범위
 
-**UI·필터(LUT)·서버 연동까지 구현돼 있다.** AVFoundation 캡처만 조립 지점 몫이다.
+**UI·필터(LUT)·서버 연동까지 구현돼 있다.** AVFoundation 캡처는 `CameraSession` 모듈이 붙인다.
 
 - **방 목록·필터 목록은 이 화면이 조회하지 않는다.** 진입 버튼(홈의 촬영 버튼 · 방 상세의 사진 찍기)을
   누른 시점에 부르는 쪽이 미리 받아 두고, 둘 다 성공했을 때만 `State(rooms:filters:)`로 넘기며 들어온다.
@@ -25,7 +25,7 @@
   `CameraFilteredPreviewView`(Metal 렌더러)에 `CameraPreviewFrameSource` 구현을 물려 넣는다.
 - 셔터를 눌러 촬영이 허용되면 `Action.Delegate.captureRequested(roomID:filterID:)`가 나간다.
   **필터 없는 촬영은 없다** — 진입 시 첫 필터가 자동 선택된다.
-  하드웨어 캡처는 이 delegate를 받는 쪽(App 또는 데모앱)이 수행하고, 결과 JPEG을
+  하드웨어 캡처는 이 delegate를 받는 쪽(`CameraSession`의 `LiveCameraFeature`)이 수행하고, 결과 JPEG을
   `Action.captureCompleted(roomID:filterID:jpegData:)`로 되돌려주면 리듀서가
   `UploadPhotoUseCase`(발급→스토리지 PUT→완료 통보)로 업로드한다. 응답의 `remainedPhotoCount`로
   그 방의 남은 장수를 갱신하고, 0이면 촬영을 막는다. 실패는 토스트로 알린다.
@@ -89,7 +89,7 @@ DS에 없는 형태(52pt 원형 아이콘 버튼, 44pt 알약 방 버튼)만 이
 ## 의존
 
 - 의존하는 모듈: `CHALLADesignSystem`, `ComposableArchitecture`, `RoomDomain`, `PhotoDomain`
-- 이 모듈에 의존하는 모듈: `CameraFeatureDemo` (추후 `CHALLAApp`)
+- 이 모듈에 의존하는 모듈: `CameraSession`(실기기 배선) · `CHALLAApp` · `CameraFeatureDemo`
 
 ## 테스트
 
@@ -116,10 +116,9 @@ xcrun simctl launch booted com.challa.camerafeature.demo --screen camera --state
 인자를 주지 않으면 시나리오 목록이 뜬다.
 FlashOn·SelectRoom은 아직 인자로 띄우지 못한다 — 목록에서 들어간 뒤 직접 눌러 확인한다.
 
-데모앱은 실기기 카메라를 실제로 붙인다 (`CameraSessionController` — `AVCaptureSession` 구성,
-LUT 프리뷰 프레임 공급(`CameraPreviewFrameSource` 구현), 촬영본 필터 적용,
-`delegate(.captureRequested)`를 받아 사진첩 Add-only 저장 후 `captureCompleted`로 되돌림).
-시뮬레이터에서는 프리뷰 자리에 `CameraPreviewPlaceholder`가 그대로 남는다.
+실기기 카메라 배선은 실행 앱과 공유한다 (`CameraSession` 모듈 — `LiveCameraFeature`가
+`delegate(.captureRequested)`를 받아 촬영·사진첩 저장 후 `captureCompleted`로 되돌리고,
+`LiveCameraPreview`가 `preview` 슬롯을 채운다). 시뮬레이터에는 카메라가 없어 프리뷰가 비어 보인다.
 
 진입 경로도 실앱과 같은 모양으로 재현한다 — `CameraEntryView`가 카메라를 띄우기 전에
 방·필터 목록을 먼저 받고, 둘 다 성공했을 때만 `CameraView`로 넘어간다(실패하면 그 자리에서 알린다).

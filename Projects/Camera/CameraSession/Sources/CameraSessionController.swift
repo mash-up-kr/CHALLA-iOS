@@ -1,33 +1,28 @@
 @preconcurrency import AVFoundation
 import CameraFeature
 import CoreImage
-import Observation
 import os
 import PhotoDomain
 
-/// 데모앱 전용 실기기 카메라 세션. `AVCaptureSession` 구성·필터 프리뷰·촬영·사진첩 저장을 전담한다.
+/// 실기기 카메라 세션. `AVCaptureSession` 구성·필터 프리뷰·촬영·사진첩 저장을 전담한다.
+/// 실행 앱(`CHALLAApp`)과 데모앱이 같은 인스턴스 구성을 쓴다.
 ///
 /// 프리뷰는 `AVCaptureVideoDataOutput` 프레임에 LUT(`CameraFilterCatalog`)를 입혀
 /// `onPreviewImage`(feature의 `CameraPreviewFrameSource` 통로)로 내보낸다.
 ///
 /// 스레드 규칙: 세션 구성·입력 교체·촬영은 `sessionQueue`, 프레임 콜백·프리뷰 LUT는 `videoQueue`
 /// 에서만 처리한다 (Apple 권장 — 메인 스레드에서 하면 프리뷰가 멎는다).
-@Observable
-final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchecked Sendable {
+public final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchecked Sendable {
 
-    enum Authorization: Equatable {
-        case notDetermined
-        case authorized
-        case denied
+    public let session = AVCaptureSession()
+
+    override public init() {
+        super.init()
     }
-
-    let session = AVCaptureSession()
-
-    private(set) var authorization: Authorization = .notDetermined
 
     /// LUT가 적용된 프리뷰 프레임 콜백. `videoQueue`에서 불린다 — 소비자(렌더러)가 스레드를 넘긴다.
     /// 등록·해제(메인)와 호출(`videoQueue`)의 스레드가 달라 락으로 보호한다.
-    var onPreviewImage: (@Sendable (CIImage) -> Void)? {
+    public var onPreviewImage: (@Sendable (CIImage) -> Void)? {
         get { onPreviewImageState.withLock { $0 } }
         set { onPreviewImageState.withLock { $0 = newValue } }
     }
@@ -36,8 +31,8 @@ final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchec
 
     // AVFoundation이 GCD를 직접 요구해 async/await로 대체할 수 없는 예외다 —
     // 세션 구성은 전용 시리얼 큐 사용이 Apple 권장이고, 프레임 콜백은 setSampleBufferDelegate(_:queue:)가 큐를 받는다.
-    private let sessionQueue = DispatchQueue(label: "com.challa.camerafeaturedemo.session")
-    private let videoQueue = DispatchQueue(label: "com.challa.camerafeaturedemo.video")
+    private let sessionQueue = DispatchQueue(label: "com.challa.camerasession.session")
+    private let videoQueue = DispatchQueue(label: "com.challa.camerasession.video")
     private let photoOutput = AVCapturePhotoOutput()
     private let videoOutput = AVCaptureVideoDataOutput()
     private var currentInput: AVCaptureDeviceInput?
@@ -45,11 +40,9 @@ final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchec
     /// 프리뷰 프레임에 입힐 LUT. `videoQueue` 전용 — 교체도 큐로 넘겨서 락 없이 안전하다.
     private var previewLUT: (CIFilter & CIColorCubeWithColorSpace)?
 
-    func start(position: CameraPosition) async {
-        let granted = await requestAccessIfNeeded()
-        await MainActor.run { authorization = granted ? .authorized : .denied }
-        guard granted else { return }
-
+    /// 세션을 구성하고 돌리기 시작한다. 권한은 진입 버튼이 이미 받아 둔 것을 전제로 한다 —
+    /// 허용되지 않은 채로 부르면 입력이 붙지 않아 검은 화면이 남는다.
+    public func start(position: CameraPosition) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             sessionQueue.async { [self] in
                 configureSessionIfNeeded()
@@ -62,7 +55,7 @@ final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchec
         }
     }
 
-    func stop() {
+    public func stop() {
         sessionQueue.async { [session] in
             if session.isRunning {
                 session.stopRunning()
@@ -70,13 +63,13 @@ final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchec
         }
     }
 
-    func setCameraPosition(_ position: CameraPosition) {
+    public func setCameraPosition(_ position: CameraPosition) {
         sessionQueue.async { [self] in
             updateInput(position: position)
         }
     }
 
-    func setZoomFactor(_ factor: CGFloat) {
+    public func setZoomFactor(_ factor: CGFloat) {
         sessionQueue.async { [self] in
             guard let device = currentInput?.device else { return }
             let clamped = min(max(factor, device.minAvailableVideoZoomFactor), device.maxAvailableVideoZoomFactor)
@@ -87,7 +80,7 @@ final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchec
     }
 
     /// 프리뷰에 실시간으로 입힐 필터를 바꾼다. nil이면 원본 그대로.
-    func setPreviewFilter(id: CameraFilter.ID?) {
+    public func setPreviewFilter(id: CameraFilter.ID?) {
         videoQueue.async { [self] in
             previewLUT = id.flatMap { CameraFilterCatalog.lutFilter(id: $0) }
         }
@@ -96,7 +89,7 @@ final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchec
     /// 촬영 후 선택 필터를 입힌 JPEG을 사진첩(Add-only)에 저장하고 그 JPEG을 돌려준다 —
     /// 호출부가 업로드로 잇는다. `PHPhotoLibraryAddOnly` 권한만
     /// 요구한다 — 추가만 하면 되므로 `PhotoLibrary` 모듈의 읽기·선택 권한(`.readWrite`)까지는 필요 없다.
-    func captureAndSavePhoto(flashMode: CameraFlashMode, filterID: CameraFilter.ID) async throws -> Data {
+    public func captureAndSavePhoto(flashMode: CameraFlashMode, filterID: CameraFilter.ID) async throws -> Data {
         let data = try await capturePhotoData(flashMode: flashMode)
         let filtered = CameraFilterCatalog.filteredJPEG(from: data, filterID: filterID) ?? data
         try await PhotoLibrarySaver.save(jpegData: filtered)
@@ -113,14 +106,6 @@ final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchec
                 }
                 photoOutput.capturePhoto(with: settings, delegate: self)
             }
-        }
-    }
-
-    private func requestAccessIfNeeded() async -> Bool {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized: true
-        case .notDetermined: await AVCaptureDevice.requestAccess(for: .video)
-        default: false
         }
     }
 
@@ -181,7 +166,7 @@ final class CameraSessionController: NSObject, CameraPreviewFrameSource, @unchec
 
 extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate {
 
-    func captureOutput(
+    public func captureOutput(
         _: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from _: AVCaptureConnection
@@ -198,7 +183,7 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
 
 extension CameraSessionController: AVCapturePhotoCaptureDelegate {
 
-    func photoOutput(
+    public func photoOutput(
         _: AVCapturePhotoOutput,
         didFinishProcessingPhoto photo: AVCapturePhoto,
         error: Error?
@@ -216,10 +201,10 @@ extension CameraSessionController: AVCapturePhotoCaptureDelegate {
     }
 }
 
-enum CameraSessionError: LocalizedError {
+public enum CameraSessionError: LocalizedError {
     case noImageData
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         "촬영한 사진 데이터를 만들지 못했어요."
     }
 }
