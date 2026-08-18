@@ -15,7 +15,7 @@ extension FetchRoomDetailUseCase: TestDependencyKey {
             async let info = repository.roomInfo(id: id)
             async let members = repository.members(roomID: id)
 
-            // 기다림은 이 한 줄에서 끝난다. RoomDetail 조립 자체는 동기다.
+            // 병렬로 시작한 두 호출이 모두 끝나기를 기다린다.
             let (roomInfo, memberList) = try await (info, members)
 
             return RoomDetail(

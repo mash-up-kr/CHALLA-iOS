@@ -1,6 +1,6 @@
 import ComposableArchitecture
 import PhotoDomain
-import RoomData // 앱 조립 지점이라 Data를 직접 import 한다 (아키텍처 규칙 2의 예외)
+import RoomData
 import RoomDomain
 
 /// 의존성 조립 지점 — 데모앱에서 유일하게 Data 구현체를 만드는 곳.
@@ -25,6 +25,7 @@ enum CompositionRoot {
         values.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
             DemoSamples.photos(count: DemoSamples.photoCount(for: state))
         })
-        // 복사는 실제 클립보드에 쓴다 — 데모에서 붙여넣기까지 확인할 수 있다.
+        // copyToPasteboard는 등록하지 않는다 — liveValue(실제 클립보드)가 그대로 쓰여
+        // 데모에서 복사 후 붙여넣기까지 확인할 수 있다.
     }
 }

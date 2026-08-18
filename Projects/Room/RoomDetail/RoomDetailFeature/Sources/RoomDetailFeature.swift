@@ -105,7 +105,7 @@ public struct RoomDetailFeature {
             case let .detailResponse(.success(detail)):
                 state.detailLoad = .loaded
                 state.detail = detail
-                // 서버가 준 최신 방 정보로 갱신 — 홈에서 받은 값이 그 사이 낡았을 수 있다.
+                // 홈에서 받은 방은 목록 조회 시점의 값이라, 방금 조회한 상세 응답의 값으로 덮는다.
                 state.room = detail.room
                 return .none
 
