@@ -81,6 +81,13 @@ enum CompositionRoot {
                 clearImageCache: clearImageCache
             )
         )
+
+        #if DEBUG
+            // 버전 체크 API 연동 전까지 강제 업데이트 화면을 눈으로 확인하는 유일한 방법이다.
+            if ProcessInfo.processInfo.arguments.contains("--force-update") {
+                values.appUpdateClient.checkRequirement = { .forced }
+            }
+        #endif
     }
 
     /// 갱신 전용 클라이언트에 얹는다 — 인증 헤더도 재시도도 붙이지 않는다.
