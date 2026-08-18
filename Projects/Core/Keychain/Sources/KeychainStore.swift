@@ -64,7 +64,6 @@ public final class KeychainStore: Keychain {
         }
     }
 
-    /// 항목이 없을 때의 첫 저장.
     /// `service` 안의 항목을 키를 몰라도 전부 지운다 — 로그아웃·재설치 초기화용.
     public func deleteAll() throws {
         let query: [String: Any] = [ // account를 빼면 service 전체가 매칭된다
@@ -79,6 +78,7 @@ public final class KeychainStore: Keychain {
         }
     }
 
+    /// 항목이 없을 때의 첫 저장.
     private func add(_ data: Data, for key: String) throws {
         var query = baseQuery(for: key)
         query.merge(attributesToWrite(data)) { _, new in new }
