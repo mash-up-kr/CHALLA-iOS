@@ -15,18 +15,27 @@
 
 | 단계 | 다음 |
 | :-- | :-- |
-| `launching` | 프로필 조회 성공 → `home` 또는 `profileSetup` / 실패 → `login` |
+| `launching` | 버전 체크 → 강제 업데이트 필요 시 `forceUpdate` / 불필요 시 프로필 조회 → `home` 또는 `profileSetup` / 실패 → `login` |
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `home` |
 | `home` | 설정 버튼 → `setting` |
 | `setting` | `backRequested` → `home` / `editProfileRequested` → `profileEdit` / `signedOut`·`accountDeleted` → `login` |
 | `profileEdit` | `editCompleted` → `setting`(새 State) / `cancelled` → `setting` |
+| `forceUpdate` | **나가는 전이 없음** — 앱 업데이트만 가능 |
 
 `setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을 표시하는데
 뒤로 나올 때 재조회 없이 바로 그려야 한다.
 
 편집 저장 후에는 `SettingFeature.State`를 **새로 만든다.** `onAppear`가 `profile == nil`일 때만
 조회하므로, 그래야 헤더가 바뀐 닉네임을 다시 읽는다.
+
+### 버전 체크와 강제 업데이트
+
+실행 직후 `AppUpdateClient.checkRequirement()`로 버전을 체크한다. 체크 실패는 **fail-open 정책**으로 `.notRequired`로 취급해
+정상 진행하고, 강제 업데이트 필요 시만 `forceUpdate` state에 멈춘다. `forceUpdate`는 **terminal state**이다 —
+앱을 업데이트하거나 종료해야만 벗어난다.
+
+`AppUpdateClient`는 현재 API 미연동이며, 스펙 확정 시 `AppDomain`(UseCase) + `AppData`(Repository)로 이전할 예정이다.
 
 ## 어댑터 (`Sources/Adapters/`)
 
