@@ -229,6 +229,15 @@ struct AppFeatureTests {
         await store.finish()
     }
 
+    @Test("이미 화면에 진입한 뒤 task가 다시 와도 버전 체크를 반복하지 않는다")
+    func ignoresTaskAfterLeavingLaunching() async {
+        // checkRequirement를 주입하지 않는다 — 가드가 뚫리면 unimplemented로 실패한다.
+        let store = Self.store(initialState: .home(AppFeature.HomeScreen(profile: Fixture.profile)))
+
+        await store.send(.task)
+        await store.finish()
+    }
+
     @Test("버전 체크 실패는 앱을 막지 않는다 — 통과로 접고 프로필 조회를 진행한다")
     func failsOpenWhenUpdateCheckThrows() async {
         struct VersionCheckError: Error {}

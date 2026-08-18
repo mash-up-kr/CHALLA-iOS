@@ -126,6 +126,8 @@ public struct AppFeature {
         Reduce { state, action in
             switch action {
             case .task:
+                // 버전 체크는 실행 직후 1회다 — 뷰 재생성으로 task가 다시 와도 재검사하지 않는다.
+                guard case .launching = state else { return .none }
                 return checkAppUpdate()
 
             case .updateCheckResponse(.notRequired):
