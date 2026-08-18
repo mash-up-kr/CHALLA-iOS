@@ -220,6 +220,8 @@ extension AppFeature {
         Reduce { state, action in
             switch action {
             case .task:
+                // 버전 체크는 실행 직후 1회다 — 뷰 재생성으로 task가 다시 와도 재검사하지 않는다.
+                guard case .launching = state else { return .none }
                 return checkAppUpdate()
 
             // 세션 복원은 버전 체크를 통과한 뒤에 시작한다 — 강제 업데이트 화면에서는 아무것도 조회하지 않는다.
