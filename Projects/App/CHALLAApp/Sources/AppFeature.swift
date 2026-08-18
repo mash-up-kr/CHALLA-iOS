@@ -21,6 +21,10 @@ public struct AppFeature {
         case setting(SettingScreen)
         case profileEdit(ProfileEditScreen)
 
+        /// 강제 업데이트. 여기서 나가는 전이는 없다 — 앱을 지우거나 업데이트해야 끝난다.
+        /// 연관값이 없는 이유: 알럿 문구는 상수고, 스토어 주소는 `AppUpdateClient`가 준다.
+        case forceUpdate
+
         /// 화면 전환만 식별한다 — 자식 State 변화(닉네임 입력 등)에는 반응하지 않는다.
         public var screenID: ScreenID {
             switch self {
@@ -30,11 +34,12 @@ public struct AppFeature {
             case .home: return .home
             case .setting: return .setting
             case .profileEdit: return .profileEdit
+            case .forceUpdate: return .forceUpdate
             }
         }
 
         public enum ScreenID: Equatable, Sendable {
-            case launching, login, profileSetup, home, setting, profileEdit
+            case launching, login, profileSetup, home, setting, profileEdit, forceUpdate
         }
     }
 
@@ -96,6 +101,11 @@ public struct AppFeature {
         case home(HomeFeature.Action)
         case setting(SettingFeature.Action)
         case profileEdit(ProfileSetupFeature.Action)
+
+        /// 버전 체크 결과. 실패는 여기 오기 전에 `.notRequired`로 접힌다 (fail-open).
+        case updateCheckResponse(AppUpdateRequirement)
+        /// 강제 업데이트 알럿의 '확인'.
+        case forceUpdateConfirmTapped
     }
 
     // MARK: - Init
@@ -107,6 +117,8 @@ public struct AppFeature {
     @Dependency(\.fetchMyProfileUseCase) var fetchMyProfileUseCase
     @Dependency(\.continuousClock) var clock
     @Dependency(\.pushTokenSynchronizer) var pushTokenSynchronizer
+    @Dependency(\.appUpdateClient) var appUpdateClient
+    @Dependency(\.openURL) var openURL
 
     // MARK: - Body
 
@@ -114,15 +126,30 @@ public struct AppFeature {
         Reduce { state, action in
             switch action {
             case .task:
+                return checkAppUpdate()
+
+            case .updateCheckResponse(.notRequired):
                 return fetchMyProfile()
 
+            case .updateCheckResponse(.forced):
+                // 여기서 나가는 전이는 없다. 업데이트해야만 앱을 쓸 수 있다.
+                state = .forceUpdate
+                return .none
+
+            case .forceUpdateConfirmTapped:
+                guard let url = appUpdateClient.appStoreURL() else { return .none }
+                return .run { [openURL] _ in await openURL(url) }
+
             case let .profileResponse(.success(profile)):
+                // 늦게 도착한 프로필 응답이 강제 업데이트 화면을 덮지 못하게 하는 방어선.
+                guard case .launching = state else { return .none }
                 state = profile.isProfileCompleted
                     ? .home(HomeScreen(profile: profile))
                     : .profileSetup(ProfileSetupFeature.State())
                 return .none
 
             case .profileResponse(.failure):
+                guard case .launching = state else { return .none }
                 // 미로그인(401)도 조회 실패도 결론은 같다 — 로그인부터 다시.
                 state = .login(LoginFeature.State())
                 return .none
@@ -212,7 +239,18 @@ public struct AppFeature {
         }
     }
 
-    private enum CancelID { case profile }
+    private enum CancelID { case profile, updateCheck }
+
+    /// 실행 직후 1회 버전 체크.
+    /// 실패는 `.notRequired`로 접는다 — 체크 서버가 죽었다고 전 사용자 앱을 스플래시에 가둘 수는 없다.
+    private func checkAppUpdate() -> Effect<Action> {
+        .run { [appUpdateClient] send in
+            // 취소되면 send 자체가 무시되므로 try? 가 취소를 .notRequired 로 오인해도 화면이 진행되지 않는다.
+            let requirement = await (try? appUpdateClient.checkRequirement()) ?? .notRequired
+            await send(.updateCheckResponse(requirement))
+        }
+        .cancellable(id: CancelID.updateCheck, cancelInFlight: true)
+    }
 
     /// 저절로 풀릴 수 있는 실패가 이어질 때의 재시도 정책.
     private enum RetryBackoff {
