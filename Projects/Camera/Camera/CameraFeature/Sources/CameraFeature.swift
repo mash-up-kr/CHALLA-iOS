@@ -239,7 +239,7 @@ public struct CameraFeature {
         }
     }
 
-    func upload(
+    private func upload(
         jpegData: Data,
         roomID: ShootableRoom.ID,
         filterID: CameraFilter.ID
@@ -259,7 +259,7 @@ public struct CameraFeature {
 
     /// 최초 진입이면 잠깐 뜸을 들였다가 안내 1단계를 띄운다.
     /// 이미 본 적 있거나(기기 기록) 이번 화면에서 이미 시작했으면 아무것도 하지 않는다.
-    func startCoachMark(_ state: inout State) -> Effect<Action> {
+    private func startCoachMark(_ state: inout State) -> Effect<Action> {
         guard !state.hasStartedCoachMark else { return .none }
         state.hasStartedCoachMark = true
         return .run { [shouldShowCoachMark, clock] send in
@@ -271,13 +271,13 @@ public struct CameraFeature {
     }
 
     /// 안내를 끝까지 본 것으로 기록한다. 실패 개념이 없어 화면에 알리지 않는다.
-    func markCoachMarkAsSeen() -> Effect<Action> {
+    private func markCoachMarkAsSeen() -> Effect<Action> {
         .run { [markCoachMarkSeen] _ in
             await markCoachMarkSeen.run()
         }
     }
 
-    func dismissToastAfterDelay() -> Effect<Action> {
+    private func dismissToastAfterDelay() -> Effect<Action> {
         .run { [clock] send in // 비-Sendable self 대신 의존성 값만 캡처
             try await clock.sleep(for: Self.toastDuration)
             await send(.toastDismissed)
@@ -285,9 +285,9 @@ public struct CameraFeature {
         .cancellable(id: CancelID.toast, cancelInFlight: true)
     }
 
-    enum CancelID { case toast, coachMark }
+    private enum CancelID { case toast, coachMark }
 
-    static var toastDuration: Duration {
+    private static var toastDuration: Duration {
         .seconds(3)
     }
 }
