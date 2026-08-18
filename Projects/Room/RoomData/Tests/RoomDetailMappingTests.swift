@@ -7,11 +7,10 @@ import Testing
 struct RoomDetailMappingTests {
 
     private static func dto(
-        id: Int64? = 7,
         createdAt: String = "2026-08-01T10:00:00"
     ) -> RoomDetailResponseDTO.Payload {
         RoomDetailResponseDTO.Payload(
-            id: id,
+            id: 7,
             title: "제주 우정 여행",
             status: .shooting,
             totalPhotoCount: 24,
@@ -23,25 +22,18 @@ struct RoomDetailMappingTests {
         )
     }
 
-    @Test("서버가 id를 주면 그 값을 쓴다")
-    func usesServerID() throws {
-        let (room, code) = try Self.dto(id: 7).toDomain(requestedID: 99)
+    @Test("응답의 필드가 방 정보와 초대 코드로 옮겨진다")
+    func mapsRoomInfo() throws {
+        let (room, code) = try Self.dto().toDomain()
 
         #expect(room.id == 7)
         #expect(code == "1928121")
     }
 
-    @Test("서버가 id를 비우면 요청 id로 메꾼다")
-    func fallsBackToRequestedID() throws {
-        let (room, _) = try Self.dto(id: nil).toDomain(requestedID: 99)
-
-        #expect(room.id == 99)
-    }
-
     @Test("필수 날짜가 계약과 다르면 .unknown을 던진다 — 목록 매핑과 같은 정책")
     func rejectsMalformedRequiredDate() {
         #expect(throws: RoomError.unknown) {
-            _ = try Self.dto(createdAt: "2026/08/01 10:00").toDomain(requestedID: 7)
+            _ = try Self.dto(createdAt: "2026/08/01 10:00").toDomain()
         }
     }
 

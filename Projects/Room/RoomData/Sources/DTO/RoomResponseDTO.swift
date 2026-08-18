@@ -39,9 +39,7 @@ struct RoomDetailResponseDTO: Decodable, Sendable {
     let room: Payload
 
     struct Payload: Decodable, Sendable {
-        /// 서버 스키마상 이 응답의 id만 nullable이다 (목록 응답은 필수). 매핑이 요청 id로 메꾼다.
-        /// TODO: 백엔드 확인 — 상세 응답의 id가 실제로 null일 수 있는지, 스키마 실수라면 필수로 교정 요청.
-        let id: Int64?
+        let id: Int64
         let title: String
         let status: RoomStatusDTO
         let totalPhotoCount: Int

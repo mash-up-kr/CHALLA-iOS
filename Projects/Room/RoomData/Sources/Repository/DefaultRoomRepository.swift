@@ -55,7 +55,7 @@ public struct DefaultRoomRepository: RoomRepository {
                 RoomEndpoint.detail(id: id),
                 as: BaseResponseDTO<RoomDetailResponseDTO>.self
             )
-            return try response.unwrap().room.toDomain(requestedID: id)
+            return try response.unwrap().room.toDomain()
         } catch {
             throw RoomError.normalized(error)
         }

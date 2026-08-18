@@ -56,8 +56,6 @@
   UserData 복사본 — CHALLANetwork 공통화는 #51 진행 중), 요청·응답 DTO, `RoomStatusDTO`
   (모르는 상태 값은 디코딩 실패를 택한다). 날짜는 `String`으로 받는다 — 공용 디코더에 날짜 규칙을
   설정하면 다른 도메인 API까지 영향을 받아 매핑에서만 파싱한다
-  - 상세 응답(`RoomDetailResponseDTO`)만 id가 nullable — 스키마 특이점, 매핑이 요청 id로
-    메꾼다 (백엔드 확인 TODO)
 - `Endpoint/RoomEndpoint` — rooms(배열 쿼리) · create · join · detail · members 선언. 전부 `.bearer`
 - `Mapping/` — `toDomain()`(DTO→RoomCard·RoomDetail), `ServerDate`(소수점 초 자릿수만 다른 3형식
   파싱 — 마이크로초 6·밀리초 3·생략. 타임존 표기 없이 UTC로 내려온다, 백엔드 확정 2026-08-13),
@@ -86,7 +84,7 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
   재조회 실패 시 `.unknown`, 404·409 잠정 매핑, 상세·참여자의 경로·응답 매핑과 404→`.roomNotFound`
 - `RoomCardMappingTests` — 필드 이동·`shotPhotoCount` 계산, 상태 3종 1:1, 날짜 3형식 파싱,
   필수 날짜 위반 시 `.unknown`, 인화 시각 관대 처리, 깨진 썸네일 URL 걸러내기
-- `RoomDetailMappingTests` — 서버 id 사용 / id nil이면 요청 id로 메꿈 / 필수 날짜 정책 동일 /
+- `RoomDetailMappingTests` — 상세 응답 필드 이동 / 필수 날짜 정책 동일 /
   참여자 매핑(닉네임 nil 통과·깨진 URL 버림)
 - `InMemoryRoomRepositoryTests` — 시작 목록 순서 유지, 생성 시 서버 몫 값을 저장소가 채우는지
   (id 음수 표식 포함), 만든 방이 목록에 남고 최근 방이 맨 앞, 입장 인원 증가 반영,
