@@ -15,7 +15,7 @@
 
 | 단계 | 다음 |
 | :-- | :-- |
-| `launching` | 저장 세션 없음 → `login` / 있으면 프로필 조회 → 성공 시 `home`·`profileSetup`, 실패 시 `login` |
+| `launching` | 버전 체크 → 강제 업데이트 필요 시 `forceUpdate` / 불필요 시 저장 세션 없음 → `login`, 있으면 프로필 조회 → 성공 시 `home`·`profileSetup`, 실패 시 `login` |
 | (모든 화면) | 세션 만료 알림 → `login` (이미 `login`이면 무시) |
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `home` |
@@ -24,6 +24,7 @@
 | `photoDetail` | `closeRequested` → `roomDetail`(새 State — 돌아가면 사진·리액션을 새로 조회) |
 | `setting` | `backRequested` → `home` / `editProfileRequested` → `profileEdit` / `signedOut`·`accountDeleted` → `login` |
 | `profileEdit` | `editCompleted` → `setting`(새 State) / `cancelled` → `setting` |
+| `forceUpdate` | **나가는 전이 없음** — 앱 업데이트만 가능 |
 
 `roomDetail`·`photoDetail`·`setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을
 표시하는데 뒤로 나올 때 재조회 없이 바로 그려야 한다. `photoDetail`은 복귀할 방(`Room`)도 함께 맡아 둔다.
@@ -36,7 +37,7 @@
 
 ## 자동 로그인 · 토큰 갱신
 
-`AppFeature.task`가 두 가지를 동시에 시작한다.
+버전 체크를 통과하면 `AppFeature`가 두 가지를 동시에 시작한다.
 
 1. **자동 로그인** — `RestoreSessionUseCase`로 저장된 세션을 먼저 확인한다.
    없으면 프로필 조회를 아예 보내지 않고 `login`으로 간다 (비로그인 상태에서 실패할 요청을 재시도 백오프까지
@@ -51,6 +52,14 @@
 **401 자동 갱신은 `CompositionRoot`가 배선한다** — 요청용 클라이언트에 `TokenRefreshRetrier`를 달고,
 갱신 자체는 **retrier 없는 별도 클라이언트**로 보낸다. 같은 클라이언트를 쓰면 갱신 요청의 401이
 다시 갱신을 부르는 재귀에 빠진다. `refreshTokenUseCase` 의존성도 이 갱신 전용 클라이언트를 공유한다.
+
+## 버전 체크와 강제 업데이트
+
+실행 직후 `AppUpdateClient.checkRequirement()`로 버전을 체크한다. 체크 실패는 **fail-open 정책**으로 `.notRequired`로 취급해
+정상 진행하고, 강제 업데이트 필요 시만 `forceUpdate` state에 멈춘다. `forceUpdate`는 **terminal state**이다 —
+앱을 업데이트하거나 종료해야만 벗어난다.
+
+`AppUpdateClient`는 현재 API 미연동이며, 스펙 확정 시 `AppDomain`(UseCase) + `AppData`(Repository)로 이전할 예정이다.
 
 ## 어댑터 (`Sources/Adapters/`)
 
