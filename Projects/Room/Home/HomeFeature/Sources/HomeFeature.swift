@@ -139,6 +139,7 @@ public struct HomeFeature {
     @Dependency(\.fetchRoomsUseCase) var fetchRoomsUseCase
     @Dependency(\.fetchShootableRoomsUseCase) var fetchShootableRoomsUseCase
     @Dependency(\.fetchCameraFiltersUseCase) var fetchCameraFiltersUseCase
+    @Dependency(\.prepareCameraFiltersUseCase) var prepareCameraFiltersUseCase
     @Dependency(\.requestCameraPermissionUseCase) var requestCameraPermissionUseCase
     @Dependency(\.openCameraSettingsUseCase) var openCameraSettingsUseCase
     @Dependency(\.photoLibraryPermission) var photoLibraryPermission
@@ -258,7 +259,7 @@ public struct HomeFeature {
         case prepareShoot
     }
 
-    /// 촬영에 필요한 네 가지를 한꺼번에 받는다 — 방 목록·필터 목록·카메라 권한·사진첩 저장 권한.
+    /// 촬영에 필요한 것을 한꺼번에 받는다 — 방 목록·필터(목록과 LUT)·카메라 권한·사진첩 저장 권한.
     /// 권한 창이 뜨는 동안에도 조회는 계속 나가므로, 사용자가 허용을 누를 때쯤이면 목록이 이미 와 있다.
     ///
     /// 하나라도 어긋나면 카메라로 넘어가지 않는다 — 반쪽짜리 화면을 띄우지 않기 위해서다.
@@ -266,20 +267,35 @@ public struct HomeFeature {
     /// 저장 권한 없이 들어가면 셔터를 누르는 족족 실패한다.
     /// 권한 거절을 조회 실패보다 먼저 보는 이유: 조회가 실패해도 사용자가 먼저 할 일은 권한 허용이다.
     private func prepareShoot(roomID: Room.ID) -> Effect<Action> {
-        .run { [fetchShootableRoomsUseCase, fetchCameraFiltersUseCase, requestCameraPermissionUseCase, photoLibraryPermission] send in
+        // 비-Sendable self 대신 의존성 값만 넘긴다 (캡처 목록에 다 적으면 한 줄에 들어가지 않는다).
+        let fetchRooms = fetchShootableRoomsUseCase
+        let fetchFilters = fetchCameraFiltersUseCase
+        let prepareLUTs = prepareCameraFiltersUseCase
+        let requestCamera = requestCameraPermissionUseCase
+        let requestPhotoLibrary = photoLibraryPermission
+
+        return .run { send in
             /// 시스템 권한 팝업은 한 번에 하나만 뜬다 — 카메라를 먼저 묻고 이어서 사진첩을 묻는다.
             @Sendable func requestPermissions() async -> ShootPreparationError? {
-                guard await requestCameraPermissionUseCase.run() else { return .cameraPermissionDenied }
+                guard await requestCamera.run() else { return .cameraPermissionDenied }
                 // 저장만 하면 되므로 읽기 권한(.readWrite)까지는 요구하지 않는다.
-                guard await photoLibraryPermission.request(.addOnly).allowsSaving else {
+                guard await requestPhotoLibrary.request(.addOnly).allowsSaving else {
                     return .photoLibraryPermissionDenied
                 }
                 return nil
             }
 
+            /// 목록만으로는 촬영을 시작할 수 없다 — LUT까지 받아야 필터가 실제로 먹는다.
+            /// 카메라 화면에서 받으면 필터 띠가 한동안 반쪽으로 뜨므로 여기서 함께 기다린다.
+            @Sendable func prepareFilters() async throws -> [CameraFilter] {
+                let filters = try await fetchFilters.run()
+                try await prepareLUTs.run(filters)
+                return filters
+            }
+
             async let denial = requestPermissions()
-            async let rooms = fetchShootableRoomsUseCase.run()
-            async let filters = fetchCameraFiltersUseCase.run()
+            async let rooms = fetchRooms.run()
+            async let filters = prepareFilters()
 
             do {
                 let entry = try await CameraEntry(roomID: roomID, rooms: rooms, filters: filters)

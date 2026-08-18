@@ -8,8 +8,11 @@ import PhotoDomain
 /// 서버에서 내려받은 필름 LUT의 등록소. 필터 목록·파일은 서버가 주고(`PhotoDomain`),
 /// 여기는 내려받은 .cube 원자료를 파싱해 CoreImage 재료로 바꿔 보관만 한다.
 ///
+/// 등록은 카메라 화면에 들어가기 전에 끝난다 — 진입 버튼이 `PrepareCameraFiltersUseCase`에
+/// 이 타입의 `register`를 넘겨 주고, 전부 등록됐을 때만 화면으로 넘어간다.
+///
 /// `CameraFilter`(리듀서 상태)는 표시 정보(이름)만 다루고, 실제 색 변환은 조립 지점
-/// (데모앱·추후 CHALLAApp)의 카메라 세션이 이 카탈로그로 id를 LUT에 매핑해서 수행한다 —
+/// (데모앱·CHALLAApp)의 카메라 세션이 이 카탈로그로 id를 LUT에 매핑해서 수행한다 —
 /// 리듀서·뷰는 CoreImage를 모른다.
 public enum CameraFilterCatalog {
 

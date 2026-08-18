@@ -245,37 +245,6 @@ struct CameraFeatureDataFlowTests {
         #expect(state.captureAvailability == .noCardsLeft)
     }
 
-    @Test("진입하면 받아 온 필터들의 LUT를 내려받아 준비 완료로 표시한다")
-    func prepareLUTsOnEntry() async throws {
-        let filter = try CameraFeatureTestFixtures.filter(name: "필터1")
-        let store = TestStore(initialState: CameraFeatureTestFixtures.state(filters: [filter])) {
-            CameraFeature()
-        } withDependencies: {
-            $0.loadFilterLUTUseCase.run = { _ in Data(CameraFeatureTestFixtures.validCubeText.utf8) }
-            $0.shouldShowCameraCoachMarkUseCase.run = { false }
-        }
-
-        await store.send(.view(.task)) { $0.hasStartedCoachMark = true }
-        await store.receive(.filterLUTPrepared(filter.id)) {
-            $0.preparedFilterIDs = [filter.id]
-        }
-    }
-
-    @Test("LUT 파일이 깨져 있으면 그 필터만 준비 없이 남는다 — 목록·선택은 그대로다")
-    func brokenLUTLeavesFilterUnprepared() async throws {
-        let filter = try CameraFeatureTestFixtures.filter(name: "깨진필터")
-        let store = TestStore(initialState: CameraFeatureTestFixtures.state(filters: [filter])) {
-            CameraFeature()
-        } withDependencies: {
-            $0.loadFilterLUTUseCase.run = { _ in Data("깨진 파일".utf8) }
-            $0.shouldShowCameraCoachMarkUseCase.run = { false }
-        }
-
-        await store.send(.view(.task)) { $0.hasStartedCoachMark = true }
-        // filterLUTPrepared가 오지 않아야 한다 — TestStore가 남은 액션 없이 끝나는 것으로 검증된다.
-        #expect(store.state.selectedFilterID == filter.id)
-    }
-
     @Test("필터를 고르면 선택이 바뀐다")
     func filterSelection() async {
         let store = TestStore(initialState: .fixture()) {
@@ -421,11 +390,6 @@ enum CameraFeatureTestFixtures {
     static let filters: [CameraFilter] = ["필터1", "필터2", "필터3"].compactMap { name in
         URL(string: "https://test.invalid/\(name).cube")
             .map { CameraFilter(name: name, fileURL: $0) }
-    }
-
-    static func filter(name: String) throws -> CameraFilter {
-        let fileURL = try #require(URL(string: "https://test.invalid/\(name).cube"))
-        return CameraFilter(name: name, fileURL: fileURL)
     }
 
     /// 2×2×2 최소 크기의 정상 .cube 텍스트 (8행 × RGB).

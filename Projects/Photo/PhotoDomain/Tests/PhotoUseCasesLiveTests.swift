@@ -1,4 +1,5 @@
 import Foundation
+import os
 import PhotoDomain
 import Testing
 
@@ -29,20 +30,47 @@ struct FetchCameraFiltersUseCaseLiveTests {
     }
 }
 
-@Suite("LoadFilterLUTUseCase.live")
-struct LoadFilterLUTUseCaseLiveTests {
+@Suite("PrepareCameraFiltersUseCase.live")
+struct PrepareCameraFiltersUseCaseLiveTests {
 
-    @Test("요청한 필터의 LUT 바이트를 돌려준다")
-    func returnsLUTData() async throws {
-        let filter = try #require(CameraFilter.previewFilters.first)
+    @Test("넘긴 필터를 빠짐없이 내려받아 등록한다")
+    func registersEveryFilter() async throws {
+        let filters = CameraFilter.previewFilters
         let lut = Data("LUT_3D_SIZE 2".utf8)
         let repository = MockCameraFilterRepository(lutDataResult: .success(lut))
-        let useCase = LoadFilterLUTUseCase.live(repository: repository)
+        let registered = OSAllocatedUnfairLock<[CameraFilter.ID: Data]>(initialState: [:])
+        let useCase = PrepareCameraFiltersUseCase.live(repository: repository) { data, id in
+            registered.withLock { $0[id] = data }
+            return true
+        }
 
-        let result = try await useCase.run(filter)
+        try await useCase.run(filters)
 
-        #expect(result == lut)
-        #expect(repository.lutRequests == [filter])
+        let expected = Dictionary(uniqueKeysWithValues: filters.map { ($0.id, lut) })
+        #expect(repository.lutRequests.map(\.id).sorted() == filters.map(\.id).sorted())
+        #expect(registered.withLock { $0 } == expected)
+    }
+
+    @Test("다운로드가 하나라도 실패하면 던진다 — 진입 버튼이 이 오류로 카메라를 막는다")
+    func throwsWhenDownloadFails() async {
+        let useCase = PrepareCameraFiltersUseCase.live(
+            repository: MockCameraFilterRepository(lutDataResult: .failure(.network))
+        ) { _, _ in true }
+
+        await #expect(throws: PhotoError.network) {
+            try await useCase.run(CameraFilter.previewFilters)
+        }
+    }
+
+    @Test("파일이 깨져 등록에 실패해도 던진다")
+    func throwsWhenRegistrationFails() async {
+        let useCase = PrepareCameraFiltersUseCase.live(
+            repository: MockCameraFilterRepository(lutDataResult: .success(Data("깨진 파일".utf8)))
+        ) { _, _ in false }
+
+        await #expect(throws: PhotoError.unknown) {
+            try await useCase.run(CameraFilter.previewFilters)
+        }
     }
 }
 

@@ -14,9 +14,6 @@ public struct CameraFeature {
         public var selectedRoomID: ShootableRoom.ID?
         public var filters: IdentifiedArrayOf<CameraFilter>
         public var selectedFilterID: CameraFilter.ID?
-        /// LUT 다운로드·등록까지 끝난 필터. 조립 지점(데모앱·CHALLAApp)이 이 집합의 변화를 보고
-        /// 프리뷰 필터를 다시 적용한다 — 선택 시점에 LUT가 아직 안 내려온 경우를 잡는다.
-        public var preparedFilterIDs: Set<CameraFilter.ID>
         public var flashMode: CameraFlashMode
         public var cameraPosition: CameraPosition
         public var zoom: CameraZoom
@@ -34,14 +31,13 @@ public struct CameraFeature {
         ///
         /// - Parameters:
         ///   - rooms: 촬영 가능한 방 목록 (`GET /rooms/shootable`).
-        ///   - filters: 서버 필터 목록 (`GET /shoots/camera-filters`). LUT 파일은 이 화면이 내려받는다.
+        ///   - filters: 서버 필터 목록 (`GET /shoots/camera-filters`). LUT까지 준비된 상태로 들어온다.
         ///   - selectedRoomID: 들어온 경로가 방을 지정할 때 넘긴다 (방 상세 → 사진 찍기). nil이면 첫 방.
         public init(
             rooms: IdentifiedArrayOf<ShootableRoom>,
             filters: IdentifiedArrayOf<CameraFilter>,
             selectedRoomID: ShootableRoom.ID? = nil,
             selectedFilterID: CameraFilter.ID? = nil,
-            preparedFilterIDs: Set<CameraFilter.ID> = [],
             flashMode: CameraFlashMode = .off,
             cameraPosition: CameraPosition = .back,
             zoom: CameraZoom = CameraZoom(),
@@ -54,7 +50,6 @@ public struct CameraFeature {
             self.selectedRoomID = selectedRoomID ?? rooms.first?.id
             self.filters = filters
             self.selectedFilterID = selectedFilterID ?? filters.first?.id
-            self.preparedFilterIDs = preparedFilterIDs
             self.flashMode = flashMode
             self.cameraPosition = cameraPosition
             self.zoom = zoom
@@ -105,8 +100,6 @@ public struct CameraFeature {
         /// 진입 후 안내를 띄우기까지의 뜸. 최초 진입이 아니면 오지 않는다.
         case coachMarkDelayElapsed
 
-        /// LUT가 카탈로그에 등록됐다 — 실패한 필터는 이 액션이 오지 않고 무보정 통과로 남는다.
-        case filterLUTPrepared(CameraFilter.ID)
         /// 조립 지점이 하드웨어 촬영을 마치고 결과 JPEG을 돌려주는 통로.
         /// 방·필터는 `delegate(.captureRequested)`에 실었던 값을 그대로 되돌려 받는다 —
         /// 업로드 중 사용자가 방을 바꿔도 촬영 당시의 방으로 올라간다.
@@ -131,7 +124,6 @@ public struct CameraFeature {
     public init() {}
 
     @Dependency(\.continuousClock) var clock
-    @Dependency(\.loadFilterLUTUseCase) var loadFilterLUT
     @Dependency(\.uploadPhotoUseCase) var uploadPhoto
     @Dependency(\.shouldShowCameraCoachMarkUseCase) var shouldShowCoachMark
     @Dependency(\.markCameraCoachMarkSeenUseCase) var markCoachMarkSeen
@@ -140,7 +132,7 @@ public struct CameraFeature {
         Reduce { state, action in
             switch action {
             case .view(.task):
-                return .merge(prepareLUTs(for: state.filters), startCoachMark(&state))
+                return startCoachMark(&state)
 
             case .coachMarkDelayElapsed:
                 state.coachMark = .first
@@ -211,10 +203,6 @@ public struct CameraFeature {
                 state.isRoomSelectionPresented = false
                 return .none
 
-            case let .filterLUTPrepared(filterID):
-                state.preparedFilterIDs.insert(filterID)
-                return .none
-
             // 촬영본을 받은 시점에 셔터를 다시 연다 — 업로드가 끝날 때까지 기다리면
             // 서버 왕복 동안 다음 장을 못 찍는다.
             case let .captureCompleted(roomID, filterID, jpegData):
@@ -248,22 +236,6 @@ public struct CameraFeature {
             case .delegate:
                 return .none
             }
-        }
-    }
-
-    /// 받아 온 필터들의 LUT를 한꺼번에 내려받아 등록한다.
-    func prepareLUTs(for filters: IdentifiedArrayOf<CameraFilter>) -> Effect<Action> {
-        .merge(filters.map(prepareLUT))
-    }
-
-    /// LUT 하나를 내려받아 카탈로그에 등록한다. 실패해도 화면은 계속 쓸 수 있어야 하므로
-    /// (그 필터만 무보정 통과) 오류를 사용자에게 알리지 않고 삼킨다.
-    func prepareLUT(_ filter: CameraFilter) -> Effect<Action> {
-        .run { [loadFilterLUT] send in
-            guard let data = try? await loadFilterLUT.run(filter),
-                  CameraFilterCatalog.register(cubeData: data, for: filter.id)
-            else { return }
-            await send(.filterLUTPrepared(filter.id))
         }
     }
 

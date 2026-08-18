@@ -5,7 +5,7 @@ import PhotoLibrary
 import RoomDomain
 import Testing
 
-/// 촬영 뱃지를 눌렀을 때의 준비 흐름 — 목록 조회와 카메라 권한이 모두 갖춰져야 카메라로 넘어간다.
+/// 촬영 뱃지를 눌렀을 때의 준비 흐름 — 목록·필터 LUT·권한이 모두 갖춰져야 카메라로 넘어간다.
 @MainActor
 @Suite("HomeFeature 촬영 진입")
 struct HomeShootEntryTests {
@@ -22,7 +22,8 @@ struct HomeShootEntryTests {
         isPermitted: Bool = true,
         photoAuthorization: PhotoLibraryAuthorization = .authorized,
         rooms: @escaping @Sendable () async throws -> [ShootableRoom] = { shootableRooms },
-        filters: @escaping @Sendable () async throws -> [CameraFilter] = { filters }
+        filters: @escaping @Sendable () async throws -> [CameraFilter] = { filters },
+        prepareFilters: @escaping @Sendable ([CameraFilter]) async throws -> Void = { _ in }
     ) -> TestStoreOf<HomeFeature> {
         var state = HomeFeature.State(nickname: "찰나")
         state.cards = [card]
@@ -32,6 +33,7 @@ struct HomeShootEntryTests {
         } withDependencies: {
             $0.fetchShootableRoomsUseCase.run = rooms
             $0.fetchCameraFiltersUseCase.run = filters
+            $0.prepareCameraFiltersUseCase.run = prepareFilters
             $0.requestCameraPermissionUseCase.run = { isPermitted }
             $0.photoLibraryPermission.request = { _ in photoAuthorization }
         }
@@ -123,6 +125,37 @@ struct HomeShootEntryTests {
             $0.preparingShootRoomID = nil
             $0.destination = .alert(failure.alert)
         }
+    }
+
+    @Test("LUT를 못 받으면 카메라로 넘어가지 않는다 — 필터가 안 먹는 화면을 띄우지 않는다")
+    func blocksWhenLUTPreparationFails() async {
+        let store = Self.makeStore(prepareFilters: { _ in throw PhotoError.network })
+
+        await store.send(.view(.shootButtonTapped(Self.card.id))) {
+            $0.preparingShootRoomID = Self.card.id
+        }
+
+        let failure = ShootPreparationError.loadFailed(message: PhotoError.network.userMessage)
+        await store.receive(\.shootPreparationResponse.failure) {
+            $0.preparingShootRoomID = nil
+            $0.destination = .alert(failure.alert)
+        }
+    }
+
+    @Test("필터 목록을 받은 뒤에 그 목록으로 LUT를 준비한다")
+    func preparesLUTsForFetchedFilters() async {
+        let prepared = LockIsolated<[CameraFilter]>([])
+        let store = Self.makeStore(prepareFilters: { prepared.setValue($0) })
+
+        await store.send(.view(.shootButtonTapped(Self.card.id))) {
+            $0.preparingShootRoomID = Self.card.id
+        }
+        await store.receive(\.shootPreparationResponse.success) {
+            $0.preparingShootRoomID = nil
+        }
+        await store.receive(\.delegate.cameraRequested)
+
+        #expect(prepared.value == Self.filters)
     }
 
     @Test("권한도 없고 조회도 실패하면 권한 안내를 먼저 보여준다 — 사용자가 먼저 할 일이라서")

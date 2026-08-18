@@ -31,7 +31,8 @@
 ### Interface (`Sources/Interface/` — 구현: PhotoData)
 
 - `protocol CameraFilterRepository` — `filters() -> [CameraFilter]` · `lutData(for:) -> Data`
-  - LUT 파싱·CoreImage 변환은 호출부(화면 조립) 몫 — Domain·Data는 색 변환 기술을 모른다
+  - LUT 파싱·CoreImage 변환은 호출부(화면 조립) 몫 — Domain·Data는 색 변환 기술을 모른다.
+    `PrepareCameraFiltersUseCase`가 그 호출부의 `register`를 받아 다운로드와 이어 붙인다
 - `protocol PhotoUploader` — `upload(jpegData:roomID:filterName:) -> Int`(그 방의 남은 장수)
   - 서명 URL 발급 → 스토리지 PUT → 완료 통보의 다단계 절차를 한 호출로 감춘다
     (`ProfileImageUploader`와 같은 구조)
@@ -45,7 +46,9 @@
 ### UseCases (`@DependencyClient` — `liveValue` 없음)
 
 - `FetchCameraFiltersUseCase` (`\.fetchCameraFiltersUseCase`) — 필터 목록 조회 (`-> [CameraFilter]`)
-- `LoadFilterLUTUseCase` (`\.loadFilterLUTUseCase`) — 필터 하나의 LUT 원본 바이트 (`-> Data`)
+- `PrepareCameraFiltersUseCase` (`\.prepareCameraFiltersUseCase`) — 필터들의 LUT를 모두 내려받아 등록.
+  하나라도 실패하면 던진다 — 진입 버튼이 이 결과로 카메라 진입 여부를 정한다.
+  파싱·등록은 Domain이 모르는 색 변환 영역이라 `live(repository:register:)`로 주입받는다
 - `UploadPhotoUseCase` (`\.uploadPhotoUseCase`) — 사진 업로드 후 남은 장수 (`-> Int`)
 - `ShouldShowCameraCoachMarkUseCase` (`\.shouldShowCameraCoachMarkUseCase`) — 카메라 최초 진입인지 (`-> Bool`)
 - `MarkCameraCoachMarkSeenUseCase` (`\.markCameraCoachMarkSeenUseCase`) — 안내를 끝까지 본 것으로 기록

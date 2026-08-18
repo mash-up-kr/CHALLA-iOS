@@ -13,7 +13,6 @@ struct CameraFeatureCoachMarkTests {
             CameraFeature()
         } withDependencies: {
             $0.continuousClock = clock
-            $0.loadFilterLUTUseCase.run = { _ in Data() } // 안내만 보는 테스트라 LUT 등록은 통과시킨다
             $0.shouldShowCameraCoachMarkUseCase.run = { true }
         }
 
@@ -29,7 +28,6 @@ struct CameraFeatureCoachMarkTests {
             CameraFeature()
         } withDependencies: {
             $0.continuousClock = clock
-            $0.loadFilterLUTUseCase.run = { _ in Data() } // 안내만 보는 테스트라 LUT 등록은 통과시킨다
             $0.shouldShowCameraCoachMarkUseCase.run = { false }
         }
 
@@ -62,7 +60,6 @@ struct CameraFeatureCoachMarkTests {
             CameraFeature()
         } withDependencies: {
             $0.continuousClock = clock
-            $0.loadFilterLUTUseCase.run = { _ in Data() } // 안내만 보는 테스트라 LUT 등록은 통과시킨다
             $0.shouldShowCameraCoachMarkUseCase.run = {
                 showCallCount.withValue { $0 += 1 }
                 return true

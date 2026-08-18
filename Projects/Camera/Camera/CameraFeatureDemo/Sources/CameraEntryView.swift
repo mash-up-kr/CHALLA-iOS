@@ -6,7 +6,7 @@ import RoomDomain
 import SwiftUI
 
 /// 카메라 화면으로 들어가는 길목. 실앱의 진입 버튼(홈·방 상세)이 하는 일을 데모에서 대신한다 —
-/// 방·필터 목록을 먼저 받아 두고, 둘 다 성공했을 때만 카메라 화면을 띄운다.
+/// 방 목록과 필터(목록·LUT)를 먼저 받아 두고, 전부 성공했을 때만 카메라 화면을 띄운다.
 /// 하나라도 실패하면 카메라로 넘어가지 않고 이 자리에서 알린다.
 struct CameraEntryView: View {
 
@@ -69,7 +69,7 @@ struct CameraEntryView: View {
         }
     }
 
-    /// 두 목록을 나란히 받는다 — 실앱의 진입 버튼도 같은 방식으로 한 번에 기다린다.
+    /// 방 목록과 필터를 나란히 받는다 — 실앱의 진입 버튼도 같은 방식으로 한 번에 기다린다.
     private func load() async {
         guard case .loading = phase else { return }
 
@@ -79,10 +79,18 @@ struct CameraEntryView: View {
             // 주입을 갈아끼운 뒤에 꺼내야 한다 — 뷰의 저장 프로퍼티로 두면 생성 시점 값이 잡힌다.
             @Dependency(\.fetchShootableRoomsUseCase) var fetchShootableRooms
             @Dependency(\.fetchCameraFiltersUseCase) var fetchCameraFilters
+            @Dependency(\.prepareCameraFiltersUseCase) var prepareCameraFilters
+
+            /// LUT까지 받아 둬야 카메라 화면의 필터 띠가 처음부터 온전하다.
+            @Sendable func preparedFilters() async throws -> [CameraFilter] {
+                let filters = try await fetchCameraFilters.run()
+                try await prepareCameraFilters.run(filters)
+                return filters
+            }
 
             do {
                 async let rooms = fetchShootableRooms.run()
-                async let filters = fetchCameraFilters.run()
+                async let filters = preparedFilters()
                 phase = try await .loaded(rooms: rooms, filters: filters)
             } catch let error as RoomError {
                 phase = .failed(error.userMessage)

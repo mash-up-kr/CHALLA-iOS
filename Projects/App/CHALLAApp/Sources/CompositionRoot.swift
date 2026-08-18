@@ -1,5 +1,6 @@
 import AuthData
 import AuthDomain
+import CameraFeature // CameraFilterCatalog — 진입 전에 LUT를 등록해 둔다
 import CHALLANetwork
 import ComposableArchitecture
 import FirebaseMessaging // 델리게이트 콜백 전에도 이미 발급된 토큰을 물어볼 수 있다
@@ -116,7 +117,10 @@ enum CompositionRoot {
         let cameraPermission = SystemCameraPermissionProvider()
 
         values.fetchCameraFiltersUseCase = .live(repository: filterRepository)
-        values.loadFilterLUTUseCase = .live(repository: filterRepository)
+        values.prepareCameraFiltersUseCase = .live(
+            repository: filterRepository,
+            register: CameraFilterCatalog.register(cubeData:for:)
+        )
         values.uploadPhotoUseCase = .live(uploader: uploader)
         values.shouldShowCameraCoachMarkUseCase = .live(repository: onboarding)
         values.markCameraCoachMarkSeenUseCase = .live(repository: onboarding)

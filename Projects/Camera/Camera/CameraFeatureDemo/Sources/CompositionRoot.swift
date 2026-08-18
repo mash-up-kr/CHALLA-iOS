@@ -1,3 +1,4 @@
+import CameraFeature // CameraFilterCatalog — 진입 전에 LUT를 등록해 둔다
 import ComposableArchitecture
 import Foundation
 import PhotoData // 앱 조립 지점이라 Data를 직접 import 한다 (아키텍처 규칙 2의 예외)
@@ -21,7 +22,10 @@ enum CompositionRoot {
             lutDataByName: Self.mockLUTData
         )
         values.fetchCameraFiltersUseCase = .live(repository: filterRepository)
-        values.loadFilterLUTUseCase = .live(repository: filterRepository)
+        values.prepareCameraFiltersUseCase = .live(
+            repository: filterRepository,
+            register: CameraFilterCatalog.register(cubeData:for:)
+        )
 
         let uploader = InMemoryPhotoUploader(
             remainedPhotoCounts: remainedPhotoCounts(for: scenario)
