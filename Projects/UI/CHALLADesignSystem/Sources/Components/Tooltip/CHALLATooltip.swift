@@ -15,14 +15,17 @@ public struct CHALLATooltip: View {
 
     /// 앵커 기준 툴팁이 놓이는 방향 (시안 `position`).
     /// 화살표는 반대편 모서리에 붙어 앵커를 가리킨다.
+    ///
+    /// `leading`/`trailing`은 LTR 기준으로만 그린다 — 화살표 패스가 절대 x좌표로 계산돼
+    /// RTL에서 뒤집히지 않는다. RTL을 지원하게 되면 `TooltipShape`도 함께 손봐야 한다.
     public enum Position: Sendable {
-        /// top — 앵커 위. 화살표가 아래 모서리에서 아래를 가리킨다.
+        /// top — 앵커 위. 화살표가 bottom 모서리에서 아래를 가리킨다.
         case top
-        /// bottom — 앵커 아래. 화살표가 위 모서리에서 위를 가리킨다.
+        /// bottom — 앵커 아래. 화살표가 top 모서리에서 위를 가리킨다.
         case bottom
-        /// left — 앵커 왼쪽. 화살표가 trailing 모서리에서 오른쪽을 가리킨다.
+        /// leading — 앵커 leading 쪽. 화살표가 trailing 모서리에서 앵커를 가리킨다.
         case leading
-        /// right — 앵커 오른쪽. 화살표가 leading 모서리에서 왼쪽을 가리킨다.
+        /// trailing — 앵커 trailing 쪽. 화살표가 leading 모서리에서 앵커를 가리킨다.
         case trailing
 
         /// 화살표가 붙는 모서리 (툴팁이 놓이는 방향의 반대편).
@@ -37,7 +40,7 @@ public struct CHALLATooltip: View {
     }
 
     /// 화살표가 모서리를 따라 붙는 위치 (시안 `align`).
-    /// 가로 모서리에서는 leading=왼쪽, 세로 모서리에서는 leading=위다.
+    /// 가로 모서리에서는 leading이 왼쪽(LTR 기준), 세로 모서리에서는 위다.
     public enum ArrowAlignment: Sendable {
         case leading
         case center

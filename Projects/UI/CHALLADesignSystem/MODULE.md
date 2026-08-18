@@ -165,3 +165,5 @@ AppView(store: store)
   - `CHALLAHitTargetTests` — 44pt 터치 타깃 인셋 계산
   - `CHALLAPrintCardTests` · `CHALLAProfileBarTests` — 더보기·넘침 수량(`+N`) 경계값
   - `CHALLATooltipTests` — 툴팁 패스 기하 (방향별 화살표 돌출·정렬 좌표, union 겹침 구멍, rect 경계)
+  - `CHALLATooltipLayoutTests` — 툴팁을 실제로 레이아웃해서 최소 폭 64 유지 · 여러 줄 문구의
+    측정 높이와 배치 높이 일치(배경 밖 글자 넘침 회귀) · 폭 상한 줄바꿈을 잰다
