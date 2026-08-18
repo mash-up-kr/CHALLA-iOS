@@ -39,7 +39,7 @@ jobs:
   lint-build-test:
     name: Lint · Build · Test
     runs-on: macos-15
-    timeout-minutes: 45 # 전체 빌드+테스트가 30분을 넘기 시작함 (#54에서 30분 타임아웃으로 취소됨)
+    timeout-minutes: 70 # Xcode 26 전환 후 캐시 없는 전체 빌드+테스트가 45분을 넘김 (#57에서 45분 타임아웃으로 취소됨)
     steps:
       - uses: actions/checkout@v4
 
