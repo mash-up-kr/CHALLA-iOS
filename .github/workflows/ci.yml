@@ -46,6 +46,12 @@ jobs:
       # mise.toml 기준으로 tuist·swiftlint·swiftformat 설치 (+자동 캐시·trust 처리)
       - uses: jdx/mise-action@v4
 
+      # 러너 기본 Xcode(16.4)는 팀 로컬(26.x)보다 이전 세대 컴파일러라 로컬에서 통과하는
+      # 코드가 CI에서만 깨진다 (#57에서 타입 추론 예산 초과). 타입 추론 예산을 올리는
+      # 컴파일러 플래그(Settings+Templates.swift)도 Swift 6.2부터라 구형에서는 못 쓴다.
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.3.app
+
       - name: Lint
         run: ./Scripts/lint.sh
 
