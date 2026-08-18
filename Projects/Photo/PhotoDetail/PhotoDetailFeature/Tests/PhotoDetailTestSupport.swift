@@ -36,7 +36,7 @@ enum Fixture {
 @MainActor
 func makeTestStore(
     initialPhotoID: Photo.ID? = nil,
-    photos: @escaping @Sendable (String) async throws -> [Photo] = { _ in [] },
+    photos: @escaping @Sendable (Int64) async throws -> [Photo] = { _ in [] },
     setReaction: @escaping @Sendable (String, ReactionKind, Bool) async throws -> Photo = { _, _, _ in
         throw PhotoError.unknown
     },
