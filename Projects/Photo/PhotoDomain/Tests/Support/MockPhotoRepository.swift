@@ -38,7 +38,7 @@ final class MockPhotoRepository: PhotoRepository {
 
     // MARK: - 검증용 프로퍼티
 
-    var requestedRoomIDs: [String] {
+    var requestedRoomIDs: [Int64] {
         state.withLock { $0.requestedRoomIDs }
     }
 
