@@ -49,6 +49,8 @@ struct RoomDetailFeatureTests {
             $0.fetchRoomPhotosUseCase = fetchPhotos
             $0.copyToPasteboard = copy
             $0.continuousClock = clock
+            // 인화 완료 알람의 남은 시간 계산이 쓴다 — 고정해야 테스트가 결정적이다.
+            $0.date = .constant(Date(timeIntervalSince1970: 0))
         }
     }
 
@@ -190,6 +192,65 @@ struct RoomDetailFeatureTests {
         let store = Self.makeStore() // copy가 testValue — 호출되면 미구현 실패
 
         await store.send(.view(.copyInviteCodeTapped))
+    }
+
+    // MARK: - 인화 완료 알람
+
+    /// 완료 예정까지 100초 남은 인화 대기 방과, 서버가 전환을 끝낸 뒤의 같은 방.
+    private nonisolated static let waitingRoom = Room(
+        id: Room.previewShooting.id,
+        title: Room.previewShooting.title,
+        status: .printWaiting,
+        totalPhotoCount: 24,
+        remainedPhotoCount: 0,
+        createdAt: Room.previewShooting.createdAt,
+        expiresAt: Room.previewShooting.expiresAt,
+        photoPrintCompletedAt: Date(timeIntervalSince1970: 100) // makeStore의 현재 시각(0) 기준 100초 뒤
+    )
+
+    private nonisolated static let printedRoom = Room(
+        id: waitingRoom.id,
+        title: waitingRoom.title,
+        status: .printed,
+        totalPhotoCount: 24,
+        remainedPhotoCount: 0,
+        createdAt: waitingRoom.createdAt,
+        expiresAt: waitingRoom.expiresAt,
+        photoPrintCompletedAt: waitingRoom.photoPrintCompletedAt
+    )
+
+    @Test("인화 완료 예정 시각에 도달하면 재조회하고, 서버가 전환을 끝냈으면 인화 완료로 넘어간다")
+    func refetchesWhenCountdownReachesZero() async {
+        let clock = TestClock()
+        // 첫 조회는 인화 대기, 재조회는 인화 완료 — 알람이 울리는 사이 서버가 전환을 끝낸 상황.
+        let callCount = LockIsolated(0)
+        let store = Self.makeStore(
+            fetchDetail: FetchRoomDetailUseCase(run: { _ in
+                callCount.withValue { $0 += 1 }
+                let room = callCount.value == 1 ? Self.waitingRoom : Self.printedRoom
+                return RoomDetail(room: room, invitationCode: "1928121", members: [])
+            }),
+            fetchPhotos: FetchRoomPhotosUseCase(run: { _ in [] }),
+            clock: clock
+        )
+
+        await store.send(.view(.task)) {
+            $0.detailLoad = .loading
+        }
+        await store.receive(\.detailResponse.success) {
+            $0.detailLoad = .loaded
+            $0.detail = RoomDetail(room: Self.waitingRoom, invitationCode: "1928121", members: [])
+            $0.room = Self.waitingRoom // 이 응답이 100초 뒤에 울릴 알람을 건다
+        }
+        await store.receive(\.photosResponse.success)
+
+        await clock.advance(by: .seconds(100)) // 완료 예정 시각 도달
+        await store.receive(\.printCompletionReached)
+        await store.receive(\.detailResponse.success) {
+            $0.detail = RoomDetail(room: Self.printedRoom, invitationCode: "1928121", members: [])
+            $0.room = Self.printedRoom // 인화 완료 — 방 상태가 바뀌어 알람은 다시 걸리지 않는다
+        }
+        await store.receive(\.photosResponse.success)
     }
 
     // MARK: - 카운트다운 표기

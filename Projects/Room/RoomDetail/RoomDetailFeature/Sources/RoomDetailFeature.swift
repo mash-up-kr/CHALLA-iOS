@@ -47,6 +47,8 @@ public struct RoomDetailFeature {
         case binding(BindingAction<State>)
         case detailResponse(Result<RoomDetail, RoomError>)
         case photosResponse(Result<[Photo], PhotoError>)
+        /// 인화 완료 예정 시각에 도달 — 서버가 상태를 바꿨는지 확인할 차례.
+        case printCompletionReached
         case toastDismissed
         case alert(PresentationAction<Alert>)
         case delegate(Delegate)
@@ -84,6 +86,8 @@ public struct RoomDetailFeature {
     @Dependency(\.fetchRoomPhotosUseCase) var fetchRoomPhotosUseCase
     @Dependency(\.copyToPasteboard) var copyToPasteboard
     @Dependency(\.continuousClock) var clock
+    /// 현재 시각. 인화 완료까지 남은 시간을 계산할 때 쓴다 — 테스트가 고정할 수 있게 주입받는다.
+    @Dependency(\.date) var date
 
     // MARK: - Body
 
@@ -107,7 +111,14 @@ public struct RoomDetailFeature {
                 state.detail = detail
                 // 홈에서 받은 방은 목록 조회 시점의 값이라, 방금 조회한 상세 응답의 값으로 덮는다.
                 state.room = detail.room
-                return .none
+                return refreshAtPrintCompletion(room: detail.room)
+
+            case .printCompletionReached:
+                // 화면 카운트다운은 이미 0:00:00 — 서버가 인화 완료로 넘어갔는지 다시 묻는다.
+                return .merge(
+                    fetchDetail(id: state.room.id),
+                    fetchPhotos(id: state.room.id)
+                )
 
             case let .photosResponse(.success(photos)):
                 // 서버가 찍힌 순서대로 주므로 배열 순서를 그대로 슬롯 번호(1번 = 첫 장)로 쓴다.
@@ -168,7 +179,7 @@ public struct RoomDetailFeature {
         .ifLet(\.$alert, action: \.alert)
     }
 
-    private enum CancelID { case detail, photos, toast }
+    private enum CancelID { case detail, photos, toast, printRefresh }
 
     private enum Const {
         // TODO: 노출 시간은 기획 미확정 — ProfileSetup과 같은 임시값. 확정 시 교체할 것.
@@ -205,6 +216,23 @@ public struct RoomDetailFeature {
             }
         }
         .cancellable(id: CancelID.photos, cancelInFlight: true)
+    }
+
+    /// 인화 완료 예정 시각에 한 번 깨어나 상세·사진을 재조회하는 알람.
+    ///
+    /// 인화 대기 + 예정 시각이 미래일 때만 건다. 시각이 지났는데 상태가 그대로면(서버 전환 지연)
+    /// 다시 걸지 않는다 — 걸면 0초짜리 알람이 반복돼 무한 재조회가 된다.
+    private func refreshAtPrintCompletion(room: Room) -> Effect<Action> {
+        guard room.status == .printWaiting,
+              let completedAt = room.photoPrintCompletedAt,
+              completedAt > date.now
+        else { return .none }
+
+        return .run { [clock, date] send in
+            try await clock.sleep(for: .seconds(completedAt.timeIntervalSince(date.now)))
+            await send(.printCompletionReached)
+        }
+        .cancellable(id: CancelID.printRefresh, cancelInFlight: true)
     }
 
     /// 일정 시간 뒤 토스트를 거둔다. 복사를 연타하면 이전 타이머를 취소해 노출 시간이 처음부터 다시 센다.
