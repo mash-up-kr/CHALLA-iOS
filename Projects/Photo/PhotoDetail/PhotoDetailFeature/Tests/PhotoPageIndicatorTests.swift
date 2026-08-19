@@ -5,7 +5,7 @@ import Testing
 struct PhotoPageIndicatorTests {
 
     private func window(count: Int, current: Int) -> Range<Int> {
-        PhotoPageIndicator(count: count, currentIndex: current).visibleIndices
+        PhotoPageWindow.indices(count: count, current: current)
     }
 
     @Test("장수가 최대치(5) 이하면 전부 보인다")
