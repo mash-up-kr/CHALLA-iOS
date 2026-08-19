@@ -8,6 +8,9 @@ public protocol RoomRepository: Sendable {
     /// 내가 속한 방 전부. 상태가 섞인 한 배열로 온다.
     func rooms() async throws -> [RoomCard]
 
+    /// 촬영 가능한 방 목록 — 카메라의 방 선택 드로어가 쓴다.
+    func shootableRooms() async throws -> [ShootableRoom]
+
     /// 만든 방을 홈 목록에 바로 꽂을 수 있는 카드로 돌려준다.
     /// 서버 생성 응답이 id뿐이어도 카드를 채우는 것은 구현체 몫이다 —
     /// 서버 사정이 이 계약까지 올라오지 않게 한다.

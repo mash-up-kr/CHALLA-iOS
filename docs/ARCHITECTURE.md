@@ -247,6 +247,17 @@ camera.capture()                   // 하드웨어 작동 · 파일 생성
    참여자 + 남은 장수 + 인화 상태 + 결과 사진 그리드를 모두 흡수 →
    `RoomDetailFeature`가 가장 큼. 필요 시 내부에서 child reducer로 분리.
 
+3. **CameraSession — Feature를 의존하는 조립 보조 모듈**
+   `AVCaptureSession`은 Equatable·Sendable이 아니라 TCA State에 담을 수 없다. 리듀서와
+   프리뷰가 같은 세션 인스턴스를 봐야 해서 조립 지점이 직접 넘겨주고, 그 배선이 `CHALLAApp`과
+   `CameraFeatureDemo`에서 똑같아 `CameraSession` 모듈로 모았다 (`CameraSession/MODULE.md`).
+   대가로 두 가지가 규칙에서 벗어난다 — `CameraSession`(비-Feature)이 `CameraFeature`를
+   import 하고, `AppView`가 `@Dependency(\.cameraSession)`을 Reducer가 아닌 View에서 읽는다.
+
+   **따라 쓰지 말 것.** 이 우회는 TCA State에 담을 수 없는 OS 자원을 실앱과 데모앱이 똑같이
+   배선해야 할 때만 허용한다. Feature끼리 잇는 용도로 쓰면 규칙 3 위반이다.
+   같은 형태가 두 번째로 필요해지면 그때 규칙으로 승격할지 논의한다.
+
 ---
 
 ## 앱 · 데모앱 배치 전략
