@@ -67,4 +67,40 @@ struct CHALLAAsyncImageTests {
 
         #expect(values.challaImageLoader === custom)
     }
+
+    // MARK: - ImageLoadSize
+
+    /// 소수점만 다른 두 측정값이 같은 크기가 되어야 한 장에 요청이 여러 번 나가지 않는다.
+    @Test("배치 크기를 정수 pt로 올려 잡는다", arguments: [
+        (CGSize(width: 82.33, height: 109.77), CGSize(width: 83, height: 110)),
+        (CGSize(width: 82.67, height: 109.33), CGSize(width: 83, height: 110)),
+        (CGSize(width: 30, height: 30), CGSize(width: 30, height: 30))
+    ])
+    func quantizesToWholePoints(input: CGSize, expected: CGSize) {
+        #expect(ImageLoadSize.quantized(input) == expected)
+    }
+
+    @Test("같은 크기로 다시 요청하면 받지 않는다")
+    func skipsReloadForSameSize() {
+        let loaded = CGSize(width: 83, height: 110)
+
+        #expect(ImageLoadSize.needsReload(loaded: loaded, requested: loaded) == false)
+    }
+
+    @Test("작아지면 받지 않는다 — 가진 이미지를 줄여 그린다")
+    func skipsReloadWhenSmaller() {
+        let loaded = CGSize(width: 83, height: 110)
+
+        #expect(ImageLoadSize.needsReload(loaded: loaded, requested: CGSize(width: 40, height: 54)) == false)
+    }
+
+    @Test("가로·세로 중 하나라도 커지면 다시 받는다 — 작게 받은 이미지를 늘려 그리면 흐려진다", arguments: [
+        CGSize(width: 84, height: 110),
+        CGSize(width: 83, height: 111)
+    ])
+    func reloadsWhenLarger(requested: CGSize) {
+        let loaded = CGSize(width: 83, height: 110)
+
+        #expect(ImageLoadSize.needsReload(loaded: loaded, requested: requested))
+    }
 }

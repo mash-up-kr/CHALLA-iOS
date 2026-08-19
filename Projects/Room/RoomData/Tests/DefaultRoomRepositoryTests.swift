@@ -108,6 +108,76 @@ struct DefaultRoomRepositoryTests {
         }
     }
 
+    // MARK: - 방 상세
+
+    @Test("상세: 경로가 방 id를 가리키고, 응답이 방 정보와 초대 코드로 매핑된다")
+    func fetchesRoomInfo() async throws {
+        let json = """
+        {
+          "success": true, "message": "ok",
+          "data": {
+            "room": {
+              "id": 7, "title": "제주 우정 여행", "status": "SHOOTING",
+              "totalPhotoCount": 48, "remainedPhotoCount": 48,
+              "invitationCode": "1928121", "photoPrintCompletedAt": null,
+              "createdAt": "2026-08-01T10:00:00", "expiresAt": "2026-08-31T10:00:00"
+            }
+          }
+        }
+        """
+        let client = MockHTTPClient.returning(json: json)
+        let repository = DefaultRoomRepository(client: client)
+
+        let info = try await repository.roomInfo(id: 7)
+
+        #expect(info.room.id == 7)
+        #expect(info.room.title == "제주 우정 여행")
+        #expect(info.invitationCode == "1928121")
+        let request = try #require(client.requests.first)
+        #expect(request.path == "/api/v1/rooms/7")
+        #expect(request.method == .get)
+        #expect(request.usesBearerToken)
+    }
+
+    @Test("참여자: 경로가 users를 가리키고, 배열이 도메인 타입으로 매핑된다")
+    func fetchesMembers() async throws {
+        let json = """
+        {
+          "success": true, "message": "ok",
+          "data": {
+            "users": [
+              { "id": 3, "nickname": "토마토", "profileImageUrl": "https://img.example.com/p.jpg" },
+              { "id": 5, "nickname": null, "profileImageUrl": null }
+            ]
+          }
+        }
+        """
+        let client = MockHTTPClient.returning(json: json)
+        let repository = DefaultRoomRepository(client: client)
+
+        let members = try await repository.members(roomID: 7)
+
+        #expect(members.map(\.id) == [3, 5])
+        #expect(members[0].nickname == "토마토")
+        #expect(members[1].nickname == nil)
+        #expect(client.requests.first?.path == "/api/v1/rooms/7/users")
+    }
+
+    @Test("상세: 404는 .roomNotFound로 정규화된다")
+    func roomInfoMaps404ToRoomNotFound() async {
+        let client = MockHTTPClient.failing(
+            NetworkError.unacceptableStatusCode(
+                statusCode: 404,
+                response: Response(statusCode: 404, data: Data())
+            )
+        )
+        let repository = DefaultRoomRepository(client: client)
+
+        await #expect(throws: RoomError.roomNotFound) {
+            _ = try await repository.roomInfo(id: -999)
+        }
+    }
+
     // MARK: - 입장
 
     @Test("입장: 서버 계약대로 본문을 싣고, 재조회한 목록에서 그 id의 카드를 돌려준다")

@@ -109,9 +109,54 @@ struct InMemoryRoomRepositoryTests {
         }
     }
 
+    // MARK: - 방 상세
+
+    @Test("등록된 방의 상세는 입장 매핑을 거꾸로 찾은 초대 코드를 준다")
+    func roomInfoUsesRegisteredInviteCode() async throws {
+        let repository = Self.makeRepository(cards: [Self.joinable])
+
+        let info = try await repository.roomInfo(id: Self.joinable.id)
+
+        #expect(info.room == Self.joinable.room)
+        #expect(info.invitationCode == Self.inviteCode)
+    }
+
+    @Test("등록 안 된 방의 초대 코드는 id로 만든 일곱 자리다")
+    func roomInfoFabricatesCodeForUnregisteredRoom() async throws {
+        let card = RoomCard.previewShooting // id -1, 입장 매핑에 없는 방
+        let repository = Self.makeRepository(cards: [card])
+
+        let info = try await repository.roomInfo(id: card.id)
+
+        #expect(info.invitationCode == "0000001")
+    }
+
+    @Test("참여자는 주입한 구성 그대로 온다")
+    func membersReturnInjectedList() async throws {
+        let members = RoomDetail.preview.members
+        let repository = InMemoryRoomRepository(
+            cards: [Self.joinable],
+            membersByRoom: [Self.joinable.id: members]
+        )
+
+        #expect(try await repository.members(roomID: Self.joinable.id) == members)
+    }
+
+    @Test("없는 방은 상세·참여자 모두 .roomNotFound를 던진다")
+    func unknownRoomThrows() async {
+        let repository = Self.makeRepository(cards: [Self.joinable])
+
+        await #expect(throws: RoomError.roomNotFound) {
+            _ = try await repository.roomInfo(id: -999)
+        }
+        await #expect(throws: RoomError.roomNotFound) {
+            _ = try await repository.members(roomID: -999)
+        }
+    }
+
     // MARK: - 실패 주입
 
-    @Test("failure를 심으면 세 메서드 모두 그 오류를 던진다")
+    @Test("failure를 심으면 모든 메서드가 그 오류를 던진다")
     func injectedFailurePropagates() async {
         let repository = Self.makeRepository(cards: [Self.joinable], failure: .network)
 
@@ -123,6 +168,12 @@ struct InMemoryRoomRepositoryTests {
         }
         await #expect(throws: RoomError.network) {
             _ = try await repository.joinRoom(inviteCode: Self.inviteCode)
+        }
+        await #expect(throws: RoomError.network) {
+            _ = try await repository.roomInfo(id: Self.joinable.id)
+        }
+        await #expect(throws: RoomError.network) {
+            _ = try await repository.members(roomID: Self.joinable.id)
         }
     }
 }
