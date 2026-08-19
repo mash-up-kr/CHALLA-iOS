@@ -23,6 +23,18 @@ public struct DefaultRoomRepository: RoomRepository {
         }
     }
 
+    public func shootableRooms() async throws -> [ShootableRoom] {
+        do {
+            let response = try await client.request(
+                RoomEndpoint.shootable,
+                as: BaseResponseDTO<ShootableRoomListResponseDTO>.self
+            )
+            return try response.unwrap().rooms.map(\.toDomain)
+        } catch {
+            throw RoomError.normalized(error)
+        }
+    }
+
     public func createRoom(_ draft: RoomDraft) async throws -> RoomCard {
         do {
             let response = try await client.request(

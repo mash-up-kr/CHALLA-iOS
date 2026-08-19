@@ -30,6 +30,18 @@ extension RoomListResponseDTO.RoomDTO {
     }
 }
 
+extension ShootableRoomListResponseDTO.ShootableRoomDTO {
+
+    var toDomain: ShootableRoom {
+        ShootableRoom(
+            id: id,
+            title: title,
+            remainedPhotoCount: remainedPhotoCount,
+            totalPhotoCount: totalPhotoCount
+        )
+    }
+}
+
 extension RoomStatusDTO {
 
     var toDomain: Room.Status {

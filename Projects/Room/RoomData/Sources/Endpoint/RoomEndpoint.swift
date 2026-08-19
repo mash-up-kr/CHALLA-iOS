@@ -6,6 +6,7 @@ enum RoomEndpoint: Endpoint, AccessTokenAuthorizable {
 
     /// 상태 필터는 최소 1개 필수 (생략하면 서버가 400을 낸다). 전체 조회는 세 상태를 다 넘긴다.
     case rooms(statuses: [RoomStatusDTO])
+    case shootable
     case create(CreateRoomRequestDTO)
     case join(JoinRoomRequestDTO)
     case detail(id: Int64)
@@ -18,6 +19,7 @@ enum RoomEndpoint: Endpoint, AccessTokenAuthorizable {
     var path: String {
         switch self {
         case .rooms, .create: return "/api/v1/rooms" // 같은 경로, GET/POST로 갈린다
+        case .shootable: return "/api/v1/rooms/shootable"
         case .join: return "/api/v1/rooms/join"
         case let .detail(id): return "/api/v1/rooms/\(id)"
         case let .members(roomID): return "/api/v1/rooms/\(roomID)/users"
@@ -26,7 +28,7 @@ enum RoomEndpoint: Endpoint, AccessTokenAuthorizable {
 
     var method: HTTPMethod {
         switch self {
-        case .rooms, .detail, .members: return .get
+        case .rooms, .shootable, .detail, .members: return .get
         case .create, .join: return .post
         }
     }
@@ -36,6 +38,8 @@ enum RoomEndpoint: Endpoint, AccessTokenAuthorizable {
         case let .rooms(statuses):
             // 같은 키를 반복하는 배열 쿼리 (?status=A&status=B) — Spring의 List 바인딩 관례.
             return .requestQueryItems(statuses.map { URLQueryItem(name: "status", value: $0.rawValue) })
+        case .shootable:
+            return .requestPlain
         case let .create(dto):
             return .requestJSONEncodable(dto)
         case let .join(dto):

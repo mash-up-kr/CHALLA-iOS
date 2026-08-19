@@ -1,13 +1,14 @@
 import CHALLADesignSystem
 import ComposableArchitecture
+import RoomDomain
 import SwiftUI
 
 /// 방 선택 드로어 본문. 껍데기(모서리·헤더·구분선)와 등장 연출은 DS의 `CHALLADrawer`를 그대로 쓴다.
 struct RoomSelectionDrawer: View {
 
-    let rooms: IdentifiedArrayOf<CameraRoom>
-    let selectedRoomID: CameraRoom.ID?
-    let onSelect: (CameraRoom.ID) -> Void
+    let rooms: IdentifiedArrayOf<ShootableRoom>
+    let selectedRoomID: ShootableRoom.ID?
+    let onSelect: (ShootableRoom.ID) -> Void
     let onClose: () -> Void
 
     var body: some View {
@@ -32,17 +33,17 @@ struct RoomSelectionDrawer: View {
 
 private struct RoomListRow: View {
 
-    let room: CameraRoom
+    let room: ShootableRoom
     let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(room.name)
+            Text(room.title)
                 .challaFont(.body.medium.bold)
                 .foregroundStyle(isSelected ? CHALLAColor.Label.normal : CHALLAColor.Label.neutral)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            RemainingCardsLabel(remaining: room.remainingCards, total: room.totalCards)
+            RemainingCardsLabel(remaining: room.remainedPhotoCount, total: room.totalPhotoCount)
         }
         .padding(.horizontal, RoomSelectionDrawerMetric.rowHorizontalPadding)
         .frame(height: RoomSelectionDrawerMetric.rowHeight)
@@ -76,12 +77,12 @@ private enum RoomSelectionDrawerMetric {
 #Preview {
     RoomSelectionDrawer(
         rooms: IdentifiedArray(uniqueElements: [
-            CameraRoom(id: "1", name: "방이름방이름방이름1", remainingCards: 6, totalCards: 24),
-            CameraRoom(id: "2", name: "방이름방이름방이름2", remainingCards: 6, totalCards: 24),
-            CameraRoom(id: "3", name: "방이름방이름방이름3방이름방이름방이름3", remainingCards: 3, totalCards: 48),
-            CameraRoom(id: "4", name: "방이름방이름방이름4", remainingCards: 3, totalCards: 48)
+            ShootableRoom(id: -1, title: "방이름방이름방이름1", remainedPhotoCount: 6, totalPhotoCount: 24),
+            ShootableRoom(id: -2, title: "방이름방이름방이름2", remainedPhotoCount: 6, totalPhotoCount: 24),
+            ShootableRoom(id: -3, title: "방이름방이름방이름3방이름방이름방이름3", remainedPhotoCount: 3, totalPhotoCount: 48),
+            ShootableRoom(id: -4, title: "방이름방이름방이름4", remainedPhotoCount: 3, totalPhotoCount: 48)
         ]),
-        selectedRoomID: "2",
+        selectedRoomID: -2,
         onSelect: { _ in },
         onClose: {}
     )

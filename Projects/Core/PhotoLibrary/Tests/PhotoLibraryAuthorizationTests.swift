@@ -41,4 +41,18 @@ struct PhotoLibraryAuthorizationTests {
     func allowsPicking(authorization: PhotoLibraryAuthorization, expected: Bool) {
         #expect(authorization.allowsPicking == expected)
     }
+
+    @Test(
+        "사진첩에 저장할 수 있는 상태도 authorized·limited 둘뿐",
+        arguments: [
+            (PhotoLibraryAuthorization.authorized, true),
+            (.limited, true),
+            (.denied, false),
+            (.restricted, false),
+            (.notDetermined, false)
+        ]
+    )
+    func allowsSaving(authorization: PhotoLibraryAuthorization, expected: Bool) {
+        #expect(authorization.allowsSaving == expected)
+    }
 }

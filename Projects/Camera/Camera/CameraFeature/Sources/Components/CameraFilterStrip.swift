@@ -1,5 +1,6 @@
 import CHALLADesignSystem
 import ComposableArchitecture
+import PhotoDomain
 import SwiftUI
 
 /// 가로로 넘겨 고르는 필터 띠.
@@ -92,13 +93,11 @@ private enum FilterStripMetric {
 
 #Preview {
     struct PreviewHost: View {
-        @State private var selected: CameraFilter.ID? = "3"
+        @State private var selected: CameraFilter.ID? = CameraFilter.previewFilters[2].id
 
         var body: some View {
             CameraFilterStrip(
-                filters: IdentifiedArray(uniqueElements: (1 ... 8).map {
-                    CameraFilter(id: "\($0)", name: "필터\($0)")
-                }),
+                filters: IdentifiedArray(uniqueElements: CameraFilter.previewFilters),
                 selectedFilterID: selected,
                 onSelect: { selected = $0 }
             )

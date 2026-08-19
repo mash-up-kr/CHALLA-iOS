@@ -139,7 +139,11 @@ public extension Project {
         var base: SettingsDictionary = [
             "MARKETING_VERSION": .string(marketingVersion),
             "CURRENT_PROJECT_VERSION": .string(resolvedBuildNumber),
-            "SWIFT_VERSION": .string(Environment.swiftVersion)
+            "SWIFT_VERSION": .string(Environment.swiftVersion),
+            // Firebase·GoogleUtilities는 static framework로 링크된다. -ObjC가 없으면 링커가
+            // 카테고리만 든 오브젝트 파일을 버려서, 호출 시점에 unrecognized selector로 앱이 죽는다
+            // (예: GDT 업로드가 부르는 +[NSData gul_dataByGzippingData:error:]).
+            "OTHER_LDFLAGS": .array(["$(inherited)", "-ObjC"])
         ]
         base.merge(signing.baseSettings) { _, new in new }
 

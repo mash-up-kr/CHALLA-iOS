@@ -1,45 +1,75 @@
-# PR CI — 린트 → 워크스페이스 생성 → 빌드+테스트
-# 러너 비용 절약: 단일 macOS 잡(lint 먼저 fail-fast), 코드 변경 없는 PR은 실행 안 함(paths),
+# PR CI — 변경 감지 → (코드 변경 시) 린트 → 빌드+테스트 → 게이트
+#
+# 속도 전략 (앱이 커지며 30분→45분 타임아웃에 도달해 재설계):
+#   1. SPM 의존성 캐시     — TCA·카카오·Firebase resolve/fetch 결과를 재사용
+#   2. Tuist 바이너리 캐시 — 변경 없는 모듈·외부 의존성을 미리 컴파일된 프레임워크로 스왑 (tuist cache warm)
+#   3. Selective testing   — diff에 영향받은 모듈의 테스트만 실행 (tuist test 기본값)
+#   4. 린트 분리           — 저렴한 ubuntu 잡에서 먼저 돌려, 실패 시 비싼 macOS 빌드를 아예 안 띄움
+#   5. 변경 감지 + 게이트  — 문서만 고친 PR은 빌드를 건너뛰되, required check(CI Gate)는 항상 통과시킴
+#
 # 같은 PR에 새 푸시가 오면 이전 실행 취소(concurrency).
 name: CI
 
-# 주의: paths 필터 때문에 이 워크플로우를 required check로 지정하면
-# 문서만 고친 PR이 pending 상태로 머지 불가가 된다 — 그 시점엔 no-op 잡 방식으로 전환할 것.
 on:
   push:
     branches: [main] # 머지 커밋은 PR 스냅샷과 다를 수 있어 머지 후에도 한 번 더 검증
-    paths: # pull_request 의 paths 와 항상 동일하게 유지할 것
-      - "**.swift"
-      - "**.stencil"
-      - "Projects/**"
-      - "Configs/**"
-      - "Scripts/**"
-      - "mise.toml"
-      - ".swiftlint.yml"
-      - ".swiftformat"
-      - ".github/workflows/ci.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "**.swift"
-      - "**.stencil"
-      - "Projects/**"
-      - "Configs/**"
-      - "Scripts/**"
-      - "mise.toml"
-      - ".swiftlint.yml"
-      - ".swiftformat"
-      - ".github/workflows/ci.yml"
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint-build-test:
-    name: Lint · Build · Test
+  # 코드 관련 변경이 있는지 감지한다. 없으면(문서만 수정 등) 아래 무거운 잡들을 건너뛴다.
+  # 워크플로우 자체는 항상 실행되므로 CI Gate 체크가 늘 생성돼, required check 로 지정해도 문서 PR이 막히지 않는다.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - "**.swift"
+              - "**.stencil"
+              - "Projects/**"
+              - "Configs/**"
+              - "Scripts/**"
+              - "mise.toml"
+              - ".swiftlint.yml"
+              - ".swiftformat"
+              - ".github/workflows/ci.yml"
+
+  # 린트는 macOS 러너(10배 과금)를 쓰지 않도록 ubuntu 에서 먼저 돌린다.
+  # SwiftLint 0.65.0 은 리눅스 바이너리를 제공하며 mise 가 mise.toml 고정 버전으로 설치한다.
+  # 여기서 실패하면 build-test 가 아예 시작되지 않아 macOS 시간을 낭비하지 않는다(fail-fast).
+  lint:
+    name: Lint
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+      - name: Lint
+        run: ./Scripts/lint.sh
+
+  build-test:
+    name: Build · Test
+    needs: [changes, lint]
+    if: needs.changes.outputs.code == 'true'
     runs-on: macos-15
-    timeout-minutes: 70 # Xcode 26 전환 후 캐시 없는 전체 빌드+테스트가 45분을 넘김 (#57에서 45분 타임아웃으로 취소됨)
+    # 정상(캐시 웜) 상태에선 10분 안팎으로 끝나지만, 캐시가 빈 첫 실행이나
+    # 의존성 변경 시 cache warm 이 전 모듈을 한 번 컴파일하므로 여유를 둔다.
+    # Xcode 26 전환 직후에는 캐시가 전부 무효라 첫 실행이 45분을 넘긴다 (#57).
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
 
@@ -52,19 +82,64 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.3.app
 
-      - name: Lint
-        run: ./Scripts/lint.sh
+      # [1] SPM 의존성(TCA·카카오·Firebase) resolve/fetch 결과 캐시.
+      # Package.resolved 가 그대로면 tuist install 이 네트워크 없이 재사용한다.
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: Tuist/.build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Tuist/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
 
-      # Tuist/Package.swift의 외부 의존성(TCA·카카오 SDK)을 받아둔다.
-      # Tuist/.build는 gitignore라 러너에는 없고, 없으면 generate가 바로 실패한다.
+      # [2][3] Tuist 로컬 캐시 — 바이너리 캐시(Binaries)와 selective testing 해시(SelectiveTests)가 여기 쌓인다.
+      # 이 디렉터리를 실행 간 보존하는 것이 재컴파일·재테스트 스킵의 핵심이다.
+      # 키에 github.sha 를 넣어 매 커밋마다 새로 저장하고, restore-keys 로 직전 실행 캐시를 이어받는다.
+      # (Package.resolved 별 → 브랜치/전체 순으로 폴백. 해시가 안 맞으면 Tuist 가 소스로 안전하게 폴백한다.)
+      - name: Cache Tuist (binary + selective testing)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/tuist
+          key: ${{ runner.os }}-tuist-${{ hashFiles('Tuist/Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-tuist-${{ hashFiles('Tuist/Package.resolved') }}-
+            ${{ runner.os }}-tuist-
+
+      # Tuist/.build 는 gitignore 라 러너에는 없고, 없으면 generate 가 바로 실패한다.
       - name: Install dependencies
         run: tuist install
 
-      - name: Generate workspace
+      # [2] 바이너리 캐시 예열 — 변경 없는 모듈과 외부 의존성을 미리 컴파일된 프레임워크로 만들어 둔다.
+      #   · 첫 실행/의존성 변경 시에만 전체 컴파일(비쌈), 이후엔 변경분만 증분으로 다시 굽는다.
+      #   · 시뮬레이터 빌드는 서명이 필요 없어 팀 ID 는 더미 template 로 충분.
+      #   · 만약 자사 모듈 바이너리화가 문제되면 `--cache-profile only-external` 로 좁힐 수 있다(외부 의존성만).
+      - name: Warm binary cache
         run: |
-          # 시뮬레이터 빌드는 서명이 필요 없어 팀 ID는 더미로 충분
           cp Configs/Shared.xcconfig.template Configs/Shared.xcconfig
-          tuist generate --no-open
+          tuist cache
 
+      # [3] tuist test 는 기본으로 바이너리 캐시(--binary-cache)와 selective testing(--selective-testing)을 사용한다.
+      # 예열된 바이너리로 변경 없는 모듈은 재컴파일을 건너뛰고, 영향받지 않은 모듈의 테스트는 실행을 건너뛴다.
       - name: Test
         run: tuist test
+
+  # required check 로 지정할 단일 게이트. 항상 실행되므로 문서만 고친 PR(위 잡들이 skipped)도 통과 처리된다.
+  # 위 잡 중 하나라도 실패/취소면 여기서 실패시켜 머지를 막는다.
+  ci-gate:
+    name: CI Gate
+    needs: [changes, lint, build-test]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify results
+        run: |
+          echo "changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} build-test=${{ needs.build-test.result }}"
+          # skipped(코드 변경 없음)·success 는 통과. failure·cancelled 는 차단.
+          if [[ "${{ needs.changes.result }}" == "failure" \
+             || "${{ needs.lint.result }}" == "failure" || "${{ needs.lint.result }}" == "cancelled" \
+             || "${{ needs.build-test.result }}" == "failure" || "${{ needs.build-test.result }}" == "cancelled" ]]; then
+            echo "❌ CI 실패"
+            exit 1
+          fi
+          echo "✅ CI 통과"
