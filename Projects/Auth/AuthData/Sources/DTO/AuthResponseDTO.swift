@@ -22,6 +22,3 @@ struct TokenPairResponseDTO: Decodable, Sendable {
         let refreshToken: String
     }
 }
-
-/// 페이로드가 없는(무시하는) 응답용 (logout 등 — `ensureSuccess()`와 함께 쓴다).
-struct EmptyResponseDTO: Decodable, Sendable {}

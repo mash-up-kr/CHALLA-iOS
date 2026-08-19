@@ -1,5 +1,6 @@
 @testable import AuthData
 import AuthDomain
+import CHALLANetwork
 import Foundation
 import Testing
 
