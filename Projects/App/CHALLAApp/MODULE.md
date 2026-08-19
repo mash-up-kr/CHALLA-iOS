@@ -15,7 +15,8 @@
 
 | 단계 | 다음 |
 | :-- | :-- |
-| `launching` | 프로필 조회 성공 → `home` 또는 `profileSetup` / 실패 → `login` |
+| `launching` | 저장 세션 없음 → `login` / 있으면 프로필 조회 → 성공 시 `home`·`profileSetup`, 실패 시 `login` |
+| (모든 화면) | 세션 만료 알림 → `login` (이미 `login`이면 무시) |
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `home` |
 | `home` | 설정 버튼 → `setting` / 방 진입(목록에서 고름·방 만들기·초대 코드) → `roomDetail` |
@@ -31,6 +32,24 @@
 
 방 상세에서 나올 때도 `HomeFeature.State`를 **새로 만든다.** 그 방에서 사진을 찍고 나왔을 수 있어
 목록을 다시 조회해야 한다.
+
+## 자동 로그인 · 토큰 갱신
+
+`AppFeature.task`가 두 가지를 동시에 시작한다.
+
+1. **자동 로그인** — `RestoreSessionUseCase`로 저장된 세션을 먼저 확인한다.
+   없으면 프로필 조회를 아예 보내지 않고 `login`으로 간다 (비로그인 상태에서 실패할 요청을 재시도 백오프까지
+   태우면 로그인 화면이 10초 넘게 늦게 뜬다). 이 유스케이스가 **설치 후 최초 실행이면 키체인도 초기화**한다 —
+   앱을 지워도 키체인은 남을 수 있어, 지우지 않으면 이전 설치의 죽은 토큰으로 시작한다
+2. **세션 만료 감시** — `SessionExpirationChannel`을 구독한다. 토큰 갱신이 최종 실패하면
+   어느 화면에 있든 `login`으로 되돌리고 진행 중인 프로필 조회를 취소한다
+
+프로필 조회가 `.network`로 실패해도 `login`으로 간다 — 오프라인에서는 자동 로그인이 유지되지 않는다.
+저장된 토큰은 그대로라 연결이 돌아온 뒤 다시 들어오면 자동 로그인된다.
+
+**401 자동 갱신은 `CompositionRoot`가 배선한다** — 요청용 클라이언트에 `TokenRefreshRetrier`를 달고,
+갱신 자체는 **retrier 없는 별도 클라이언트**로 보낸다. 같은 클라이언트를 쓰면 갱신 요청의 401이
+다시 갱신을 부르는 재귀에 빠진다. `refreshTokenUseCase` 의존성도 이 갱신 전용 클라이언트를 공유한다.
 
 ## 어댑터 (`Sources/Adapters/`)
 
@@ -70,6 +89,11 @@ Domain이 모양만 정의하고 구현을 Data에 두지 않은 두 인터페�
 
 `HTTPClient`는 Auth·User·Notification이 **같은 인스턴스**를 쓴다.
 다른 걸 넘기면 `AuthInterceptor`가 붙인 토큰이 실리지 않아 401이 난다.
+예외는 토큰 갱신 전용 클라이언트 하나뿐이다 (위 "자동 로그인 · 토큰 갱신" 참고).
+
+`SessionExpirationChannel`은 `CompositionRoot`가 만들어 갱신 실패 콜백과 `\.sessionExpirationChannel`
+의존성 양쪽에 **같은 인스턴스**로 꽂는다. 기본값(`liveValue`)은 아무것도 흘리지 않는 채널이라
+주입을 빠뜨리면 만료 알림이 조용히 사라진다.
 
 ## 테스트 실행
 

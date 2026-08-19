@@ -1,3 +1,4 @@
+import AuthDomain
 import CameraFeature
 import CameraSession
 import ComposableArchitecture
@@ -136,6 +137,8 @@ public struct AppFeature {
 
     public enum Action {
         case task
+        case sessionRestored(SessionRestoration)
+        case sessionExpired
         case profileResponse(Result<UserProfile, UserError>)
         case login(LoginFeature.Action)
         case profileSetup(ProfileSetupFeature.Action)
@@ -153,6 +156,8 @@ public struct AppFeature {
     // MARK: - Dependencies
 
     @Dependency(\.fetchMyProfileUseCase) var fetchMyProfileUseCase
+    @Dependency(\.restoreSessionUseCase) var restoreSessionUseCase
+    @Dependency(\.sessionExpirationChannel) var sessionExpirationChannel
     @Dependency(\.continuousClock) var clock
     @Dependency(\.pushTokenSynchronizer) var pushTokenSynchronizer
 
@@ -162,7 +167,19 @@ public struct AppFeature {
         Reduce { state, action in
             switch action {
             case .task:
+                return .merge(restoreSession(), observeSessionExpiration())
+
+            case .sessionRestored(.restored):
                 return fetchMyProfile()
+
+            case .sessionRestored(.signedOut):
+                state = .login(LoginFeature.State())
+                return .none
+
+            case .sessionExpired:
+                guard state.screenID != .login else { return .none }
+                state = .login(LoginFeature.State())
+                return .cancel(id: CancelID.profile)
 
             case let .profileResponse(.success(profile)):
                 state = profile.isProfileCompleted
@@ -299,8 +316,13 @@ public struct AppFeature {
             }
         }
     }
+}
 
-    private enum CancelID { case profile }
+// MARK: - Effects
+
+extension AppFeature {
+
+    private enum CancelID { case profile, sessionExpiration }
 
     /// 저절로 풀릴 수 있는 실패가 이어질 때의 재시도 정책.
     private enum RetryBackoff {
@@ -313,6 +335,23 @@ public struct AppFeature {
         static func delay(for attempt: Int) -> Duration {
             delays[min(attempt, delays.count - 1)]
         }
+    }
+
+    /// 저장된 세션이 있을 때만 프로필을 조회한다 — 없으면 실패할 요청을 보내지 않고 곧바로 로그인 화면으로 간다.
+    private func restoreSession() -> Effect<Action> {
+        .run { [restoreSessionUseCase] send in
+            await send(.sessionRestored(restoreSessionUseCase.run()))
+        }
+    }
+
+    /// 토큰 갱신이 최종 실패하면(재로그인 필요) 어느 화면에 있든 로그인으로 되돌린다.
+    private func observeSessionExpiration() -> Effect<Action> {
+        .run { [sessionExpirationChannel] send in
+            for await _ in sessionExpirationChannel.events {
+                await send(.sessionExpired)
+            }
+        }
+        .cancellable(id: CancelID.sessionExpiration, cancelInFlight: true)
     }
 
     private func fetchMyProfile() -> Effect<Action> {

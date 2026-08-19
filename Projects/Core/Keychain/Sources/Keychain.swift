@@ -17,4 +17,6 @@ public protocol Keychain: Sendable {
 
     /// `key`의 항목을 삭제한다. 항목이 없어도 성공으로 간주한다.
     func delete(for key: String) throws
+
+    func deleteAll() throws
 }
