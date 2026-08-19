@@ -10,7 +10,7 @@
 CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetwork`와도 무관하다
 (아키텍처 규칙 6 저촉 없음 — "OS를 만지면 Core").
 
-> 다운샘플러 + 2단 캐시(메모리·디스크) + 로더(`ImageLoader`)까지가 이 모듈 범위다.
+> 다운샘플러 + 2단 캐시(메모리·디스크) + 로더(`ImageLoader`) + 업로드용 압축기(`ImageCompressor`)까지가 이 모듈 범위다.
 > 화면 쪽 짝인 DS 뷰(`CHALLAAsyncImage`)는 `CHALLADesignSystem`에 있다 (#43).
 
 전체 도해(파이프라인 · 타입 변환 · 캐시 삭제 정책 · 테스트 60개 카탈로그): [`docs/imagekit-map.html`](../../../docs/imagekit-map.html) — 브라우저로 열면 경로별 인터랙티브 구조도가 나온다.
@@ -42,6 +42,8 @@ CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetw
 | :-- | :-- |
 | `ImageDownsampler` | `Sendable` 값 타입. ImageIO 썸네일 디코딩으로 타깃 픽셀 크기만큼만 디코딩 |
 | `ImageDownsamplingError` | `invalidData` / `thumbnailCreationFailed` / `invalidTargetSize` |
+| `ImageCompressor` | `Sendable` 값 타입. 파일 크기 상한에 맞춰 JPEG 재인코딩 (업로드용 — 로딩 파이프라인과 무관) |
+| `ImageCompressionError` | `invalidData` / `invalidLimit` / `encodingFailed` / `unableToFit` |
 | `PixelSize` | pt·scale을 정수 픽셀로 환산·보관. 캐시 키의 크기 성분 |
 | `ImageCacheKey` | `URL + PixelSize` 조합 키. 디스크 파일명용 `storageIdentifier`(SHA256) |
 | `ImageCacheConfiguration` | 메모리/디스크 용량·경로·보관 기간 설정. `.default`(메모리 = 기기 메모리의 10%, 최대 512MB / 디스크 500MB / 보관 30일) |
@@ -68,6 +70,28 @@ public enum ImageDownsamplingError: Error, Sendable, Equatable {
 ```
 
 동기 CPU 작업이므로 호출부(로더)가 백그라운드(`@concurrent`)에서 실행할 책임을 진다.
+
+### 압축 (업로드용)
+
+```swift
+public struct ImageCompressor: Sendable {
+    public init()
+    /// 상한 이하면 원본 그대로(무손실), 넘으면 품질(0.8→0.6→0.4)을 낮추고
+    /// 그래도 크면 픽셀을 30%씩 줄여 가며 상한 이하 JPEG으로 재인코딩. EXIF 회전은 픽셀에 굽는다.
+    public func compress(data: Data, maxBytes: Int) throws -> Data
+}
+
+public enum ImageCompressionError: Error, Sendable, Equatable {
+    case invalidData      // 디코딩 가능한 이미지 데이터가 아님
+    case invalidLimit     // maxBytes가 0 이하
+    case encodingFailed
+    case unableToFit      // 축소를 반복해도 상한 이하가 안 됨
+}
+```
+
+로딩 파이프라인(다운샘플러·캐시·로더)과는 독립인 단품 유틸이다 — 서버 업로드처럼
+파일 크기 상한이 있는 곳(현재: `PhotoData.DefaultPhotoUploader`)이 쓴다.
+다운샘플러와 마찬가지로 동기 CPU 작업이므로 백그라운드 실행은 호출부 책임이다.
 
 ### 캐시 키
 
