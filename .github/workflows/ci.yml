@@ -84,13 +84,15 @@ jobs:
 
       # [1] SPM 의존성(TCA·카카오·Firebase) resolve/fetch 결과 캐시.
       # Package.resolved 가 그대로면 tuist install 이 네트워크 없이 재사용한다.
+      # 키에 Xcode 버전을 넣는 이유 — 다른 세대 컴파일러로 만든 캐시를 복원하면 외부 패키지의
+      # 컴파일 조건(컴파일러 버전 분기)이 어긋나 빌드가 깨진다 (#57에서 swift-collections가 실패).
       - name: Cache SPM dependencies
         uses: actions/cache@v4
         with:
           path: Tuist/.build
-          key: ${{ runner.os }}-spm-${{ hashFiles('Tuist/Package.resolved') }}
+          key: ${{ runner.os }}-xcode26.3-spm-${{ hashFiles('Tuist/Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-spm-
+            ${{ runner.os }}-xcode26.3-spm-
 
       # [2][3] Tuist 로컬 캐시 — 바이너리 캐시(Binaries)와 selective testing 해시(SelectiveTests)가 여기 쌓인다.
       # 이 디렉터리를 실행 간 보존하는 것이 재컴파일·재테스트 스킵의 핵심이다.
@@ -100,10 +102,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/tuist
-          key: ${{ runner.os }}-tuist-${{ hashFiles('Tuist/Package.resolved') }}-${{ github.sha }}
+          key: ${{ runner.os }}-xcode26.3-tuist-${{ hashFiles('Tuist/Package.resolved') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-tuist-${{ hashFiles('Tuist/Package.resolved') }}-
-            ${{ runner.os }}-tuist-
+            ${{ runner.os }}-xcode26.3-tuist-${{ hashFiles('Tuist/Package.resolved') }}-
+            ${{ runner.os }}-xcode26.3-tuist-
 
       # Tuist/.build 는 gitignore 라 러너에는 없고, 없으면 generate 가 바로 실패한다.
       - name: Install dependencies
