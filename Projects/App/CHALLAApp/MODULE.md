@@ -31,11 +31,14 @@
 
 ### 버전 체크와 강제 업데이트
 
-실행 직후 `AppUpdateClient.checkRequirement()`로 버전을 체크한다. 체크 실패는 **fail-open 정책**으로 `.notRequired`로 취급해
-정상 진행하고, 강제 업데이트 필요 시만 `forceUpdate` state에 멈춘다. `forceUpdate`는 **terminal state**이다 —
-앱을 업데이트하거나 종료해야만 벗어난다.
+실행 직후 `CheckAppUpdateUseCase`(`AppDomain`)로 버전을 체크한다 — 실구현은 `AppData.DefaultAppVersionRepository`
+(`GET /api/v1/app/version`)이고 `CompositionRoot.registerAppUpdate`가 잇는다. 체크 실패는 **fail-open 정책**으로
+`.notRequired`로 취급해 정상 진행하고, 강제 업데이트 필요 시만 `forceUpdate` state에 멈춘다.
+`forceUpdate`는 **terminal state**이다 — 앱을 업데이트하거나 종료해야만 벗어난다.
+응답에 실려 온 스토어 주소를 `forceUpdate(storeURL:)`에 담아 두고 알럿 '확인'이 연다 (nil이면 아무 것도 안 한다).
 
-`AppUpdateClient`는 현재 API 미연동이며, 스펙 확정 시 `AppDomain`(UseCase) + `AppData`(Repository)로 이전할 예정이다.
+버전 체크만 공용 `HTTPClient`를 쓰지 않는다 — 로그인 전이라 토큰이 필요 없고,
+스플래시를 잡아 두는 호출이라 타임아웃 3초짜리 전용 세션을 쓴다 (`registerAppUpdate` 주석 참고).
 
 ## 어댑터 (`Sources/Adapters/`)
 
