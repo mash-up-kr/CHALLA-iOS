@@ -2,7 +2,8 @@
 
 ## 레이어와 책임
 
-**Data 레이어**. `AuthDomain`의 인터페이스 3개(`AuthRepository`·`SocialLoginService`·`TokenStore`)를 구현한
+**Data 레이어**. `AuthDomain`의 인터페이스 4개(`AuthRepository`·`SocialLoginService`·`TokenStore`·`LaunchStateStore`)와
+`CHALLANetwork`의 `TokenProvider`·`TokenRefreshing`을 구현한
 **구체 어댑터**를 public으로 제공한다 (아키텍처 규칙 1: `Feature → Domain ← Data`).
 이 모듈은 **구현체만 내놓고, 조립·주입은 하지 않는다** — 어댑터를 모아 `LoginUseCase.live(...)`로 완성하는
 합성 루트는 상위(`CHALLAApp`·`LoginFeatureDemo`의 `CompositionRoot`)에 있다.
@@ -21,8 +22,11 @@
 - **토큰 저장** — `KeychainTokenStore`가 Domain의 `TokenStore`와 Network의 `TokenProvider`를
   동시에 구현해, 로그인이 저장한 토큰을 `AuthInterceptor`가 요청마다 읽어가게 연결
   (단, 이 두 접점에 **같은 인스턴스**를 꽂는 배선은 합성 루트의 책임이다)
+- **토큰 갱신 · 세션 정리** — `AuthTokenRefresher`가 401 재시도 경로의 갱신을 한 번으로 묶고,
+  갱신이 거절되면 키체인을 비운다. 재설치 판정용 실행 이력은 `UserDefaultsLaunchStateStore`가 들고 있다
 
-**동시성**: Swift 6 strict concurrency 기준, `@unchecked Sendable` 미사용.
+**동시성**: Swift 6 strict concurrency 기준, `@unchecked Sendable`은
+`UserDefaultsLaunchStateStore` 한 곳뿐이다 (`UserDefaults`가 `Sendable`을 채택하지 않아서 — 파일 주석 참고).
 소셜 서비스는 `@MainActor` 격리하고 SDK 타입(`OAuthToken`·`ASAuthorization` 등)은 서비스 밖으로
 새지 않는다 — 경계를 넘는 값은 `Sendable`인 `SocialCredential`뿐이다.
 Apple 로그인의 continuation은 성공/실패 모두 `finish(with:)` 한 곳에서 정확히 1회만 resume한다.
@@ -42,8 +46,21 @@ Feature가 볼 일 없는 세부 타입(Endpoint/DTO/Mapper)은 internal이고,
   - 저장 형태: access·refresh를 **키체인 항목 하나**(`challa.auth.token`)에 JSON으로 묶어 넣는다.
     두 키로 나누면 앞의 저장만 성공했을 때 *새 access + 옛 refresh* 불일치가 남아 갱신이 서버에서 거부된다.
     한 항목이면 저장·삭제가 각각 한 번의 호출이라 그 중간 상태가 생기지 않는다
+  - `clear()`는 토큰 항목만 지우지 않고 **키체인 service 전체**(`Keychain.deleteAll()`)를 비운다 —
+    로그아웃·탈퇴·재설치 초기화에서 인증 잔여물을 남기지 않는 쪽이 안전하고,
+    나중에 인증 관련 항목이 늘어도 정리 코드를 다시 손대지 않는다
   - 오류 정책: `save`·`clear` 실패는 **그대로 전파**(정규화는 상위 UseCase 몫),
     조회 실패는 **nil로 삼킨다**(요청마다 호출되는 경로라 방어적 — 비로그인으로 간주)
+- `actor AuthTokenRefresher: TokenRefreshing`(CHALLANetwork)
+  - `init(refresh:tokenStore:onSessionExpired:)` — 갱신 동작 자체는 `RefreshTokenUseCase.live`를 클로저로 받고,
+    이 타입은 **단일 갱신 보장 + 실패 처리**만 맡는다
+  - 401을 동시에 받은 요청들이 갱신을 각자 부르면, refreshToken을 회전시키는 서버에서 두 번째가 거절되며
+    살아 있는 세션이 끊긴다 — 진행 중인 갱신에 합류시켜 한 번만 부른다.
+    401을 받은 요청이 실어 보낸 액세스 토큰이 이미 갱신됐다면 갱신을 건너뛰고 재시도만 허용한다
+  - 실패 처리: `.network`·취소는 세션을 유지한다(오프라인에 로그아웃되지 않는다).
+    그 밖의 거절은 **키체인을 비우고 `onSessionExpired`로 알린다** — 그 토큰으로는 어떤 요청도 통과하지 못한다
+- `struct UserDefaultsLaunchStateStore: LaunchStateStore`
+  - `init(defaults:)` — 앱 삭제와 함께 사라지는 `UserDefaults`에 실행 이력을 남겨 "설치 후 최초 실행"을 판정한다
 
 > 조립 자체(어댑터 그래프 → `LoginUseCase.live(...)`)는 이 모듈이 아니라 합성 루트가 수행한다.
 > 현재 합성 루트는 실행 앱마다 하나씩, 같은 배선을 두 벌 가진다 —
@@ -79,6 +96,12 @@ Swift Testing 기반 (공용 `MockHTTPClient`는 `CHALLANetworkTesting`에서 �
 **Repository 테스트**
 - `DefaultAuthRepositoryTests` — login/refresh/logout 성공 변환, `success=false`→`.server`,
   401→`.unauthorized`, 전송 실패→`.network`
+
+**토큰 저장·갱신 테스트**
+- `KeychainTokenStoreTests` — 저장·조회 라운드트립, 단일 항목 저장, `clear`의 service 전체 비우기, 실패 정책
+- `AuthTokenRefresherTests` — 성공/네트워크 실패/거절(키체인 정리 + 만료 알림)/취소,
+  동시 호출 시 갱신 1회, 이미 갱신된 토큰이면 갱신 생략
+- `UserDefaultsLaunchStateStoreTests` — 최초 실행 판정과 기록 유지 (테스트마다 별도 suite name)
 
 **ErrorMapping 테스트**
 - `AuthErrorMappingTests` — `NetworkError` 5개 케이스 전수 매핑 테이블 (transport→.network,

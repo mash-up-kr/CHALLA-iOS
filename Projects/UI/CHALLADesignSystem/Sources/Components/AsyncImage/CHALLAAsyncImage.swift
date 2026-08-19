@@ -16,7 +16,10 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
     @Environment(\.challaImageLoader) private var loader
     @Environment(\.displayScale) private var displayScale
     @State private var phase: CHALLAAsyncImagePhase = .empty
+    /// 배치된 크기를 정수 pt로 올려 기록한다 (`ImageLoadSize.quantized`).
     @State private var measuredSize: CGSize = .zero
+    /// 화면에 실린 이미지의 크기. 이보다 커질 때만 다시 받는다.
+    @State private var loadedSize: CGSize?
 
     /// - Parameters:
     ///   - url: 원격 이미지 URL. nil이면 placeholder만 표시한다.
@@ -46,11 +49,32 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
         .onGeometryChange(for: CGSize.self) { proxy in
             proxy.size
         } action: { newSize in
-            measuredSize = newSize // 배치된 크기가 확정·변경되면 기록 → LoadInput 변경 → 재로드
+            measuredSize = ImageLoadSize.quantized(newSize)
         }
-        .task(id: LoadInput(url: url, size: measuredSize, scale: displayScale)) {
-            await load() // 입력이 바뀌면 이전 로드를 취소하고 다시 로드. 뷰 소멸 시 자동 취소.
+        // 크기는 id에 넣지 않는다 — 넣으면 배치가 다시 잡힐 때마다 로드를 새로 걸어,
+        // 칸이 많은 화면에서는 한 장당 여러 번 호출되며 로더가 밀린다.
+        .task(id: LoadInput(url: url, isMeasured: isMeasured, scale: displayScale)) {
+            await load()
         }
+        // 이미 실린 것보다 커졌을 때만 다시 받는다.
+        .task(id: grownSize) {
+            if grownSize != nil {
+                await load()
+            }
+        }
+    }
+
+    /// 배치 크기가 정해졌는지. 레이아웃 전에는 0이라 로드할 수 없다.
+    private var isMeasured: Bool {
+        measuredSize.width > 0 && measuredSize.height > 0
+    }
+
+    /// 이미 실린 이미지보다 커진 크기. 커지지 않았으면 nil이라 재로드가 걸리지 않는다.
+    private var grownSize: CGSize? {
+        guard let loadedSize,
+              ImageLoadSize.needsReload(loaded: loadedSize, requested: measuredSize)
+        else { return nil }
+        return measuredSize
     }
 
     // MARK: - 로드
@@ -58,22 +82,25 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
     /// 로드의 입력값 묶음. 하나라도 바뀌면 `.task(id:)`가 이전 작업을 취소하고 다시 로드한다.
     private struct LoadInput: Equatable {
         let url: URL?
-        let size: CGSize
+        let isMeasured: Bool
         let scale: CGFloat
     }
 
     private func load() async {
+        let size = measuredSize
+
         // 레이아웃 전(크기 0)이거나 url·로더가 없으면 로드하지 않는다 — placeholder 유지.
         guard let url, let loader,
-              measuredSize.width > 0, measuredSize.height > 0
+              size.width > 0, size.height > 0
         else { return }
 
         do {
             let uiImage = try await loader.image(
                 from: url,
-                pointSize: measuredSize,
+                pointSize: size,
                 scale: displayScale
             )
+            loadedSize = size
             withAnimation(.easeInOut(duration: AsyncImageMetric.fadeInDuration)) {
                 phase = .success(Image(uiImage: uiImage))
             }
