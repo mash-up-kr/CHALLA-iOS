@@ -1,8 +1,11 @@
 @testable import PhotoData
 import CHALLANetwork
+import CoreGraphics
 import Foundation
+import ImageIO
 import PhotoDomain
 import Testing
+import UIKit
 
 @Suite("DefaultPhotoUploader")
 struct DefaultPhotoUploaderTests {
@@ -55,6 +58,57 @@ struct DefaultPhotoUploaderTests {
         #expect(json["photo"]?["roomId"] as? Int64 == 7)
         #expect(json["photo"]?["cameraFilterName"] as? String == "Warm")
         #expect(json["photo"]?["imageUrl"] as? String == "https://cdn.test/photos/1.jpg")
+    }
+
+    @Test("5MB를 넘는 촬영본은 5MB 이하로 압축해서 올린다")
+    func compressesOversizedPhotoBeforePut() async throws {
+        let client = MockHTTPClient.succeeding([Self.issueJSON, "", Self.completeJSON])
+        let uploader = DefaultPhotoUploader(client: client)
+        let maxUploadBytes = 5 * 1024 * 1024
+        let oversized = try Self.noiseJPEGData(pixelWidth: 2400, pixelHeight: 2400)
+        try #require(oversized.count > maxUploadBytes)
+
+        _ = try await uploader.upload(jpegData: oversized, roomID: 7, filterName: "Warm")
+
+        let body = try #require(client.requests[1].body)
+        #expect(body.count <= maxUploadBytes)
+        // 압축본도 여전히 디코딩 가능한 JPEG이어야 한다
+        let source = try #require(CGImageSourceCreateWithData(body as CFData, nil))
+        #expect(CGImageSourceGetType(source) == "public.jpeg" as CFString)
+    }
+
+    /// JPEG 압축이 안 먹히는 노이즈 픽셀로 5MB 초과 픽스처를 만든다 (고정 시드 LCG — 결정적).
+    private static func noiseJPEGData(pixelWidth: Int, pixelHeight: Int) throws -> Data {
+        var pixels = [UInt8](repeating: 0, count: pixelWidth * pixelHeight * 4)
+        var seed: UInt64 = 0x5DEE_CE66
+        for index in stride(from: 0, to: pixels.count, by: 4) {
+            seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            pixels[index] = UInt8(truncatingIfNeeded: seed >> 33)
+            pixels[index + 1] = UInt8(truncatingIfNeeded: seed >> 41)
+            pixels[index + 2] = UInt8(truncatingIfNeeded: seed >> 49)
+            pixels[index + 3] = 255
+        }
+        let context = pixels.withUnsafeMutableBytes { buffer in
+            CGContext(
+                data: buffer.baseAddress,
+                width: pixelWidth,
+                height: pixelHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: pixelWidth * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        }
+        guard let cgImage = context?.makeImage(),
+              let data = UIImage(cgImage: cgImage).jpegData(compressionQuality: 1.0)
+        else {
+            throw NoiseFixtureFailure.encodingFailed
+        }
+        return data
+    }
+
+    private enum NoiseFixtureFailure: Error {
+        case encodingFailed
     }
 
     @Test("스토리지 PUT이 실패하면 완료 통보를 부르지 않는다")
