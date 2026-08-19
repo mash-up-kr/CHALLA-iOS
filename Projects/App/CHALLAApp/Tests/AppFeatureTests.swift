@@ -44,11 +44,18 @@ private actor SpyPushTokenRepository: PushTokenRepository {
 @Suite("AppFeature — 화면 전이")
 struct AppFeatureTests {
 
+    /// 시계를 주입하지 않으면 프로필 재시도 대기가 `UnimplementedClock`에 걸려
+    /// 이펙트 안에서 이슈가 기록되고, 병렬 실행에서 엉뚱한 테스트의 실패로 잡힌다.
+    /// `TestClock`은 시간이 저절로 흐르지 않아 의도치 않은 재시도도 막는다.
     private static func store(
-        initialState: AppFeature.State
+        initialState: AppFeature.State,
+        withDependencies updates: (inout DependencyValues) -> Void = { _ in }
     ) -> TestStoreOf<AppFeature> {
         TestStore(initialState: initialState) {
             AppFeature()
+        } withDependencies: {
+            $0.continuousClock = TestClock()
+            updates(&$0)
         }
     }
 
