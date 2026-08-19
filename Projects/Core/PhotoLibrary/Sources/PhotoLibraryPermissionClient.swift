@@ -2,28 +2,40 @@ import Dependencies
 import DependenciesMacros
 import Photos
 
-/// 사진 라이브러리 접근 권한의 조회·요청.
-///
-/// 피커 화면은 담지 않는다 — 사진을 고르는 UI는 SwiftUI `PhotosPicker`가 그리고,
-/// 이 모듈은 그 앞단의 권한만 책임진다.
+/// 요청할 접근 범위. 저장만 하면 되는 곳까지 읽기 권한을 요구하지 않으려고 나눠 둔다.
+public enum PhotoLibraryAccessLevel: Sendable, Equatable {
+    /// 사진첩에 추가만 한다 (`NSPhotoLibraryAddUsageDescription`)
+    case addOnly
+    /// 사진첩을 읽고 고른다 (`NSPhotoLibraryUsageDescription`)
+    case readWrite
+}
+
 @DependencyClient
 public struct PhotoLibraryPermissionClient: Sendable {
-    /// 미결정이면 시스템 팝업을 띄우고, 이미 결정된 상태면 그대로 돌려준다.
-    public var request: @Sendable () async -> PhotoLibraryAuthorization = { .denied }
+    public var request: @Sendable (PhotoLibraryAccessLevel) async -> PhotoLibraryAuthorization = { _ in .denied }
 }
 
 extension PhotoLibraryPermissionClient: DependencyKey {
 
-    /// `.readWrite`로 묻는 이유: 프로필 사진은 읽기만 하지만, `.addOnly`는 읽기 권한을 주지 않는다.
     public static let liveValue = PhotoLibraryPermissionClient(
-        request: {
-            await PhotoLibraryAuthorization(PHPhotoLibrary.requestAuthorization(for: .readWrite))
+        request: { level in
+            await PhotoLibraryAuthorization(PHPhotoLibrary.requestAuthorization(for: level.phAccessLevel))
         }
     )
 
     public static let testValue = PhotoLibraryPermissionClient()
 
-    public static let previewValue = PhotoLibraryPermissionClient(request: { .authorized })
+    public static let previewValue = PhotoLibraryPermissionClient(request: { _ in .authorized })
+}
+
+private extension PhotoLibraryAccessLevel {
+
+    var phAccessLevel: PHAccessLevel {
+        switch self {
+        case .addOnly: .addOnly
+        case .readWrite: .readWrite
+        }
+    }
 }
 
 public extension DependencyValues {

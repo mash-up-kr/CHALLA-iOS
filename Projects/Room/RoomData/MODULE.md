@@ -17,15 +17,17 @@
 ### Repository (`Sources/Repository/`)
 
 - `struct DefaultRoomRepository: RoomRepository` — `init(client:)`
-  - 세 메서드 모두 같은 흐름: 요청 → 껍데기 언랩 → 도메인 변환 → 실패 정규화(`RoomError.normalized`)
+  - 모든 메서드가 같은 흐름: 요청 → 껍데기 언랩 → 도메인 변환 → 실패 정규화(`RoomError.normalized`)
   - `rooms()`는 세 상태를 전부 배열 쿼리(`?status=A&status=B&status=C`)로 요청한다 —
     상태 필터가 최소 1개 필수(생략 시 400)이고, 홈은 두 섹션을 한 화면에 그린다
+  - `shootableRooms()`는 `GET /rooms/shootable`을 그대로 옮긴다 (촬영 가능 판단은 서버 몫)
   - 생성·입장은 서버 응답이 `{ id }`뿐이라 **목록을 재조회해 그 id의 카드를 돌려준다**
     (`card(withID:)`에 격리 — 백엔드가 응답에 방 전체를 실어주면 이 메서드만 지운다)
   - 상태 없는 `struct`다 — 진짜 데이터가 전부 서버에 있고 이 타입은 통로라 actor가 필요 없다
 - `actor InMemoryRoomRepository: RoomRepository`
   - `init(cards:inviteCodes:latency:failure:)` — 시작 목록, 초대 코드→방 id 매핑, 응답 지연, 심어 둘 오류
   - `latency`·`failure`는 데모앱이 로딩·실패 화면을 재현하는 수단이다
+  - `shootableRooms()`는 들고 있는 카드 중 촬영 중 상태만 축약형으로 내려준다 (실서버 기준을 흉내)
   - 방 생성 id는 음수 카운터(-1000부터 감소) — 서버는 양수만 주므로 음수 = 서버가 발급하지 않은
     데이터라는 표식. 프리뷰(-1~-3)·샘플(-10번대)과 겹치지 않는다
 
@@ -52,7 +54,7 @@
   이 모듈은 `RoomError`를 묶은 무인자 `unwrap()` 확장만 둔다. 요청·응답 DTO, `RoomStatusDTO`
   (모르는 상태 값은 디코딩 실패를 택한다). 날짜는 `String`으로 받는다 — 공용 디코더에 날짜 규칙을
   설정하면 다른 도메인 API까지 영향을 받아 매핑에서만 파싱한다
-- `Endpoint/RoomEndpoint` — rooms(배열 쿼리) · create · join 선언. 셋 다 `.bearer`
+- `Endpoint/RoomEndpoint` — rooms(배열 쿼리) · shootable · create · join 선언. 전부 `.bearer`
 - `Mapping/` — `toDomain()`(DTO→RoomCard), `ServerDate`(타임존 유무·소수점 초 유무 4형식 파싱,
   타임존 없는 표기는 백엔드 확인 전까지 KST 가정 TODO), `RoomError.normalized`(취소는 통과,
   401→unauthorized, 404→roomNotFound·409→roomFull은 잠정 — 스웨거에 에러 정의가 없음 TODO)
@@ -62,7 +64,7 @@
 ## 의존성
 
 - **이 모듈이 의존**: `RoomDomain`(인터페이스·엔티티·오류) · `CHALLANetwork`(HTTPClient·Endpoint)
-- **이 모듈에 의존**: `CHALLAApp` · `HomeFeatureDemo` — 합성 루트만 import한다
+- **이 모듈에 의존**: `CHALLAApp` · `HomeFeatureDemo` · `CameraFeatureDemo` — 합성 루트만 import한다
   (아키텍처 규칙 2: Feature는 Data를 import하지 않는다)
 
 ## 테스트 실행 방법
@@ -79,6 +81,8 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). 공용 `
   재조회 실패 시 `.unknown`, 404·409 잠정 매핑
 - `RoomCardMappingTests` — 필드 이동·`shotPhotoCount` 계산, 상태 3종 1:1, 날짜 4형식 파싱,
   필수 날짜 위반 시 `.unknown`, 인화 시각 관대 처리, 깨진 썸네일 URL 걸러내기
+- `ShootableRoomsTests` — 촬영 가능 목록 경로·bearer 확인, `success:false` 언랩,
+  InMemory의 촬영 중 상태 필터링
 - `InMemoryRoomRepositoryTests` — 시작 목록 순서 유지, 생성 시 서버 몫 값을 저장소가 채우는지
   (id 음수 표식 포함), 만든 방이 목록에 남고 최근 방이 맨 앞, 입장 인원 증가 반영,
   없는 코드의 `.roomNotFound`, `failure` 주입 시 세 메서드 모두 전파

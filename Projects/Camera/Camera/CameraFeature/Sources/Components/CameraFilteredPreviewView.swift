@@ -31,6 +31,9 @@ public struct CameraFilteredPreviewView: UIViewRepresentable {
         view.framebufferOnly = false // CIContext가 드로어블 텍스처에 직접 쓴다
         view.backgroundColor = .black
         view.delegate = context.coordinator
+        // 프레임만 그리는 뷰라 터치를 받을 이유가 없다. 꺼 두면 UIKit 히트테스트가 이 뷰를 건너뛰어,
+        // 뷰파인더 위 터치가 SwiftUI 제스처(닫기 스와이프·핀치 줌)로 확실히 넘어간다.
+        view.isUserInteractionEnabled = false
 
         let renderer = context.coordinator
         renderer.source = source

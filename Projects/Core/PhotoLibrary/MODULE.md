@@ -17,23 +17,29 @@
 ### PhotoLibraryAuthorization
 - `enum PhotoLibraryAuthorization: Sendable, Equatable` — `.authorized` / `.limited` / `.denied` / `.restricted` / `.notDetermined`
 - `var allowsPicking: Bool` — 사진을 고를 수 있는 상태인지 (`.authorized` · `.limited`)
+- `var allowsSaving: Bool` — 사진첩에 저장할 수 있는 상태인지 (`.authorized` · `.limited`)
+
+### PhotoLibraryAccessLevel
+- `enum PhotoLibraryAccessLevel: Sendable, Equatable` — `.addOnly`(저장만) / `.readWrite`(읽고 고르기).
+  저장만 하면 되는 촬영 흐름까지 읽기 권한을 요구하지 않으려고 나눠 뒀다
 
 ### PhotoLibraryPermissionClient (`@DependencyClient`)
-- `var request: @Sendable () async -> PhotoLibraryAuthorization` — 미결정이면 시스템 팝업, 결정된 상태면 그대로 반환
-- `liveValue` — `PHPhotoLibrary`에 `.readWrite`로 질의 (`.addOnly`는 읽기 권한을 주지 않는다)
+- `var request: @Sendable (PhotoLibraryAccessLevel) async -> PhotoLibraryAuthorization` — 미결정이면 시스템 팝업, 결정된 상태면 그대로 반환
+- `liveValue` — `PHPhotoLibrary`에 요청한 범위(`PHAccessLevel`)로 질의
 - `testValue` — 전부 미구현 (테스트가 필요한 것만 채워 쓴다)
 - `previewValue` — 항상 `.authorized`
 - `DependencyValues.photoLibraryPermission`
 
 ## 사용하는 쪽에서 필요한 설정
 
-권한을 요청하는 앱 타깃은 `Info.plist`에 `NSPhotoLibraryUsageDescription`이 있어야 한다 —
-없으면 요청 시점에 앱이 크래시한다. Tuist에서는 `makeAppProject(additionalInfoPlist:)`로 넣는다.
+권한을 요청하는 앱 타깃은 `Info.plist`에 사용 목적 문구가 있어야 한다 — 없으면 요청 시점에 앱이 크래시한다.
+`.readWrite`는 `NSPhotoLibraryUsageDescription`, `.addOnly`는 `NSPhotoLibraryAddUsageDescription`이 필요하다.
+Tuist에서는 `makeAppProject(additionalInfoPlist:)`로 넣는다.
 
 ## 의존성
 
 - **이 모듈이 의존**: `Photos`(시스템) · `Dependencies` · `DependenciesMacros`
-- **이 모듈에 의존**: `ProfileSetupFeature` · `CHALLAApp`(예정)
+- **이 모듈에 의존**: `ProfileSetupFeature`(`.readWrite`) · `HomeFeature`(촬영 진입 시 `.addOnly`) · `CHALLAApp`(예정)
 
 ## 테스트 실행 방법
 

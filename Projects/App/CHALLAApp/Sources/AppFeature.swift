@@ -1,3 +1,5 @@
+import CameraFeature
+import CameraSession
 import ComposableArchitecture
 import HomeFeature
 import LoginFeature
@@ -20,6 +22,7 @@ public struct AppFeature {
         case home(HomeScreen)
         case setting(SettingScreen)
         case profileEdit(ProfileEditScreen)
+        case camera(CameraScreen)
 
         /// 화면 전환만 식별한다 — 자식 State 변화(닉네임 입력 등)에는 반응하지 않는다.
         public var screenID: ScreenID {
@@ -30,11 +33,12 @@ public struct AppFeature {
             case .home: return .home
             case .setting: return .setting
             case .profileEdit: return .profileEdit
+            case .camera: return .camera
             }
         }
 
         public enum ScreenID: Equatable, Sendable {
-            case launching, login, profileSetup, home, setting, profileEdit
+            case launching, login, profileSetup, home, setting, profileEdit, camera
         }
     }
 
@@ -70,6 +74,28 @@ public struct AppFeature {
         }
     }
 
+    /// 카메라 화면 State + 홈 복귀용 프로필.
+    ///
+    /// 방·필터 목록은 홈의 촬영 버튼이 미리 받아 둔 것을 그대로 옮겨 담는다 —
+    /// 카메라 화면은 목록을 스스로 조회하지 않는다.
+    @ObservableState
+    public struct CameraScreen: Equatable {
+        public var profile: UserProfile
+        /// 카메라 화면 + 실기기 촬영 배선(`CameraSession`).
+        public var live: LiveCameraFeature.State
+
+        public init(profile: UserProfile, entry: CameraEntry) {
+            self.profile = profile
+            live = LiveCameraFeature.State(
+                camera: CameraFeature.State(
+                    rooms: IdentifiedArray(uniqueElements: entry.rooms),
+                    filters: IdentifiedArray(uniqueElements: entry.filters),
+                    selectedRoomID: entry.roomID
+                )
+            )
+        }
+    }
+
     /// 프로필 편집 화면 State + 취소 시 복원할 프로필.
     @ObservableState
     public struct ProfileEditScreen: Equatable {
@@ -96,6 +122,7 @@ public struct AppFeature {
         case home(HomeFeature.Action)
         case setting(SettingFeature.Action)
         case profileEdit(ProfileSetupFeature.Action)
+        case camera(LiveCameraFeature.Action)
     }
 
     // MARK: - Init
@@ -155,6 +182,20 @@ public struct AppFeature {
                 // TODO: 방 상세 Feature가 생기면 만든·입장한 방으로 바로 진입할지 기획과 정해 여기서 조립한다.
                 return .none
 
+            // 홈이 방·필터·카메라 권한을 모두 갖춘 뒤에만 오는 요청이라 여기서 바로 띄운다.
+            case let .home(.delegate(.cameraRequested(entry))):
+                guard case let .home(screen) = state else { return .none }
+                state = .camera(CameraScreen(profile: screen.profile, entry: entry))
+                return .none
+
+            // MARK: - 카메라 delegate
+
+            // 홈을 새로 만들어 방 목록을 다시 받는다 — 촬영으로 남은 장수가 줄었을 수 있다.
+            case .camera(.camera(.delegate(.closeRequested))):
+                guard case let .camera(screen) = state else { return .none }
+                state = .home(HomeScreen(profile: screen.profile))
+                return .none
+
             // MARK: - 설정 delegate
 
             case .setting(.delegate(.backRequested)):
@@ -184,7 +225,7 @@ public struct AppFeature {
                 state = .setting(SettingScreen(profile: screen.profile))
                 return .none
 
-            case .login, .profileSetup, .home, .setting, .profileEdit:
+            case .login, .profileSetup, .home, .setting, .profileEdit, .camera:
                 return .none
             }
         }
@@ -208,6 +249,11 @@ public struct AppFeature {
         .ifCaseLet(\.profileEdit, action: \.profileEdit) {
             Scope(state: \.edit, action: \.self) {
                 ProfileSetupFeature()
+            }
+        }
+        .ifCaseLet(\.camera, action: \.camera) {
+            Scope(state: \.live, action: \.self) {
+                LiveCameraFeature()
             }
         }
     }
