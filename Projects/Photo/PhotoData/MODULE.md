@@ -47,8 +47,8 @@
 
 ## 내부 구성 (internal — 서버 계약이 바뀌면 여기만 바뀐다)
 
-- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`(공통 껍데기, UserData·RoomData 복사본 — #51에서
-  통합), `CameraFiltersResponseDTO`(`{ shoot: { cameraFilters } }` 이중 껍데기),
+- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`는 #51에서 `CHALLANetwork`로 공용화됐고,
+  이 모듈은 `PhotoError`를 묶은 무인자 `unwrap()` 확장만 둔다. `CameraFiltersResponseDTO`(`{ shoot: { cameraFilters } }` 이중 껍데기),
   `CompletePhotoRequestDTO`/`CompletePhotoResponseDTO`, 업로드 DTO(UserData 복사본)
 - `Endpoint/` — `ShootEndpoint`(cameraFilters `.bearer` · cubeFile 공개 URL `.none`),
   `PhotoEndpoint`(complete `.bearer`), `UploadEndpoint`(issue `.bearer` · put `.none`, UserData 복사본)
@@ -67,8 +67,8 @@
 mise exec -- tuist test PhotoData
 ```
 
-Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockHTTPClient`
-(RoomData 것의 복사본)로 서버 없이 검증한다.
+Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). 공용 `MockHTTPClient`
+(`CHALLANetworkTesting`)로 서버 없이 검증한다.
 
 - `DefaultCameraFilterRepositoryTests` — 목록 경로·bearer 확인, `success:false` 언랩,
   LUT 무토큰 다운로드와 캐시(재호출 시 요청 1회), transport→`.network` 정규화
