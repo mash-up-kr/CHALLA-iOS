@@ -14,6 +14,10 @@ import UIKit
 @main
 struct CHALLAApp: App {
 
+    /// Firebase 초기화와 푸시 콜백 수신 (`AppDelegate` 주석 참고).
+    /// 델리게이트 콜백은 이 `init`이 끝난 뒤 불리므로 그때는 의존성이 이미 등록돼 있다.
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     private let store: StoreOf<AppFeature>
 
     /// 앱 전역에서 공유하는 단일 이미지 로더.
@@ -22,7 +26,14 @@ struct CHALLAApp: App {
 
     init() {
         Self.bootstrapKakaoSDK()
-        prepareDependencies { CompositionRoot.registerLiveDependencies(into: &$0) }
+        // 로그아웃·탈퇴 시 이전 계정 이미지를 지우도록 같은 로더를 조립부에 넘긴다 (self 캡처 방지용 지역 바인딩).
+        let loader = imageLoader
+        prepareDependencies {
+            CompositionRoot.registerLiveDependencies(
+                into: &$0,
+                clearImageCache: { await loader?.removeAll() }
+            )
+        }
         store = Store(initialState: .launching) {
             AppFeature()
         }

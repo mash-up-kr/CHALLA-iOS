@@ -8,6 +8,9 @@ let package = Package(
         // Dependencies · DependenciesMacros는 전이 의존으로 함께 제공된다
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture", .upToNextMajor(from: "1.26.0")),
         // KakaoSDKCommon · KakaoSDKAuth · KakaoSDKUser
-        .package(url: "https://github.com/kakao/kakao-ios-sdk", .upToNextMajor(from: "2.28.0"))
+        .package(url: "https://github.com/kakao/kakao-ios-sdk", .upToNextMajor(from: "2.28.0")),
+        // FirebaseCore(초기화) · FirebaseMessaging(FCM 토큰) — 푸시 알림용.
+        // 다른 Firebase 제품은 쓰지 않는다.
+        .package(url: "https://github.com/firebase/firebase-ios-sdk", .upToNextMajor(from: "12.17.0"))
     ]
 )

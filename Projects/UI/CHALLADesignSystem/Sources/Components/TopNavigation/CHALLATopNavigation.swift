@@ -10,7 +10,10 @@ import SwiftUI
 /// 상태바 영역(safe area)은 포함하지 않는다 — 화면 최상단에 두면 시스템이 safe area 아래로 배치한다.
 ///
 /// ```swift
-/// CHALLATopNavigation.main(trailing: .icon(.setting, accessibilityLabel: "설정") { ... })
+/// CHALLATopNavigation.main(trailing: [
+///     .icon(.plus, accessibilityLabel: "방 추가") { ... },
+///     .icon(.setting, accessibilityLabel: "설정") { ... }
+/// ])
 ///
 /// CHALLATopNavigation.sub(
 ///     title: "방 만들기",
@@ -50,7 +53,7 @@ public struct CHALLATopNavigation: View {
     // MARK: - 프로퍼티와 init
 
     private enum Variant {
-        case main(trailing: Item?)
+        case main(trailing: [Item])
         case sub(title: String, leading: Item?, trailing: Item?)
     }
 
@@ -61,7 +64,9 @@ public struct CHALLATopNavigation: View {
     }
 
     /// 홈 화면용. 좌측에 "home" 로고(Dirtyline)가 고정으로 들어간다.
-    public static func main(trailing: Item? = nil) -> Self {
+    /// - Parameter trailing: 우측 아이콘들. 배열 순서대로 왼쪽부터 놓인다.
+    ///   시안 기준 최대 2개이며, 그 이상은 로고 자리를 밀어낸다.
+    public static func main(trailing: [Item] = []) -> Self {
         Self(variant: .main(trailing: trailing))
     }
 
@@ -91,8 +96,8 @@ public struct CHALLATopNavigation: View {
 
     // MARK: - 바 레이아웃
 
-    /// main: 로고 왼쪽 정렬 + 우측 아이콘.
-    private func mainBar(trailing: Item?) -> some View {
+    /// main: 로고 왼쪽 정렬 + 우측 아이콘들.
+    private func mainBar(trailing: [Item]) -> some View {
         HStack(spacing: TopNavigationMetric.contentSpacing) {
             // Dirtyline은 소문자를 스타일된 대문자꼴로 그린다 — Figma 원문도 "home"
             Text("home")
@@ -100,8 +105,13 @@ public struct CHALLATopNavigation: View {
                 .foregroundStyle(CHALLAColor.Primary.yellow)
                 .accessibilityLabel("홈") // VoiceOver가 영문 "home" 대신 한국어로 낭독
             Spacer(minLength: 0)
-            if let trailing {
-                iconSlot(trailing)
+            if !trailing.isEmpty {
+                HStack(spacing: TopNavigationMetric.iconSpacing) {
+                    // 배열에 위치 외의 식별자가 없어 인덱스를 id로 쓴다. 슬롯은 고정 개수라 재정렬이 없다.
+                    ForEach(Array(trailing.enumerated()), id: \.offset) { _, item in
+                        iconSlot(item)
+                    }
+                }
             }
         }
         .padding(.horizontal, TopNavigationMetric.horizontalPadding)
@@ -158,6 +168,8 @@ private enum TopNavigationMetric {
     static let horizontalPadding: CGFloat = 16
     /// main variant의 로고·아이콘 사이 간격.
     static let contentSpacing: CGFloat = 16
+    /// 우측 아이콘끼리의 간격. 터치 영역 기준이라 아이콘 사이 여백은 8+2+8 = 18로 보인다.
+    static let iconSpacing: CGFloat = 2
     /// 아이콘 터치 영역 (아이콘 24pt를 가운데 배치).
     static let touchArea: CGFloat = 40
 }
@@ -165,7 +177,11 @@ private enum TopNavigationMetric {
 #Preview {
     VStack(spacing: 0) {
         CHALLATopNavigation.main()
-        CHALLATopNavigation.main(trailing: .icon(.setting, accessibilityLabel: "설정") {})
+        CHALLATopNavigation.main(trailing: [.icon(.setting, accessibilityLabel: "설정") {}])
+        CHALLATopNavigation.main(trailing: [
+            .icon(.plus, accessibilityLabel: "방 추가") {},
+            .icon(.setting, accessibilityLabel: "설정") {}
+        ])
         CHALLATopNavigation.sub(title: "타이틀")
         CHALLATopNavigation.sub(
             title: "방 만들기",

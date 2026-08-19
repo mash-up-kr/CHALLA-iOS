@@ -24,6 +24,8 @@ public enum CHALLAIcon: String, CaseIterable, Sendable {
     case palette = "Palette"
     case pencilSimple = "PencilSimple"
     case person = "Person"
+    /// Figma 컴포넌트 이름은 `add`지만 다른 아이콘들과 같은 Phosphor 이름을 쓴다.
+    case plus = "Plus"
     case profile = "Profile"
     case setting = "Setting"
     case signOut = "SignOut"

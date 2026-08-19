@@ -1,6 +1,6 @@
 # CHALLA 배포 전략
 
-> **초안** — CI/CD 실 구현이 이슈 #8에서 진행 중이므로, #8 머지 시 이 문서를 실제 구현 기준으로 현행화한다.
+> CI(GitHub Actions)와 로컬 훅은 구축 완료다. 실배포앱의 배포 트리거는 아직 미정 — "남은 결정 사항" 참고.
 
 ## 앱 2개 = 완전히 별개의 배포
 
@@ -18,17 +18,18 @@
 - 번들 ID는 초기 세팅부터 분리해뒀다 (CI/CD 붙일 때 안 꼬이게).
 - 폴더 위치와 배포는 무관 — 검수앱이 `Projects/UI/` 아래 있어도 스킴만 Archive하면 독립 배포된다.
 
-## 파이프라인 (이슈 #8 기준)
+## 파이프라인
 
 ```
-로컬:   pre-commit 훅 (staged 파일 포맷/린트)
-PR:     GitHub Actions CI — lint → tuist generate → tuist test
+로컬:   pre-commit 훅 (staged 파일 포맷/린트)          .githooks/pre-commit
+PR:     GitHub Actions CI — lint → install → generate → test   .github/workflows/ci.yml
 머지 후: Xcode Cloud 배포 — ci_post_clone.sh (팀 ID 주입 · 빌드 번호 자동 증가)
 ```
 
 - CI(품질 검사)는 GitHub Actions, 배포는 Xcode Cloud로 역할을 나눈다.
 - 빌드 번호는 `CI_BUILD_NUMBER` 기반 자동 증가 — 수동 +1 커밋을 만들지 않는다.
-- 세부 스크립트·워크플로우 구성은 #8 브랜치(`Scripts/`, `ci_scripts/`, `.github/workflows/`)가 원본.
+- CI는 `paths` 필터로 코드 변경이 있는 PR에서만 돈다. 이 필터 때문에 **required check로 지정하면
+  문서만 고친 PR이 pending으로 막힌다** (근거는 `ci.yml` 상단 주석).
 
 ## 수동 배포 (자동화 전 임시 절차)
 

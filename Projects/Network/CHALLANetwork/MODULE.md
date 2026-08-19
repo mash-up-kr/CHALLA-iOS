@@ -37,7 +37,8 @@ Repository에 주입해도 안전하다. `Response`는 비-Sendable `HTTPURLResp
 ### 요청 선언 (Data가 채택)
 - `protocol Endpoint` — `baseURL` · `path` · `method` · `task` · `headers`
 - `enum HTTPMethod` — `.get` `.post` `.put` `.patch` `.delete`
-- `enum HTTPTask` — `.requestPlain` · `.requestData` · `.requestParameters(parameters:encoding:)` · `.requestJSONEncodable` · `.uploadMultipart`
+- `enum HTTPTask` — `.requestPlain` · `.requestData` · `.requestParameters(parameters:encoding:)` · `.requestQueryItems([URLQueryItem])` · `.requestJSONEncodable` · `.uploadMultipart`
+  - `.requestQueryItems`는 같은 키가 반복되는 배열 쿼리(`?status=A&status=B`) 전용 — `Parameters`는 딕셔너리라 키 반복을 표현할 수 없다
 - `protocol ParameterEncoding` / `struct URLEncoding`(쿼리스트링) · `typealias Parameters = [String: String]`
 - `struct MultipartFormData`
 - `protocol AccessTokenAuthorizable` · `enum AuthorizationType`(`.none`/`.bearer`)
@@ -50,6 +51,10 @@ Repository에 주입해도 안전하다. `Response`는 비-Sendable `HTTPURLResp
 ### 인터셉터 · 인증 · 오류
 - `protocol Interceptor` — `adapt` · `willSend` · `didReceive` (모두 기본 구현 있음)
 - `struct AuthInterceptor` · `struct LoggingInterceptor`
+  - `LoggingInterceptor(level:)` — `.none` / `.basic`(메서드·URL·상태 코드) / `.verbose`(헤더·본문까지).
+    `.verbose`의 응답 본문은 `os.Logger`의 한 줄 1024바이트 상한에 걸려 잘리지 않도록
+    `body[n/N]` 순번을 붙여 여러 줄로 나눠 남긴다 (본문 전문 확인용). 값은 `.private`이라
+    Xcode 디버거가 붙은 콘솔에서만 보인다
 - `protocol TokenProvider` — 구현은 `AuthData`
 - `enum NetworkError` — 취소는 여기에 포함되지 않는다. 전송이 취소되면 `NetworkError`로 감싸지 않고
   `CancellationError`를 그대로 던지며, `Interceptor.didReceive`에도 실패로 통보하지 않는다
@@ -110,7 +115,7 @@ struct DefaultRoomRepository: RoomRepository {   // 인터페이스는 RoomDomai
 let client = DefaultHTTPClient(
     interceptors: [
         AuthInterceptor(tokenProvider: keychainTokenProvider),  // 구현은 AuthData
-        LoggingInterceptor(level: .basic)
+        LoggingInterceptor(level: .verbose)  // DEBUG에서만 — 릴리스는 .basic
     ]
 )
 ```

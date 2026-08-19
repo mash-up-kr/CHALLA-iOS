@@ -10,6 +10,7 @@ import SettingDomain
 /// xcrun simctl launch booted <bundle-id> --screen setting --state default
 /// xcrun simctl launch booted <bundle-id> --screen theme --theme raspberry
 /// xcrun simctl launch booted <bundle-id> --screen notification --state permissionOff --serviceNotification on
+/// xcrun simctl launch booted <bundle-id> --screen notification --state permissionNotDetermined
 /// xcrun simctl launch booted <bundle-id> --screen account --state drawerConfirm
 /// ```
 ///
@@ -35,10 +36,12 @@ struct DemoLaunchArguments: Equatable {
         case loading
         /// 실패 — 얼럿이 뜬다. (setting · account)
         case error
-        /// 시스템 알림 권한이 꺼져 있다 — 배너가 보인다. 시안의 상태다. (notification)
+        /// 시스템 알림 권한을 거절했다 — 배너가 보이고, 누르면 설정 앱으로 보낸다. 시안의 상태다. (notification)
         case permissionOff
         /// 시스템 알림 권한이 켜져 있다 — 배너가 없다. (notification)
         case permissionOn
+        /// 알림 권한을 한 번도 묻지 않았다 — 배너가 보이고, 누르면 권한을 요청한다. (notification)
+        case permissionNotDetermined
         /// 로그아웃 확인 드로어가 떠 있다. (account)
         case drawerSignOut
         /// 탈퇴 확인 드로어(A)가 떠 있다. (account)

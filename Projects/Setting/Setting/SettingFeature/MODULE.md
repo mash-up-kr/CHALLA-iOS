@@ -9,8 +9,9 @@ TCA Feature와 SwiftUI 뷰를 담는다.
 끝나고 다른 화면이 재사용하지 않아서, 모듈로 쪼개면 조립 비용만 늘어난다.
 그래서 `SettingFeature`가 `StackState<Path.State>`를 직접 소유하고 push/pop을 관리한다.
 
-App에 올리는 `delegate`는 **설정 밖으로 나가야 하는 것**뿐이다 — 프로필 편집(#33의 별도 모듈),
+App에 올리는 `delegate`는 **설정 밖으로 나가야 하는 것**뿐이다 — 프로필 편집,
 뒤로가기, 그리고 앱 전체를 되돌려야 하는 로그아웃·탈퇴 완료.
+프로필 편집은 `ProfileSetupFeature`의 편집 모드이며 `CHALLAApp`이 화면을 교체해 띄운다.
 
 `SettingData`를 import 하지 않는다 (규칙 2) — UseCase 8종을 `@Dependency`로만 꺼내 쓴다.
 
@@ -78,17 +79,21 @@ push 하면 안 된다** — 중첩 `NavigationStack`은 SwiftUI에서 동작이
 
 ### 내부 구성 (`Sources/Components/`)
 
-- `SettingProfileHeader` — 아바타 + 닉네임/이메일 + 편집 버튼 (설정 메인, 가로 배치)
+- `SettingProfileHeader` — 아바타 + 닉네임 + 편집 버튼 (설정 메인, 가로 배치)
 - `ProfileAvatar` — 회색 원 + 실루엣. 설정 메인과 계정 관리가 공유한다.
   크기(68)를 파라미터로 열지 않았다 — 쓰는 곳 둘 다 같은 값이고 실루엣 아이콘이 지름과 함께
   움직여야 해서 지름만 바꾸게 열면 비율이 깨진다
-- `AccountProfileSummary` (`Sources/Account/Components/`) — 아바타 + 닉네임/이메일 (계정 관리, 세로 중앙 배치).
+- `AccountProfileSummary` (`Sources/Account/Components/`) — 아바타 + 닉네임 (계정 관리, 세로 중앙 배치).
   `SettingProfileHeader`와 값은 같지만 배치가 달라 합치지 않고 아바타만 공유한다
 - 셋 다 디자인 시스템에 올리지 않았다. 재사용처가 설정 안뿐인데 DS에 넣으면 검수앱 갤러리에
   Variant를 나열할 의무가 붙는다 (`.claude/rules/design-system.md`). 다른 화면에서도
   같은 블록이 필요해지면 그때 승격한다
 
 ## 시안 대비 알려진 차이
+
+- **이메일을 표시하지 않는다** — 시안에는 닉네임 아래 `hap****@naver.com` 형태로 있지만
+  서버가 이메일을 내려주지 않는다 (`GET /api/v1/users/me` 응답은 `id · nickname · profileImageUrl`뿐).
+  마스킹 주체가 서버인지 클라이언트인지도 정해지지 않았다. 서버 계약에 추가되면 되살린다
 
 - **행 leading 아이콘 색** — Zeplin `List / Arrow` 컴포넌트 정의는 `Label.neutral`(#AEAFB4)인데
   설정 화면 인스턴스는 `Label.alternative`(#74767B)다. 검증이 화면 기준이라 화면을 따르고
@@ -129,7 +134,7 @@ push 하면 안 된다** — 중첩 `NavigationStack`은 SwiftUI에서 동작이
 
 **프로필 조회가 실패하면 헤더만 빈 채로 남는다.** 테마·알림·계정 관리는 그대로 동작한다 —
 프로필과 테마를 따로 읽으므로 원격 실패가 로컬 값을 끌고 가지 않는다.
-계정 관리 화면의 닉네임·이메일은 부모 프로필을 시드로 받아 함께 비어 있고, 그 화면 안에
+계정 관리 화면의 닉네임은 부모 프로필을 시드로 받아 함께 비어 있고, 그 화면 안에
 복구 경로는 없다 (로딩·실패 중 하위 화면 진입 정책은 별도 이슈).
 
 **프로필 조회에 실패하면 화면 안에서 재시도할 수 없다.** 얼럿 버튼이 "확인" 하나뿐이고,

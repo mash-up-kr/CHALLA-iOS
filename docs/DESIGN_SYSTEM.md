@@ -48,7 +48,7 @@ CHALLA의 디자인 시스템(`CHALLADesignSystem`)과 검수용 앱(`CHALLADesi
 
 ---
 
-## 목표 구조
+## 구조
 
 ```
 CHALLA/
@@ -63,18 +63,16 @@ CHALLA/
 │  └─ UI/                           # 디자인시스템 모듈 + 검수앱을 한 세트로
 │     ├─ CHALLADesignSystem/        # 순수 SwiftUI UI 모듈 (Feature import 금지)
 │     │  ├─ Project.swift
-│     │  └─ Sources/
-│     │     ├─ Foundation/          # 토큰 (원자 계층)
-│     │     │  ├─ CHALLAColor.swift        # Color(hex:) 는 여기서만 호출
-│     │     │  ├─ CHALLATypography.swift   # Font.custom 은 여기서만 호출
-│     │     │  ├─ CHALLASpacing.swift
-│     │     │  └─ CHALLARadius.swift
-│     │     ├─ Components/          # 재사용 컴포넌트
-│     │     │  ├─ CHALLAButton.swift
-│     │     │  ├─ CHALLATextField.swift
-│     │     │  ├─ CHALLABottomSheet.swift
-│     │     │  └─ CHALLAToast.swift
-│     │     └─ Resources/           # 폰트 ttf, 아이콘 애셋
+│     │  ├─ MODULE.md               # 공개 API 목록·알려진 제약의 정본
+│     │  ├─ Sources/
+│     │  │  ├─ Foundation/          # 토큰 (원자 계층)
+│     │  │  │  ├─ CHALLAColor.swift        # Color(hex:) 는 여기서만 호출
+│     │  │  │  ├─ CHALLATypography.swift   # Font.custom 은 여기서만 호출
+│     │  │  │  ├─ CHALLARadius.swift · CHALLAIcon.swift
+│     │  │  │  └─ CHALLAHitTarget.swift · CHALLAFontRegister.swift
+│     │  │  └─ Components/          # 컴포넌트별 폴더 (Button · Drawer · List · Toast …)
+│     │  ├─ Resources/              # 폰트 otf, 아이콘 애셋
+│     │  └─ Tests/
 │     │
 │     └─ CHALLADesignSystemApp/     # 검수 앱 (표시이름: "CHALLA 디자인 시스템")
 │        ├─ Project.swift
@@ -84,37 +82,34 @@ CHALLA/
 │           ├─ Foundation/                    # 토큰 검수 화면
 │           │  ├─ TypographyGallery.swift
 │           │  ├─ ColorGallery.swift
-│           │  ├─ RadiusShadowGallery.swift
-│           │  ├─ IconGallery.swift
-│           │  └─ SpacingGallery.swift
-│           └─ Component/                     # 컴포넌트 Variant 검수 화면
-│              ├─ ButtonGallery.swift         # 모든 style × state 나열
-│              ├─ ChipsGallery.swift
-│              └─ ...
+│           │  └─ IconGallery.swift
+│           ├─ Components/                    # 컴포넌트 Variant 검수 화면
+│           │  ├─ ButtonGallery.swift         # 모든 variant × size × 상태 나열
+│           │  └─ … (컴포넌트마다 한 파일)
+│           └─ Playground/                    # 토큰 승격 전 실험 (HapticGallery 등)
 ```
+
+> 간격(Spacing) 토큰은 아직 없다 — 시안에 변수로 정의된 적이 없어 컴포넌트별 실측값을
+> 각 파일 하단의 private metric enum에 둔다.
 
 > 검수앱은 디자인시스템에 종속되므로 `UI/` 아래에 **DS 모듈과 한 세트**로 둔다.
 > (자세한 앱 배치 규칙은 `ARCHITECTURE.md`의 "앱 · 데모앱 배치 전략" 참고.)
 
-검수앱 카탈로그 구조(YDS Stage 참고):
+검수앱 카탈로그 구조 (정본은 `CHALLADesignSystemApp/Sources/RootView.swift`):
 
 ```
 CHALLA 디자인 시스템
 ├─ Foundation          ← 디자인 토큰 검수
-│  ├─ Typography
 │  ├─ Color
-│  ├─ Radius & Shadow
-│  ├─ Icon
-│  └─ Spacing
-└─ Component           ← 컴포넌트 Variant 검수
-   ├─ Button
-   │   └─ BoxButton/XLarge
-   │       ├─ Primary/Enabled
-   │       ├─ Primary/Disabled     ← 상용앱에선 보기 힘든 상태까지
-   │       ├─ Highlight/Enabled
-   │       └─ ...
-   ├─ Chips
-   └─ ...
+│  ├─ Typography
+│  └─ Icon
+├─ Component           ← 컴포넌트 Variant 검수
+│  ├─ Button           ← variant × size × 활성/비활성을 전수 나열
+│  │                     (상용앱에선 보기 힘든 disabled까지)
+│  ├─ TextField · Top Navigation · Drawer · List
+│  ├─ Film Card · Card Item · Print Card
+│  └─ Profile Bar · Loading Dots · Toast
+└─ Playground          ← 토큰 확정 전 체험·제안 (Haptic)
 ```
 
 ---
@@ -124,7 +119,7 @@ CHALLA 디자인 시스템
 - `CHALLADesignSystem`은 **Feature 모듈을 import 하지 않는다**. (맨 아래 UI 레이어)
 - `CHALLADesignSystem`은 **최대한 순수 SwiftUI 기반 UI 모듈**로 유지한다.
 - Feature 모듈에서 `Color(hex:)`, `Font.custom` 등을 **직접 쓰지 않는다**.
-  → `CHALLAColor.primary`, `CHALLAFont.title` 같은 **토큰**만 사용한다.
+  → `CHALLAColor.Primary.yellow`, `CHALLATypography.body.medium.medium` 같은 **토큰**만 사용한다.
   → `Color(hex:)`, `Font.custom` 원시 호출은 `Foundation/` 안에서만 한다.
 - `CHALLADesignSystemApp`은 실제 서비스 기능 없이 **디자인 시스템 컴포넌트만 검수**한다.
 - **검수앱 전용 Preview/Mock 코드는 디자인 시스템 컴포넌트 내부에 섞지 않는다.**
@@ -149,7 +144,7 @@ CHALLA 디자인 시스템
 ## 배포 · CI/CD
 
 배포 전략(앱 2개 분리, 파이프라인, 수동 절차)은 **`docs/DEPLOYMENT.md`** 로 분리했다.
-실 구현은 이슈 #8에서 진행 중 (CI는 GitHub Actions, 배포는 Xcode Cloud).
+CI는 GitHub Actions(`.github/workflows/ci.yml`), 배포는 Xcode Cloud(`ci_scripts/ci_post_clone.sh`)로 구축돼 있다.
 
 ---
 

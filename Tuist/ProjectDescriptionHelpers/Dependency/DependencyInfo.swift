@@ -51,6 +51,21 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Photo/PhotoDetail/PhotoDetailFeature")
     )
 
+    // MARK: - Room
+
+    static let roomDomain = TargetDependency.project(
+        target: "RoomDomain",
+        path: .relativeToRoot("Projects/Room/RoomDomain")
+    )
+    static let roomData = TargetDependency.project(
+        target: "RoomData",
+        path: .relativeToRoot("Projects/Room/RoomData")
+    )
+    static let homeFeature = TargetDependency.project(
+        target: "HomeFeature",
+        path: .relativeToRoot("Projects/Room/Home/HomeFeature")
+    )
+
     // MARK: - User
 
     static let userDomain = TargetDependency.project(
@@ -81,6 +96,24 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Setting/Setting/SettingFeature")
     )
 
+    // MARK: - Camera
+
+    static let cameraFeature = TargetDependency.project(
+        target: "CameraFeature",
+        path: .relativeToRoot("Projects/Camera/Camera/CameraFeature")
+    )
+
+    // MARK: - Notification
+
+    static let notificationDomain = TargetDependency.project(
+        target: "NotificationDomain",
+        path: .relativeToRoot("Projects/Notification/NotificationDomain")
+    )
+    static let notificationData = TargetDependency.project(
+        target: "NotificationData",
+        path: .relativeToRoot("Projects/Notification/NotificationData")
+    )
+
     // MARK: - Core
 
     static let keychain = TargetDependency.project(
@@ -101,4 +134,8 @@ public extension TargetDependency {
     static let kakaoSDKCommon = TargetDependency.external(name: "KakaoSDKCommon")
     static let kakaoSDKAuth = TargetDependency.external(name: "KakaoSDKAuth")
     static let kakaoSDKUser = TargetDependency.external(name: "KakaoSDKUser")
+    /// `FirebaseApp.configure()` — Messaging이 전이로 끌어오지만 import 하려면 직접 걸어야 한다.
+    static let firebaseCore = TargetDependency.external(name: "FirebaseCore")
+    /// FCM 토큰 발급·갱신 (`Messaging`, `MessagingDelegate`).
+    static let firebaseMessaging = TargetDependency.external(name: "FirebaseMessaging")
 }

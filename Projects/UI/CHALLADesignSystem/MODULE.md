@@ -16,7 +16,7 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 
 | API | 설명 |
 | :-- | :-- |
-| `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material) + `defaultTheme` — 사용자가 고르는 테마 색의 기본값(레몬에이드=`Primary.yellow`). 강조 요소(리스트 값 글자·스위치 켜짐·텍스트필드 포커스 테두리)가 이 색을 따른다 |
+| `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material/Social) + `defaultTheme` — 사용자가 고르는 테마 색의 기본값(레몬에이드=`Primary.yellow`). 강조 요소(리스트 값 글자·스위치 켜짐·텍스트필드 포커스 테두리)가 이 색을 따른다. `Background.brand`는 `challaMainBackground()` 전용 번짐 색 |
 | `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`). `lineBoxInset`은 `challaFont`가 글자 상자 위아래에 더하는 여백 — 시안 간격을 옮길 때 이 값을 빼서 보정한다 |
 | `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12 / xlarge 16 / xxlarge 44.5) |
 | `CHALLAIcon` | 아이콘 토큰 24종 + `Size`(14~32pt — 14는 방 카드 person 실측 예외) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
@@ -27,24 +27,26 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 
 | API | 설명 |
 | :-- | :-- |
-| `CHALLATextButton` | 텍스트 버튼. variant(primary/neutral/transparent) × size(large/medium/small), leading/trailing 아이콘 옵션, `role: .destructive` 옵션(위험 액션 — primary는 빨간 채움, neutral·transparent는 빨간 글자), `isFullWidth` 옵션(부모 폭 채움 — 드로어 등), `isLoading` 옵션(라벨 자리에 로딩 점 + 탭 차단, 색은 isEnabled 기준 유지) |
+| `CHALLATextButton` | 텍스트 버튼. variant(theme/primary/neutral/transparent — theme은 테마 색 배경 + 검정 글자로 화면의 최상위 액션) × size(large/medium/small), leading/trailing 아이콘 옵션, `role: .destructive` 옵션(위험 액션 — primary는 빨간 채움, neutral·transparent는 빨간 글자, theme은 무시), `isFullWidth` 옵션(부모 폭 채움 — 드로어 등), `isLoading` 옵션(라벨 자리에 로딩 점 + 탭 차단, 색은 isEnabled 기준 유지) |
 | `CHALLAIconButton` | 아이콘 버튼. 정사각(54/40/32), variant·size는 텍스트 버튼과 공용 (role 미지원 — Figma에 destructive 아이콘 버튼 정의 없음) |
 | `CHALLAButtonVariant` / `CHALLAButtonSize` | 두 버튼이 공유하는 스타일·크기 enum |
 | `CHALLAButtonRole` | 버튼 의미 표시 — variant(생김새)와 조합해 쓴다 (SwiftUI `Button(role:)`과 동일 개념). 현재 `.destructive` 하나. destructive 비활성 디자인은 Figma에 없어 공통 비활성 팔레트로 표시 |
 | `CHALLALoadingDots` | 로딩 인디케이터. 점 3개 순차 페이드(opacity 1.0↔0.3, 주기 0.6초, 점당 0.2초 지연). customize: `color`(기본 Label.neutral) · `diameter`(기본 6) · `spacing`(기본 5). VoiceOver에서 숨김 처리, Reduce Motion 시 정지 |
 | `CHALLATextField` | 텍스트필드. 상태 5가지(placeholder/focus/typing/typed/disabled)를 입력값·포커스·활성 여부로 자동 판별. customize: `textAlignment`(기본 중앙) · `typography`(기본 body.medium.medium) · `borderColor`(기본 `CHALLAColor.defaultTheme`, 포커스 테두리+커서 색) · `focus`(기본 nil, `FocusState<Bool>.Binding` 주입 시 키보드를 외부에서 프로그래밍 제어 — nil이면 내부 관리) |
-| `CHALLATopNavigation` | 탑 내비게이션 바 (높이 70, 상태바 제외). `.main(trailing:)` = 좌측 홈 로고 고정, `.sub(title:leading:trailing:)` = 중앙 타이틀. 슬롯은 `Item.icon(...)`으로 생성 (아이콘 24pt + 터치 40pt, accessibilityLabel 필수) |
+| `CHALLATopNavigation` | 탑 내비게이션 바 (높이 70, 상태바 제외). `.main(trailing:)` = 좌측 홈 로고 고정 + 우측 아이콘 **배열**(순서대로 왼쪽부터, 시안 기준 최대 2개), `.sub(title:leading:trailing:)` = 중앙 타이틀 + 좌우 슬롯 각 1개. 슬롯은 `Item.icon(...)`으로 생성 (아이콘 24pt + 터치 40pt, accessibilityLabel 필수) |
 | `CHALLADrawer` | 하단 드로어 레이아웃. 헤더(`.handle` 손잡이 / `.title` 타이틀+닫기) × 콘텐츠 슬롯(@ViewBuilder, 선택) × 버튼(0~2개 + 푸터 액션). 버튼 크기·전체 폭·간격·개수는 드로어가 강제 |
 | `CHALLADrawerAction` | 드로어 버튼 한 자리의 내용(글자·variant·role·isEnabled·동작). 푸터 액션 자리는 variant 무시하고 항상 텍스트형 |
 | `CHALLADrawerMessage` | 드로어 콘텐츠 슬롯용 제목+설명 안내 블록 (회원 탈퇴류 반복 패턴 공용화) |
-| `challaDrawer(isPresented:allowsInteractiveDismiss:drawer:)` | 드로어 프레젠테이션 View 확장 — 딤·하단 등장/퇴장 스프링·끌어내려 닫기·딤 탭 닫기. `allowsInteractiveDismiss: false`면 닫기 버튼으로만 닫힘(입력 보호). 네이티브 .sheet 미사용(떠 있는 카드 모양이 안 나옴) |
+| `challaMainBackground()` | 화면 배경 View 확장 — surface 위에 하단에서 브랜드 노랑(`Background.brand`)이 번진다 (블러 먹인 타원, Figma 실측 777×594·20%). 홈·방 상세 등 화면 단위 뷰의 최상단에 붙인다 |
+| `challaDrawer(isPresented:allowsInteractiveDismiss:bottomMargin:drawer:)` | 드로어 프레젠테이션 View 확장 — 딤·하단 등장/퇴장 스프링·끌어내려 닫기·딤 탭 닫기. `allowsInteractiveDismiss: false`면 닫기 버튼으로만 닫힘(입력 보호). `bottomMargin`은 안전 영역 하단과의 여백(기본 12), 뒤에 남는 요소를 덮어야 할 때만 낮춘다. 네이티브 .sheet 미사용(떠 있는 카드 모양이 안 나옴) |
+| `CHALLAPhotoCountSelector` | 촬영 매수 선택 줄. 숫자들을 "N장" 칩으로 나열하고 하나만 선택(라디오 성격 — 텍스트 버튼과 별개인 이유). 선택=level4 배경+Line.normal 테두리, 미선택=level2. 선택 상태 변경은 호출부 몫 |
 | `CHALLAListRow` | 리스트 행 (높이 52, 설명을 넣으면 74). 이니셜라이저 2종 — 탭 행 `init(_:description:icon:iconColor:accessory:themeColor:action:)` / 토글 행 `init(_:description:icon:iconColor:themeColor:isOn:)`. 아이콘 18pt, 이름 `.body.medium.medium`, 설명 `.body.xsmall.medium`. 제목·설명은 한 줄 고정(말줄임) |
 | `CHALLAListRowAccessory` | 탭 행의 우측 요소. `.arrow` · `.arrow(value:)` · `.check(isSelected:)` · `.empty` |
 | `CHALLAToast` | 잠시 나타났다 사라지는 알림 (`init(_ message:icon:variant:)`). 높이 50(위아래 9 + 콘텐츠 32), 좌우 16, 간격 8, radius 12, 반투명 `Background.level1` 77% + ultraThinMaterial. 내용만큼 넓어지고 320에서 멈춘다(한 줄 고정, 말줄임). `icon` 생략 = 시안의 `leadingIcon = false`(글자만). `variant`(`.normal` 기본 / `.negative`)는 **아이콘 색만** 정하고 배경·글자색은 공통. 등장·문구 교체 시 VoiceOver 낭독. **표시 시간·배치는 담는 쪽 책임**. 시안의 `positive`·`cautionary`와 `normal`의 기본 아이콘은 렌더된 적이 없어 미구현 — 디자이너 문의 중 |
 | `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음. 제목이 있으면 헤더 블록 44 고정(위 16 + 글자 상자 16 + 아래 12), 제목은 한 줄 고정(말줄임) |
 | `CHALLAFilmCard` | 필름 낱장 카드 (3:4 고정 비율). Variant 4종(촬영 전 dashed / 인화대기 blur / 인화완료 / 더보기 `+N`) × 순번(`slotNumber`) 옵션. `width` 지정 시 고정(홈 82·인화 카드 90), nil이면 부모 폭 채움(방 상세 그리드) — 세로는 내부 계산. `aspectRatio` 공개(placeholder 크기 계산용) |
 | `CHALLACardItem` | 촬영 중 방 카드 (시안 고정 200×266). 대표 사진 + 딤 2겹(검정 스크림·노랑 틴트) + 제목·인원 + 카메라 카운트 뱃지. 사진은 로드된 `Image?` — nil이면 바닥색. 탭은 호출부가 Button으로 감쌈 |
-| `CHALLAPrintCard` | 촬영 완료 방 카드. `Status`(printing/printed) 하나가 상태 칩 색과 낱장 blur/선명을 동시 결정. 낱장 스택은 실측 좌표·회전각 4슬롯에 `CHALLAFilmCard(width: 90)` 재사용, 전체 장수가 4를 넘으면 마지막 슬롯이 `+N` |
+| `CHALLAPrintCard` | 촬영 완료 방 카드. `Status`(printing/printed) 하나가 상태 칩 색과 낱장 blur/선명을 동시 결정. 낱장 스택은 실측 좌표·회전각 4슬롯에 `CHALLAFilmCard(width: 90)` 재사용, 전체 장수가 4를 넘으면 마지막 슬롯이 `+N`. 생성자 2종 — `photoURLs:`(화면용, 낱장마다 `CHALLAAsyncImage`가 로드하고 로드 전에는 빈 낱장) / `photos: [Image]`(갤러리·Preview·테스트용) |
 | `CHALLAAvatar` | 원형 아바타. `photo: Image?`(nil이면 person placeholder) + `size` 지름 (실측: 프로필 바 30 / 상세·채팅 22 / 팝오버 행 20) |
 | `CHALLAProfileBar` | 프로필 바. 아바타 입장 순 최대 9명 + `+N` 칩, 탭 시 멤버 팝오버(초대 코드 + 복사 콜백 + 전체 리스트, maxHeight 450 초과 시 스크롤). 열림 상태는 `isPresented` 바인딩(호출부 소유 — 드로어와 동일), 바 배경 흰(닫힘)↔검정(열림), 바깥 탭 닫기. 바를 화면 가로 중앙에 두는 배치 전제 |
 | `CHALLAAsyncImage` | 원격 이미지 뷰. 자기 크기·배율을 측정해 `ImageLoader`로 로드(다운샘플+2단 캐시), 성공 시 페이드인 |

@@ -54,16 +54,15 @@ Projects/
 │  └─ AuthData                       (모듈) 소셜 SDK · 로그인 API · TokenProvider 구현(Keychain 사용)
 │
 ├─ User/                             (폴더) 유저 · 프로필
-│  ├─ ProfileSetupFeature            (모듈) 최초 프로필 설정 화면
-│  ├─ ProfileEditFeature             (모듈) 프로필 수정 화면
+│  ├─ ProfileSetupFeature            (모듈) 프로필 최초 설정·수정 화면 (mode로 분기)
 │  ├─ UserDomain                     (모듈) User · Profile · UserRepository(interface)
 │  └─ UserData                       (모듈) 유저 조회/수정 API 구현
 │
-├─ Home/                             (폴더) 홈  (Domain/Data 없음)
-│  └─ HomeFeature                    (모듈) 방 목록 · Empty · 생성/입장/상세 진입
-│                                          └ RoomDomain.fetchRooms 재사용
-│
 ├─ Room/   ⭐                        (폴더) 도메인/데이터 통합 · Feature는 화면별 유지
+│  ├─ Home/                          (폴더) 홈 피처 묶음 — 방 목록을 그리므로 Room 그룹 소속
+│  │  ├─ HomeFeature                 (모듈) 방 목록 · Empty · 생성/입장/상세 진입
+│  │  │                                    └ RoomDomain.fetchRooms 재사용 (홈 전용 Domain/Data 없음)
+│  │  └─ HomeFeatureDemo             (앱)   피처 데모앱 — Mock 주입 · 상태별 실행 인자
 │  ├─ RoomDomain                     (모듈) ★ 방 도메인 공용 — Feature 5개가 공유
 │  │   ├─ Entities/                        Room · Participant · InviteCode · RoomID
 │  │   │   └─ FilmStatus                   촬영중 · 인화대기 · 완료  ← Film 도메인 흡수
@@ -106,8 +105,8 @@ Projects/
 │  ├─ CHALLAImageKit                 (모듈) 이미지 로더 · 메모리/디스크 2단 캐시 · 다운샘플링 (#25)
 │  │                                        URLSession·ImageIO만 사용, CHALLANetwork와 무관
 │  │                                        → 상세: 모듈 MODULE.md · 도해: docs/imagekit-map.html
+│  ├─ PhotoLibrary                   (모듈) 사진첩 권한 조회·요청 (PHPhotoLibrary 래핑)
 │  ├─ Camera                         (모듈) AVFoundation 래핑
-│  ├─ Permission                     (모듈) 카메라/사진첩/푸시 권한
 │  ├─ FileStorage                    (모듈) 임시 파일 · 캐시 (이미지 캐시는 CHALLAImageKit이 자체 보유)
 │  ├─ Logger                         (모듈) os.log 래핑 — Core여도 전 레이어 공용
 │  └─ Share                          (모듈) iOS 공유하기
@@ -122,7 +121,7 @@ Projects/
    └─ HGResources                    (모듈) 공통 리소스 접근 헬퍼
 
 Tuist/
-└─ Package.swift                     # 외부 패키지 (모듈 아님) — TCA · Firebase · Kingfisher · KakaoSDK …
+└─ Package.swift                     # 외부 패키지 (모듈 아님) — TCA · Firebase · KakaoSDK …
 ```
 
 ---
@@ -221,7 +220,7 @@ camera.capture()                   // 하드웨어 작동 · 파일 생성
 | 레이어 | 성격 | import 가능 대상 | 소속 모듈 |
 | :-- | :-- | :-- | :-- |
 | Shared | 순수 코드 · 사이드 이펙트 ✕ · `import Foundation`만 | 없음 | HGFoundation · HGResources |
-| Core | OS/디바이스 접점 · 사이드 이펙트 있음 | Shared | Keychain · Camera · Permission · FileStorage · Logger · Share |
+| Core | OS/디바이스 접점 · 사이드 이펙트 있음 | Shared | Keychain · PhotoLibrary · Camera · FileStorage · Logger · Share |
 | Network | 서버 접점 · **Data 전용** | Core · Shared | CHALLANetwork |
 
 - **Core와 Shared는 둘 다 전 레이어 공용**이다(규칙 4). 차이는 접근 범위가 아니라 코드 성격.
