@@ -1,5 +1,7 @@
 import ComposableArchitecture
 import Foundation
+import PhotoDomain
+import PhotoLibrary
 import RoomDomain
 
 /// 홈 화면. 방 목록을 한 번 가져와 촬영 중·촬영 완료 두 섹션으로 나눠 보여준다.
@@ -18,6 +20,9 @@ public struct HomeFeature {
 
         public var cards: IdentifiedArrayOf<RoomCard> = []
         public var loadState: LoadState = .notRequested
+
+        /// 촬영 화면에 들어갈 준비(목록 조회·권한 요청) 중인 방. 그 카드의 뱃지가 스피너로 바뀐다.
+        public var preparingShootRoomID: Room.ID?
 
         /// 상단 + 드롭다운의 열림 여부 (Destination에 넣지 않은 이유는 아래).
         public var isPlusMenuPresented = false
@@ -85,6 +90,8 @@ public struct HomeFeature {
             case retryButtonTapped
             /// `RoomCard` 대신 id를 받는다 — 뷰가 그린 값과 State의 값이 다를 수 있어 리듀서가 State에서 찾는다.
             case roomTapped(Room.ID)
+            /// 카드 하단 촬영 뱃지. 목록·권한을 받아 두고 성공하면 카메라로 넘어간다.
+            case shootButtonTapped(Room.ID)
             case settingsButtonTapped
             case plusButtonTapped
             case plusMenuDismissed
@@ -107,14 +114,19 @@ public struct HomeFeature {
             case roomCreated(RoomCard)
             case roomJoined(RoomCard)
             case settingsTapped
+            /// 촬영 준비가 끝났다 — 목록·권한이 모두 갖춰졌으니 카메라 화면을 띄우면 된다.
+            case cameraRequested(CameraEntry)
         }
 
         case delegate(Delegate)
 
         case roomsResponse(Result<[RoomCard], RoomError>)
+        case shootPreparationResponse(Result<CameraEntry, ShootPreparationError>)
 
         public enum Alert: Equatable, Sendable {
             case retryTapped
+            /// 카메라·사진첩 얼럿이 함께 쓴다 — 둘 다 앱 설정 화면 한 곳으로 간다.
+            case openSettingsTapped
         }
 
         case destination(PresentationAction<Destination.Action>)
@@ -125,6 +137,12 @@ public struct HomeFeature {
     // MARK: - Dependencies
 
     @Dependency(\.fetchRoomsUseCase) var fetchRoomsUseCase
+    @Dependency(\.fetchShootableRoomsUseCase) var fetchShootableRoomsUseCase
+    @Dependency(\.fetchCameraFiltersUseCase) var fetchCameraFiltersUseCase
+    @Dependency(\.prepareCameraFiltersUseCase) var prepareCameraFiltersUseCase
+    @Dependency(\.requestCameraPermissionUseCase) var requestCameraPermissionUseCase
+    @Dependency(\.openCameraSettingsUseCase) var openCameraSettingsUseCase
+    @Dependency(\.photoLibraryPermission) var photoLibraryPermission
 
     // MARK: - Body
 
@@ -162,6 +180,28 @@ public struct HomeFeature {
             case let .view(.roomTapped(id)):
                 guard let card = state.cards[id: id] else { return .none }
                 return .send(.delegate(.roomSelected(card)))
+
+            // MARK: 촬영 진입
+
+            case let .view(.shootButtonTapped(roomID)):
+                // 준비 중에 다른 카드를 누르면 앞의 준비는 버리고 새로 시작한다 (cancelInFlight).
+                guard state.cards[id: roomID] != nil else { return .none }
+                state.preparingShootRoomID = roomID
+                return prepareShoot(roomID: roomID)
+
+            case let .shootPreparationResponse(.success(entry)):
+                state.preparingShootRoomID = nil
+                return .send(.delegate(.cameraRequested(entry)))
+
+            case let .shootPreparationResponse(.failure(error)):
+                state.preparingShootRoomID = nil
+                state.destination = .alert(error.alert)
+                return .none
+
+            case .destination(.presented(.alert(.openSettingsTapped))):
+                return .run { [openCameraSettingsUseCase] _ in
+                    await openCameraSettingsUseCase.run()
+                }
 
             case .view(.settingsButtonTapped):
                 return .send(.delegate(.settingsTapped))
@@ -216,6 +256,64 @@ public struct HomeFeature {
 
     private enum CancelID {
         case fetchRooms
+        case prepareShoot
+    }
+
+    /// 촬영에 필요한 것을 한꺼번에 받는다 — 방 목록·필터(목록과 LUT)·카메라 권한·사진첩 저장 권한.
+    /// 권한 창이 뜨는 동안에도 조회는 계속 나가므로, 사용자가 허용을 누를 때쯤이면 목록이 이미 와 있다.
+    ///
+    /// 하나라도 어긋나면 카메라로 넘어가지 않는다 — 반쪽짜리 화면을 띄우지 않기 위해서다.
+    /// 사진첩 권한도 여기서 막는 이유: 촬영본은 사진첩에 저장한 뒤 업로드로 이어지므로,
+    /// 저장 권한 없이 들어가면 셔터를 누르는 족족 실패한다.
+    /// 권한 거절을 조회 실패보다 먼저 보는 이유: 조회가 실패해도 사용자가 먼저 할 일은 권한 허용이다.
+    private func prepareShoot(roomID: Room.ID) -> Effect<Action> {
+        // 비-Sendable self 대신 의존성 값만 넘긴다 (캡처 목록에 다 적으면 한 줄에 들어가지 않는다).
+        let fetchRooms = fetchShootableRoomsUseCase
+        let fetchFilters = fetchCameraFiltersUseCase
+        let prepareLUTs = prepareCameraFiltersUseCase
+        let requestCamera = requestCameraPermissionUseCase
+        let requestPhotoLibrary = photoLibraryPermission
+
+        return .run { send in
+            /// 시스템 권한 팝업은 한 번에 하나만 뜬다 — 카메라를 먼저 묻고 이어서 사진첩을 묻는다.
+            @Sendable func requestPermissions() async -> ShootPreparationError? {
+                guard await requestCamera.run() else { return .cameraPermissionDenied }
+                // 저장만 하면 되므로 읽기 권한(.readWrite)까지는 요구하지 않는다.
+                guard await requestPhotoLibrary.request(.addOnly).allowsSaving else {
+                    return .photoLibraryPermissionDenied
+                }
+                return nil
+            }
+
+            /// 목록만으로는 촬영을 시작할 수 없다 — LUT까지 받아야 필터가 실제로 먹는다.
+            /// 카메라 화면에서 받으면 필터 띠가 한동안 반쪽으로 뜨므로 여기서 함께 기다린다.
+            @Sendable func prepareFilters() async throws -> [CameraFilter] {
+                let filters = try await fetchFilters.run()
+                try await prepareLUTs.run(filters)
+                return filters
+            }
+
+            async let denial = requestPermissions()
+            async let rooms = fetchRooms.run()
+            async let filters = prepareFilters()
+
+            do {
+                let entry = try await CameraEntry(roomID: roomID, rooms: rooms, filters: filters)
+                if let denial = await denial {
+                    await send(.shootPreparationResponse(.failure(denial)))
+                    return
+                }
+                await send(.shootPreparationResponse(.success(entry)))
+            } catch is CancellationError {
+            } catch {
+                if let denial = await denial {
+                    await send(.shootPreparationResponse(.failure(denial)))
+                    return
+                }
+                await send(.shootPreparationResponse(.failure(.loadFailed(message: error.entryMessage))))
+            }
+        }
+        .cancellable(id: CancelID.prepareShoot, cancelInFlight: true)
     }
 
     private func fetchRooms(_ state: inout State) -> Effect<Action> {

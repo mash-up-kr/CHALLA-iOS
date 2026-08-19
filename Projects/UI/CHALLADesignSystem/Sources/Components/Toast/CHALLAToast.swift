@@ -80,11 +80,14 @@ public struct CHALLAToast: View {
 
 private enum Metric {
     static let contentMinHeight: CGFloat = 32
-    static let horizontalPadding: CGFloat = 16
-    static let verticalPadding: CGFloat = 9
     static let contentSpacing: CGFloat = 8
     static let maxWidth: CGFloat = 320
-    static let backgroundOpacity: Double = 0.77
+
+    /// 여백·배경 농도는 스낵바와 같은 표면 값을 쓴다 (`CHALLAFloatingSurface`).
+    /// 배경에 재질을 한 겹 더 까는 것만 달라서 모디파이어 대신 상수만 공유한다.
+    static let horizontalPadding = CHALLAFloatingSurfaceMetric.horizontalPadding
+    static let verticalPadding = CHALLAFloatingSurfaceMetric.verticalPadding
+    static let backgroundOpacity = CHALLAFloatingSurfaceMetric.backgroundOpacity
 }
 
 #Preview {

@@ -32,7 +32,7 @@ extension ProfileSetupTestSupport {
         } withDependencies: {
             $0.continuousClock = clock
             $0.setupProfileUseCase = setupProfileUseCase
-            $0.photoLibraryPermission = PhotoLibraryPermissionClient(request: { photoAuthorization })
+            $0.photoLibraryPermission = PhotoLibraryPermissionClient(request: { _ in photoAuthorization })
         }
     }
 }

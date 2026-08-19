@@ -11,21 +11,25 @@ final class MockRoomRepository: RoomRepository {
 
     private struct State {
         var roomsCallCount = 0
+        var shootableRoomsCallCount = 0
         var createdDrafts: [RoomDraft] = []
         var joinedCodes: [String] = []
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
     private let roomsResult: Result<[RoomCard], RoomError>
+    private let shootableRoomsResult: Result<[ShootableRoom], RoomError>
     private let createResult: Result<RoomCard, RoomError>
     private let joinResult: Result<RoomCard, RoomError>
 
     init(
         roomsResult: Result<[RoomCard], RoomError> = .failure(.unknown),
+        shootableRoomsResult: Result<[ShootableRoom], RoomError> = .failure(.unknown),
         createResult: Result<RoomCard, RoomError> = .failure(.unknown),
         joinResult: Result<RoomCard, RoomError> = .failure(.unknown)
     ) {
         self.roomsResult = roomsResult
+        self.shootableRoomsResult = shootableRoomsResult
         self.createResult = createResult
         self.joinResult = joinResult
     }
@@ -35,6 +39,11 @@ final class MockRoomRepository: RoomRepository {
     /// rooms() 호출 횟수.
     var roomsCallCount: Int {
         state.withLock { $0.roomsCallCount }
+    }
+
+    /// shootableRooms() 호출 횟수.
+    var shootableRoomsCallCount: Int {
+        state.withLock { $0.shootableRoomsCallCount }
     }
 
     /// createRoom에 전달된 draft (호출 순서대로).
@@ -52,6 +61,11 @@ final class MockRoomRepository: RoomRepository {
     func rooms() async throws -> [RoomCard] {
         state.withLock { $0.roomsCallCount += 1 }
         return try roomsResult.get()
+    }
+
+    func shootableRooms() async throws -> [ShootableRoom] {
+        state.withLock { $0.shootableRoomsCallCount += 1 }
+        return try shootableRoomsResult.get()
     }
 
     func createRoom(_ draft: RoomDraft) async throws -> RoomCard {

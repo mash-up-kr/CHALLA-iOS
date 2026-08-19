@@ -1,4 +1,4 @@
-import CameraFeature
+import CameraSession
 import ComposableArchitecture
 import SwiftUI
 
@@ -13,7 +13,7 @@ struct DemoRootView: View {
 
     var body: some View {
         if let launchedScenario {
-            cameraScreen(launchedScenario)
+            CameraEntryView(scenario: launchedScenario, cameraSession: cameraSession)
         } else {
             scenarioList
         }
@@ -23,23 +23,11 @@ struct DemoRootView: View {
         NavigationStack {
             List(DemoScenario.all, id: \.label) { scenario in
                 NavigationLink(scenario.label) {
-                    cameraScreen(scenario)
+                    CameraEntryView(scenario: scenario, cameraSession: cameraSession)
                         .toolbar(.hidden, for: .navigationBar)
                 }
             }
             .navigationTitle("카메라 데모")
-        }
-    }
-
-    @MainActor
-    private func cameraScreen(_ scenario: DemoScenario) -> some View {
-        let demoStore = Store(initialState: CameraDemoFeature.State(camera: scenario.featureState)) {
-            CameraDemoFeature()._printChanges()
-        }
-        let cameraStore = demoStore.scope(state: \.camera, action: \.camera)
-
-        return CameraView(store: cameraStore) {
-            LiveCameraPreview(session: cameraSession, store: cameraStore)
         }
     }
 }
