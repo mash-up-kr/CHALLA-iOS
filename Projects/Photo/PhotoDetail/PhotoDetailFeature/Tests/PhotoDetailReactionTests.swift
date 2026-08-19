@@ -274,14 +274,14 @@ struct PhotoDetailReactionTests {
 
         heartContinuation.yield()
         heartContinuation.finish()
-        // 하트 응답: 서버가 전체(박수+하트)를 돌려주고 대기 요청이 없어 그대로 반영된다.
+        // 하트 응답: 서버가 전체(하트+박수)를 rawValue 순으로 돌려주고 대기 요청이 없어 그대로 반영된다.
         await store.receive(\.reactionSucceeded) {
             $0.inFlightReactions.remove(Fixture.request(.heart, photoID: "photo-1"))
             $0.photos[id: "photo-1"] = Fixture.photo(
                 id: "photo-1",
                 reactions: [
-                    Fixture.reaction(.thumbsUp, by: Fixture.currentUserID),
-                    Fixture.reaction(.heart, by: Fixture.currentUserID)
+                    Fixture.reaction(.heart, by: Fixture.currentUserID),
+                    Fixture.reaction(.thumbsUp, by: Fixture.currentUserID)
                 ]
             )
         }
