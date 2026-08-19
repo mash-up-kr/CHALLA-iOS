@@ -25,6 +25,17 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Network/CHALLANetwork")
     )
 
+    // MARK: - App
+
+    static let appDomain = TargetDependency.project(
+        target: "AppDomain",
+        path: .relativeToRoot("Projects/App/AppDomain")
+    )
+    static let appData = TargetDependency.project(
+        target: "AppData",
+        path: .relativeToRoot("Projects/App/AppData")
+    )
+
     // MARK: - Auth
 
     static let authDomain = TargetDependency.project(
