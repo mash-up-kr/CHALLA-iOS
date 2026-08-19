@@ -1,3 +1,5 @@
+import AppData
+import AppDomain
 import AuthData
 import AuthDomain
 import CHALLANetwork
@@ -46,6 +48,7 @@ enum CompositionRoot {
         )
         values.pushTokenSynchronizer = pushSynchronizer
 
+        registerAppUpdate(into: &values)
         // 로그아웃은 계정 관리 어댑터도 쓴다. 값을 돌려받아 넘기는 이유는 registerAuth 주석 참고.
         let logout = registerAuth(into: &values, client: client, tokenStore: tokenStore)
         registerUser(into: &values, client: client, repository: userRepository)
@@ -63,11 +66,27 @@ enum CompositionRoot {
         )
 
         #if DEBUG
-            // 버전 체크 API 연동 전까지 강제 업데이트 화면을 눈으로 확인하는 유일한 방법이다.
+            // 서버는 현재 버전에 강제 업데이트를 내리지 않으므로, 화면을 눈으로 확인하는 수단은 여전히 이 인자뿐이다.
             if ProcessInfo.processInfo.arguments.contains("--force-update") {
-                values.appUpdateClient.checkRequirement = { .forced }
+                values.checkAppUpdateUseCase.run = { .forced(storeURL: nil) }
             }
         #endif
+    }
+
+    /// 버전 체크는 로그인 전(스플래시)이라 토큰이 필요 없어 공용 client를 쓰지 않고,
+    /// 응답이 늦으면 스플래시가 그만큼 멈추므로 타임아웃을 짧게 잡은 전용 세션을 쓴다.
+    private static func registerAppUpdate(into values: inout DependencyValues) {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 3
+        let client = DefaultHTTPClient(
+            session: URLSession(configuration: configuration),
+            interceptors: [LoggingInterceptor(level: .basic)]
+        )
+        values.checkAppUpdateUseCase = .live(
+            repository: DefaultAppVersionRepository(client: client),
+            // 값이 없으면 빈 문자열로 보낸다 — 서버가 거절해도 fail-open이라 앱은 진행된다.
+            currentVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        )
     }
 
     /// 만든 `LogoutUseCase`를 돌려준다 — 뒤에서 `values.logoutUseCase`를 되읽으면

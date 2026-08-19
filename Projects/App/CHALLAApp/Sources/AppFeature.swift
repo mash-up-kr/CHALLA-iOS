@@ -1,4 +1,6 @@
+import AppDomain
 import ComposableArchitecture
+import Foundation
 import HomeFeature
 import LoginFeature
 import ProfileSetupFeature
@@ -22,8 +24,8 @@ public struct AppFeature {
         case profileEdit(ProfileEditScreen)
 
         /// 강제 업데이트. 여기서 나가는 전이는 없다 — 앱을 지우거나 업데이트해야 끝난다.
-        /// 연관값이 없는 이유: 알럿 문구는 상수고, 스토어 주소는 `AppUpdateClient`가 준다.
-        case forceUpdate
+        /// `storeURL`은 버전 체크 응답에 실려 온 스토어 주소 — '확인'이 연다 (nil이면 아무 것도 안 한다).
+        case forceUpdate(storeURL: URL?)
 
         /// 화면 전환만 식별한다 — 자식 State 변화(닉네임 입력 등)에는 반응하지 않는다.
         public var screenID: ScreenID {
@@ -117,7 +119,7 @@ public struct AppFeature {
     @Dependency(\.fetchMyProfileUseCase) var fetchMyProfileUseCase
     @Dependency(\.continuousClock) var clock
     @Dependency(\.pushTokenSynchronizer) var pushTokenSynchronizer
-    @Dependency(\.appUpdateClient) var appUpdateClient
+    @Dependency(\.checkAppUpdateUseCase) var checkAppUpdateUseCase
     @Dependency(\.openURL) var openURL
 
     // MARK: - Body
@@ -133,13 +135,13 @@ public struct AppFeature {
             case .updateCheckResponse(.notRequired):
                 return fetchMyProfile()
 
-            case .updateCheckResponse(.forced):
+            case let .updateCheckResponse(.forced(storeURL)):
                 // 여기서 나가는 전이는 없다. 업데이트해야만 앱을 쓸 수 있다.
-                state = .forceUpdate
+                state = .forceUpdate(storeURL: storeURL)
                 return .none
 
             case .forceUpdateConfirmTapped:
-                guard let url = appUpdateClient.appStoreURL() else { return .none }
+                guard case let .forceUpdate(storeURL) = state, let url = storeURL else { return .none }
                 return .run { [openURL] _ in await openURL(url) }
 
             case let .profileResponse(.success(profile)):
@@ -246,9 +248,9 @@ public struct AppFeature {
     /// 실행 직후 1회 버전 체크.
     /// 실패는 `.notRequired`로 접는다 — 체크 서버가 죽었다고 전 사용자 앱을 스플래시에 가둘 수는 없다.
     private func checkAppUpdate() -> Effect<Action> {
-        .run { [appUpdateClient] send in
+        .run { [checkAppUpdateUseCase] send in
             // 취소되면 send 자체가 무시되므로 try? 가 취소를 .notRequired 로 오인해도 화면이 진행되지 않는다.
-            let requirement = await (try? appUpdateClient.checkRequirement()) ?? .notRequired
+            let requirement = await (try? checkAppUpdateUseCase.run()) ?? .notRequired
             await send(.updateCheckResponse(requirement))
         }
         .cancellable(id: CancelID.updateCheck, cancelInFlight: true)
