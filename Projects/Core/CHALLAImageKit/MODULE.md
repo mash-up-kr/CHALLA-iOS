@@ -76,8 +76,8 @@ public enum ImageDownsamplingError: Error, Sendable, Equatable {
 ```swift
 public struct ImageCompressor: Sendable {
     public init()
-    /// 상한 이하면 원본 그대로(무손실), 넘으면 품질(0.8→0.6→0.4)을 낮추고
-    /// 그래도 크면 픽셀을 30%씩 줄여 가며 상한 이하 JPEG으로 재인코딩. EXIF 회전은 픽셀에 굽는다.
+    /// 상한 이하면 원본 그대로(무손실), 넘으면 상한에 가장 근접하는 품질을 이분 탐색(0.4~1.0)으로
+    /// 찾는다. 최저 품질로도 안 들어가면 픽셀을 30%씩 줄이고 다시 탐색. EXIF 회전은 픽셀에 굽는다.
     public func compress(data: Data, maxBytes: Int) throws -> Data
 }
 

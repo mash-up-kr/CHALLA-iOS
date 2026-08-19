@@ -48,6 +48,28 @@ struct ImageCompressorTests {
         #expect(width < 1200)
     }
 
+    @Test("품질을 이분 탐색해 상한에 바짝 붙인다 — 남는 여유를 화질로 쓴다")
+    func fillsMostOfTheLimit() throws {
+        let data = try TestImageFactory.noiseJPEGData(pixelWidth: 1200, pixelHeight: 1200)
+        let maxBytes = data.count / 4
+
+        let result = try compressor.compress(data: data, maxBytes: maxBytes)
+
+        // 고정 품질 목록으로 훑던 시절에는 상한의 30~40%에서 멈추곤 했다.
+        #expect(result.count <= maxBytes)
+        #expect(result.count > Int(Double(maxBytes) * 0.9))
+    }
+
+    @Test("상한을 크게 잡을수록 더 큰(=화질 좋은) 결과가 나온다")
+    func adaptsResultSizeToLimit() throws {
+        let data = try TestImageFactory.noiseJPEGData(pixelWidth: 1200, pixelHeight: 1200)
+
+        let tight = try compressor.compress(data: data, maxBytes: data.count / 5)
+        let loose = try compressor.compress(data: data, maxBytes: data.count / 2)
+
+        #expect(tight.count < loose.count)
+    }
+
     @Test("이미지가 아닌 바이트는 invalidData를 던진다")
     func throwsOnNonImageData() {
         let garbage = Data(repeating: 0xAB, count: 1024)
