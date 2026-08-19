@@ -52,7 +52,7 @@ Tuist에서는 `makeAppProject(additionalInfoPlist:)`로 넣는다.
 
 - **이 모듈이 의존**: `Photos`(시스템) · `Dependencies` · `DependenciesMacros`
 - **이 모듈에 의존**: `ProfileSetupFeature`(`.readWrite`) · `HomeFeature`(촬영 진입 시 `.addOnly`) ·
-  `PhotoDetailFeatureDemo`(저장) · `CHALLAApp`(예정) · `PhotoData`(예정)
+  `PhotoDetailFeatureDemo`(저장) · `CameraSession`(촬영본 저장) · `CHALLAApp`(예정) · `PhotoData`(예정)
 
 ## 테스트 실행 방법
 
