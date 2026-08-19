@@ -10,9 +10,9 @@ struct PhotoUseCaseTests {
         let repository = MockPhotoRepository(photosResult: .success(photos))
         let useCase = FetchRoomPhotosUseCase.live(repository: repository)
 
-        let result = try await useCase.run("room-42")
+        let result = try await useCase.run(42)
 
-        #expect(repository.requestedRoomIDs == ["room-42"])
+        #expect(repository.requestedRoomIDs == [42])
         #expect(result.map(\.id) == ["photo-1", "photo-2"])
     }
 
@@ -22,7 +22,7 @@ struct PhotoUseCaseTests {
         let useCase = FetchRoomPhotosUseCase.live(repository: repository)
 
         await #expect(throws: PhotoError.server(message: "서버 점검 중")) {
-            try await useCase.run("room-42")
+            try await useCase.run(42)
         }
     }
 

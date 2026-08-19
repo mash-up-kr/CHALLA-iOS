@@ -6,7 +6,7 @@ import PhotoDomain
 /// 테스트가 공유하는 고정값과 사진 만들기 헬퍼.
 enum Fixture {
 
-    static let roomID = "room-1"
+    static let roomID: Int64 = -1
     static let roomTitle = "해피하우스 강릉 여행"
     /// 화면을 보는 사람 = 리액션을 남기는 사람.
     static let currentUserID = "user-me"
@@ -36,7 +36,7 @@ enum Fixture {
 @MainActor
 func makeTestStore(
     initialPhotoID: Photo.ID? = nil,
-    photos: @escaping @Sendable (String) async throws -> [Photo] = { _ in [] },
+    photos: @escaping @Sendable (Int64) async throws -> [Photo] = { _ in [] },
     setReaction: @escaping @Sendable (String, ReactionKind, Bool) async throws -> Photo = { _, _, _ in
         throw PhotoError.unknown
     },

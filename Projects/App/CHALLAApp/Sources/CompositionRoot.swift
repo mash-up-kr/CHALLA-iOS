@@ -112,7 +112,12 @@ enum CompositionRoot {
         values.fetchRoomsUseCase = .live(repository: repository)
         values.createRoomUseCase = .live(repository: repository)
         values.joinRoomUseCase = .live(repository: repository)
+        values.fetchRoomDetailUseCase = .live(repository: repository)
         values.fetchShootableRoomsUseCase = .live(repository: repository)
+
+        // 방 상세의 사진 그리드가 쓰는 fetchRoomPhotosUseCase는 등록하지 않는다 —
+        // PhotoData에 사진 조회 구현이 아직 없다 (필터·업로드만 있음). 미등록 상태로 두면
+        // 호출 시 런타임 경고가 뜨고 그리드는 빈 칸으로 남는다. 구현이 생기면 여기서 등록한다.
     }
 
     /// client 공유 조건은 registerUser와 같다. 카메라 화면이 앱에 조립되면 이 배선을 그대로 쓴다.

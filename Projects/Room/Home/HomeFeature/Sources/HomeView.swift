@@ -300,7 +300,8 @@ private enum PreviewCards {
             totalPhotoCount: 48,
             remainedPhotoCount: 0,
             createdAt: createdAt,
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            photoPrintCompletedAt: createdAt.addingTimeInterval(Room.previewPrintCompletionOffset)
         ),
         memberCount: 6,
         thumbnailURLs: thumbnailURLs(prefix: "seongsu")

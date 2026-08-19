@@ -4,7 +4,7 @@ import PhotoDomain
 /// 데모가 쓰는 고정 데이터. 시안에 적힌 값을 그대로 쓴다.
 enum DemoFixture {
 
-    static let roomID = "room-1"
+    static let roomID: Int64 = -1
     static let roomTitle = "해피하우스 강릉 여행"
     /// 화면을 보는 사람 = 리액션을 남기는 사람.
     static let currentUserID = "user-me"

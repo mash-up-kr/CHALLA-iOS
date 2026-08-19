@@ -5,7 +5,8 @@ import Foundation
 public protocol PhotoRepository: Sendable {
 
     /// 방의 인화된 사진을 찍힌 순서대로 돌려준다.
-    func photos(inRoom roomID: String) async throws -> [Photo]
+    /// 서버 목록 API는 `hasNext`와 함께 페이지네이션을 지원한다.
+    func photos(inRoom roomID: Int64) async throws -> [Photo]
 
     /// 리액션을 목표 상태(isOn)로 맞추고 갱신된 사진을 돌려준다.
     /// 토글이 아니라 멱등 형태인 이유: 재시도·취소가 안전해야 해서다.

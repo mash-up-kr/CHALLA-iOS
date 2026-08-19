@@ -16,7 +16,7 @@ final class MockPhotoRepository: PhotoRepository {
     }
 
     private struct State {
-        var requestedRoomIDs: [String] = []
+        var requestedRoomIDs: [Int64] = []
         var reactionCalls: [ReactionCall] = []
         var imageDataRequests: [String] = []
     }
@@ -38,7 +38,7 @@ final class MockPhotoRepository: PhotoRepository {
 
     // MARK: - 검증용 프로퍼티
 
-    var requestedRoomIDs: [String] {
+    var requestedRoomIDs: [Int64] {
         state.withLock { $0.requestedRoomIDs }
     }
 
@@ -53,7 +53,7 @@ final class MockPhotoRepository: PhotoRepository {
 
     // MARK: - PhotoRepository
 
-    func photos(inRoom roomID: String) async throws -> [Photo] {
+    func photos(inRoom roomID: Int64) async throws -> [Photo] {
         state.withLock { $0.requestedRoomIDs.append(roomID) }
         return try photosResult.get()
     }

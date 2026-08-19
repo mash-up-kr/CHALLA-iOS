@@ -9,6 +9,8 @@ enum RoomEndpoint: Endpoint, AccessTokenAuthorizable {
     case shootable
     case create(CreateRoomRequestDTO)
     case join(JoinRoomRequestDTO)
+    case detail(id: Int64)
+    case members(roomID: Int64)
 
     var baseURL: URL {
         CHALLAAPIEnvironment.baseURL
@@ -19,12 +21,14 @@ enum RoomEndpoint: Endpoint, AccessTokenAuthorizable {
         case .rooms, .create: return "/api/v1/rooms" // 같은 경로, GET/POST로 갈린다
         case .shootable: return "/api/v1/rooms/shootable"
         case .join: return "/api/v1/rooms/join"
+        case let .detail(id): return "/api/v1/rooms/\(id)"
+        case let .members(roomID): return "/api/v1/rooms/\(roomID)/users"
         }
     }
 
     var method: HTTPMethod {
         switch self {
-        case .rooms, .shootable: return .get
+        case .rooms, .shootable, .detail, .members: return .get
         case .create, .join: return .post
         }
     }
@@ -40,6 +44,8 @@ enum RoomEndpoint: Endpoint, AccessTokenAuthorizable {
             return .requestJSONEncodable(dto)
         case let .join(dto):
             return .requestJSONEncodable(dto)
+        case .detail, .members:
+            return .requestPlain // 실을 것 없음 — 대상은 경로가 가리킨다
         }
     }
 

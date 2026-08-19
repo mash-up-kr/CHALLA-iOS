@@ -17,7 +17,8 @@ public struct Room: Identifiable, Equatable, Sendable {
     public let createdAt: Date
     /// 이 시점이 지나면 서버가 방을 지운다 (30일). 상세 화면의 D-day 재료.
     public let expiresAt: Date
-    /// 인화가 끝난 시각. 인화 완료 상태가 아니면 nil.
+    /// 인화가 완료되는 시각 — 촬영을 마치면 서버가 +24시간으로 정한다 (백엔드 확정 2026-08-13).
+    /// 인화 대기 화면의 카운트다운 기준값이며, 촬영 중에는 nil.
     public let photoPrintCompletedAt: Date?
 
     public enum Status: Equatable, Sendable {
@@ -89,7 +90,9 @@ public extension Room {
         totalPhotoCount: 48,
         remainedPhotoCount: 0,
         createdAt: previewCreatedAt,
-        expiresAt: previewExpiresAt
+        expiresAt: previewExpiresAt,
+        // 인화 대기부터는 완료 예정 시각이 항상 있다 — 실서버 모습과 맞춘다.
+        photoPrintCompletedAt: previewCreatedAt.addingTimeInterval(previewPrintCompletionOffset)
     )
 
     static let previewPrinted = Room(

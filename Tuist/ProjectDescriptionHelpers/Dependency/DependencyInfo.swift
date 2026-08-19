@@ -40,21 +40,6 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Auth/Login/LoginFeature")
     )
 
-    // MARK: - Photo
-
-    static let photoDomain = TargetDependency.project(
-        target: "PhotoDomain",
-        path: .relativeToRoot("Projects/Photo/PhotoDomain")
-    )
-    static let photoData = TargetDependency.project(
-        target: "PhotoData",
-        path: .relativeToRoot("Projects/Photo/PhotoData")
-    )
-    static let photoDetailFeature = TargetDependency.project(
-        target: "PhotoDetailFeature",
-        path: .relativeToRoot("Projects/Photo/PhotoDetail/PhotoDetailFeature")
-    )
-
     // MARK: - Room
 
     static let roomDomain = TargetDependency.project(
@@ -68,6 +53,26 @@ public extension TargetDependency {
     static let homeFeature = TargetDependency.project(
         target: "HomeFeature",
         path: .relativeToRoot("Projects/Room/Home/HomeFeature")
+    )
+
+    static let roomDetailFeature = TargetDependency.project(
+        target: "RoomDetailFeature",
+        path: .relativeToRoot("Projects/Room/RoomDetail/RoomDetailFeature")
+    )
+
+    // MARK: - Photo
+
+    static let photoDomain = TargetDependency.project(
+        target: "PhotoDomain",
+        path: .relativeToRoot("Projects/Photo/PhotoDomain")
+    )
+    static let photoData = TargetDependency.project(
+        target: "PhotoData",
+        path: .relativeToRoot("Projects/Photo/PhotoData")
+    )
+    static let photoDetailFeature = TargetDependency.project(
+        target: "PhotoDetailFeature",
+        path: .relativeToRoot("Projects/Photo/PhotoDetail/PhotoDetailFeature")
     )
 
     // MARK: - User

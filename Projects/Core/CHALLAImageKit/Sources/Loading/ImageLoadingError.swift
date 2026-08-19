@@ -17,7 +17,7 @@ public enum ImageLoadingError: Error, Sendable, Equatable {
     /// 다운샘플링 단계 실패. 연관값은 원인 ``ImageDownsamplingError``.
     case downsampling(ImageDownsamplingError)
 
-    /// 디스크 저장용 재인코딩(HEIC) 실패.
+    /// 디스크 저장용 재인코딩(JPEG) 실패.
     case encodingFailed
 
     /// 서버 응답을 받기 전 네트워크 전송 자체가 실패했다(오프라인·타임아웃·연결 끊김 등).

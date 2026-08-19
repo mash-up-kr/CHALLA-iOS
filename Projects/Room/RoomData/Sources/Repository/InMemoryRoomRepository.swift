@@ -22,6 +22,7 @@ public actor InMemoryRoomRepository: RoomRepository {
 
     private var storedCards: [RoomCard]
     private var inviteCodes: [String: Room.ID]
+    private let membersByRoom: [Room.ID: [RoomMember]]
     private let latency: Duration
     private let failure: RoomError?
 
@@ -33,16 +34,19 @@ public actor InMemoryRoomRepository: RoomRepository {
     /// - Parameters:
     ///   - cards: 시작 시점의 방 목록.
     ///   - inviteCodes: 초대 코드 → 방 id. 여기 없는 코드로 입장하면 `.roomNotFound`가 난다.
+    ///   - membersByRoom: 방 id → 참여자 목록. 데모앱이 방 상세의 참여자 구성을 정하는 수단이다.
     ///   - latency: 응답 지연. 데모앱이 로딩 화면을 재현할 때 길게 준다.
     ///   - failure: 심으면 모든 호출이 이 오류를 던진다. 데모앱의 실패 화면 재현용.
     public init(
         cards: [RoomCard] = [],
         inviteCodes: [String: Room.ID] = [:],
+        membersByRoom: [Room.ID: [RoomMember]] = [:],
         latency: Duration = .zero,
         failure: RoomError? = nil
     ) {
         storedCards = cards
         self.inviteCodes = inviteCodes
+        self.membersByRoom = membersByRoom
         self.latency = latency
         self.failure = failure
     }
@@ -107,6 +111,42 @@ public actor InMemoryRoomRepository: RoomRepository {
         let joined = storedCards[index].withMemberCount(storedCards[index].memberCount + 1)
         storedCards[index] = joined
         return joined
+    }
+
+    public func roomInfo(id: Room.ID) async throws -> (room: Room, invitationCode: String) {
+        try await waitAndCheckFailure()
+
+        guard let card = storedCards.first(where: { $0.id == id }) else {
+            throw RoomError.roomNotFound
+        }
+        return (room: card.room, invitationCode: invitationCode(for: id))
+    }
+
+    public func members(roomID: Room.ID) async throws -> [RoomMember] {
+        try await waitAndCheckFailure()
+
+        // 없는 방의 참여자를 빈 배열로 돌려주면 "방은 없는데 조회는 성공"이 된다 — 방 존재부터 본다.
+        guard storedCards.contains(where: { $0.id == roomID }) else {
+            throw RoomError.roomNotFound
+        }
+        return membersByRoom[roomID] ?? []
+    }
+
+    // MARK: - 초대 코드
+
+    /// 초대 코드 자릿수. 서버가 발급하는 코드와 같은 길이로 맞춘다.
+    private static let invitationCodeDigits = 7
+
+    /// 방 상세가 보여줄 초대 코드. 데모 시나리오에 등록된 방은 입장용 매핑(코드 → 방)을 거꾸로 찾는다.
+    /// 매핑에 없는 방 — 데모앱에서 "방 만들기"로 방금 생성한 방 — 은 발급해 줄 서버가 없으므로
+    /// id로 일곱 자리를 지어낸다 (예: id -1000 → "0001000"). 초대 코드는 계약상 필수라 비워둘 수 없다.
+    private func invitationCode(for id: Room.ID) -> String {
+        if let code = inviteCodes.first(where: { $0.value == id })?.key {
+            return code
+        }
+        // 뒤 일곱 자리만 남기고 앞을 0으로 채운다.
+        let tail = String(abs(id)).suffix(Self.invitationCodeDigits)
+        return String(repeating: "0", count: Self.invitationCodeDigits - tail.count) + tail
     }
 
     // MARK: - 공통 처리

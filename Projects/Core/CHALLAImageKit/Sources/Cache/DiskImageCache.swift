@@ -43,7 +43,7 @@ public actor DiskImageCache {
 
     /// 작은 이미지로 분류할 파일 크기 기준.
     ///
-    /// 현재 HEIC 결과에서 썸네일·그리드와 상세 이미지의
+    /// 현재 JPEG 결과에서 썸네일·그리드와 상세 이미지의
     /// 크기 분포를 구분하기 위한 정책값이다.
     private static let smallImageThresholdBytes = 100 * 1024
 
