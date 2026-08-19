@@ -21,6 +21,9 @@ SecItem API가 동기이므로 이 모듈의 API도 동기다 — async 경계�
   - `save(_ data: Data, for key: String) throws` — 같은 키가 있으면 덮어쓴다
   - `load(for key: String) throws -> Data?` — 미존재 키는 `nil` (오류 아님)
   - `delete(for key: String) throws` — 미존재 키 삭제도 성공으로 간주
+  - `deleteAll() throws` — `service` 안의 항목을 키를 몰라도 전부 지운다. 로그아웃·탈퇴·재설치 초기화용으로,
+    항목을 하나씩 지우는 방식과 달리 나중에 저장 항목이 늘어도 "다 지웠다"가 유지된다.
+    다른 `service`의 항목은 건드리지 않는다
 - String 편의 확장 — `saveString(_:for:)` · `loadString(for:)` (UTF-8 변환 후 위 API에 위임)
 
 ### 구현 · 오류
@@ -59,9 +62,9 @@ try keychain.delete(for: "challa.auth.sessionID")
 mise exec -- tuist test Keychain
 ```
 
-Swift Testing 기반 테스트 11개 — `KeychainStoreTests` (저장·조회 라운드트립, 미존재 키 `nil`, 삭제 후 `nil`,
+Swift Testing 기반 테스트 14개 — `KeychainStoreTests` (저장·조회 라운드트립, 미존재 키 `nil`, 삭제 후 `nil`,
 덮어쓰기, upsert 경로별 항목 수(첫 저장은 생성 · 재저장은 중복 생성 없음), service 격리,
-String 편의 확장, 비-UTF-8 오류).
+`deleteAll`의 전체 삭제·service 경계·빈 service, String 편의 확장, 비-UTF-8 오류).
 각 테스트는 고유 `service` 이름을 쓰고 끝에 항목을 정리해 서로 간섭하지 않는다.
 
 `.unexpectedStatus(OSStatus)` 경로는 실제 SecItem에서 오류를 강제할 수 없어 이 모듈에서는 검증하지 않는다.

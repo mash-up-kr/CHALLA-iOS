@@ -42,6 +42,8 @@ protocol만 둔다. 경계에서 오가는 데이터 구조는 `Models/` 소속�
 - `protocol AuthRepository` — `login(_:)` · `refresh(refreshToken:)` · `logout(refreshToken:)`
 - `protocol SocialLoginService` — `authenticate(_:)`
 - `protocol TokenStore` — `save(_:)` · `loadAccessToken()` · `loadRefreshToken()` · `clear()`
+- `protocol LaunchStateStore` — `hasLaunchedBefore` · `markLaunched()`.
+  키체인은 앱을 삭제해도 남을 수 있어서, 앱과 함께 사라지는 저장소의 플래그와 대조해 재설치를 판정한다
 
 ### Models (`Sources/Models/`)
 경계 하나만을 위한 입출력 구조. 엔티티가 아니므로 `Entities/`와 섞지 않는다.
@@ -50,6 +52,13 @@ protocol만 둔다. 경계에서 오가는 데이터 구조는 `Models/` 소속�
   (`SocialLoginService` 출력 → `AuthRepository` 입력. 필드가 각 소셜 SDK 응답 모양에 종속돼 엔티티가 아니다)
 - `struct AuthSession` — `token` + `isNewUser` (`AuthRepository.login`이 돌려주는 인증 세션 — 토큰 포함, 저장 전 단계까지만)
 - `struct LoginResult` — `isNewUser` (`LoginUseCase.run`이 돌려주는 로그인 결과 — Feature 노출용, 토큰 감춤)
+- `enum SessionRestoration` — `.restored` / `.signedOut` (`RestoreSessionUseCase.run`의 판정 결과)
+
+### Session (`Sources/Session/`)
+- `final class SessionExpirationChannel` — 토큰 갱신이 최종 실패했음을(재로그인 필요) 앱 루트로 흘리는 단방향 채널.
+  `events`(최신 1건만 버퍼링) · `notify()` · `finish()`.
+  갱신은 요청 재시도 경로 깊은 곳에서 일어나 호출 스택으로는 화면까지 오류가 올라오지 않기 때문에 필요하다.
+  어느 화면으로 보낼지는 받는 쪽(App)이 정한다
 
 ### UseCases (`@DependencyClient` — liveValue 없음, 라이브 팩토리는 `.live(...)`)
 - `LoginUseCase` (`\.loginUseCase`) — 소셜 인증 → 서버 로그인 → 토큰 저장을 한 번에, `LoginResult` 반환
@@ -58,6 +67,12 @@ protocol만 둔다. 경계에서 오가는 데이터 구조는 `Models/` 소속�
   - `static func live(repository:tokenStore:) -> RefreshTokenUseCase`
 - `LogoutUseCase` (`\.logoutUseCase`) — 로그아웃 (서버 로그아웃 + 저장 토큰 삭제)
   - `static func live(repository:tokenStore:) -> LogoutUseCase`
+  - 서버 실패 처리 정책: `.network`만 전파해 토큰을 남기고(재시도 가능), 그 밖의 거절(`.unauthorized`·`.server` 등)은
+    삼키고 로컬을 정리한다. 서버가 이미 무효로 본 세션 때문에 로컬 토큰이 남으면 영구히 로그아웃할 수 없다
+- `RestoreSessionUseCase` (`\.restoreSessionUseCase`) — 앱 시작 시 자동 로그인 가능 여부 판정.
+  설치 후 최초 실행이면 이전 설치가 남긴 키체인을 지우고 `.signedOut`을 돌려준다
+  - `static func live(tokenStore:launchState:) -> RestoreSessionUseCase`
+  - **앱 시작 직후, 어떤 인증 요청보다 먼저 한 번** 실행되는 것을 전제로 한다 (호출 지점은 `AppFeature.task`)
 
 ## 의존성
 
@@ -70,12 +85,15 @@ protocol만 둔다. 경계에서 오가는 데이터 구조는 `Models/` 소속�
 mise exec -- tuist test AuthDomain
 ```
 
-Swift Testing 기반 (시뮬레이터 불필요한 순수 유닛테스트). Mock 3종(`Tests/Support/` —
-`MockAuthRepository`·`MockSocialLoginService`·`MockTokenStore`)으로 인터페이스만 갈아끼워 검증한다:
+Swift Testing 기반 (시뮬레이터 불필요한 순수 유닛테스트). Mock 4종(`Tests/Support/` —
+`MockAuthRepository`·`MockSocialLoginService`·`MockTokenStore`·`MockLaunchStateStore`)으로
+인터페이스만 갈아끼워 검증한다:
 - `AuthErrorTests` — `userMessage` 각 케이스(`.cancelled`는 빈 문자열, 빈 메시지 대체 문구 포함) · 동등성
 - `DomainModelTests` — 값 타입 동등성 · 프로퍼티 보관 (중첩 스위트가 `Sources/`의 폴더 분류를 따른다: 엔티티 / 경계 모델)
 - `LoginUseCaseLiveTests` — `.live` 성공 흐름(소셜→서버→저장), 소셜 취소 전파, 저장 실패→`.unknown`
-- `LogoutUseCaseLiveTests` — 저장 토큰 유무별 서버 호출/로컬 정리, 서버 실패 시 토큰 유지, clear 실패→`.unknown`
+- `LogoutUseCaseLiveTests` — 저장 토큰 유무별 서버 호출/로컬 정리, 네트워크 오류 시 토큰 유지,
+  서버 거절 시에도 로컬 정리, clear 실패→`.unknown`
 - `RefreshTokenUseCaseLiveTests` — 저장 토큰 없을 시 `.unauthorized`, 성공 시 새 토큰 저장·반환, 실패 시 기존 토큰 유지
+- `RestoreSessionUseCaseLiveTests` — 토큰 유무별 판정, 최초 실행 시 키체인 초기화(한 번만), 삭제 실패에도 진행
 
 `AuthError(networkError:)` 매핑과 `DefaultAuthRepository`의 서버 응답 언랩은 `AuthData` 소속이므로 여기서 테스트하지 않는다.

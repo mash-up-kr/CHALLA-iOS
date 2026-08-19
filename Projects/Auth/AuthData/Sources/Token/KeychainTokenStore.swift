@@ -48,8 +48,10 @@ public final class KeychainTokenStore: TokenStore, TokenProvider {
         loadStoredToken()?.refreshToken
     }
 
+    /// 토큰 항목만 지우지 않고 이 저장소의 키체인 service 전체를 비운다 —
+    /// 로그아웃·탈퇴·재설치 때 인증 관련 잔여물이 남지 않게 하는 쪽이 안전하다.
     public func clear() throws {
-        try keychain.delete(for: Self.tokenKey)
+        try keychain.deleteAll()
     }
 
     // MARK: - Private Methods

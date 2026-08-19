@@ -1,4 +1,5 @@
 @testable import CHALLAApp
+import AuthDomain
 import ComposableArchitecture
 import Foundation
 import HomeFeature
@@ -52,6 +53,68 @@ struct AppFeatureTests {
     }
 
     // MARK: - 앱 진입 분기
+
+    @Test("저장된 세션이 있으면 프로필을 조회해 자동 로그인한다")
+    func autoLoginWithStoredSession() async {
+        let channel = SessionExpirationChannel()
+        let store = TestStore(initialState: AppFeature.State.launching) {
+            AppFeature()
+        } withDependencies: {
+            $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .restored })
+            $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: { Fixture.profile })
+            $0.sessionExpirationChannel = channel
+        }
+
+        await store.send(.task)
+        await store.receive(\.sessionRestored, .restored)
+        await store.receive(\.profileResponse.success, Fixture.profile) {
+            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        }
+
+        channel.finish()
+        await store.finish()
+    }
+
+    @Test("저장된 세션이 없으면 요청을 보내지 않고 곧바로 로그인 화면으로 간다")
+    func showsLoginWithoutStoredSession() async {
+        let channel = SessionExpirationChannel()
+        let profileRequested = LockIsolated(false)
+        let store = TestStore(initialState: AppFeature.State.launching) {
+            AppFeature()
+        } withDependencies: {
+            $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .signedOut })
+            $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: {
+                profileRequested.setValue(true)
+                return Fixture.profile
+            })
+            $0.sessionExpirationChannel = channel
+        }
+
+        await store.send(.task)
+        await store.receive(\.sessionRestored, .signedOut) {
+            $0 = .login(.init())
+        }
+
+        channel.finish()
+        await store.finish()
+        #expect(profileRequested.value == false)
+    }
+
+    @Test("토큰 갱신이 최종 실패하면 어느 화면에 있든 로그인으로 되돌린다")
+    func resetsToLoginOnSessionExpiration() async {
+        let store = Self.store(initialState: .home(AppFeature.HomeScreen(profile: Fixture.profile)))
+
+        await store.send(.sessionExpired) {
+            $0 = .login(.init())
+        }
+    }
+
+    @Test("이미 로그인 화면이면 세션 만료 알림을 무시한다 (입력 중인 상태를 날리지 않는다)")
+    func ignoresSessionExpirationOnLogin() async {
+        let store = Self.store(initialState: .login(.init()))
+
+        await store.send(.sessionExpired)
+    }
 
     @Test("프로필 설정을 마쳤으면 홈으로 간다")
     func entersHomeWhenProfileCompleted() async {
