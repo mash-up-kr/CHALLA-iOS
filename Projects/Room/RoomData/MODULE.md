@@ -48,8 +48,8 @@
 
 ## 내부 구성 (internal — 서버 계약이 바뀌면 여기만 바뀐다)
 
-- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`(공통 껍데기 `{success, message, data}`,
-  UserData 복사본 — CHALLANetwork 공통화는 #51 진행 중), 요청·응답 DTO, `RoomStatusDTO`
+- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`는 #51에서 `CHALLANetwork`로 공용화됐고,
+  이 모듈은 `RoomError`를 묶은 무인자 `unwrap()` 확장만 둔다. 요청·응답 DTO, `RoomStatusDTO`
   (모르는 상태 값은 디코딩 실패를 택한다). 날짜는 `String`으로 받는다 — 공용 디코더에 날짜 규칙을
   설정하면 다른 도메인 API까지 영향을 받아 매핑에서만 파싱한다
 - `Endpoint/RoomEndpoint` — rooms(배열 쿼리) · create · join 선언. 셋 다 `.bearer`
@@ -71,8 +71,8 @@
 mise exec -- tuist test RoomData
 ```
 
-Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockHTTPClient`
-(호출 캡처 + 준비된 JSON 응답, UserData 것에 `queryItems` 캡처 추가한 복사본)로 서버 없이 검증한다.
+Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). 공용 `MockHTTPClient`
+(`CHALLANetworkTesting` — 호출 캡처 + 준비된 JSON 응답, `queryItems`·`headers` 모두 캡처)로 서버 없이 검증한다.
 
 - `DefaultRoomRepositoryTests` — 상태 3개 배열 쿼리·bearer 확인, `success:false` 언랩(서버 메시지
   보존), transport→`.network` 정규화, 생성·입장의 본문 계약과 재조회 왕복(POST→GET 순서),
