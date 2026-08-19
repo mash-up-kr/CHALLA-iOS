@@ -19,10 +19,8 @@
 
 여기서 같은 호출을 또 만들면:
 - 같은 서버 계약이 두 곳에 생기고, #33 머지 때 한쪽을 지워야 한다
-- 응답 디코딩에 `BaseResponseDTO`가 필요한데 그 파일에는
-  *"다른 Data 모듈도 같은 DTO를 쓰게 되면 공용 모듈로 승격한다 — 그전까지 복붙 금지"* 라고
-  명시돼 있다 (`Projects/Auth/AuthData/Sources/DTO/BaseResponseDTO.swift`).
-  승격은 `AuthData`를 건드리는 일이라 PR #32가 열려 있는 지금 할 작업이 아니다
+- 응답 디코딩에 `BaseResponseDTO`가 필요하다. 이 타입은 #51에서 `CHALLANetwork`로 승격돼
+  공용으로 쓸 수 있다 (`Projects/Network/CHALLANetwork/Sources/DTO/BaseResponseDTO.swift`)
 
 그래서 프로필은 `SettingDomain`의 `SettingProfileProvider` protocol이 맡고, 이 모듈은 관여하지 않는다.
 #33이 머지되면 `UserRepository`를 그 protocol에 맞춰주는 어댑터를 `CompositionRoot`에 두면 된다.
