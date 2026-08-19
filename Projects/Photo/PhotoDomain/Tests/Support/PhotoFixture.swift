@@ -19,7 +19,7 @@ enum PhotoFixture {
         )
     }
 
-    static func reaction(_ kind: ReactionKind = .clap, by userID: String = "user-me") -> PhotoReaction {
+    static func reaction(_ kind: ReactionKind = .thumbsUp, by userID: String = "user-me") -> PhotoReaction {
         PhotoReaction(kind: kind, userID: userID)
     }
 }

@@ -18,7 +18,7 @@ extension SavePhotoUseCase: TestDependencyKey {
                 let data = try await repository.imageData(for: photo)
                 try await photoLibrary.save(imageData: data)
             } catch {
-                // 구현체가 계약을 어기고 다른 오류를 던져도 Feature는 PhotoError만 받는다.
+                // 구현이 다른 오류를 던져도 Feature는 PhotoError만 받도록 맞춘다.
                 guard error is PhotoError || error is CancellationError else { throw PhotoError.unknown }
                 throw error
             }

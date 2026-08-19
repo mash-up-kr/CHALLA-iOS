@@ -1,6 +1,6 @@
 import Foundation
 
-/// 실행 인자로 받는 진입 지점 — 시뮬레이터를 탭으로 조작할 수 없어 화면·상태를 인자로 바로 띄운다.
+/// 실행 인자로 화면과 상태를 지정한다. 시뮬레이터를 탭으로 조작할 수 없어, 인자로 원하는 화면을 바로 띄운다.
 ///
 /// ```bash
 /// xcrun simctl launch booted com.challa.photodetailfeature.demo --screen photo-detail --state empty
@@ -12,9 +12,9 @@ struct DemoLaunchArguments: Equatable {
     }
 
     enum State: String, CaseIterable {
-        /// 사진 5장 · 리액션 1개.
+        /// 사진 5장.
         case `default`
-        /// 목록을 받는 중에서 멈춘 상태.
+        /// 목록을 불러오는 중에서 멈춘 상태.
         case loading
         case empty
         case error

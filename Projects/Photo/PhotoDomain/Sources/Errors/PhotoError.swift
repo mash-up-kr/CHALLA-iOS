@@ -1,9 +1,8 @@
 import Foundation
 
-/// 사진 흐름에서 Feature까지 전파되는 도메인 오류.
+/// 사진 기능에서 Feature까지 전달되는 도메인 오류.
 ///
-/// Data 레이어와 Core 저장소 구현이 자기 오류를 이 타입으로 정규화해 던진다 —
-/// Domain은 서버 오류 타입도, 사진첩 API 오류도 모른다.
+/// Data와 Core 구현이 자기 오류를 이 타입으로 변환해 던진다. Domain은 서버·사진첩 API 오류 타입을 모른다.
 public enum PhotoError: Error, Equatable, Sendable {
 
     /// 오프라인·타임아웃 등 전송 자체가 실패.
@@ -12,7 +11,7 @@ public enum PhotoError: Error, Equatable, Sendable {
     /// 서버가 실패를 알림.
     case server(message: String)
 
-    /// 사진첩 추가 권한이 없음 → 설정으로 보내는 안내가 필요하다.
+    /// 사진첩 추가 권한 없음. 설정으로 안내한다.
     case permissionDenied
 
     /// 권한은 있으나 사진첩에 쓰지 못함.

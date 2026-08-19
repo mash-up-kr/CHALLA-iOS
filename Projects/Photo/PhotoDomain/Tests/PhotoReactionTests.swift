@@ -8,17 +8,17 @@ struct PhotoReactionTests {
     func addsReaction() {
         let photo = PhotoFixture.photo()
 
-        let updated = photo.settingReaction(.clap, by: "user-me", isOn: true)
+        let updated = photo.settingReaction(.thumbsUp, by: "user-me", isOn: true)
 
         #expect(updated.reactions.count == 1)
-        #expect(updated.hasReaction(.clap, by: "user-me"))
+        #expect(updated.hasReaction(.thumbsUp, by: "user-me"))
     }
 
     @Test("끄면 리액션이 지워진다")
     func removesReaction() {
-        let photo = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.clap, by: "user-me")])
+        let photo = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.thumbsUp, by: "user-me")])
 
-        let updated = photo.settingReaction(.clap, by: "user-me", isOn: false)
+        let updated = photo.settingReaction(.thumbsUp, by: "user-me", isOn: false)
 
         #expect(updated.reactions.isEmpty)
     }
@@ -45,19 +45,19 @@ struct PhotoReactionTests {
 
     @Test("남이 남긴 같은 종류의 리액션은 건드리지 않는다")
     func keepsOtherUsersReaction() {
-        let photo = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.clap, by: "user-other")])
+        let photo = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.thumbsUp, by: "user-other")])
 
-        let updated = photo.settingReaction(.clap, by: "user-me", isOn: true)
+        let updated = photo.settingReaction(.thumbsUp, by: "user-me", isOn: true)
 
         #expect(updated.reactions.count == 2)
-        #expect(updated.hasReaction(.clap, by: "user-other"))
-        #expect(updated.hasReaction(.clap, by: "user-me"))
+        #expect(updated.hasReaction(.thumbsUp, by: "user-other"))
+        #expect(updated.hasReaction(.thumbsUp, by: "user-me"))
     }
 
     @Test("종류가 다르면 따로 쌓인다")
     func addsDifferentKinds() {
         let photo = PhotoFixture.photo()
-            .settingReaction(.clap, by: "user-me", isOn: true)
+            .settingReaction(.thumbsUp, by: "user-me", isOn: true)
             .settingReaction(.heart, by: "user-me", isOn: true)
 
         #expect(photo.reactions.count == 2)
@@ -67,8 +67,8 @@ struct PhotoReactionTests {
     @Test("서버가 같은 리액션을 중복으로 줘도 하나만 남는다")
     func dropsDuplicateReactions() {
         let duplicated = [
-            PhotoFixture.reaction(.clap, by: "user-me"),
-            PhotoFixture.reaction(.clap, by: "user-me")
+            PhotoFixture.reaction(.thumbsUp, by: "user-me"),
+            PhotoFixture.reaction(.thumbsUp, by: "user-me")
         ]
 
         let photo = PhotoFixture.photo(reactions: duplicated)
@@ -78,8 +78,8 @@ struct PhotoReactionTests {
 
     @Test("리액션 신원은 종류 + 사람이다")
     func reactionIdentity() {
-        let mine = PhotoFixture.reaction(.clap, by: "user-me")
-        let yours = PhotoFixture.reaction(.clap, by: "user-you")
+        let mine = PhotoFixture.reaction(.thumbsUp, by: "user-me")
+        let yours = PhotoFixture.reaction(.thumbsUp, by: "user-you")
         let myHeart = PhotoFixture.reaction(.heart, by: "user-me")
 
         #expect(mine.id != yours.id)

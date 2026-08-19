@@ -3,11 +3,9 @@ import ComposableArchitecture
 import PhotoDomain
 import SwiftUI
 
-/// 사진 상세 화면. 하단 입력창은 아직 모양만 있다 — 채팅은 후속 이슈다.
+/// 사진 상세 화면
 @ViewAction(for: PhotoDetailFeature.self)
 public struct PhotoDetailView: View {
-
-    // MARK: - 프로퍼티와 init
 
     @Bindable public var store: StoreOf<PhotoDetailFeature>
 
@@ -47,8 +45,8 @@ public struct PhotoDetailView: View {
 
             photoArea
                 .padding(.top, Metric.photoTopPadding)
-                .padding(.horizontal, Metric.photoHorizontalPadding)
-                // 사진과 Spacer가 둘 다 유연해서, 작은 화면에서 사진이 먼저 줄지 않도록 우선권을 준다.
+                .padding(.horizontal, 16)
+                // 화면이 작아도 Spacer보다 사진 크기를 먼저 지킨다.
                 .layoutPriority(1)
 
             Spacer(minLength: Metric.reactionBarTopSpacing)
@@ -57,7 +55,7 @@ public struct PhotoDetailView: View {
 
             messageField
                 .padding(.top, Metric.messageFieldTopSpacing)
-                .padding(.horizontal, Metric.messageFieldHorizontalPadding)
+                .padding(.horizontal, 20)
         }
     }
 
@@ -75,13 +73,13 @@ public struct PhotoDetailView: View {
     }
 
     private var pager: some View {
-        // TabView는 제안된 공간을 다 채우므로, 비율만 잡은 빈 뷰가 크기를 정해준다.
+        // TabView는 주어진 공간을 모두 채우므로, 비율만 지정한 빈 뷰로 크기를 고정한다.
         Color.clear
             .aspectRatio(PhotoCard.aspectRatio, contentMode: .fit)
             .overlay {
                 TabView(selection: selection) {
                     ForEach(store.photos) { photo in
-                        PhotoCard(photo: photo)
+                        PhotoCard(photo: photo, slots: store.stickerSlots)
                             .tag(Optional(photo.id))
                     }
                 }
@@ -96,7 +94,7 @@ public struct PhotoDetailView: View {
     /// 사진이 없을 때의 빈 자리. 로딩 중이면 스피너, 끝났으면 안내 문구를 얹는다.
     private var emptyCard: some View {
         RoundedRectangle(cornerRadius: CHALLARadius.xxlarge)
-            .strokeBorder(CHALLAColor.Line.normal, lineWidth: Metric.cardBorderWidth)
+            .strokeBorder(CHALLAColor.Line.normal, lineWidth: 1)
             .aspectRatio(PhotoCard.aspectRatio, contentMode: .fit)
             .overlay {
                 if store.isLoading {
@@ -111,8 +109,7 @@ public struct PhotoDetailView: View {
             }
     }
 
-    /// 사진첩 저장이 진행되는 동안 화면을 덮는 딤 + 스피너.
-    /// 다운로드는 원본을 통째로 받는 경로라 셀룰러에서 수 초가 걸린다 — 진행 표시가 없으면 안 눌린 줄 안다.
+    /// 저장 중 화면을 덮는 오버레이. 다운로드가 몇 초 걸리므로 진행 중임을 표시한다.
     private var savingOverlay: some View {
         ZStack {
             CHALLAColor.Material.dimmer.ignoresSafeArea()
@@ -131,12 +128,11 @@ public struct PhotoDetailView: View {
             ReactionBar(selectedKinds: selectedKinds(of: photo)) { kind in
                 send(.reactionTapped(kind))
             }
-            .padding(.horizontal, Metric.reactionBarHorizontalPadding)
+            .padding(.horizontal, 24)
         }
     }
 
-    /// 채팅 입력창 자리. `.disabled(true)`는 글자색까지 비활성 색으로 바꿔 시안과 달라지므로 탭만 막고,
-    /// VoiceOver에는 반응 없는 입력창이 잡히지 않게 숨긴다.
+    /// 채팅 입력창 자리(아직 동작 안 함). .disabled는 글자색을 바꾸므로 탭만 막고, VoiceOver에서도 숨긴다.
     private var messageField: some View {
         CHALLATextField(
             text: .constant(""),
@@ -147,7 +143,7 @@ public struct PhotoDetailView: View {
         .accessibilityHidden(true)
     }
 
-    /// 화면 아래를 물들이는 테마색 번짐 (시안의 배경 타원).
+    /// 화면 하단의 배경 그라데이션.
     private var glow: some View {
         Ellipse()
             .fill(CHALLAColor.defaultTheme.opacity(Metric.glowOpacity))
@@ -179,22 +175,13 @@ public struct PhotoDetailView: View {
 // MARK: - Figma 실측값
 
 private enum Metric {
-    /// 탑 내비 아래 ~ 사진 카드 (146 − 114).
     static let photoTopPadding: CGFloat = 32
-    static let photoHorizontalPadding: CGFloat = 16
-    static let cardBorderWidth: CGFloat = 1
-    /// 사진 아래 ~ 점 표시 (493 − 477).
     static let indicatorTopSpacing: CGFloat = 16
-    /// 사진 카드 아래 ~ 리액션 바 (684 − 649).
     static let reactionBarTopSpacing: CGFloat = 35
-    static let reactionBarHorizontalPadding: CGFloat = 24
-    /// 리액션 바 아래 ~ 입력창 (758 − 742).
     static let messageFieldTopSpacing: CGFloat = 16
-    static let messageFieldHorizontalPadding: CGFloat = 20
-    /// 배경 타원 390 × 244, 노랑 20%.
+    /// 배경 그라데이션 390 × 244, 투명도 20%.
     static let glowHeight: CGFloat = 244
     static let glowOpacity: Double = 0.2
-    /// Figma gaussian 300 — SwiftUI blur와 수치 체계가 달라 시각 근사값.
     static let glowBlurRadius: CGFloat = 150
 }
 
