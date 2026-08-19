@@ -24,6 +24,11 @@ public extension TargetDependency {
         target: "CHALLANetwork",
         path: .relativeToRoot("Projects/Network/CHALLANetwork")
     )
+    /// 테스트 전용 — 공용 `MockHTTPClient`. Data 모듈의 테스트 타깃만 의존한다.
+    static let networkTesting = TargetDependency.project(
+        target: "CHALLANetworkTesting",
+        path: .relativeToRoot("Projects/Network/CHALLANetworkTesting")
+    )
 
     // MARK: - Auth
 
