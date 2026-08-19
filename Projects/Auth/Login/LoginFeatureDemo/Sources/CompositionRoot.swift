@@ -18,7 +18,7 @@ enum CompositionRoot {
             session: .shared,
             interceptors: [
                 AuthInterceptor(tokenProvider: tokenStore), // login/refresh는 .none이라 미부착
-                LoggingInterceptor(level: .basic)
+                LoggingInterceptor(level: .verbose) // 데모앱은 검증용이라 응답 본문까지 남긴다
             ]
         )
 

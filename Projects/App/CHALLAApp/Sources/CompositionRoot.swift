@@ -21,6 +21,12 @@ import UserDomain
 /// `LoginFeatureDemo/Sources/CompositionRoot.swift`가 같은 배선을 갖는다.
 enum CompositionRoot {
 
+    #if DEBUG
+        private static let loggingLevel: LoggingInterceptor.Level = .verbose
+    #else
+        private static let loggingLevel: LoggingInterceptor.Level = .basic
+    #endif
+
     static func registerLiveDependencies(
         into values: inout DependencyValues,
         clearImageCache: @escaping @Sendable () async -> Void = {}
@@ -32,7 +38,8 @@ enum CompositionRoot {
             session: .shared,
             interceptors: [
                 AuthInterceptor(tokenProvider: tokenStore),
-                LoggingInterceptor(level: .basic)
+                // 응답 본문 확인은 개발 중에만 — 릴리스 로그에 토큰·PII를 남기지 않는다.
+                LoggingInterceptor(level: Self.loggingLevel)
             ]
         )
 

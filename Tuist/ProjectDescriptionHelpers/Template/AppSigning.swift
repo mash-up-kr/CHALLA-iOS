@@ -20,11 +20,7 @@ public enum AppSigning {
         case .automatic:
             ["CODE_SIGN_STYLE": "Automatic"]
         case .manual:
-            [
-                "CODE_SIGN_STYLE": "Manual",
-                // 시뮬레이터 빌드는 서명하지 않는다. 프로파일이 없는 CI에서도 테스트가 돌아야 한다.
-                "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]": "NO"
-            ]
+            ["CODE_SIGN_STYLE": "Manual"]
         }
     }
 
@@ -33,10 +29,7 @@ public enum AppSigning {
         case .automatic:
             [:]
         case let .manual(debugProfile, _):
-            [
-                "PROVISIONING_PROFILE_SPECIFIER": .string(debugProfile),
-                "CODE_SIGN_IDENTITY": "Apple Development"
-            ]
+            Self.deviceSettings(profile: debugProfile, identity: "Apple Development")
         }
     }
 
@@ -45,10 +38,20 @@ public enum AppSigning {
         case .automatic:
             [:]
         case let .manual(_, releaseProfile):
-            [
-                "PROVISIONING_PROFILE_SPECIFIER": .string(releaseProfile),
-                "CODE_SIGN_IDENTITY": "Apple Distribution"
-            ]
+            Self.deviceSettings(profile: releaseProfile, identity: "Apple Distribution")
         }
+    }
+
+    /// 프로파일·인증서는 실기기 빌드에만 건다. 프로파일이 없는 CI에서도 시뮬레이터 빌드는 돌아야 하기 때문.
+    ///
+    /// 시뮬레이터는 ad-hoc(`-`)으로 서명한다. 서명을 아예 끄면(`CODE_SIGNING_ALLOWED=NO`)
+    /// entitlements가 바이너리에 embed되지 않아, `com.apple.developer.applesignin`이 빠진 채로 실행된다
+    /// → Apple 로그인이 `ASAuthorizationError.unknown(1000)`으로, Keychain 저장이 `errSecMissingEntitlement`로 실패한다.
+    private static func deviceSettings(profile: String, identity: String) -> SettingsDictionary {
+        [
+            "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]": .string(profile),
+            "CODE_SIGN_IDENTITY[sdk=iphoneos*]": .string(identity),
+            "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": "-"
+        ]
     }
 }
