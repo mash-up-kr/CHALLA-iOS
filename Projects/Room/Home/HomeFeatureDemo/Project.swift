@@ -9,7 +9,7 @@ let project = Project.makeAppProject(
     marketingVersion: "1.0.0",
     buildNumber: "1",
     additionalInfoPlist: [
-        // 촬영 진입이 사진첩 저장 권한을 묻는다 — 없으면 요청 시점에 크래시한다.
+        // 촬영 진입이 사진첩 저장 권한을 묻는다.
         // TODO: 임의 작성 문구 — 기획 확정 시 교체할 것.
         "NSPhotoLibraryAddUsageDescription": .string("촬영한 사진을 저장하려면 사진첩 접근이 필요해요.")
     ],
