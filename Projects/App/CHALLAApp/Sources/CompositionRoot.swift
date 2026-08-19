@@ -36,14 +36,14 @@ enum CompositionRoot {
     ) {
         // 인터셉터(요청 시 토큰 읽기)와 UseCase(로그인 시 토큰 저장)가 같은 인스턴스를 공유해야 한다.
         let tokenStore = KeychainTokenStore(keychain: KeychainStore(service: "com.challa.auth"))
+        let sessionExpiration = SessionExpirationChannel()
+        values.sessionExpirationChannel = sessionExpiration
 
-        let client = DefaultHTTPClient(
-            session: .shared,
-            interceptors: [
-                AuthInterceptor(tokenProvider: tokenStore),
-                // 응답 본문 확인은 개발 중에만 — 릴리스 로그에 토큰·PII를 남기지 않는다.
-                LoggingInterceptor(level: Self.loggingLevel)
-            ]
+        let refreshTokenUseCase = makeRefreshTokenUseCase(tokenStore: tokenStore)
+        let client = makeClient(
+            tokenStore: tokenStore,
+            refreshTokenUseCase: refreshTokenUseCase,
+            sessionExpiration: sessionExpiration
         )
 
         let userRepository = DefaultUserRepository(client: client)
@@ -57,7 +57,12 @@ enum CompositionRoot {
         values.pushTokenSynchronizer = pushSynchronizer
 
         // 로그아웃은 계정 관리 어댑터도 쓴다. 값을 돌려받아 넘기는 이유는 registerAuth 주석 참고.
-        let logout = registerAuth(into: &values, client: client, tokenStore: tokenStore)
+        let logout = registerAuth(
+            into: &values,
+            client: client,
+            tokenStore: tokenStore,
+            refreshTokenUseCase: refreshTokenUseCase
+        )
         registerUser(into: &values, client: client, repository: userRepository)
         registerRoom(into: &values, client: client)
         registerPhoto(into: &values, client: client)
@@ -74,6 +79,43 @@ enum CompositionRoot {
         )
     }
 
+    /// 갱신 전용 클라이언트에 얹는다 — 인증 헤더도 재시도도 붙이지 않는다.
+    /// 갱신 요청의 401이 다시 갱신을 부르는 재귀에 빠지지 않도록 파이프라인을 갈라 둔다.
+    private static func makeRefreshTokenUseCase(tokenStore: any TokenStore) -> RefreshTokenUseCase {
+        .live(
+            repository: DefaultAuthRepository(
+                client: DefaultHTTPClient(
+                    session: .shared,
+                    interceptors: [LoggingInterceptor(level: loggingLevel)]
+                )
+            ),
+            tokenStore: tokenStore
+        )
+    }
+
+    /// 모든 도메인이 공유하는 요청 클라이언트. 401을 만나면 토큰을 갱신하고 그 요청을 한 번 다시 보낸다.
+    private static func makeClient(
+        tokenStore: KeychainTokenStore,
+        refreshTokenUseCase: RefreshTokenUseCase,
+        sessionExpiration: SessionExpirationChannel
+    ) -> any HTTPClient {
+        let refresher = AuthTokenRefresher(
+            refresh: { try await refreshTokenUseCase.run() },
+            tokenStore: tokenStore,
+            onSessionExpired: { sessionExpiration.notify() }
+        )
+
+        return DefaultHTTPClient(
+            session: .shared,
+            interceptors: [
+                AuthInterceptor(tokenProvider: tokenStore),
+                // 응답 본문 확인은 개발 중에만 — 릴리스 로그에 토큰·PII를 남기지 않는다.
+                LoggingInterceptor(level: Self.loggingLevel)
+            ],
+            retrier: TokenRefreshRetrier(refresher: refresher)
+        )
+    }
+
     /// 만든 `LogoutUseCase`를 돌려준다 — 뒤에서 `values.logoutUseCase`를 되읽으면
     /// 호출 순서에 묶이면서 그 의존이 시그니처에 드러나지 않는다.
     /// 순서를 바꾸면 미구현 `testValue`가 잡혀 로그아웃이 조용히 실패한다.
@@ -81,7 +123,8 @@ enum CompositionRoot {
     private static func registerAuth(
         into values: inout DependencyValues,
         client: any HTTPClient,
-        tokenStore: any TokenStore
+        tokenStore: any TokenStore,
+        refreshTokenUseCase: RefreshTokenUseCase
     ) -> LogoutUseCase {
         let repository = DefaultAuthRepository(client: client)
         let social = DefaultSocialLoginService()
@@ -89,7 +132,11 @@ enum CompositionRoot {
 
         values.loginUseCase = .live(social: social, repository: repository, tokenStore: tokenStore)
         values.logoutUseCase = logout
-        values.refreshTokenUseCase = .live(repository: repository, tokenStore: tokenStore)
+        values.refreshTokenUseCase = refreshTokenUseCase // 401 재시도 경로와 같은 갱신 클라이언트를 공유한다
+        values.restoreSessionUseCase = .live(
+            tokenStore: tokenStore,
+            launchState: UserDefaultsLaunchStateStore()
+        )
         return logout
     }
 
@@ -112,7 +159,12 @@ enum CompositionRoot {
         values.fetchRoomsUseCase = .live(repository: repository)
         values.createRoomUseCase = .live(repository: repository)
         values.joinRoomUseCase = .live(repository: repository)
+        values.fetchRoomDetailUseCase = .live(repository: repository)
         values.fetchShootableRoomsUseCase = .live(repository: repository)
+
+        // 방 상세의 사진 그리드가 쓰는 fetchRoomPhotosUseCase는 등록하지 않는다 —
+        // PhotoData에 사진 조회 구현이 아직 없다 (필터·업로드만 있음). 미등록 상태로 두면
+        // 호출 시 런타임 경고가 뜨고 그리드는 빈 칸으로 남는다. 구현이 생기면 여기서 등록한다.
     }
 
     /// client 공유 조건은 registerUser와 같다. 카메라 화면이 앱에 조립되면 이 배선을 그대로 쓴다.

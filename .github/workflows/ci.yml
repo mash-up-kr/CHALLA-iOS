@@ -69,7 +69,9 @@ jobs:
     runs-on: macos-15
     # 정상(캐시 웜) 상태에선 10분 안팎으로 끝나지만, 캐시가 빈 첫 실행이나
     # 의존성 변경 시 cache warm 이 전 모듈을 한 번 컴파일하므로 여유를 둔다.
-    timeout-minutes: 60
+    # Xcode 26 전환 직후에는 캐시가 전부 무효라 첫 실행이 45분을 넘긴다 (#57).
+    # 원격 캐시가 더워지면 훨씬 빨리 끝나지만, 캐시 미스 시를 대비해 상한은 그대로 둔다.
+    timeout-minutes: 70
     # Tuist 서버 인증 토큰 — tuist install/cache/test 가 원격 캐시를 읽고 쓰는 데 사용.
     env:
       TUIST_CONFIG_TOKEN: ${{ secrets.TUIST_CONFIG_TOKEN }}
@@ -79,15 +81,23 @@ jobs:
       # mise.toml 기준으로 tuist·swiftlint·swiftformat 설치 (+자동 캐시·trust 처리)
       - uses: jdx/mise-action@v4
 
+      # 러너 기본 Xcode(16.4)는 팀 로컬(26.x)보다 이전 세대 컴파일러라 로컬에서 통과하는
+      # 코드가 CI에서만 깨진다 (#57에서 타입 추론 예산 초과). 타입 추론 예산을 올리는
+      # 컴파일러 플래그(Settings+Templates.swift)도 Swift 6.2부터라 구형에서는 못 쓴다.
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.3.app
+
       # [1] SPM 의존성(TCA·카카오·Firebase) resolve/fetch 결과 캐시.
       # Package.resolved 가 그대로면 tuist install 이 네트워크 없이 재사용한다.
+      # 키에 Xcode 버전을 넣는 이유 — 다른 세대 컴파일러로 만든 캐시를 복원하면 외부 패키지의
+      # 컴파일 조건(컴파일러 버전 분기)이 어긋나 빌드가 깨진다 (#57에서 swift-collections가 실패).
       - name: Cache SPM dependencies
         uses: actions/cache@v4
         with:
           path: Tuist/.build
-          key: ${{ runner.os }}-spm-${{ hashFiles('Tuist/Package.resolved') }}
+          key: ${{ runner.os }}-xcode26.3-spm-${{ hashFiles('Tuist/Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-spm-
+            ${{ runner.os }}-xcode26.3-spm-
 
       # [2][3] Tuist 로컬 캐시 — selective testing 해시와 원격에서 내려받은 바이너리의 로컬 미러가 쌓인다.
       # 원격 캐시(Tuist 서버)가 소스 오브 트루스지만, 이 디렉터리를 보존하면 재다운로드를 줄인다.
@@ -96,10 +106,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/tuist
-          key: ${{ runner.os }}-tuist-${{ hashFiles('Tuist/Package.resolved') }}-${{ github.sha }}
+          key: ${{ runner.os }}-xcode26.3-tuist-${{ hashFiles('Tuist/Package.resolved') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-tuist-${{ hashFiles('Tuist/Package.resolved') }}-
-            ${{ runner.os }}-tuist-
+            ${{ runner.os }}-xcode26.3-tuist-${{ hashFiles('Tuist/Package.resolved') }}-
+            ${{ runner.os }}-xcode26.3-tuist-
 
       # Tuist/.build 는 gitignore 라 러너에는 없고, 없으면 generate 가 바로 실패한다.
       - name: Install dependencies

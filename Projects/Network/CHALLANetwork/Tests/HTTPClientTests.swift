@@ -139,9 +139,98 @@ struct HTTPClientTests {
         // 뒤에 등록된 인터셉터가 앞의 결과 위에 덮어쓴다.
         #expect(StubURLProtocol.lastRequest?.value(forHTTPHeaderField: "X-Stamp") == "second")
     }
+
+    @Test("401을 받으면 토큰을 갱신하고 갱신된 토큰으로 한 번 재시도한다")
+    func retriesUnauthorizedWithRefreshedToken() async throws {
+        StubURLProtocol.queuedStubs = [
+            .init(statusCode: 401, data: Data(), error: nil, headers: [:]),
+            .init(statusCode: 200, data: Data(#"{"ok":true}"#.utf8), error: nil, headers: [:])
+        ]
+        let provider = MutableTokenProvider(token: "old")
+        let client = DefaultHTTPClient(
+            session: .stubbed(),
+            interceptors: [AuthInterceptor(tokenProvider: provider)],
+            retrier: TokenRefreshRetrier(refresher: RotatingTokenRefresher(provider: provider))
+        )
+
+        let response = try await client.request(TestEndpoint())
+
+        #expect(response.statusCode == 200)
+        #expect(StubURLProtocol.requests.count == 2)
+        #expect(StubURLProtocol.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer old")
+        // 재시도는 파이프라인 처음으로 돌아가므로 adapt가 다시 돌아 새 토큰이 실린다.
+        #expect(StubURLProtocol.requests.last?.value(forHTTPHeaderField: "Authorization") == "Bearer new")
+    }
+
+    @Test("갱신이 실패하면 재시도하지 않고 401을 그대로 돌려준다")
+    func doesNotRetryWhenRefreshFails() async throws {
+        StubURLProtocol.stub = .init(statusCode: 401, data: Data(), error: nil, headers: [:])
+        let client = DefaultHTTPClient(
+            session: .stubbed(),
+            retrier: TokenRefreshRetrier(refresher: FakeTokenRefresher(result: false))
+        )
+
+        let response = try await client.request(TestEndpoint())
+
+        #expect(response.statusCode == 401)
+        #expect(StubURLProtocol.requests.count == 1)
+    }
+
+    @Test("재시도한 응답이 또 401이면 더는 시도하지 않는다 (무한 갱신 방지)")
+    func stopsAfterSingleRetry() async throws {
+        StubURLProtocol.stub = .init(statusCode: 401, data: Data(), error: nil, headers: [:])
+        let refresher = FakeTokenRefresher(result: true)
+        let client = DefaultHTTPClient(
+            session: .stubbed(),
+            retrier: TokenRefreshRetrier(refresher: refresher)
+        )
+
+        let response = try await client.request(TestEndpoint())
+
+        #expect(response.statusCode == 401)
+        #expect(StubURLProtocol.requests.count == 2)
+        #expect(refresher.callCount == 1)
+    }
+
+    @Test("retrier가 없으면 401도 그대로 돌려준다 (기존 동작 유지)")
+    func withoutRetrierKeepsUnauthorized() async throws {
+        StubURLProtocol.stub = .init(statusCode: 401, data: Data(), error: nil, headers: [:])
+        let client = DefaultHTTPClient(session: .stubbed())
+
+        let response = try await client.request(TestEndpoint())
+
+        #expect(response.statusCode == 401)
+        #expect(StubURLProtocol.requests.count == 1)
+    }
 }
 
 private struct EmptyModel: Decodable {}
+
+/// 갱신 전후로 토큰이 바뀌는 상황을 재현한다.
+private final class MutableTokenProvider: TokenProvider {
+    private let current: OSAllocatedUnfairLock<String>
+
+    init(token: String) {
+        current = OSAllocatedUnfairLock(initialState: token)
+    }
+
+    func set(_ token: String) {
+        current.withLock { $0 = token }
+    }
+
+    func accessToken() async -> String? {
+        current.withLock { $0 }
+    }
+}
+
+private struct RotatingTokenRefresher: TokenRefreshing {
+    let provider: MutableTokenProvider
+
+    func refreshToken(replacing _: String?) async -> Bool {
+        provider.set("new")
+        return true
+    }
+}
 
 /// 연쇄 순서 확인용 — 고정 헤더 하나만 덮어쓴다.
 /// `didReceive`로 통보된 실패 횟수만 세는 인터셉터.

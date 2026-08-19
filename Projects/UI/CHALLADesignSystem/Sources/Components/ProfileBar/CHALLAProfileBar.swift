@@ -20,10 +20,18 @@ public struct CHALLAProfileBar: View {
     // MARK: - 공개 타입
 
     /// 팝오버 리스트와 바 아바타에 쓰이는 참여자 한 명.
+    /// 사진은 로드된 `Image` 또는 URL로 받는다 — URL이면 로드를 바가 `CHALLAAsyncImage`로 직접 한다.
     public struct Member: Identifiable {
         public let id: String
         public let name: String
-        public let avatar: Image?
+        let avatarSource: AvatarSource
+
+        enum AvatarSource {
+            /// 호출부가 이미 로드해 둔 사진 — nil이면 placeholder.
+            case image(Image?)
+            /// 원격 사진 URL — 로딩 중·실패·nil이면 placeholder.
+            case url(URL?)
+        }
 
         /// - Parameters:
         ///   - id: 리스트 identity로 쓰는 서버 식별자.
@@ -32,7 +40,17 @@ public struct CHALLAProfileBar: View {
         public init(id: String, name: String, avatar: Image?) {
             self.id = id
             self.name = name
-            self.avatar = avatar
+            self.avatarSource = .image(avatar)
+        }
+
+        /// - Parameters:
+        ///   - id: 리스트 identity로 쓰는 서버 식별자.
+        ///   - name: 닉네임.
+        ///   - avatarURL: 프로필 사진 URL. 바가 `CHALLAAsyncImage`로 로드하고, 로딩 중·실패·nil이면 placeholder.
+        public init(id: String, name: String, avatarURL: URL?) {
+            self.id = id
+            self.name = name
+            self.avatarSource = .url(avatarURL)
         }
     }
 
@@ -112,7 +130,7 @@ public struct CHALLAProfileBar: View {
     private var bar: some View {
         ZStack(alignment: .leading) {
             ForEach(Array(visibleMembers.enumerated()), id: \.element.id) { index, member in
-                CHALLAAvatar(photo: member.avatar, size: ProfileBarMetric.avatarSize)
+                avatar(for: member, size: ProfileBarMetric.avatarSize)
                     .offset(x: CGFloat(index) * ProfileBarMetric.avatarStep)
                     // 먼저 입장한(왼쪽) 아바타가 겹침의 위로 오도록 (시안 스펙).
                     .zIndex(Double(visibleMembers.count - index))
@@ -210,13 +228,30 @@ public struct CHALLAProfileBar: View {
 
     private func memberRow(_ member: Member) -> some View {
         HStack(spacing: ProfileBarMetric.rowContentGap) {
-            CHALLAAvatar(photo: member.avatar, size: ProfileBarMetric.memberAvatarSize)
+            avatar(for: member, size: ProfileBarMetric.memberAvatarSize)
             Text(member.name)
                 .challaFont(.body.xsmall.medium)
                 .foregroundStyle(CHALLAColor.Label.subtle)
             Spacer(minLength: 0)
         }
         .frame(height: ProfileBarMetric.rowHeight)
+    }
+
+    // MARK: - 아바타
+
+    /// 출처별 아바타 — URL이면 `CHALLAAsyncImage`가 로드하고, 로딩 중·실패 시 placeholder를 그린다.
+    @ViewBuilder
+    private func avatar(for member: Member, size: CGFloat) -> some View {
+        switch member.avatarSource {
+        case let .image(image):
+            CHALLAAvatar(photo: image, size: size)
+        case let .url(url):
+            CHALLAAsyncImage(url: url) { image in
+                CHALLAAvatar(photo: image, size: size)
+            } placeholder: {
+                CHALLAAvatar(photo: nil, size: size)
+            }
+        }
     }
 
     /// 팝오버 전체 높이 = 고정 요소 + 리스트 내용 높이, 상한 450 (Figma "maxheight: 450px").

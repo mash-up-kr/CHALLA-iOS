@@ -10,7 +10,7 @@ import UIKit
 /// 1. 메모리 캐시
 /// 2. 동일 키의 진행 중 작업 공유
 /// 3. 디스크 캐시
-/// 4. 네트워크 → 다운샘플 → HEIC 저장
+/// 4. 네트워크 → 다운샘플 → JPEG 저장
 ///
 /// 진행 중 작업과 메모리 캐시는 `ImageLoader` actor에서 관리하고,
 /// 다운샘플·인코딩·디코딩은 `Task.detached`에서 수행한다.
@@ -21,7 +21,7 @@ public actor ImageLoader {
     /// 다운샘플된 `UIImage`를 보관하는 메모리 LRU 캐시.
     private let memory: MemoryImageCache
 
-    /// 다운샘플 후 HEIC로 인코딩한 바이트를 보관하는 디스크 캐시.
+    /// 다운샘플 후 JPEG로 인코딩한 바이트를 보관하는 디스크 캐시.
     private let disk: DiskImageCache
 
     private let downsampler: ImageDownsampler
@@ -279,7 +279,7 @@ public actor ImageLoader {
 
     // MARK: - Image Processing
 
-    /// 원본 이미지를 요청 크기로 다운샘플하고 HEIC로 인코딩한다.
+    /// 원본 이미지를 요청 크기로 다운샘플하고 JPEG로 인코딩한다.
     ///
     /// CPU 비용이 있는 이미지 처리는 `Task.detached(.utility)`에서 수행한다.
     private func downsample(
