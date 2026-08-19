@@ -2,12 +2,15 @@ import AppData
 import AppDomain
 import AuthData
 import AuthDomain
+import CameraFeature // CameraFilterCatalog — 진입 전에 LUT를 등록해 둔다
 import CHALLANetwork
 import ComposableArchitecture
 import FirebaseMessaging // 델리게이트 콜백 전에도 이미 발급된 토큰을 물어볼 수 있다
 import Foundation
 import Keychain
 import NotificationData
+import PhotoData
+import PhotoDomain
 import RoomData
 import RoomDomain
 import SettingData
@@ -23,6 +26,12 @@ import UserDomain
 /// `LoginFeatureDemo/Sources/CompositionRoot.swift`가 같은 배선을 갖는다.
 enum CompositionRoot {
 
+    #if DEBUG
+        private static let loggingLevel: LoggingInterceptor.Level = .verbose
+    #else
+        private static let loggingLevel: LoggingInterceptor.Level = .basic
+    #endif
+
     static func registerLiveDependencies(
         into values: inout DependencyValues,
         clearImageCache: @escaping @Sendable () async -> Void = {}
@@ -34,7 +43,8 @@ enum CompositionRoot {
             session: .shared,
             interceptors: [
                 AuthInterceptor(tokenProvider: tokenStore),
-                LoggingInterceptor(level: .basic)
+                // 응답 본문 확인은 개발 중에만 — 릴리스 로그에 토큰·PII를 남기지 않는다.
+                LoggingInterceptor(level: Self.loggingLevel)
             ]
         )
 
@@ -53,6 +63,7 @@ enum CompositionRoot {
         let logout = registerAuth(into: &values, client: client, tokenStore: tokenStore)
         registerUser(into: &values, client: client, repository: userRepository)
         registerRoom(into: &values, client: client)
+        registerPhoto(into: &values, client: client)
         registerSetting(
             into: &values,
             using: SettingCollaborators(
@@ -127,6 +138,27 @@ enum CompositionRoot {
         values.fetchRoomsUseCase = .live(repository: repository)
         values.createRoomUseCase = .live(repository: repository)
         values.joinRoomUseCase = .live(repository: repository)
+        values.fetchShootableRoomsUseCase = .live(repository: repository)
+    }
+
+    /// client 공유 조건은 registerUser와 같다. 카메라 화면이 앱에 조립되면 이 배선을 그대로 쓴다.
+    private static func registerPhoto(into values: inout DependencyValues, client: any HTTPClient) {
+        let filterRepository = DefaultCameraFilterRepository(client: client)
+        let uploader = DefaultPhotoUploader(client: client)
+        // 안내 노출 기록만 서버가 아니라 기기에 남는다 (`CameraOnboardingRepository` 주석 참고).
+        let onboarding = DefaultCameraOnboardingRepository()
+        let cameraPermission = SystemCameraPermissionProvider()
+
+        values.fetchCameraFiltersUseCase = .live(repository: filterRepository)
+        values.prepareCameraFiltersUseCase = .live(
+            repository: filterRepository,
+            register: CameraFilterCatalog.register(cubeData:for:)
+        )
+        values.uploadPhotoUseCase = .live(uploader: uploader)
+        values.shouldShowCameraCoachMarkUseCase = .live(repository: onboarding)
+        values.markCameraCoachMarkSeenUseCase = .live(repository: onboarding)
+        values.requestCameraPermissionUseCase = .live(permission: cameraPermission)
+        values.openCameraSettingsUseCase = .live(permission: cameraPermission)
     }
 
     /// 설정 조립이 필요로 하는 다른 aggregate의 결과물.

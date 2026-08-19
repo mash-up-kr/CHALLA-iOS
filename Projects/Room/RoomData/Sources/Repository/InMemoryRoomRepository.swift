@@ -54,6 +54,21 @@ public actor InMemoryRoomRepository: RoomRepository {
         return storedCards
     }
 
+    public func shootableRooms() async throws -> [ShootableRoom] {
+        try await waitAndCheckFailure()
+        // 실서버의 "촬영 가능"과 같은 기준 — 촬영 중 상태의 방만 내려준다.
+        return storedCards
+            .filter { $0.room.status == .shooting }
+            .map {
+                ShootableRoom(
+                    id: $0.id,
+                    title: $0.room.title,
+                    remainedPhotoCount: $0.room.remainedPhotoCount,
+                    totalPhotoCount: $0.room.totalPhotoCount
+                )
+            }
+    }
+
     public func createRoom(_ draft: RoomDraft) async throws -> RoomCard {
         try await waitAndCheckFailure()
 

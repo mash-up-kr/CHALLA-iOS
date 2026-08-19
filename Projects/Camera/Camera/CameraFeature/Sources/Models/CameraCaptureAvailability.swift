@@ -16,10 +16,6 @@ public enum CameraCaptureAvailability: Equatable, Sendable {
         toastMessage: "앗! 장수가 없어서 촬영할 수 없어요."
     )
 
-    public var isAvailable: Bool {
-        self == .available
-    }
-
     var viewportMessage: String? {
         guard case let .unavailable(viewportMessage, _) = self else { return nil }
         return viewportMessage
