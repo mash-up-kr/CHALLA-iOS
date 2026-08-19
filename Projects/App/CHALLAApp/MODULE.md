@@ -19,15 +19,19 @@
 | (모든 화면) | 세션 만료 알림 → `login` (이미 `login`이면 무시) |
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `home` |
-| `home` | 설정 버튼 → `setting` |
+| `home` | 설정 버튼 → `setting` / 방 진입(목록에서 고름·방 만들기·초대 코드) → `roomDetail` |
+| `roomDetail` | `closeTapped` → `home`(새 State) — 촬영·채팅은 붙일 화면이 아직 없어 TODO |
 | `setting` | `backRequested` → `home` / `editProfileRequested` → `profileEdit` / `signedOut`·`accountDeleted` → `login` |
 | `profileEdit` | `editCompleted` → `setting`(새 State) / `cancelled` → `setting` |
 
-`setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을 표시하는데
-뒤로 나올 때 재조회 없이 바로 그려야 한다.
+`roomDetail`·`setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을
+표시하는데 뒤로 나올 때 재조회 없이 바로 그려야 한다.
 
 편집 저장 후에는 `SettingFeature.State`를 **새로 만든다.** `onAppear`가 `profile == nil`일 때만
 조회하므로, 그래야 헤더가 바뀐 닉네임을 다시 읽는다.
+
+방 상세에서 나올 때도 `HomeFeature.State`를 **새로 만든다.** 그 방에서 사진을 찍고 나왔을 수 있어
+목록을 다시 조회해야 한다.
 
 ## 자동 로그인 · 토큰 갱신
 
@@ -104,7 +108,9 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme CHALLAApp \
 ## 의존 관계
 
 - **이 앱이 의존**: `LoginFeature` · `ProfileSetupFeature` · `SettingFeature` ·
+  `HomeFeature` · `RoomDetailFeature` ·
   `AuthData/Domain` · `UserData/Domain` · `SettingData/Domain` · `NotificationData/Domain` ·
+  `RoomData/Domain` · `CHALLADesignSystem` · `CHALLAImageKit` ·
   `CHALLANetwork` · `Keychain` · KakaoSDK · FirebaseCore · FirebaseMessaging
 
 ## 선행 조건

@@ -52,17 +52,23 @@ struct RoomCardMappingTests {
         #expect(card.room.status == domainStatus)
     }
 
-    @Test("타임존 명시(Z) 표기도 타임존 없는 표기도 파싱된다", arguments: [
-        "2026-08-11T13:46:28.169Z", // 스웨거 견본 형식 (ISO8601 + 소수점 초)
-        "2026-08-11T13:46:28Z", //     ISO8601
-        "2026-08-11T13:46:28.169", //  타임존 없음 + 소수점 초
-        "2026-08-11T13:46:28" //       타임존 없음 (Spring LocalDateTime 기본)
+    @Test("서버의 소수점 초 변형을 전부 파싱한다", arguments: [
+        "2026-08-03T13:38:42.959736", // 실제 응답 형식 (마이크로초)
+        "2026-08-03T13:38:42.959", //    밀리초
+        "2026-08-03T13:38:42" //         소수점 초 생략
     ])
-    func parsesBothDateNotations(dateString: String) throws {
+    func parsesServerDateVariants(dateString: String) throws {
         let card = try Self.dto(createdAt: dateString).toDomain()
 
-        // 표기마다 기준 타임존이 달라 절대값 비교 대신 "파싱에 성공해 카드가 만들어졌는지"를 본다.
         #expect(card.id == 1)
+    }
+
+    @Test("타임존 없는 표기를 UTC로 해석한다")
+    func parsesAsUTC() throws {
+        let card = try Self.dto(createdAt: "1970-01-01T00:00:00").toDomain()
+
+        // KST로 잘못 읽으면 -32400초(9시간)가 된다 — 백엔드 확정: UTC 저장.
+        #expect(card.room.createdAt == Date(timeIntervalSince1970: 0))
     }
 
     @Test("필수 날짜가 계약과 다르면 .unknown을 던진다")

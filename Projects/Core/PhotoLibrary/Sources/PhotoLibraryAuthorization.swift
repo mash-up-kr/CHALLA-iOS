@@ -13,6 +13,15 @@ public enum PhotoLibraryAuthorization: Sendable, Equatable {
 
     /// 사진을 고를 수 있는 상태인지. `limited`도 피커는 정상 동작한다.
     public var allowsPicking: Bool {
+        isGranted
+    }
+
+    /// 사진첩에 저장할 수 있는 상태인지. `.limited`도 추가는 된다.
+    public var allowsSaving: Bool {
+        isGranted
+    }
+
+    private var isGranted: Bool {
         self == .authorized || self == .limited
     }
 }

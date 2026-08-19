@@ -32,13 +32,16 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 
 - `struct Room` — 방 그 자체 (목록·상세 API의 교집합 8필드). `id: Int64`(서버 발급) · `title` ·
   `status` · `totalPhotoCount: Int` · `remainedPhotoCount` · `createdAt` · `expiresAt` ·
-  `photoPrintCompletedAt?`(인화 전에는 nil이 정상). 전 필드 `let`이라 갱신은 새 값을 만든다
+  `photoPrintCompletedAt?`(인화 완료 예정 시각 = 촬영 완료 +24h — 촬영 중에만 nil, 카운트다운 기준값). 전 필드 `let`이라 갱신은 새 값을 만든다
   - `shotPhotoCount` — 찍은 장수 계산 프로퍼티 (`total − remained`, 서버는 남은 장수를 준다)
   - `enum Room.Status` — `.shooting` / `.printWaiting` / `.printed`
   - `Room.previewShooting` · `previewPrintWaiting` · `previewPrinted` · `previewRooms` —
     `#Preview`·테스트용 상수. id는 음수(-1~-3, 서버 양수 id와 불겹침 표식), 날짜는 고정값
   - `Room.previewLifetime`(30일) · `previewPrintCompletionOffset`(3일) — 프리뷰·샘플·가짜 저장소가
     함께 쓰는 날짜 간격. 실제 만료는 서버가 `expiresAt`으로 내려주므로 화면 로직에서 쓰지 않는다
+- `struct RoomMember` — 방에 참여한 사람 (`GET /rooms/{id}/users`의 한 줄). `id: Int64`(서버 발급) ·
+  `nickname?` · `imageURL?`(프로필 미설정 사용자는 nil). 사진 작성자·채팅 발신자와 같은 사람을
+  가리키는 정체성이라 엔티티다
 - `enum RoomShotCount: Int` — `.twentyFour`(24) / `.fortyEight`(48) / `.seventyTwo`(72), `.default`는 24
   - **방을 만들 때 고르는 입력값의 규칙**이라 `RoomDraft` 전용이다. 이미 존재하는 방의
     `totalPhotoCount`는 서버가 정하는 자유값이라 enum이 아니다
@@ -51,11 +54,14 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 
 ### Interface (`Sources/Interface/` — 구현: RoomData)
 
-- `protocol RoomRepository` — `rooms() -> [RoomCard]` · `createRoom(_:) -> RoomCard` ·
-  `joinRoom(inviteCode:) -> RoomCard`
+- `protocol RoomRepository` — `rooms() -> [RoomCard]` · `shootableRooms() -> [ShootableRoom]` ·
+  `createRoom(_:) -> RoomCard` · `joinRoom(inviteCode:) -> RoomCard` ·
+  `roomInfo(id:) -> (room, invitationCode)` · `members(roomID:) -> [RoomMember]`
   - 구현체 계약: 실패는 반드시 `RoomError`로 번역해 던진다. 입력값 검증은 UseCase가 이미 마쳤다
   - 생성·입장도 카드를 돌려준다 — 홈이 성공 직후 목록에 꽂을 수 있어야 하고, 서버 응답이
     부실해도(id만 주는 등) 그 사정은 구현체가 흡수한다
+  - 상세는 API 하나당 메서드 하나로 나뉜다 — 상세 API 하나로는 `RoomDetail`을 완성할 수 없어
+    (참여자 없음) 반쪽짜리를 돌려주지 않기 위한 분리. 합치기는 UseCase 몫
 
 ### Models (`Sources/Models/`)
 
@@ -66,6 +72,8 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   - `id`는 `room.id`를 그대로 노출 — 카드 탭이 방 식별로 바로 이어진다
   - `coverImageURL` — 촬영 중 카드의 대표 사진 = 첫 썸네일 (서버에 별도 필드 없음, 백엔드 확인 TODO)
   - `previewShooting` · `previewPrintWaiting` · `previewPrinted` · `previewCards` 상수
+- `struct RoomDetail` — 방 상세 화면 하나를 위한 Model. `room: Room` + 상세 API만 주는 값
+  (`invitationCode` · `members`). `RoomCard`와 같은 구조로 `Room` 코어를 감싼다. `preview` 상수 포함
 - `struct RoomDraft` — `name` · `shotCount`. 방을 만들기 전의 입력값이라 `Room`으로 표현할 수 없다
   (id·상태·인원수는 서버가 채운다)
 - `struct RoomBoard` — 카드 배열 하나를 `shooting` / `completed` 두 배열로 가른 결과. `isEmpty`
@@ -73,6 +81,10 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
     양쪽에 나오거나 어디에도 안 나온다
 - `enum RoomSection` — `.shooting` / `.completed`
 - `Room.Status.section` — 상태 셋을 섹션 둘로 줄인다
+- `struct ShootableRoom` — 카메라의 방 선택 목록 한 줄 (`GET /rooms/shootable` 응답 한 줄에 대응).
+  `id: Room.ID` · `title` · `remainedPhotoCount` · `totalPhotoCount`
+  - 촬영 화면은 제목·남은 장수만 필요해 `Room` 전체가 아니라 이 축약형을 쓴다
+  - `previewRooms` 상수 (id 음수 규칙은 `Room` 샘플과 같다)
 
 ### Rules (`Sources/Rules/`)
 
@@ -86,18 +98,24 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
 ### UseCases (`@DependencyClient` — `liveValue` 없음)
 
 - `FetchRoomsUseCase` (`\.fetchRoomsUseCase`) — 방 카드 목록 조회 (`-> [RoomCard]`)
+- `FetchShootableRoomsUseCase` (`\.fetchShootableRoomsUseCase`) — 촬영 가능한 방 목록 조회
+  (`-> [ShootableRoom]`, 카메라의 방 선택 드로어용)
 - `CreateRoomUseCase` (`\.createRoomUseCase`) — `RoomNameRule` 적용 후 생성 (`-> RoomCard`).
   규칙 위반이면 저장소를 부르지 않고 `.invalidRoomName`
 - `JoinRoomUseCase` (`\.joinRoomUseCase`) — `InviteCodeRule` 적용 후 입장 (`-> RoomCard`).
   빈 코드면 `.invalidInviteCode`
+- `FetchRoomDetailUseCase` (`\.fetchRoomDetailUseCase`) — 상세·참여자 두 API를 `async let`
+  병렬 조회해 `RoomDetail` 하나로 (`-> RoomDetail`). 한쪽이 실패하면 다른 쪽은 취소되고
+  오류 하나만 전파된다
 
-셋 다 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
+넷 다 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
 
 ## 의존성
 
 - **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (TCA 전이 의존, `Tuist/Package.swift` 경유)
-- **이 모듈에 의존**: `HomeFeature`(UseCase를 `@Dependency`로 주입받음) ·
-  `RoomData`(인터페이스 구현) · 합성 루트(`CHALLAApp`·`HomeFeatureDemo` — `.live(repository:)` 조립)
+- **이 모듈에 의존**: `HomeFeature`·`CameraFeature`(UseCase를 `@Dependency`로 주입받음) ·
+  `RoomData`(인터페이스 구현) · 합성 루트(`CHALLAApp`·`HomeFeatureDemo`·`CameraFeatureDemo` —
+  `.live(repository:)` 조립)
 
 ## 테스트 실행 방법
 
@@ -114,5 +132,8 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `RoomBoardTests` — 상태 셋 → 섹션 둘 분류, 섹션 안 순서 유지, 빈 판단
 - `RoomErrorTests` — `userMessage` 각 케이스, 빈 서버 메시지의 기본 문구 대체, 연관값까지 보는 동등성
 - `FetchRoomsUseCaseLiveTests` — 저장소 결과 그대로 전달, 오류 전파
+- `FetchShootableRoomsUseCaseLiveTests` — 저장소 결과 그대로 전달, 오류 전파
 - `CreateRoomUseCaseLiveTests` — 이름 정규화·자르기 순서, 규칙 위반 시 저장소 미호출, 오류 전파
 - `JoinRoomUseCaseLiveTests` — 코드 정규화 후 전달, 빈 코드 가드, `.roomNotFound` 전파
+- `FetchRoomDetailUseCaseLiveTests` — 두 결과의 합치기(같은 id로 호출됐는지 캡처 검증),
+  어느 쪽이 실패해도 부분 성공 없이 오류 하나 전파

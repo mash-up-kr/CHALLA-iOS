@@ -5,6 +5,7 @@ import Foundation
 import HomeFeature
 import NotificationDomain
 import ProfileSetupFeature
+import RoomDomain
 import SettingFeature
 import Testing
 import UserDomain
@@ -18,6 +19,7 @@ private enum Fixture {
     )
     static let renamedProfile = UserProfile(id: 1, nickname: "새이름", imageURL: profile.imageURL)
     static let pushToken = "fcm-token"
+    static let card = RoomCard.previewShooting
 }
 
 /// 로그인 성공 뒤 토큰 등록이 걸리는지만 본다.
@@ -171,6 +173,38 @@ struct AppFeatureTests {
         #expect(await repository.registered == [Fixture.pushToken])
     }
 
+    // MARK: - 방 상세 진입·이탈
+
+    /// 목록에서 고르든, 방금 만들었든, 초대 코드로 들어왔든 다음 동작은 같다.
+    @Test("홈이 알리는 세 경로 모두 그 방의 상세로 들어간다", arguments: [
+        HomeFeature.Action.Delegate.roomSelected(Fixture.card),
+        .roomCreated(Fixture.card),
+        .roomJoined(Fixture.card)
+    ])
+    func opensRoomDetailFromHome(delegate: HomeFeature.Action.Delegate) async {
+        let store = Self.store(initialState: .home(AppFeature.HomeScreen(profile: Fixture.profile)))
+
+        await store.send(.home(.delegate(delegate))) {
+            $0 = .roomDetail(
+                AppFeature.RoomDetailScreen(profile: Fixture.profile, room: Fixture.card.room)
+            )
+        }
+    }
+
+    /// 방에서 사진을 찍고 나왔을 수 있어 홈 State를 새로 만든다 — 목록이 다시 조회된다.
+    @Test("방 상세에서 뒤로가면 홈을 새로 만들어 돌아간다")
+    func returnsHomeFromRoomDetail() async {
+        let store = Self.store(
+            initialState: .roomDetail(
+                AppFeature.RoomDetailScreen(profile: Fixture.profile, room: Fixture.card.room)
+            )
+        )
+
+        await store.send(.roomDetail(.delegate(.closeTapped))) {
+            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        }
+    }
+
     // MARK: - 설정 진입·이탈
 
     @Test("홈에서 설정을 누르면 설정 화면으로 간다")
@@ -260,14 +294,18 @@ struct AppFeatureTests {
 
     // MARK: - 화면 식별자
 
-    @Test("추가된 두 화면도 screenID로 구분된다 — VoiceOver 화면 전환 알림에 쓴다")
+    @Test("나중에 추가된 화면들도 screenID로 구분된다 — VoiceOver 화면 전환 알림에 쓴다")
     func screenIDCoversNewScreens() {
         let setting = AppFeature.State.setting(AppFeature.SettingScreen(profile: Fixture.profile))
         let edit = AppFeature.State.profileEdit(
             AppFeature.ProfileEditScreen(profile: Fixture.profile)
         )
+        let roomDetail = AppFeature.State.roomDetail(
+            AppFeature.RoomDetailScreen(profile: Fixture.profile, room: Fixture.card.room)
+        )
 
         #expect(setting.screenID == .setting)
         #expect(edit.screenID == .profileEdit)
+        #expect(roomDetail.screenID == .roomDetail)
     }
 }

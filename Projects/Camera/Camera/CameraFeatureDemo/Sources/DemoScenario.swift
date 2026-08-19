@@ -1,6 +1,8 @@
 import CameraFeature
 import ComposableArchitecture
 import Foundation
+import PhotoDomain
+import RoomDomain
 
 /// 데모앱이 실행 인자로 받는 진입 지점.
 struct DemoScenario: Equatable {
@@ -12,6 +14,8 @@ struct DemoScenario: Equatable {
     enum State: String {
         case `default`
         case error
+        /// 최초 진입 — 뜸을 들인 뒤 안내 1단계가 뜨고, "다음"을 누르면 2단계로 이어진다.
+        case coach
     }
 
     let screen: Screen
@@ -19,14 +23,22 @@ struct DemoScenario: Equatable {
 
     static let all: [DemoScenario] = [
         DemoScenario(screen: .camera, state: .default),
+        DemoScenario(screen: .camera, state: .coach),
         DemoScenario(screen: .camera, state: .error)
     ]
 
     var label: String {
         switch (screen, state) {
         case (.camera, .default): "카메라"
+        case (.camera, .coach): "카메라 최초 진입 — 안내 (camera_snackBar_1 → 2)"
         case (.camera, .error): "카메라 — 촬영 불가 + 토스트"
         }
+    }
+
+    /// 최초 진입 안내를 띄울 시나리오인지. 안내를 보려고 들어온 시나리오에서만 켠다 —
+    /// 나머지는 이미 본 것으로 두고 안내 없는 평상시 화면을 보여준다.
+    var showsCoachMark: Bool {
+        state == .coach
     }
 
     /// 실행 인자에서 시나리오를 읽는다. `--screen`이 없으면 nil (목록 화면).
@@ -54,36 +66,27 @@ struct DemoScenario: Equatable {
     }
 }
 
-// MARK: - Mock State
+// MARK: - 초기 State
 
+/// 방·필터는 진입 화면(`CameraEntryView`)이 미리 받아 넘긴다 —
+/// 여기서는 데이터로 만들 수 없는 초기 연출(플래시·토스트)만 얹는다.
 extension DemoScenario {
 
-    private static let rooms = IdentifiedArray(uniqueElements: [
-        CameraRoom(id: "1", name: "방이름방이름방이름1", remainingCards: 6, totalCards: 24),
-        CameraRoom(id: "2", name: "방이름방이름방이름2", remainingCards: 6, totalCards: 24),
-        CameraRoom(id: "3", name: "방이름방이름방이름3", remainingCards: 3, totalCards: 48),
-        CameraRoom(id: "4", name: "방이름방이름방이름4", remainingCards: 3, totalCards: 48),
-        // 말줄임 확인용 — 시안 SelectRoom 3행이 긴 이름 케이스다
-        CameraRoom(id: "5", name: "방이름방이름방이름5방이름방이름방이름5", remainingCards: 3, totalCards: 48)
-    ])
+    func featureState(rooms: [ShootableRoom], filters: [CameraFilter]) -> CameraFeature.State {
+        let rooms = IdentifiedArray(uniqueElements: rooms)
+        let filters = IdentifiedArray(uniqueElements: filters)
 
-    private static let soldOutRooms = IdentifiedArray(uniqueElements: [
-        CameraRoom(id: "3", name: "방이름방이름방이름3", remainingCards: 0, totalCards: 48)
-    ])
-
-    var featureState: CameraFeature.State {
         switch (screen, state) {
-        case (.camera, .default):
-            CameraFeature.State(
-                rooms: Self.rooms,
-                selectedRoomID: "3",
-                flashMode: .off
-            )
+        // 안내는 심지 않고 리듀서가 진입 시 스스로 띄우게 둔다 — 등장 연출과 단계 전환을 그대로 확인한다.
+        case (.camera, .default), (.camera, .coach):
+            return CameraFeature.State(rooms: rooms, filters: filters)
 
         case (.camera, .error):
-            CameraFeature.State(
-                rooms: Self.soldOutRooms,
-                captureAvailability: .noCardsLeft,
+            // 토스트 초기 노출 — 셔터를 누르지 않고도 시안 상태를 그대로 띄운다.
+            // 촬영 불가 자체는 소진된 방(장수 0)이 넘어오면 리듀서가 알아서 판단한다.
+            return CameraFeature.State(
+                rooms: rooms,
+                filters: filters,
                 toastMessage: CameraCaptureAvailability.noCardsLeft.demoToastMessage
             )
         }
@@ -92,7 +95,6 @@ extension DemoScenario {
 
 private extension CameraCaptureAvailability {
 
-    /// 토스트 초기 노출 시나리오용 — 셔터를 누르지 않고도 시안 상태를 그대로 띄운다.
     var demoToastMessage: String? {
         guard case let .unavailable(_, toastMessage) = self else { return nil }
         return toastMessage

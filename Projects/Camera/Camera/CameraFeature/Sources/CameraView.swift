@@ -1,5 +1,7 @@
 import CHALLADesignSystem
 import ComposableArchitecture
+import PhotoDomain
+import RoomDomain
 import SwiftUI
 
 /// 카메라 화면
@@ -7,8 +9,8 @@ import SwiftUI
 /// 뷰파인더 → 조작 3버튼 → 필터 띠 순의 상단 묶음과, 방 버튼 + 남은 장수의 하단 묶음을 위아래로 벌려 놓는다.
 /// 뷰는 상태 렌더링과 `send(...)` 전달만 한다 — 배율 계산·촬영 차단·토스트 수명은 전부 리듀서 책임이다.
 ///
-/// 프리뷰 화면은 `preview` 슬롯으로 주입한다. AVFoundation 연동 전까지는 기본값인
-/// `CameraPreviewPlaceholder`가 들어가고, 카메라가 붙으면 앱 조립 지점에서 실제 프리뷰를 넘긴다.
+/// 프리뷰 화면은 `preview` 슬롯으로 주입한다 — 조립 지점이 실기기 프리뷰를 넘기고,
+/// 넘기지 않으면 기본값인 `CameraPreviewPlaceholder`가 들어간다.
 @ViewAction(for: CameraFeature.self)
 public struct CameraView<Preview: View>: View {
 
@@ -19,12 +21,57 @@ public struct CameraView<Preview: View>: View {
     /// 화면 연출일 뿐이라 뷰 로컬 상태로만 관리한다.
     @State private var isShutterFeedbackActive = false
 
+    /// 닫기 스와이프를 손가락만큼 따라가는 오프셋. 놓으면 0으로 돌아가거나 화면이 닫힌다.
+    @State private var dismissDragHeight: CGFloat = 0
+
+    /// 핀치 줌이 진행 중인지. 두 손가락이 세로로 벌어지는 것을 닫기 스와이프로 오인하지 않게 막는다.
+    @State private var isMagnifying = false
+
     public init(store: StoreOf<CameraFeature>, @ViewBuilder preview: @escaping () -> Preview) {
         self.store = store
         self.preview = preview
     }
 
     public var body: some View {
+        content
+            .offset(y: dismissDragHeight)
+            // 뷰파인더의 핀치 줌과 같은 자리에서 시작되므로 서로 가로채지 않게 병행 인식으로 붙인다.
+            .simultaneousGesture(dismissGesture)
+            // 스와이프가 유일한 닫기 수단이라 VoiceOver의 escape 제스처에도 같은 동작을 연다.
+            .accessibilityAction(.escape) { send(.dismissSwiped) }
+            .task { await send(.task).finish() }
+    }
+
+    /// 위·아래 어느 쪽으로든 충분히 쓸어내리면 화면을 닫는다.
+    private var dismissGesture: some Gesture {
+        DragGesture(minimumDistance: CameraViewMetric.dismissDragMinimum)
+            .onChanged { value in
+                guard canDismiss(by: value) else {
+                    dismissDragHeight = 0 // 닫기가 아닌 것으로 판명되면 따라 움직이던 화면을 되돌린다
+                    return
+                }
+                dismissDragHeight = value.translation.height
+            }
+            .onEnded { value in
+                defer { withAnimation(.snappy) { dismissDragHeight = 0 } }
+                guard canDismiss(by: value) else { return }
+                if abs(value.translation.height) > CameraViewMetric.dismissDragThreshold {
+                    send(.dismissSwiped)
+                }
+            }
+    }
+
+    /// 닫기로 볼 수 있는 끌기인지. 같은 자리에서 시작되는 다른 동작을 걸러낸다 —
+    /// 핀치 줌(두 손가락이 세로로 벌어져도 닫히면 안 된다) · 가로 끌기(필터 띠 스크롤) ·
+    /// 방 선택 드로어를 끌어내릴 때 · 안내 스낵바가 조작을 막고 있을 때.
+    private func canDismiss(by value: DragGesture.Value) -> Bool {
+        !isMagnifying
+            && !store.isRoomSelectionPresented
+            && !store.isCoachMarkPresented
+            && abs(value.translation.height) > abs(value.translation.width)
+    }
+
+    private var content: some View {
         GeometryReader { proxy in
             ZStack {
                 VStack(spacing: 0) {
@@ -39,6 +86,9 @@ public struct CameraView<Preview: View>: View {
 
                 toast
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+                coachMarkSnackBar
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
         }
         // ZStack 안에 넣으면(형제로 두면) 다른 형제들의 상단 SafeArea 회피가 함께 풀린다 —
@@ -61,15 +111,24 @@ public struct CameraView<Preview: View>: View {
                 zoom: store.zoom,
                 captureAvailability: store.captureAvailability,
                 isShutterFlashing: isShutterFeedbackActive,
+                isDimmed: store.isCoachMarkPresented,
                 onZoomBadgeTap: { send(.zoomBadgeTapped) },
-                onMagnificationChanged: { send(.zoomMagnificationChanged($0)) },
-                onMagnificationEnded: { send(.zoomMagnificationEnded) },
+                onMagnificationChanged: { magnification in
+                    isMagnifying = true
+                    send(.zoomMagnificationChanged(magnification))
+                },
+                onMagnificationEnded: {
+                    isMagnifying = false
+                    send(.zoomMagnificationEnded)
+                },
                 preview: preview
             )
 
             CameraControlBar(
                 flashMode: store.flashMode,
-                isCapturing: isShutterFeedbackActive,
+                isShutterPressed: isShutterFeedbackActive,
+                isShutterHighlighted: store.isCoachMarkPresented,
+                isShutterEnabled: !store.isCapturing,
                 onFlashTap: { send(.flashButtonTapped) },
                 onShutterTap: handleShutterTap,
                 onCameraSwitchTap: { send(.cameraSwitchButtonTapped) }
@@ -80,6 +139,7 @@ public struct CameraView<Preview: View>: View {
                 selectedFilterID: store.selectedFilterID,
                 onSelect: { send(.filterSelected($0)) }
             )
+            .coachMarkDimmed(store.isCoachMarkPresented)
         }
         .padding(.top, CameraViewMetric.screenTopPadding)
     }
@@ -88,14 +148,30 @@ public struct CameraView<Preview: View>: View {
     private var bottomSection: some View {
         if let room = store.selectedRoom {
             VStack(spacing: CameraViewMetric.bottomSpacing) {
-                RoomSelectButton(roomName: room.name) {
+                RoomSelectButton(roomName: room.title) {
                     send(.roomSelectButtonTapped)
                 }
-                RemainingCardsLabel(remaining: room.remainingCards, total: room.totalCards)
+                RemainingCardsLabel(remaining: room.remainedPhotoCount, total: room.totalPhotoCount)
             }
             .padding(.horizontal, CameraViewMetric.bottomHorizontalPadding)
             .padding(.bottom, CameraViewMetric.screenBottomPadding)
+            .coachMarkDimmed(store.isCoachMarkPresented)
         }
+    }
+
+    private var coachMarkSnackBar: some View {
+        ZStack(alignment: .bottom) {
+            if let coachMark = store.coachMark {
+                CHALLASnackBar(
+                    coachMark.message,
+                    action: .init(coachMark.actionTitle) { send(.coachMarkActionTapped) }
+                )
+                .padding(.horizontal, CameraViewMetric.snackBarHorizontalMargin)
+                .padding(.bottom, CameraViewMetric.snackBarBottomPadding)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: store.coachMark)
     }
 
     /// 촬영 가능 여부와 무관하게 셔터를 눌렀다는 감각(블랙아웃 · 버튼 축소)부터 즉시 준다 —
@@ -159,6 +235,14 @@ private enum CameraViewMetric {
     static let bottomSpacing: CGFloat = 12
     static let bottomHorizontalPadding: CGFloat = 40
     static let toastTopInset: CGFloat = 112
+
+    /// 닫기 스와이프의 시작 문턱과 닫히는 거리 — 시안 육안 근사값, 디자이너 검수로 확정한다.
+    /// 시작 문턱이 없으면 탭할 때 손가락이 흔들리는 것만으로 화면이 밀린다.
+    static let dismissDragMinimum: CGFloat = 20
+    static let dismissDragThreshold: CGFloat = 120
+    /// 안내 스낵바: 시안 366×50 @(12,752) — 좌우 12, 아래는 홈 인디케이터 세이프에어리어 안쪽 8.
+    static let snackBarHorizontalMargin: CGFloat = 12
+    static let snackBarBottomPadding: CGFloat = 8
     /// 상단 뭉치·하단 뭉치 사이 여백 상한. 시안(844pt 캔버스) 기준 여백은 약 157pt —
     /// 상한이 없으면 화면이 커질수록 이 여백만 한없이 늘어난다.
     static let middleGapMaximum: CGFloat = 160
@@ -185,20 +269,26 @@ private enum CameraViewMetric {
 
 private extension CameraFeature.State {
 
+    /// 촬영 가능 여부는 방의 남은 장수로 정해지므로, 소진 화면은 `remainedPhotoCount: 0`인 방으로 만든다.
     static func demo(
-        captureAvailability: CameraCaptureAvailability = .available,
+        remainedPhotoCount: Int = 3,
         flashMode: CameraFlashMode = .on,
-        selectedFilterID: CameraFilter.ID? = nil
+        selectedFilterID: CameraFilter.ID? = nil,
+        coachMark: CameraCoachMark? = nil
     ) -> Self {
-        let rooms: [CameraRoom] = captureAvailability.isAvailable
-            ? [CameraRoom(id: "1", name: "방이름방이름방이름3", remainingCards: 3, totalCards: 48)]
-            : [CameraRoom(id: "1", name: "방이름방이름방이름3", remainingCards: 0, totalCards: 48)]
-
-        return Self(
-            rooms: IdentifiedArray(uniqueElements: rooms),
+        Self(
+            rooms: [
+                ShootableRoom(
+                    id: -1,
+                    title: "방이름방이름방이름3",
+                    remainedPhotoCount: remainedPhotoCount,
+                    totalPhotoCount: 48
+                )
+            ],
+            filters: IdentifiedArray(uniqueElements: CameraFilter.previewFilters),
             selectedFilterID: selectedFilterID,
             flashMode: flashMode,
-            captureAvailability: captureAvailability
+            coachMark: coachMark
         )
     }
 }
@@ -209,12 +299,18 @@ private extension CameraFeature.State {
 
 #Preview("플래시 꺼짐 · Warm 필터") {
     CameraView(
-        store: Store(initialState: .demo(flashMode: .off, selectedFilterID: "warm")) { CameraFeature() }
+        store: Store(initialState: .demo(flashMode: .off, selectedFilterID: "Warm")) { CameraFeature() }
     )
 }
 
+#Preview("안내 1단계 (camera_snackBar_1)") {
+    CameraView(store: Store(initialState: .demo(coachMark: .shutterCost)) { CameraFeature() })
+}
+
+#Preview("안내 2단계 (camera_snackBar_2)") {
+    CameraView(store: Store(initialState: .demo(coachMark: .shutterCaution)) { CameraFeature() })
+}
+
 #Preview("촬영 불가") {
-    CameraView(
-        store: Store(initialState: .demo(captureAvailability: .noCardsLeft)) { CameraFeature() }
-    )
+    CameraView(store: Store(initialState: .demo(remainedPhotoCount: 0)) { CameraFeature() })
 }

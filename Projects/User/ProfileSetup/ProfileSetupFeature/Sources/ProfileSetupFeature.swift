@@ -197,7 +197,7 @@ public struct ProfileSetupFeature {
                 // 권한 팝업이 드로어 위에 겹치지 않도록 먼저 내린다.
                 state.isPhotoMenuPresented = false
                 return .run { [photoLibraryPermission] send in
-                    await send(.photoAuthorizationResponse(photoLibraryPermission.request()))
+                    await send(.photoAuthorizationResponse(photoLibraryPermission.request(.readWrite)))
                 }
 
             case .view(.photoRemoveTapped):

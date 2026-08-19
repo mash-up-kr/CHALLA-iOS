@@ -232,7 +232,9 @@ public struct HomeView: View {
             title: card.room.title,
             memberCount: card.memberCount,
             photoCount: card.room.shotPhotoCount,
-            photo: photo
+            photo: photo,
+            isPreparingShoot: store.preparingShootRoomID == card.id,
+            onShoot: { send(.shootButtonTapped(card.id)) }
         )
     }
 }
@@ -298,7 +300,8 @@ private enum PreviewCards {
             totalPhotoCount: 48,
             remainedPhotoCount: 0,
             createdAt: createdAt,
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            photoPrintCompletedAt: createdAt.addingTimeInterval(Room.previewPrintCompletionOffset)
         ),
         memberCount: 6,
         thumbnailURLs: thumbnailURLs(prefix: "seongsu")
