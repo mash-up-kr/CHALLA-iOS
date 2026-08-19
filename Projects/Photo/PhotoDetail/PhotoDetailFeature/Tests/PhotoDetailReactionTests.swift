@@ -239,8 +239,10 @@ struct PhotoDetailReactionTests {
             if kind == .heart {
                 await heartStream.first { _ in true }
             }
-            applied.withValue { isOn ? $0.insert(kind) : $0.remove(kind) }
             // 서버는 이 시점의 전체 리액션 상태를 돌려준다 (rawValue로 정렬해 순서를 고정).
+            applied.withValue { set in
+                _ = isOn ? set.insert(kind) : set.remove(kind)
+            }
             let reactions = applied.value
                 .sorted { $0.rawValue < $1.rawValue }
                 .map { Fixture.reaction($0, by: Fixture.currentUserID) }
