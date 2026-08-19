@@ -241,7 +241,7 @@ struct PhotoDetailReactionTests {
             }
             // 서버는 이 시점의 전체 리액션 상태를 돌려준다 (rawValue로 정렬해 순서를 고정).
             applied.withValue { set in
-                _ = isOn ? set.insert(kind) : set.remove(kind)
+                set = isOn ? set.union([kind]) : set.subtracting([kind])
             }
             let reactions = applied.value
                 .sorted { $0.rawValue < $1.rawValue }
