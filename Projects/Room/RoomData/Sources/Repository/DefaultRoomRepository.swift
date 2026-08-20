@@ -23,6 +23,18 @@ public struct DefaultRoomRepository: RoomRepository {
         }
     }
 
+    public func shootableRooms() async throws -> [ShootableRoom] {
+        do {
+            let response = try await client.request(
+                RoomEndpoint.shootable,
+                as: BaseResponseDTO<ShootableRoomListResponseDTO>.self
+            )
+            return try response.unwrap().rooms.map(\.toDomain)
+        } catch {
+            throw RoomError.normalized(error)
+        }
+    }
+
     public func createRoom(_ draft: RoomDraft) async throws -> RoomCard {
         do {
             let response = try await client.request(
@@ -44,6 +56,30 @@ public struct DefaultRoomRepository: RoomRepository {
                 as: BaseResponseDTO<RoomIDResponseDTO>.self
             )
             return try await card(withID: response.unwrap().room.id)
+        } catch {
+            throw RoomError.normalized(error)
+        }
+    }
+
+    public func roomInfo(id: Room.ID) async throws -> (room: Room, invitationCode: String) {
+        do {
+            let response = try await client.request(
+                RoomEndpoint.detail(id: id),
+                as: BaseResponseDTO<RoomDetailResponseDTO>.self
+            )
+            return try response.unwrap().room.toDomain()
+        } catch {
+            throw RoomError.normalized(error)
+        }
+    }
+
+    public func members(roomID: Room.ID) async throws -> [RoomMember] {
+        do {
+            let response = try await client.request(
+                RoomEndpoint.members(roomID: roomID),
+                as: BaseResponseDTO<RoomMembersResponseDTO>.self
+            )
+            return try response.unwrap().users.map { $0.toDomain() }
         } catch {
             throw RoomError.normalized(error)
         }

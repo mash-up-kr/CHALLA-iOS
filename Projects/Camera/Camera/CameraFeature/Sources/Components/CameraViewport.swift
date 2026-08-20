@@ -9,6 +9,8 @@ struct CameraViewport<Preview: View>: View {
     let captureAvailability: CameraCaptureAvailability
     /// 셔터를 누른 순간 뷰파인더를 잠깐 검게 덮는다 (촬영 피드백).
     let isShutterFlashing: Bool
+    /// 안내 스낵바가 떠 있는 동안 프리뷰를 흐리고 어둡게 낮춘다 (시안 camera_snackBar_1·2).
+    let isDimmed: Bool
     let onZoomBadgeTap: () -> Void
     let onMagnificationChanged: (CGFloat) -> Void
     let onMagnificationEnded: () -> Void
@@ -41,11 +43,18 @@ struct CameraViewport<Preview: View>: View {
         preview()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .scaleEffect(zoom.factor)
+            .blur(radius: isDimmed ? ViewportMetric.coachMarkBlurRadius : 0)
+            .overlay {
+                CHALLAColor.Static.black
+                    .opacity(isDimmed ? ViewportMetric.coachMarkShadeOpacity : 0)
+            }
             .contentShape(Rectangle()) // 확대 전 원래 프레임에서 핀치를 받는다
             .gesture(magnification)
             .overlay(alignment: .bottomTrailing) {
-                zoomBadge
-                    .padding(ViewportMetric.zoomBadgeInset)
+                if !isDimmed { // 안내 중에는 배율 배지를 감춘다 (시안에 없음)
+                    zoomBadge
+                        .padding(ViewportMetric.zoomBadgeInset)
+                }
             }
     }
 
@@ -153,4 +162,9 @@ private enum ViewportMetric {
     static let zoomBadgeHeight: CGFloat = 34
     static let zoomBadgeHorizontalPadding: CGFloat = 12
     static let zoomBadgeInset: CGFloat = 12
+
+    /// 안내 스낵바 노출 중 뷰파인더 위에 덮는 검정 (시안 rgba(0,0,0,0.3) + backdrop blur 20)
+    static let coachMarkShadeOpacity: Double = 0.3
+    /// Figma backdrop blur 20 ≈ SwiftUI blur radius의 2배
+    static let coachMarkBlurRadius: CGFloat = 10
 }

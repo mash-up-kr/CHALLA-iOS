@@ -55,6 +55,26 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Room/Home/HomeFeature")
     )
 
+    static let roomDetailFeature = TargetDependency.project(
+        target: "RoomDetailFeature",
+        path: .relativeToRoot("Projects/Room/RoomDetail/RoomDetailFeature")
+    )
+
+    // MARK: - Photo
+
+    static let photoDomain = TargetDependency.project(
+        target: "PhotoDomain",
+        path: .relativeToRoot("Projects/Photo/PhotoDomain")
+    )
+    static let photoData = TargetDependency.project(
+        target: "PhotoData",
+        path: .relativeToRoot("Projects/Photo/PhotoData")
+    )
+    static let photoDetailFeature = TargetDependency.project(
+        target: "PhotoDetailFeature",
+        path: .relativeToRoot("Projects/Photo/PhotoDetail/PhotoDetailFeature")
+    )
+
     // MARK: - User
 
     static let userDomain = TargetDependency.project(
@@ -90,6 +110,11 @@ public extension TargetDependency {
     static let cameraFeature = TargetDependency.project(
         target: "CameraFeature",
         path: .relativeToRoot("Projects/Camera/Camera/CameraFeature")
+    )
+    /// 실기기 카메라 배선(AVFoundation). 실행 앱과 데모앱이 함께 쓴다.
+    static let cameraSession = TargetDependency.project(
+        target: "CameraSession",
+        path: .relativeToRoot("Projects/Camera/CameraSession")
     )
 
     // MARK: - Notification

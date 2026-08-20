@@ -18,7 +18,7 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 | :-- | :-- |
 | `CHALLAColor` | 색 토큰. Figma Theme 변수와 1:1 (Primary/Label/Background/Status/Fill/Line/Static/Material/Social) + `defaultTheme` — 사용자가 고르는 테마 색의 기본값(레몬에이드=`Primary.yellow`). 강조 요소(리스트 값 글자·스위치 켜짐·텍스트필드 포커스 테두리)가 이 색을 따른다. `Background.brand`는 `challaMainBackground()` 전용 번짐 색 |
 | `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`). `lineBoxInset`은 `challaFont`가 글자 상자 위아래에 더하는 여백 — 시안 간격을 옮길 때 이 값을 빼서 보정한다 |
-| `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12 / xlarge 16) |
+| `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12 / xlarge 16 / xxlarge 44.5) |
 | `CHALLAIcon` | 아이콘 토큰 24종 + `Size`(14~32pt — 14는 방 카드 person 실측 예외) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
 | `CHALLAHitTarget` | HIG 최소 터치 타깃(44pt) 정책 — `minimum` + `inset(for:)` + 도형 확장 헬퍼 `expandedToHitTarget(from:)`. DS 컴포넌트로 담기 애매한 Feature의 일회성 탭 요소에도 사용 |
 | `CHALLAFontRegister` | 커스텀 폰트 등록. 앱 진입점(@main) init에서 1회 호출 |
@@ -43,14 +43,15 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 | `CHALLAListRow` | 리스트 행 (높이 52, 설명을 넣으면 74). 이니셜라이저 2종 — 탭 행 `init(_:description:icon:iconColor:accessory:themeColor:action:)` / 토글 행 `init(_:description:icon:iconColor:themeColor:isOn:)`. 아이콘 18pt, 이름 `.body.medium.medium`, 설명 `.body.xsmall.medium`. 제목·설명은 한 줄 고정(말줄임) |
 | `CHALLAListRowAccessory` | 탭 행의 우측 요소. `.arrow` · `.arrow(value:)` · `.check(isSelected:)` · `.empty` |
 | `CHALLAToast` | 잠시 나타났다 사라지는 알림 (`init(_ message:icon:variant:)`). 높이 50(위아래 9 + 콘텐츠 32), 좌우 16, 간격 8, radius 12, 반투명 `Background.level1` 77% + ultraThinMaterial. 내용만큼 넓어지고 320에서 멈춘다(한 줄 고정, 말줄임). `icon` 생략 = 시안의 `leadingIcon = false`(글자만). `variant`(`.normal` 기본 / `.negative`)는 **아이콘 색만** 정하고 배경·글자색은 공통. 등장·문구 교체 시 VoiceOver 낭독. **표시 시간·배치는 담는 쪽 책임**. 시안의 `positive`·`cautionary`와 `normal`의 기본 아이콘은 렌더된 적이 없어 미구현 — 디자이너 문의 중 |
+| `CHALLASnackBar` | 안내 배너 (`init(_ message:action:)`). 문구 + 오른쪽 텍스트 액션(`CHALLASnackBar.Action`, 생략 가능). 부모 폭을 채우고 문구가 길면 줄바꿈, 액션 글자(`Primary.yellow`)는 줄지 않는다. 액션을 눌러야 넘어가므로 스스로 사라지지 않는다 — **등장·퇴장과 위치는 담는 쪽 책임**. 표면(배경 `Background.level1` 77% · radius 12 · 여백 16/9)은 토스트와 `challaFloatingSurface()`로 공유한다 |
 | `CHALLATooltip` | 특정 요소를 가리키는 안내 말풍선 (`init(_ message:position:arrowAlignment:)`). `position`(`.top` 기본/`.bottom`/`.leading`/`.trailing`)은 앵커 기준 툴팁이 놓이는 방향 — 화살표는 반대편 모서리에서 앵커를 가리킨다. `arrowAlignment`(`.leading` 기본/`.center`/`.trailing`)는 화살표가 모서리에 붙는 위치(모서리 끝 8 안쪽, 세로 모서리에선 leading=위). 안쪽 여백 10, radius 10, 반투명 `Background.level2` 77% + ultraThinMaterial, 글자 `.description.large.medium`. 폭은 내용만큼(최소 64), 내용 폭 256에서 줄바꿈. 말풍선과 화살표(Zeplin 원본 벡터 20×8)는 한 패스로 union — 반투명이라 따로 칠하면 겹침이 진해진다. **표시 시점·배치는 담는 쪽 책임** |
 | `CHALLAListSection` | 행들을 묶는 카드. `init(_ title:content:)` — 제목은 옵션, 배경 `Background.level1` + 둥글기 `CHALLARadius.large`, 안쪽 여백 왼쪽 24 · 오른쪽 16 · 위아래 10, 행 사이 간격·구분선 없음. 제목이 있으면 헤더 블록 44 고정(위 16 + 글자 상자 16 + 아래 12), 제목은 한 줄 고정(말줄임) |
 | `CHALLAFilmCard` | 필름 낱장 카드 (3:4 고정 비율). Variant 4종(촬영 전 dashed / 인화대기 blur / 인화완료 / 더보기 `+N`) × 순번(`slotNumber`) 옵션. `width` 지정 시 고정(홈 82·인화 카드 90), nil이면 부모 폭 채움(방 상세 그리드) — 세로는 내부 계산. `aspectRatio` 공개(placeholder 크기 계산용) |
-| `CHALLACardItem` | 촬영 중 방 카드 (시안 고정 200×266). 대표 사진 + 딤 2겹(검정 스크림·노랑 틴트) + 제목·인원 + 카메라 카운트 뱃지. 사진은 로드된 `Image?` — nil이면 바닥색. 탭은 호출부가 Button으로 감쌈 |
+| `CHALLACardItem` | 촬영 중 방 카드 (시안 고정 200×266). 대표 사진 + 딤 2겹(검정 스크림·노랑 틴트) + 제목·인원 + 카메라 카운트 뱃지. 사진은 로드된 `Image?` — nil이면 바닥색. 탭은 호출부가 Button으로 감쌈. 하단 촬영 뱃지는 `onShoot`을 주면 버튼이 되고(안 주면 장수만 보여주는 그림), `isPreparingShoot`이면 스피너로 바뀌며 눌리지 않는다 — 카드 전체 탭(방 상세)과 다른 곳으로 가기 때문에 뱃지만 자기 액션을 갖는다 |
 | `CHALLAPrintCard` | 촬영 완료 방 카드. `Status`(printing/printed) 하나가 상태 칩 색과 낱장 blur/선명을 동시 결정. 낱장 스택은 실측 좌표·회전각 4슬롯에 `CHALLAFilmCard(width: 90)` 재사용, 전체 장수가 4를 넘으면 마지막 슬롯이 `+N`. 생성자 2종 — `photoURLs:`(화면용, 낱장마다 `CHALLAAsyncImage`가 로드하고 로드 전에는 빈 낱장) / `photos: [Image]`(갤러리·Preview·테스트용) |
 | `CHALLAAvatar` | 원형 아바타. `photo: Image?`(nil이면 person placeholder) + `size` 지름 (실측: 프로필 바 30 / 상세·채팅 22 / 팝오버 행 20) |
-| `CHALLAProfileBar` | 프로필 바. 아바타 입장 순 최대 9명 + `+N` 칩, 탭 시 멤버 팝오버(초대 코드 + 복사 콜백 + 전체 리스트, maxHeight 450 초과 시 스크롤). 열림 상태는 `isPresented` 바인딩(호출부 소유 — 드로어와 동일), 바 배경 흰(닫힘)↔검정(열림), 바깥 탭 닫기. 바를 화면 가로 중앙에 두는 배치 전제 |
-| `CHALLAAsyncImage` | 원격 이미지 뷰. 자기 크기·배율을 측정해 `ImageLoader`로 로드(다운샘플+2단 캐시), 성공 시 페이드인 |
+| `CHALLAProfileBar` | 프로필 바. 아바타 입장 순 최대 9명 + `+N` 칩, 탭 시 멤버 팝오버(초대 코드 + 복사 콜백 + 전체 리스트, maxHeight 450 초과 시 스크롤). 열림 상태는 `isPresented` 바인딩(호출부 소유 — 드로어와 동일), 바 배경 흰(닫힘)↔검정(열림), 바깥 탭 닫기. 바를 화면 가로 중앙에 두는 배치 전제. `Member` 생성자 2종 — `avatarURL:`(화면용, 바가 `CHALLAAsyncImage`로 로드) / `avatar: Image?`(갤러리·Preview용) — PrintCard와 같은 구분 |
+| `CHALLAAsyncImage` | 원격 이미지 뷰. 자기 크기·배율을 측정해 `ImageLoader`로 로드(다운샘플+2단 캐시), 성공 시 페이드인. 로드는 한 장당 한 번 — URL이 바뀌거나 크기가 처음 정해질 때만 건다. 측정값은 정수 pt로 올리고(`ImageLoadSize`), 이미 실린 뒤에는 커질 때만 다시 받는다(재다운로드·캐시 분산 방지) |
 | `EnvironmentValues.challaImageLoader` | 로더 주입 통로. 기본값은 `.default` 설정의 공유 로더 — 주입 없이 동작 |
 
 > **우측 여백이 행 종류마다 다르다** — 시안 안여백이 화살표 행 16, 체크·토글 행 20이다.
@@ -149,6 +150,8 @@ AppView(store: store)
 - 아이콘 추가 절차: Figma 인벤토리 등록 → SVG export → `Resources/Icons.xcassets`에
   imageset 추가(template 렌더링 + 벡터 보존 필수) → `CHALLAIcon`에 케이스 추가
   (갤러리는 `allCases` 기반이라 자동 반영)
+- `DownloadSimple`은 Zeplin에서 asset export가 되지 않아 Figma 원본 대신 직접 그린 SVG다
+  (Phosphor Bold 기준, 다른 아이콘과 같은 획 두께 2.25). 원본 export를 받으면 교체한다
 
 ## 검증 방법
 

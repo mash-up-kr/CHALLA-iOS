@@ -2,7 +2,7 @@ import CHALLADesignSystem
 import SwiftUI
 
 /// Component > Profile Bar 검수 화면.
-/// 아바타(사진/placeholder) · 바(9명 이하/초과 +N) · 멤버 팝오버(열기/스크롤/복사)를 나열한다.
+/// 아바타(사진/placeholder) · 바(9명 이하/초과 +N/URL 로드) · 멤버 팝오버(열기/스크롤/복사)를 나열한다.
 /// 사진은 picsum.photos에서 실사진을 받아 주입한다 — 인터넷이 없으면 placeholder만 보인다.
 struct ProfileBarGallery: View {
 
@@ -67,6 +67,13 @@ struct ProfileBarGallery: View {
                     onCopyInviteCode: {}
                 )
             }
+            galleryCaption("3명 — Member(avatarURL:), 로드를 바가 직접")
+            CHALLAProfileBar(
+                members: makeURLMembers(count: 3),
+                inviteCode: "1928121",
+                isPresented: .constant(false),
+                onCopyInviteCode: {}
+            )
         }
     }
 
@@ -126,6 +133,17 @@ struct ProfileBarGallery: View {
                 id: "\(index)",
                 name: sampleNames[index % sampleNames.count],
                 avatar: index < photos.count ? photos[index] : nil
+            )
+        }
+    }
+
+    /// URL 기반 멤버 — 사진 로드를 SampleImagesLoader 없이 ProfileBar(CHALLAAsyncImage)가 한다.
+    private func makeURLMembers(count: Int) -> [CHALLAProfileBar.Member] {
+        (0 ..< count).map { index in
+            CHALLAProfileBar.Member(
+                id: "url\(index)",
+                name: sampleNames[index % sampleNames.count],
+                avatarURL: URL(string: "https://picsum.photos/seed/url\(index)/100")
             )
         }
     }

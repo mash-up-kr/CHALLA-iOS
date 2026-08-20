@@ -59,6 +59,9 @@ struct RootView: View {
                     NavigationLink("Toast") {
                         ToastGallery()
                     }
+                    NavigationLink("SnackBar") {
+                        SnackBarGallery()
+                    }
                     NavigationLink("Tooltip") {
                         TooltipGallery()
                     }

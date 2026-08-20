@@ -28,6 +28,7 @@ Repository에 주입해도 안전하다. `Response`는 비-Sendable `HTTPURLResp
 | `MoyaProviderType` / `MoyaProvider` | `HTTPClient` / `DefaultHTTPClient` |
 | `Response` | `Response` |
 | `PluginType` | `Interceptor` |
+| (Alamofire `RequestRetrier`) | `Retrier` / `TokenRefreshRetrier` |
 | `NetworkLoggerPlugin` | `LoggingInterceptor` |
 | `AccessTokenPlugin` / `AccessTokenAuthorizable` | `AuthInterceptor` / `AccessTokenAuthorizable` + `TokenProvider` |
 | `MoyaError` | `NetworkError` |
@@ -45,16 +46,32 @@ Repository에 주입해도 안전하다. `Response`는 비-Sendable `HTTPURLResp
 
 ### 실행
 - `protocol HTTPClient` — `decoder: JSONDecoder`(구현체가 한 번 만들어 보관), `request(_:) async throws -> Response`, 편의 `request(_:as:)`(2xx 필터 + `decoder`로 디코딩)
-- `final class DefaultHTTPClient` — `URLSession` 기반 구현 (`init(session:interceptors:)`)
+- `final class DefaultHTTPClient` — `URLSession` 기반 구현 (`init(session:interceptors:retrier:)`).
+  `retrier`가 재시도를 지시하면 파이프라인 **처음으로** 돌아가므로 `adapt`가 다시 돌아
+  갱신된 토큰이 새 요청에 실린다. 요청 조립(`asURLRequest`)은 결과가 같으므로 루프 밖에서 한 번만 한다
 - `struct Response` — `statusCode` · `data` · `request` · `headers` + `filter(statusCodes:)` · `filterSuccessfulStatusCodes()` · `map(_:using:)`
 
 ### 인터셉터 · 인증 · 오류
 - `protocol Interceptor` — `adapt` · `willSend` · `didReceive` (모두 기본 구현 있음)
 - `struct AuthInterceptor` · `struct LoggingInterceptor`
+  - `LoggingInterceptor(level:)` — `.none` / `.basic`(메서드·URL·상태 코드) / `.verbose`(헤더·본문까지).
+    `.verbose`의 응답 본문은 `os.Logger`의 한 줄 1024바이트 상한에 걸려 잘리지 않도록
+    `body[n/N]` 순번을 붙여 여러 줄로 나눠 남긴다 (본문 전문 확인용). 값은 `.private`이라
+    Xcode 디버거가 붙은 콘솔에서만 보인다
 - `protocol TokenProvider` — 구현은 `AuthData`
+
 - `enum NetworkError` — 취소는 여기에 포함되지 않는다. 전송이 취소되면 `NetworkError`로 감싸지 않고
   `CancellationError`를 그대로 던지며, `Interceptor.didReceive`에도 실패로 통보하지 않는다
   (취소를 서버 장애로 오인해 재시도·로깅이 잘못 도는 것을 막는다)
+
+### 재시도 · 토큰 갱신
+- `protocol Retrier` — `shouldRetry(_:endpoint:attempt:)`. 응답을 보고 같은 요청을 다시 보낼지 결정한다
+- `protocol TokenRefreshing` — `refreshToken(replacing staleAccessToken:)`. 구현은 `AuthData`.
+  `staleAccessToken`은 401을 받은 요청이 실어 보낸 토큰이다 — 그 사이 다른 요청이 이미 갱신했는지 판단하는 데 쓴다
+- `struct TokenRefreshRetrier: Retrier` — 401 + `authorizationType == .bearer`일 때만 갱신을 부르고,
+  성공하면 **1회만** 재시도한다(갱신한 토큰으로도 401이면 갱신으로 풀 문제가 아니다).
+  갱신 실패 시 재시도하지 않고 401을 그대로 올려보내 Data가 각 도메인 오류로 정규화하게 둔다.
+  토큰을 싣지 않는 엔드포인트(로그인·갱신)의 401은 자격 증명 자체가 거절된 것이라 건너뛴다
 
 ### 서버 환경
 - `enum CHALLAAPIEnvironment` — `static let baseURL: URL`. 도메인마다 서버가 갈리지 않는 한
@@ -111,10 +128,14 @@ struct DefaultRoomRepository: RoomRepository {   // 인터페이스는 RoomDomai
 let client = DefaultHTTPClient(
     interceptors: [
         AuthInterceptor(tokenProvider: keychainTokenProvider),  // 구현은 AuthData
-        LoggingInterceptor(level: .basic)
-    ]
+        LoggingInterceptor(level: .verbose)  // DEBUG에서만 — 릴리스는 .basic
+    ],
+    retrier: TokenRefreshRetrier(refresher: authTokenRefresher)  // 구현은 AuthData
 )
 ```
+
+> 갱신 요청 자체는 **retrier를 달지 않은 별도 클라이언트**로 보내야 한다.
+> 같은 클라이언트를 쓰면 갱신의 401이 다시 갱신을 부르는 재귀가 된다 (`CHALLAApp/CompositionRoot` 참고).
 
 ## 의존성
 
@@ -128,10 +149,13 @@ let client = DefaultHTTPClient(
 mise exec -- tuist test CHALLANetwork
 ```
 
-Swift Testing 기반 테스트 32개 (6 suite) — Swift 6 언어 모드에서 통과:
+Swift Testing 기반 테스트 (7 suite) — Swift 6 언어 모드에서 통과:
 - `URLEncodingTests` — 쿼리 인코딩·이스케이프·빈 파라미터
 - `EndpointRequestTests` — Endpoint → URLRequest 변환 (plain·data·JSON·params·multipart)
 - `ResponseTests` — 상태 코드 필터·디코딩·오류 매핑
 - `AuthInterceptorTests` — 토큰 주입·`.none`/토큰 없음
-- `HTTPClientTests` — `URLProtocol` 스텁으로 전체 파이프라인 (성공·404·전송실패·취소·인터셉터 반영·응답 헤더 노출)
+- `TokenRefreshRetrierTests` — 401 판정, 갱신 성공/실패, 상태 코드·`authorizationType` 필터,
+  재시도 횟수 상한, 만료 토큰 전달(Bearer 접두사 제거)
+- `HTTPClientTests` — `URLProtocol` 스텁으로 전체 파이프라인 (성공·404·전송실패·취소·인터셉터 반영·응답 헤더 노출,
+  401 재시도 시 갱신된 토큰이 실리는지 · 갱신 실패 시 재시도 없음 · 재시도 1회 상한 · retrier 없을 때 기존 동작)
 - `CHALLAAPIEnvironmentTests` — Info.plist 값으로 baseURL 조립 (port 생략·비숫자 무시·scheme 형식 검사)
