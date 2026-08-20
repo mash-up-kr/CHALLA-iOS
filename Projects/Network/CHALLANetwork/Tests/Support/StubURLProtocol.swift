@@ -14,12 +14,24 @@ final class StubURLProtocol: URLProtocol {
     }
 
     nonisolated(unsafe) static var stub: Stub?
+    /// 재시도처럼 한 테스트에서 응답이 여러 번 필요할 때 앞에서부터 꺼내 쓴다 (비면 `stub`으로 되돌아간다).
+    nonisolated(unsafe) static var queuedStubs: [Stub] = []
+    /// 가로챈 요청 전체 (재시도 시 헤더가 갱신됐는지 검증용).
+    nonisolated(unsafe) static var requests: [URLRequest] = []
+
     /// 마지막으로 가로챈 요청 (헤더 검증용).
-    nonisolated(unsafe) static var lastRequest: URLRequest?
+    static var lastRequest: URLRequest? {
+        requests.last
+    }
 
     static func reset() {
         stub = nil
-        lastRequest = nil
+        queuedStubs = []
+        requests = []
+    }
+
+    private static func nextStub() -> Stub? {
+        queuedStubs.isEmpty ? stub : queuedStubs.removeFirst()
     }
 
     override static func canInit(with _: URLRequest) -> Bool {
@@ -31,9 +43,9 @@ final class StubURLProtocol: URLProtocol {
     }
 
     override func startLoading() {
-        StubURLProtocol.lastRequest = request
+        StubURLProtocol.requests.append(request)
 
-        guard let stub = StubURLProtocol.stub else {
+        guard let stub = StubURLProtocol.nextStub() else {
             client?.urlProtocol(self, didFailWithError: URLError(.unknown))
             return
         }

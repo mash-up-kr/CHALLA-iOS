@@ -8,4 +8,6 @@ public enum CHALLARadius {
     public static let large: CGFloat = 12
     /// 프로필 바 멤버 팝오버 실측값.
     public static let xlarge: CGFloat = 16
+    /// 사진 상세의 큰 사진 카드 실측값.
+    public static let xxlarge: CGFloat = 44.5
 }

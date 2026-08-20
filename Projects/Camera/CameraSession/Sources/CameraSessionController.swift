@@ -3,6 +3,7 @@ import CameraFeature
 import CoreImage
 import os
 import PhotoDomain
+import PhotoLibrary
 
 /// 실기기 카메라 세션. `AVCaptureSession` 구성·필터 프리뷰·촬영·사진첩 저장을 전담한다.
 /// 실행 앱(`CHALLAApp`)과 데모앱이 같은 인스턴스 구성을 쓴다.
@@ -92,7 +93,7 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
     public func captureAndSavePhoto(flashMode: CameraFlashMode, filterID: CameraFilter.ID) async throws -> Data {
         let data = try await capturePhotoData(flashMode: flashMode)
         let filtered = CameraFilterCatalog.filteredJPEG(from: data, filterID: filterID) ?? data
-        try await PhotoLibrarySaver.save(jpegData: filtered)
+        try await PhotoLibraryStore().save(imageData: filtered)
         return filtered
     }
 

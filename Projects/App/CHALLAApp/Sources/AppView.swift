@@ -4,6 +4,7 @@ import ComposableArchitecture
 import HomeFeature
 import LoginFeature
 import ProfileSetupFeature
+import RoomDetailFeature
 import SettingFeature
 import SwiftUI
 
@@ -50,6 +51,11 @@ public struct AppView: View {
                 if let homeStore = store.scope(state: \.home?.home, action: \.home) {
                     HomeView(store: homeStore)
                         .transition(.opacity)
+                }
+
+            case .roomDetail:
+                if let roomDetailStore = store.scope(state: \.roomDetail?.roomDetail, action: \.roomDetail) {
+                    RoomDetailView(store: roomDetailStore)
                 }
 
             case .setting:

@@ -38,7 +38,7 @@ let project = Project.makeAppProject(
         .profileSetupFeature, .userData, .userDomain,
         .settingFeature, .settingData, .settingDomain,
         .notificationData, .notificationDomain,
-        .homeFeature, .roomData, .roomDomain,
+        .homeFeature, .roomDetailFeature, .roomData, .roomDomain,
         .cameraFeature, .cameraSession, .photoData, .photoDomain,
         .network, .keychain,
         .designSystem, .imageKit,

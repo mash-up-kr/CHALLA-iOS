@@ -15,21 +15,26 @@
 
 | 단계 | 다음 |
 | :-- | :-- |
-| `launching` | 버전 체크 → 강제 업데이트 필요 시 `forceUpdate` / 불필요 시 프로필 조회 → `home` 또는 `profileSetup` / 실패 → `login` |
+| `launching` | 버전 체크 → 강제 업데이트 필요 시 `forceUpdate` / 불필요 시 세션 복원 → 저장 세션 없음이면 `login`, 있으면 프로필 조회 → `home`·`profileSetup` / 실패 → `login` |
+| (모든 화면) | 세션 만료 알림 → `login` (이미 `login`이면 무시) |
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `home` |
-| `home` | 설정 버튼 → `setting` |
+| `home` | 설정 버튼 → `setting` / 방 진입(목록에서 고름·방 만들기·초대 코드) → `roomDetail` |
+| `roomDetail` | `closeTapped` → `home`(새 State) — 촬영·채팅은 붙일 화면이 아직 없어 TODO |
 | `setting` | `backRequested` → `home` / `editProfileRequested` → `profileEdit` / `signedOut`·`accountDeleted` → `login` |
 | `profileEdit` | `editCompleted` → `setting`(새 State) / `cancelled` → `setting` |
 | `forceUpdate` | **나가는 전이 없음** — 앱 업데이트만 가능 |
 
-`setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을 표시하는데
-뒤로 나올 때 재조회 없이 바로 그려야 한다.
+`roomDetail`·`setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을
+표시하는데 뒤로 나올 때 재조회 없이 바로 그려야 한다.
 
 편집 저장 후에는 `SettingFeature.State`를 **새로 만든다.** `onAppear`가 `profile == nil`일 때만
 조회하므로, 그래야 헤더가 바뀐 닉네임을 다시 읽는다.
 
-### 버전 체크와 강제 업데이트
+방 상세에서 나올 때도 `HomeFeature.State`를 **새로 만든다.** 그 방에서 사진을 찍고 나왔을 수 있어
+목록을 다시 조회해야 한다.
+
+## 버전 체크와 강제 업데이트
 
 실행 직후 `CheckAppUpdateUseCase`(`AppDomain`)로 버전을 체크한다 — 실구현은 `AppData.DefaultAppVersionRepository`
 (`GET /api/v1/app/version`)이고 `CompositionRoot.registerAppUpdate`가 잇는다. 체크 실패는 **fail-open 정책**으로
@@ -39,6 +44,24 @@
 
 버전 체크만 공용 `HTTPClient`를 쓰지 않는다 — 로그인 전이라 토큰이 필요 없고,
 스플래시를 잡아 두는 호출이라 타임아웃 3초짜리 전용 세션을 쓴다 (`registerAppUpdate` 주석 참고).
+
+## 자동 로그인 · 토큰 갱신
+
+버전 체크를 통과한 뒤에 두 가지를 동시에 시작한다 — 강제 업데이트로 막힌 화면에서는 아무것도 조회하지 않는다.
+
+1. **자동 로그인** — `RestoreSessionUseCase`로 저장된 세션을 먼저 확인한다.
+   없으면 프로필 조회를 아예 보내지 않고 `login`으로 간다 (비로그인 상태에서 실패할 요청을 재시도 백오프까지
+   태우면 로그인 화면이 10초 넘게 늦게 뜬다). 이 유스케이스가 **설치 후 최초 실행이면 키체인도 초기화**한다 —
+   앱을 지워도 키체인은 남을 수 있어, 지우지 않으면 이전 설치의 죽은 토큰으로 시작한다
+2. **세션 만료 감시** — `SessionExpirationChannel`을 구독한다. 토큰 갱신이 최종 실패하면
+   어느 화면에 있든 `login`으로 되돌리고 진행 중인 프로필 조회를 취소한다
+
+프로필 조회가 `.network`로 실패해도 `login`으로 간다 — 오프라인에서는 자동 로그인이 유지되지 않는다.
+저장된 토큰은 그대로라 연결이 돌아온 뒤 다시 들어오면 자동 로그인된다.
+
+**401 자동 갱신은 `CompositionRoot`가 배선한다** — 요청용 클라이언트에 `TokenRefreshRetrier`를 달고,
+갱신 자체는 **retrier 없는 별도 클라이언트**로 보낸다. 같은 클라이언트를 쓰면 갱신 요청의 401이
+다시 갱신을 부르는 재귀에 빠진다. `refreshTokenUseCase` 의존성도 이 갱신 전용 클라이언트를 공유한다.
 
 ## 어댑터 (`Sources/Adapters/`)
 
@@ -78,6 +101,11 @@ Domain이 모양만 정의하고 구현을 Data에 두지 않은 두 인터페�
 
 `HTTPClient`는 Auth·User·Notification이 **같은 인스턴스**를 쓴다.
 다른 걸 넘기면 `AuthInterceptor`가 붙인 토큰이 실리지 않아 401이 난다.
+예외는 토큰 갱신 전용 클라이언트 하나뿐이다 (위 "자동 로그인 · 토큰 갱신" 참고).
+
+`SessionExpirationChannel`은 `CompositionRoot`가 만들어 갱신 실패 콜백과 `\.sessionExpirationChannel`
+의존성 양쪽에 **같은 인스턴스**로 꽂는다. 기본값(`liveValue`)은 아무것도 흘리지 않는 채널이라
+주입을 빠뜨리면 만료 알림이 조용히 사라진다.
 
 ## 테스트 실행
 
@@ -92,7 +120,9 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme CHALLAApp \
 ## 의존 관계
 
 - **이 앱이 의존**: `LoginFeature` · `ProfileSetupFeature` · `SettingFeature` ·
+  `HomeFeature` · `RoomDetailFeature` ·
   `AuthData/Domain` · `UserData/Domain` · `SettingData/Domain` · `NotificationData/Domain` ·
+  `RoomData/Domain` · `CHALLADesignSystem` · `CHALLAImageKit` ·
   `CHALLANetwork` · `Keychain` · KakaoSDK · FirebaseCore · FirebaseMessaging
 
 ## 선행 조건

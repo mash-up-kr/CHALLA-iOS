@@ -50,7 +50,8 @@ struct ColorGallery: View {
             ])
 
             colorSection("Material", colors: [
-                ("Dimmer", CHALLAColor.Material.dimmer)
+                ("Dimmer", CHALLAColor.Material.dimmer),
+                ("Floating", CHALLAColor.Material.floating)
             ])
 
             colorSection("Social", colors: [
