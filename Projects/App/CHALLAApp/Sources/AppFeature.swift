@@ -8,6 +8,7 @@ import ProfileSetupFeature
 import RoomDetailFeature
 import RoomDomain
 import SettingFeature
+import ShootEntry
 import UserDomain
 
 /// 앱 루트 리듀서 — 진입할 때마다 내 프로필을 조회해 첫 화면을 고르고, 각 화면이 끝나면 다음 화면으로 넘긴다.
