@@ -45,7 +45,7 @@ public struct PhotoDetailView: View {
 
             photoArea
                 .padding(.top, Metric.photoTopPadding)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, Metric.photoHorizontalPadding)
                 // 화면이 작아도 Spacer보다 사진 크기를 먼저 지킨다.
                 .layoutPriority(1)
 
@@ -55,7 +55,7 @@ public struct PhotoDetailView: View {
 
             messageField
                 .padding(.top, Metric.messageFieldTopSpacing)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, Metric.messageFieldHorizontalPadding)
         }
     }
 
@@ -94,7 +94,7 @@ public struct PhotoDetailView: View {
     /// 사진이 없을 때의 빈 자리. 로딩 중이면 스피너, 끝났으면 안내 문구를 얹는다.
     private var emptyCard: some View {
         RoundedRectangle(cornerRadius: CHALLARadius.xxlarge)
-            .strokeBorder(CHALLAColor.Line.normal, lineWidth: 1)
+            .strokeBorder(CHALLAColor.Line.normal, lineWidth: Metric.cardBorderWidth)
             .aspectRatio(PhotoCard.aspectRatio, contentMode: .fit)
             .overlay {
                 if store.isLoading {
@@ -128,7 +128,7 @@ public struct PhotoDetailView: View {
             ReactionBar(selectedKinds: selectedKinds(of: photo)) { kind in
                 send(.reactionTapped(kind))
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, Metric.reactionBarHorizontalPadding)
         }
     }
 
@@ -176,9 +176,13 @@ public struct PhotoDetailView: View {
 
 private enum Metric {
     static let photoTopPadding: CGFloat = 32
+    static let photoHorizontalPadding: CGFloat = 16
     static let indicatorTopSpacing: CGFloat = 16
     static let reactionBarTopSpacing: CGFloat = 35
     static let messageFieldTopSpacing: CGFloat = 16
+    static let messageFieldHorizontalPadding: CGFloat = 20
+    static let reactionBarHorizontalPadding: CGFloat = 24
+    static let cardBorderWidth: CGFloat = 1
     /// 배경 그라데이션 390 × 244, 투명도 20%.
     static let glowHeight: CGFloat = 244
     static let glowOpacity: Double = 0.2

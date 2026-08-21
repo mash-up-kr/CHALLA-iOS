@@ -30,7 +30,7 @@ struct PhotoCard: View {
             .clipShape(RoundedRectangle(cornerRadius: CHALLARadius.xxlarge))
             .overlay {
                 RoundedRectangle(cornerRadius: CHALLARadius.xxlarge)
-                    .strokeBorder(CHALLAColor.Line.normal, lineWidth: 1)
+                    .strokeBorder(CHALLAColor.Line.normal, lineWidth: Metric.borderWidth)
             }
             .accessibilityLabel(Text("\(photo.author.nickname)님이 \(PhotoAuthorHeader.formatted(photo.capturedAt))에 찍은 사진"))
     }
@@ -78,4 +78,5 @@ private enum Metric {
     static let scrimOpacity: Double = 0.6
     static let headerTopPadding: CGFloat = 32
     static let stickerSize: CGFloat = 82
+    static let borderWidth: CGFloat = 1
 }

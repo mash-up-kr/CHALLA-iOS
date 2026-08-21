@@ -12,7 +12,7 @@ struct PhotoPageIndicator: View {
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Metric.spacing) {
             ForEach(PhotoPageWindow.indices(count: count, current: currentIndex), id: \.self) { index in
                 Circle()
                     .fill(index == currentIndex ? CHALLAColor.defaultTheme : CHALLAColor.Label.disabled)
@@ -39,6 +39,7 @@ struct PhotoPageIndicator: View {
 // MARK: - Figma 실측값
 
 private enum Metric {
+    static let spacing: CGFloat = 8
     static let large: CGFloat = 10
     static let medium: CGFloat = 8
     static let small: CGFloat = 6

@@ -14,13 +14,13 @@ struct PhotoAuthorHeader: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 2.5) {
-            HStack(spacing: 8) {
+        VStack(spacing: Metric.rowSpacing) {
+            HStack(spacing: Metric.avatarSpacing) {
                 // DS의 캐시 이미지 뷰. 캐러셀을 넘길 때 같은 아바타를 다시 받지 않는다.
                 CHALLAAsyncImage(url: author.avatarURL) { image in
-                    CHALLAAvatar(photo: image, size: 22)
+                    CHALLAAvatar(photo: image, size: Metric.avatarSize)
                 } placeholder: {
-                    CHALLAAvatar(photo: nil, size: 22)
+                    CHALLAAvatar(photo: nil, size: Metric.avatarSize)
                 }
 
                 Text(author.nickname)
@@ -50,4 +50,15 @@ struct PhotoAuthorHeader: View {
     static func formatted(_ date: Date) -> String {
         dateFormatter.string(from: date)
     }
+}
+
+// MARK: - Figma 실측값
+
+private enum Metric {
+    static let avatarSize: CGFloat = 22
+    static let avatarSpacing: CGFloat = 8
+    /// 시안 간격 6에서 두 글자 상자의 여백(2 + 1.5)을 뺀 값.
+    static let rowSpacing: CGFloat = 6
+        - CHALLATypography.body.medium.medium.lineBoxInset
+        - CHALLATypography.body.small.medium.lineBoxInset
 }
