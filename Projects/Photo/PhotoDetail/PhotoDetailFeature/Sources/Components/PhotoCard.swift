@@ -11,11 +11,13 @@ struct PhotoCard: View {
     // MARK: - 프로퍼티
 
     let photo: Photo
+    /// 스티커 자리
+    let slots: [String: Int]
 
     // MARK: - Body
 
     var body: some View {
-        // scaledToFill한 사진이 카드 밖으로 넘치므로 Color.clear가 카드 크기를 잡는다.
+        // scaledToFill 이미지가 카드보다 커질 수 있어, Color.clear로 카드 크기를 고정한다.
         Color.clear
             .aspectRatio(Self.aspectRatio, contentMode: .fit)
             .overlay { image }
@@ -35,21 +37,18 @@ struct PhotoCard: View {
 
     // MARK: - 레이어
 
-    /// 캐시가 없어 다시 그릴 때마다 다시 받는다 — `CHALLAImageKit`(#25)이 생기면 이 자리를 바꾼다.
     private var image: some View {
-        AsyncImage(url: photo.imageURL) { phase in
-            if let image = phase.image {
-                image
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                // 실패와 로딩을 같은 모습으로 둔다 — 시안에 실패 표현이 없다.
-                CHALLAColor.Background.level2
-            }
+        CHALLAAsyncImage(url: photo.imageURL) { image in
+            image
+                .resizable()
+                .scaledToFill()
+        } placeholder: {
+            // 실패, 로딩 같은 UI
+            CHALLAColor.Background.level2
         }
     }
 
-    /// 위쪽이 어두워지는 막 — 밝은 사진에서도 촬영자 글자가 읽히게 한다.
+    /// 상단을 어둡게 처리한다. 밝은 사진에서도 촬영자 글자가 보이게 한다.
     private var scrim: some View {
         LinearGradient(
             colors: [CHALLAColor.Static.black.opacity(Metric.scrimOpacity), .clear],
@@ -58,10 +57,10 @@ struct PhotoCard: View {
         )
     }
 
-    /// 스티커 자리는 사진 크기에 대한 비율이라 실제 크기를 알아야 놓을 수 있다.
+    /// 스티커 위치가 사진 크기 대비 비율이라, GeometryReader로 실제 크기를 받아 배치한다.
     private var stickers: some View {
         GeometryReader { proxy in
-            ForEach(StickerLayout.placements(for: photo), id: \.reaction.id) { reaction, placement in
+            ForEach(StickerLayout.placements(for: photo, slots: slots), id: \.reaction.id) { reaction, placement in
                 ReactionSticker(kind: reaction.kind, size: Metric.stickerSize)
                     .rotationEffect(.degrees(placement.angleDegrees))
                     .position(
@@ -78,7 +77,6 @@ struct PhotoCard: View {
 private enum Metric {
     static let scrimOpacity: Double = 0.6
     static let headerTopPadding: CGFloat = 32
-    /// 스티커 이모지 글리프 (실측 66.5 — 흰 테두리를 더하면 82).
-    static let stickerSize: CGFloat = 66.5
+    static let stickerSize: CGFloat = 82
     static let borderWidth: CGFloat = 1
 }

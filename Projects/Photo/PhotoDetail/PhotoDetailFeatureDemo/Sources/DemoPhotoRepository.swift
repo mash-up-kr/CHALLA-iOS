@@ -1,8 +1,8 @@
 import Foundation
 import PhotoDomain
 
-/// 데모용 사진 저장소. 서버 명세가 확정되기 전까지 `PhotoData` 자리를 대신한다.
-/// 리액션은 메모리에만 쌓이고, 원본 이미지만 실제로 내려받는다(사진첩 저장 확인용).
+/// 데모용 사진 저장소. `PhotoData`가 생기기 전까지 그 자리를 대신한다.
+/// 리액션은 메모리에만 저장하고, 원본 이미지만 실제로 내려받는다(사진첩 저장 확인용).
 struct DemoPhotoRepository: PhotoRepository {
 
     /// 데모가 흉내 낼 상황.
@@ -55,6 +55,10 @@ struct DemoPhotoRepository: PhotoRepository {
         do {
             let (data, _) = try await URLSession.shared.data(from: photo.imageURL)
             return data
+        } catch let error as URLError where error.code == .cancelled {
+            // 취소를 network 오류로 바꾸면 "네트워크 확인" 얼럿이 잘못 뜬다. 취소는 취소로 올린다.
+            // 실 구현(PhotoData)도 이 경로를 그대로 두면 안 된다.
+            throw CancellationError()
         } catch {
             throw PhotoError.network
         }

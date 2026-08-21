@@ -12,18 +12,18 @@ struct PhotoDetailReactionTests {
         let target = Fixture.photo(id: "photo-1")
         let confirmed = Fixture.photo(
             id: "photo-1",
-            reactions: [Fixture.reaction(.clap, by: "user-server")]
+            reactions: [Fixture.reaction(.thumbsUp, by: "user-server")]
         )
         let store = await openedTestStore(photos: [target], setReaction: { photoID, kind, isOn in
             #expect(photoID == "photo-1")
-            #expect(kind == .clap)
+            #expect(kind == .thumbsUp)
             #expect(isOn)
             return confirmed
         })
 
-        await store.send(.view(.reactionTapped(.clap))) {
-            $0.inFlightReactions = [Fixture.request(.clap, photoID: "photo-1")]
-            $0.photos[id: "photo-1"] = target.settingReaction(.clap, by: Fixture.currentUserID, isOn: true)
+        await store.send(.view(.reactionTapped(.thumbsUp))) {
+            $0.inFlightReactions = [Fixture.request(.thumbsUp, photoID: "photo-1")]
+            $0.photos[id: "photo-1"] = target.settingReaction(.thumbsUp, by: Fixture.currentUserID, isOn: true)
         }
         await store.receive(\.reactionSucceeded) {
             $0.inFlightReactions = []
@@ -121,7 +121,7 @@ struct PhotoDetailReactionTests {
         let target = Fixture.photo(id: "photo-1")
         let confirmed = Fixture.photo(
             id: "photo-1",
-            reactions: [Fixture.reaction(.clap, by: Fixture.currentUserID)]
+            reactions: [Fixture.reaction(.thumbsUp, by: Fixture.currentUserID)]
         )
         let callCount = LockIsolated(0)
         let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
@@ -131,11 +131,11 @@ struct PhotoDetailReactionTests {
             return confirmed
         })
 
-        await store.send(.view(.reactionTapped(.clap))) {
-            $0.inFlightReactions = [Fixture.request(.clap, photoID: "photo-1")]
-            $0.photos[id: "photo-1"] = target.settingReaction(.clap, by: Fixture.currentUserID, isOn: true)
+        await store.send(.view(.reactionTapped(.thumbsUp))) {
+            $0.inFlightReactions = [Fixture.request(.thumbsUp, photoID: "photo-1")]
+            $0.photos[id: "photo-1"] = target.settingReaction(.thumbsUp, by: Fixture.currentUserID, isOn: true)
         }
-        await store.send(.view(.reactionTapped(.clap)))
+        await store.send(.view(.reactionTapped(.thumbsUp)))
 
         continuation.yield()
         continuation.finish()
@@ -160,9 +160,9 @@ struct PhotoDetailReactionTests {
             return second.settingReaction(.heart, by: Fixture.currentUserID, isOn: true)
         })
 
-        await store.send(.view(.reactionTapped(.clap))) {
-            $0.inFlightReactions = [Fixture.request(.clap, photoID: "photo-1")]
-            $0.photos[id: "photo-1"] = first.settingReaction(.clap, by: Fixture.currentUserID, isOn: true)
+        await store.send(.view(.reactionTapped(.thumbsUp))) {
+            $0.inFlightReactions = [Fixture.request(.thumbsUp, photoID: "photo-1")]
+            $0.photos[id: "photo-1"] = first.settingReaction(.thumbsUp, by: Fixture.currentUserID, isOn: true)
         }
 
         await store.send(.view(.photoSelected("photo-2"))) { $0.selectedPhotoID = "photo-2" }
@@ -195,7 +195,7 @@ struct PhotoDetailReactionTests {
         let target = Fixture.photo(id: "photo-1")
         let confirmed = Fixture.photo(
             id: "photo-1",
-            reactions: [Fixture.reaction(.clap, by: Fixture.currentUserID)]
+            reactions: [Fixture.reaction(.thumbsUp, by: Fixture.currentUserID)]
         )
         let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
         let store = await openedTestStore(photos: [target], setReaction: { _, _, _ in
@@ -203,9 +203,9 @@ struct PhotoDetailReactionTests {
             return confirmed
         })
 
-        await store.send(.view(.reactionTapped(.clap))) {
-            $0.inFlightReactions = [Fixture.request(.clap, photoID: "photo-1")]
-            $0.photos[id: "photo-1"] = target.settingReaction(.clap, by: Fixture.currentUserID, isOn: true)
+        await store.send(.view(.reactionTapped(.thumbsUp))) {
+            $0.inFlightReactions = [Fixture.request(.thumbsUp, photoID: "photo-1")]
+            $0.photos[id: "photo-1"] = target.settingReaction(.thumbsUp, by: Fixture.currentUserID, isOn: true)
         }
 
         // 재조회 결과 그 사진이 사라졌다.
@@ -226,6 +226,64 @@ struct PhotoDetailReactionTests {
     func ignoresReactionWithoutPhoto() async {
         let store = makeTestStore()
 
-        await store.send(.view(.reactionTapped(.clap)))
+        await store.send(.view(.reactionTapped(.thumbsUp)))
+    }
+
+    @Test("같은 사진에 다른 종류를 연달아 누르면, 먼저 온 응답이 아직 대기 중인 다른 스티커를 지우지 않는다")
+    func earlierResponseKeepsOtherInFlightReaction() async {
+        let target = Fixture.photo(id: "photo-1")
+        let applied = LockIsolated<Set<ReactionKind>>([])
+        // 하트 응답을 붙잡아 둬 박수 응답이 먼저 도착하게 한다.
+        let (heartStream, heartContinuation) = AsyncStream.makeStream(of: Void.self)
+        let store = await openedTestStore(photos: [target], setReaction: { _, kind, isOn in
+            if kind == .heart {
+                await heartStream.first { _ in true }
+            }
+            // 서버는 이 시점의 전체 리액션 상태를 돌려준다 (rawValue로 정렬해 순서를 고정).
+            applied.withValue { set in
+                set = isOn ? set.union([kind]) : set.subtracting([kind])
+            }
+            let reactions = applied.value
+                .sorted { $0.rawValue < $1.rawValue }
+                .map { Fixture.reaction($0, by: Fixture.currentUserID) }
+            return Fixture.photo(id: "photo-1", reactions: reactions)
+        })
+
+        await store.send(.view(.reactionTapped(.heart))) {
+            $0.inFlightReactions = [Fixture.request(.heart, photoID: "photo-1")]
+            $0.photos[id: "photo-1"] = target.settingReaction(.heart, by: Fixture.currentUserID, isOn: true)
+        }
+        await store.send(.view(.reactionTapped(.thumbsUp))) {
+            $0.inFlightReactions.insert(Fixture.request(.thumbsUp, photoID: "photo-1"))
+            $0.photos[id: "photo-1"] = target
+                .settingReaction(.heart, by: Fixture.currentUserID, isOn: true)
+                .settingReaction(.thumbsUp, by: Fixture.currentUserID, isOn: true)
+        }
+
+        // 박수 응답 먼저: 서버 사진엔 박수만 있지만, 아직 대기 중인 하트는 병합으로 살아남는다.
+        await store.receive(\.reactionSucceeded) {
+            $0.inFlightReactions.remove(Fixture.request(.thumbsUp, photoID: "photo-1"))
+            $0.photos[id: "photo-1"] = Fixture.photo(
+                id: "photo-1",
+                reactions: [
+                    Fixture.reaction(.thumbsUp, by: Fixture.currentUserID),
+                    Fixture.reaction(.heart, by: Fixture.currentUserID)
+                ]
+            )
+        }
+
+        heartContinuation.yield()
+        heartContinuation.finish()
+        // 하트 응답: 서버가 전체(하트+박수)를 rawValue 순으로 돌려주고 대기 요청이 없어 그대로 반영된다.
+        await store.receive(\.reactionSucceeded) {
+            $0.inFlightReactions.remove(Fixture.request(.heart, photoID: "photo-1"))
+            $0.photos[id: "photo-1"] = Fixture.photo(
+                id: "photo-1",
+                reactions: [
+                    Fixture.reaction(.heart, by: Fixture.currentUserID),
+                    Fixture.reaction(.thumbsUp, by: Fixture.currentUserID)
+                ]
+            )
+        }
     }
 }

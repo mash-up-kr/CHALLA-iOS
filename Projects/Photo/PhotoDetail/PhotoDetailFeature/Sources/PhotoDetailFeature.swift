@@ -3,8 +3,7 @@ import Foundation
 import PhotoDomain
 import UIKit
 
-/// 사진 상세 화면의 TCA Feature.
-/// 사진을 넘겨 보고, 리액션을 남기고, 사진첩에 저장한다. 채팅은 후속 이슈다.
+/// 사진 상세 화면
 @Reducer
 public struct PhotoDetailFeature {
 
@@ -19,14 +18,21 @@ public struct PhotoDetailFeature {
         /// 리액션을 남기는 주체.
         public let currentUserID: String
 
-        public var photos: IdentifiedArrayOf<Photo> = []
+        public var photos: IdentifiedArrayOf<Photo> = [] {
+            // 리액션이 바뀌면 스티커 자리를 다시 배정한다(남은 자리는 유지).
+            didSet { stickerSlots = StickerLayout.assignSlots(for: photos, previous: stickerSlots) }
+        }
+
         public var selectedPhotoID: Photo.ID?
         public var isLoading = false
         public var isSaving = false
         @Presents public var alert: AlertState<Action.Alert>?
 
-        /// 응답을 기다리는 중인 리액션 — 같은 자리를 다시 눌러도 요청이 겹치지 않게 막는다.
+        /// 응답 대기 중인 리액션. 같은 리액션을 다시 눌러도 요청이 중복되지 않게 막는다.
         public var inFlightReactions: Set<ReactionRequest> = []
+
+        /// 리액션별 스티커 자리. 떼도 남은 자리가 안 바뀌게 저장해 둔다.
+        public var stickerSlots: [String: Int] = [:]
 
         /// 진입할 때 펼쳐 보여줄 사진.
         private let initialPhotoID: Photo.ID?
@@ -47,7 +53,7 @@ public struct PhotoDetailFeature {
             self.initialPhotoID = initialPhotoID
         }
 
-        /// 목록을 갈아끼우고 볼 사진을 정한다. 보던 사진이 사라졌으면 첫 장으로 떨어진다.
+        /// 목록을 교체하고 볼 사진을 정한다. 보던 사진이 없어졌으면 첫 사진으로 바꾼다.
         mutating func apply(photos: [Photo]) {
             self.photos = IdentifiedArray(uniqueElements: photos)
             let preferred = selectedPhotoID ?? initialPhotoID
@@ -55,7 +61,7 @@ public struct PhotoDetailFeature {
         }
     }
 
-    /// 리액션 요청 하나의 신원. 사진과 종류가 다르면 서로 간섭하지 않는다.
+    /// 리액션 요청을 구분하는 값. 사진과 종류가 다르면 별개 요청으로 다룬다.
     public struct ReactionRequest: Hashable, Sendable {
         public let photoID: String
         public let kind: ReactionKind
@@ -83,7 +89,7 @@ public struct PhotoDetailFeature {
 
         case view(ViewAction)
 
-        /// parent(App)에게만 알린다. 화면을 닫는 것은 App의 몫이다 (아키텍처 규칙 3).
+        /// App에만 알린다. 화면을 닫는 것은 App이 한다 (규칙 3).
         @CasePathable
         public enum Delegate: Equatable, Sendable {
             case closeRequested
@@ -161,16 +167,19 @@ public struct PhotoDetailFeature {
                 state.alert = Self.errorAlert(title: "사진을 불러오지 못했어요", error: error, canRetry: true)
                 return .none
 
-            case let .reactionSucceeded(request, photo):
+            case let .reactionSucceeded(request, serverPhoto):
                 state.inFlightReactions.remove(request)
-                // id 서브스크립트 대입은 없는 키를 새로 추가한다 — 사라진 사진을 되살리지 않도록 막는다.
-                guard state.photos[id: photo.id] != nil else { return .none }
-                state.photos[id: photo.id] = photo
+                guard let current = state.photos[id: serverPhoto.id] else { return .none }
+                var merged = serverPhoto
+                for pending in state.inFlightReactions where pending.photoID == serverPhoto.id {
+                    let isOn = current.hasReaction(pending.kind, by: state.currentUserID)
+                    merged = merged.settingReaction(pending.kind, by: state.currentUserID, isOn: isOn)
+                }
+                state.photos[id: serverPhoto.id] = merged
                 return .none
 
             case let .reactionFailed(request, error, appliedIsOn):
                 state.inFlightReactions.remove(request)
-                // 스냅샷을 통째로 되돌리면 그 사이 들어온 변화까지 덮어쓴다.
                 if let photo = state.photos[id: request.photoID] {
                     state.photos[id: request.photoID] = photo.settingReaction(
                         request.kind,
@@ -214,12 +223,6 @@ public struct PhotoDetailFeature {
 
     // MARK: - Effects
 
-    private enum CancelID: Hashable {
-        case load
-        case save
-        case reaction(ReactionRequest)
-    }
-
     private func loadPhotos(_ state: inout State) -> Effect<Action> {
         guard !state.isLoading else { return .none }
         state.isLoading = true
@@ -234,13 +237,12 @@ public struct PhotoDetailFeature {
                 await send(.photosResponse(.failure(failure)))
             }
         }
-        .cancellable(id: CancelID.load)
     }
 
-    /// 서버 응답을 기다리지 않고 화면을 먼저 바꾼다 — 실패하면 그 값만 되돌린다.
+    /// 서버 응답을 기다리지 않고 화면을 먼저 바꾼다. 실패하면 그 값만 되돌린다.
     ///
-    /// 진행 중인 요청을 취소하지 않고 무시하는 이유: 취소된 이펙트의 `send`는 TCA가 버려서
-    /// 되돌릴 기회가 사라지고, 서버에 없는 리액션이 화면에 남는다.
+    /// 진행 중인 요청은 취소하지 않고 무시한다. 취소하면 TCA가 그 응답을 버려서 되돌릴 수 없고,
+    /// 서버에 없는 리액션이 화면에 남기 때문이다.
     private func setReaction(_ state: inout State, kind: ReactionKind) -> Effect<Action> {
         guard let photo = state.selectedPhoto else { return .none }
 
@@ -260,7 +262,6 @@ public struct PhotoDetailFeature {
                 await send(.reactionFailed(request, failure, appliedIsOn: isOn))
             }
         }
-        .cancellable(id: CancelID.reaction(request))
     }
 
     private func savePhoto(_ state: inout State) -> Effect<Action> {
@@ -276,10 +277,9 @@ public struct PhotoDetailFeature {
                 await send(.saveFailed(failure))
             }
         }
-        .cancellable(id: CancelID.save)
     }
 
-    /// 취소(화면 이탈)면 `nil` — 알릴 사람이 이미 없다. 나머지는 `PhotoError`로 맞춘다.
+    /// 화면을 벗어나 취소된 경우 nil을 반환한다(알릴 대상이 없다). 나머지는 PhotoError로 바꾼다.
     private static func failure(_ error: any Error) -> PhotoError? {
         if error is CancellationError {
             return nil
@@ -289,9 +289,6 @@ public struct PhotoDetailFeature {
 
     // MARK: - 얼럿
 
-    // TODO: 제목·버튼 문구는 임의 작성본 — 기획의 에러 문구 가이드가 확정되면 일괄 교체한다.
-    /// - Parameter canRetry: 다시 시도할 방법이 이 얼럿뿐인 실패(목록 조회)에만 켠다.
-    ///   리액션·저장은 화면에 버튼이 그대로 남아 있어 다시 누르면 된다.
     private static func errorAlert(
         title: String,
         error: PhotoError,

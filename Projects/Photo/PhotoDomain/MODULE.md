@@ -25,7 +25,7 @@
 | :-- | :-- |
 | `Photo` | `id` · `imageURL` · `author` · `capturedAt` · `reactions`. `hasReaction(_:by:)`로 내 리액션 여부를 묻고, `settingReaction(_:by:isOn:)`으로 리액션을 목표 상태에 맞춘 사본을 만든다(낙관적 갱신용). `init`에서 같은 신원의 리액션 중복을 걷어낸다 |
 | `PhotoAuthor` | `id` · `nickname` · `avatarURL` — 사진에 박제된 시점의 촬영자 정보 |
-| `ReactionKind` | 리액션 5종(medal · heart · poop · clap · skull). 시안 순서 그대로이며 이모지 글리프는 화면이 정한다 |
+| `ReactionKind` | 리액션 10종(heart · sparkle · thumbsUp · poop · skull · medal · question · huh · loveEyes · fire). 시안의 리액션 바 순서 그대로이며 이모지 글리프는 화면이 정한다 |
 | `PhotoReaction` | `kind` · `userID` — 한 사람이 한 사진에 남긴 리액션 하나. `종류 + 사람`이 곧 `id`다. 스티커 좌표는 갖지 않는다 |
 | `CameraFilter` | 서버가 내려주는 카메라 필터 한 개 (`GET /shoots/camera-filters` 응답 한 줄). `name`(식별자 겸 표시 이름 — 사진 업로드 API도 이 값으로 필터를 가리킨다) · `fileURL`(LUT .cube 공개 URL). `previewFilters`는 화면 확인용 샘플 |
 

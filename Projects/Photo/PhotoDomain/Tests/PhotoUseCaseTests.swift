@@ -46,7 +46,7 @@ struct PhotoUseCaseTests {
         let useCase = SetPhotoReactionUseCase.live(repository: repository)
 
         await #expect(throws: PhotoError.network) {
-            try await useCase.run("photo-1", .clap, false)
+            try await useCase.run("photo-1", .thumbsUp, false)
         }
     }
 }

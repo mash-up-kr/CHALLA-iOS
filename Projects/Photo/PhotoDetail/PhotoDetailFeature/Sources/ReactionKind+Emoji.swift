@@ -1,27 +1,37 @@
+import CHALLADesignSystem
 import PhotoDomain
 
 extension ReactionKind {
 
-    /// 화면에 그리는 글리프. Figma는 Noto Color Emoji 벡터지만 시스템 이모지로 대신한다 —
-    /// 검수에서 차이가 확인되면 그때 SVG 에셋으로 바꾼다.
-    var emoji: String {
+    /// 화면에 그리는 컬러 이모지 에셋(DS)
+    var emoji: CHALLAReactionEmoji {
         switch self {
-        case .medal: "🏅"
-        case .heart: "❤️"
-        case .poop: "💩"
-        case .clap: "👏"
-        case .skull: "💀"
+        case .heart: .heart
+        case .sparkle: .sparkle
+        case .thumbsUp: .thumbsUp
+        case .poop: .poop
+        case .skull: .skull
+        case .medal: .medal
+        case .question: .question
+        case .huh: .huh
+        case .loveEyes: .loveEyes
+        case .fire: .fire
         }
     }
 
     /// VoiceOver가 읽을 이름.
     var accessibilityLabel: String {
         switch self {
-        case .medal: "메달"
         case .heart: "하트"
+        case .sparkle: "반짝"
+        case .thumbsUp: "최고"
         case .poop: "똥"
-        case .clap: "박수"
         case .skull: "해골"
+        case .medal: "메달"
+        case .question: "물음표"
+        case .huh: "당황"
+        case .loveEyes: "하트 눈"
+        case .fire: "불"
         }
     }
 }
