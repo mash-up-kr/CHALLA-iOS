@@ -53,7 +53,15 @@ public enum CameraFilterCatalog {
         guard let output = lut.outputImage,
               let colorSpace = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)
         else { return nil }
-        return jpegContext.jpegRepresentation(of: output, colorSpace: colorSpace)
+        return jpegContext.jpegRepresentation(of: output, colorSpace: colorSpace, options: encodingOptions)
+    }
+
+    /// 품질을 지정하지 않으면 `CIContext`의 기본값(측정상 0.75)이 걸린다 — 업로드 상한을 맞추는
+    /// `ImageCompressor`가 이 출력을 다시 인코딩하므로, 여기서 미리 깎으면 2세대 손실로 최종 화질이
+    /// 크게 떨어진다(상한 5MB 기준 1.44MB → 4.47MB). 상한 준수는 압축기 책임이라
+    /// 여기서는 최대 품질로 굽는다 — JPEG 특성상 1.0도 무손실은 아니다.
+    private static var encodingOptions: [CIImageRepresentationOption: Any] {
+        [.init(rawValue: kCGImageDestinationLossyCompressionQuality as String): 1.0]
     }
 
     /// JPEG 재인코딩용. `CIContext`는 스레드 안전(Apple 문서)하고 생성이 비싸 공유한다 —
