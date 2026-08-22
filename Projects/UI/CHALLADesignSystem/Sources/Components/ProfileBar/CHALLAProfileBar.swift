@@ -70,6 +70,8 @@ public struct CHALLAProfileBar: View {
 
     // MARK: - 프로퍼티와 init
 
+    @Environment(\.challaTheme) private var theme
+
     private let members: [Member]
     private let inviteCode: String
     @Binding private var isPresented: Bool
@@ -205,7 +207,7 @@ public struct CHALLAProfileBar: View {
             HStack(spacing: ProfileBarMetric.codeCopyGap) {
                 Text(inviteCode)
                     .challaFont(.heading.medium.bold)
-                    .foregroundStyle(CHALLAColor.Primary.yellow)
+                    .foregroundStyle(theme.accent)
                 Button(action: onCopyInviteCode) {
                     CHALLAIcon.copy.image(size: .size20, color: CHALLAColor.Label.disabled)
                 }

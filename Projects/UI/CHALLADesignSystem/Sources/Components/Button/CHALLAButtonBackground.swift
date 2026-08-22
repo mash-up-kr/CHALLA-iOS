@@ -7,6 +7,10 @@ import SwiftUI
 /// - 터치는 그려진 픽셀이 아니라 프레임 전체가 반응한다
 /// - HIG 최소 터치 타깃(44pt) 미달 크기는 히트 영역만 보이지 않게 확장한다
 struct CHALLAButtonBackgroundModifier: ViewModifier {
+
+    /// `.theme` variant 배경에 쓴다. variant는 값 타입이라 스스로 읽지 못해 여기서 읽어 넘긴다.
+    @Environment(\.challaTheme) private var theme
+
     let variant: CHALLAButtonVariant
     let role: CHALLAButtonRole?
     let size: CHALLAButtonSize
@@ -15,7 +19,7 @@ struct CHALLAButtonBackgroundModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background {
-                if let background = variant.backgroundColor(role: role, isEnabled: isEnabled) {
+                if let background = variant.backgroundColor(role: role, isEnabled: isEnabled, themeColor: theme.accent) {
                     RoundedRectangle(cornerRadius: size.radius)
                         .fill(background)
                 }

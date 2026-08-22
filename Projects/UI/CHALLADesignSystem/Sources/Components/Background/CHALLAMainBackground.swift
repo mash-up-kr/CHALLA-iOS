@@ -3,16 +3,28 @@ import SwiftUI
 // MARK: - challaMainBackground
 
 public extension View {
-    /// 찰나 앱의 기본 화면 배경 — surface 색 위에 하단에서 브랜드 노랑이 번진다.
+    /// 찰나 앱의 기본 화면 배경 — surface 색 위에 하단에서 테마 색이 번진다.
     ///
     /// 시안의 배경은 그라데이션이 아니라 블러를 먹인 타원 하나다. 타원 중심이 화면 아래에
     /// 있어 하단만 은은하게 밝아진다. 홈·방 상세 등 화면 단위 뷰의 최상단에 붙인다.
     func challaMainBackground() -> some View {
-        background {
+        modifier(MainBackgroundModifier())
+    }
+}
+
+// MARK: - 구현
+
+/// Environment를 읽어야 해서 View 확장이 아니라 modifier로 둔다.
+private struct MainBackgroundModifier: ViewModifier {
+
+    @Environment(\.challaTheme) private var theme
+
+    func body(content: Content) -> some View {
+        content.background {
             ZStack(alignment: .bottom) {
                 CHALLAColor.Background.surface
                 Ellipse()
-                    .fill(CHALLAColor.Background.brand.opacity(MainBackgroundMetric.tintOpacity))
+                    .fill(theme.glow.opacity(MainBackgroundMetric.tintOpacity))
                     .frame(
                         width: MainBackgroundMetric.ellipseWidth,
                         height: MainBackgroundMetric.ellipseHeight

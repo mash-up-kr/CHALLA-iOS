@@ -18,6 +18,8 @@ public struct CHALLACardItem: View {
 
     // MARK: - 프로퍼티와 init
 
+    @Environment(\.challaTheme) private var theme
+
     private let title: String
     private let memberCount: Int
     private let photoCount: Int
@@ -80,7 +82,7 @@ public struct CHALLACardItem: View {
             .overlay { scrim }
     }
 
-    /// 위에서 아래로 깔리는 딤 2겹 — 검정(제목 가독성 확보) + 노랑 틴트(브랜드 톤).
+    /// 위에서 아래로 깔리는 딤 2겹 — 검정(제목 가독성 확보) + 테마 색 틴트.
     /// Figma에 유사한 그라데이션 레이어가 중첩돼 있어 합성 결과의 근사값으로 구현 — 디자이너 검수로 확정한다.
     private var scrim: some View {
         ZStack {
@@ -94,8 +96,8 @@ public struct CHALLACardItem: View {
             )
             LinearGradient(
                 stops: [
-                    .init(color: CHALLAColor.Primary.yellow.opacity(CardItemMetric.tintOpacity), location: 0),
-                    .init(color: CHALLAColor.Primary.yellow.opacity(0), location: CardItemMetric.tintEnd)
+                    .init(color: theme.accent.opacity(CardItemMetric.tintOpacity), location: 0),
+                    .init(color: theme.accent.opacity(0), location: CardItemMetric.tintEnd)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -166,7 +168,7 @@ public struct CHALLACardItem: View {
         .padding(.vertical, CardItemMetric.badgeVerticalPadding)
         .background {
             RoundedRectangle(cornerRadius: CHALLARadius.large)
-                .fill(CHALLAColor.Primary.yellow)
+                .fill(theme.accent)
         }
     }
 
@@ -198,7 +200,7 @@ private enum CardItemMetric {
     static let badgeContentGap: CGFloat = 4
     /// 검정 딤 시작 불투명도 (Figma 0.5).
     static let scrimOpacity: Double = 0.5
-    /// 노랑 틴트 시작 불투명도(0.2)와 소멸 지점(38%) — 중첩 레이어 합성의 근사값.
+    /// 테마 색 틴트의 시작 불투명도(0.2)와 소멸 지점(38%) — 중첩 레이어 합성의 근사값.
     static let tintOpacity: Double = 0.2
     static let tintEnd: CGFloat = 0.38
 }
