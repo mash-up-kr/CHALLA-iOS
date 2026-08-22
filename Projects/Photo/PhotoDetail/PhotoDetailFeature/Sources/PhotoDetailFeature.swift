@@ -17,6 +17,8 @@ public struct PhotoDetailFeature {
         public let roomTitle: String
         /// 리액션을 남기는 주체.
         public let currentUserID: String
+        /// 인화 완료 여부. 아직이면 방 상세처럼 사진을 blur로 가린다(인화 대기 연출).
+        public let isPrinted: Bool
 
         public var photos: IdentifiedArrayOf<Photo> = [] {
             // 리액션이 바뀌면 스티커 자리를 다시 배정한다(남은 자리는 유지).
@@ -28,11 +30,16 @@ public struct PhotoDetailFeature {
         public var isSaving = false
         @Presents public var alert: AlertState<Action.Alert>?
 
-        /// 응답 대기 중인 리액션. 같은 리액션을 다시 눌러도 요청이 중복되지 않게 막는다.
-        public var inFlightReactions: Set<ReactionRequest> = []
+        /// 방금 남긴 리액션 — 뷰가 이모지 쏟아지는 애니메이션을 재생한다. id가 바뀔 때마다 새로 튄다.
+        public var reactionBurst: ReactionBurst?
 
-        /// 리액션별 스티커 자리. 떼도 남은 자리가 안 바뀌게 저장해 둔다.
+        /// 유저별 스티커 자리. 떼도 남은 자리가 안 바뀌게 저장해 둔다.
         public var stickerSlots: [String: Int] = [:]
+
+        /// 리액션을 이미 받아 온 사진 — 다시 펼쳐도 재요청하지 않는다(캐시).
+        public var reactionsLoaded: Set<Photo.ID> = []
+        /// 리액션을 받는 중인 사진 — 같은 사진에 중복 요청을 막는다.
+        public var reactionsLoading: Set<Photo.ID> = []
 
         /// 진입할 때 펼쳐 보여줄 사진.
         private let initialPhotoID: Photo.ID?
@@ -45,11 +52,13 @@ public struct PhotoDetailFeature {
             roomID: Int64,
             roomTitle: String,
             currentUserID: String,
+            isPrinted: Bool = true,
             initialPhotoID: Photo.ID? = nil
         ) {
             self.roomID = roomID
             self.roomTitle = roomTitle
             self.currentUserID = currentUserID
+            self.isPrinted = isPrinted
             self.initialPhotoID = initialPhotoID
         }
 
@@ -61,13 +70,13 @@ public struct PhotoDetailFeature {
         }
     }
 
-    /// 리액션 요청을 구분하는 값. 사진과 종류가 다르면 별개 요청으로 다룬다.
-    public struct ReactionRequest: Hashable, Sendable {
-        public let photoID: String
+    /// 이모지 쏟아지는 애니메이션 한 번. 같은 종류를 연달아 눌러도 새로 튀도록 매번 새 `id`를 받는다.
+    public struct ReactionBurst: Equatable, Sendable, Identifiable {
+        public let id: UUID
         public let kind: ReactionKind
 
-        public init(photoID: String, kind: ReactionKind) {
-            self.photoID = photoID
+        public init(id: UUID, kind: ReactionKind) {
+            self.id = id
             self.kind = kind
         }
     }
@@ -99,9 +108,13 @@ public struct PhotoDetailFeature {
 
         case photosResponse(Result<[Photo], PhotoError>)
 
-        case reactionSucceeded(ReactionRequest, Photo)
-        /// 화면에 먼저 그렸던 `appliedIsOn`을 반대로 되돌린다.
-        case reactionFailed(ReactionRequest, PhotoError, appliedIsOn: Bool)
+        /// 펼친 사진의 리액션을 지연 조회한 결과. 실패해도 얼럿 없이 둔다(리액션은 비필수) — 다음에 다시 펼치면 재시도.
+        case reactionsResponse(photoID: Photo.ID, Result<PhotoReactions, PhotoError>)
+
+        /// 서버가 리액션을 받아들였다. 화면은 이미 낙관적으로 그려 둔 상태라 할 일이 없다.
+        case reactionSucceeded
+        /// 리액션 전송 실패. 낙관적으로 붙였던 그 종류를 되돌린다(스티커였으면 스티커도 함께).
+        case reactionFailed(photoID: String, userID: String, kind: ReactionKind, PhotoError)
 
         case saveSucceeded
         case saveFailed(PhotoError)
@@ -121,9 +134,11 @@ public struct PhotoDetailFeature {
     // MARK: - Dependencies
 
     @Dependency(\.fetchRoomPhotosUseCase) var fetchRoomPhotosUseCase
+    @Dependency(\.fetchPhotoReactionsUseCase) var fetchPhotoReactionsUseCase
     @Dependency(\.setPhotoReactionUseCase) var setPhotoReactionUseCase
     @Dependency(\.savePhotoUseCase) var savePhotoUseCase
     @Dependency(\.openURL) var openURL
+    @Dependency(\.uuid) var uuid
 
     // MARK: - Reducer
 
@@ -145,7 +160,7 @@ public struct PhotoDetailFeature {
             case let .view(.photoSelected(id)):
                 guard let id, state.photos[id: id] != nil else { return .none }
                 state.selectedPhotoID = id
-                return .none
+                return loadReactions(&state, photoID: id)
 
             case let .view(.adjacentPhotoRequested(offset)):
                 guard
@@ -154,38 +169,44 @@ public struct PhotoDetailFeature {
                 else { return .none }
                 let targetIndex = currentIndex + offset
                 guard state.photos.indices.contains(targetIndex) else { return .none }
-                state.selectedPhotoID = state.photos[targetIndex].id
-                return .none
+                let targetID = state.photos[targetIndex].id
+                state.selectedPhotoID = targetID
+                return loadReactions(&state, photoID: targetID)
 
             case let .photosResponse(.success(photos)):
                 state.isLoading = false
                 state.apply(photos: photos)
-                return .none
+                // 목록엔 리액션이 없다 — 펼쳐진 사진 한 장만 리액션을 지연 조회한다.
+                return loadReactions(&state, photoID: state.selectedPhotoID)
 
             case let .photosResponse(.failure(error)):
                 state.isLoading = false
                 state.alert = Self.errorAlert(title: "사진을 불러오지 못했어요", error: error, canRetry: true)
                 return .none
 
-            case let .reactionSucceeded(request, serverPhoto):
-                state.inFlightReactions.remove(request)
-                guard let current = state.photos[id: serverPhoto.id] else { return .none }
-                var merged = serverPhoto
-                for pending in state.inFlightReactions where pending.photoID == serverPhoto.id {
-                    let isOn = current.hasReaction(pending.kind, by: state.currentUserID)
-                    merged = merged.settingReaction(pending.kind, by: state.currentUserID, isOn: isOn)
+            case let .reactionsResponse(photoID, .success(reactions)):
+                // 조회 사이 사용자가 이 사진에 리액션했으면(로딩이 이미 풀림) 낙관 상태를 서버 값으로 덮지 않는다.
+                guard state.reactionsLoading.contains(photoID) else { return .none }
+                state.reactionsLoading.remove(photoID)
+                state.reactionsLoaded.insert(photoID)
+                if let photo = state.photos[id: photoID] {
+                    state.photos[id: photoID] = photo.applyingReactions(reactions)
                 }
-                state.photos[id: serverPhoto.id] = merged
                 return .none
 
-            case let .reactionFailed(request, error, appliedIsOn):
-                state.inFlightReactions.remove(request)
-                if let photo = state.photos[id: request.photoID] {
-                    state.photos[id: request.photoID] = photo.settingReaction(
-                        request.kind,
-                        by: state.currentUserID,
-                        isOn: !appliedIsOn
-                    )
+            case let .reactionsResponse(photoID, .failure):
+                // 리액션은 비필수라 실패해도 얼럿 없이 둔다. 로드 표시만 풀어 다음에 다시 펼치면 재시도한다.
+                state.reactionsLoading.remove(photoID)
+                return .none
+
+            case .reactionSucceeded:
+                // 서버가 갱신 사진을 주지 않으므로 재조회 없이 낙관적 상태를 그대로 확정한다.
+                return .none
+
+            case let .reactionFailed(photoID, userID, kind, error):
+                // 낙관적으로 붙인 그 종류를 되돌린다(그게 스티커였으면 스티커도 함께 빠진다).
+                if let photo = state.photos[id: photoID] {
+                    state.photos[id: photoID] = photo.removingReaction(kind, by: userID)
                 }
                 state.alert = Self.errorAlert(title: "리액션을 남기지 못했어요", error: error, canRetry: false)
                 return .none
@@ -239,27 +260,57 @@ public struct PhotoDetailFeature {
         }
     }
 
-    /// 서버 응답을 기다리지 않고 화면을 먼저 바꾼다. 실패하면 그 값만 되돌린다.
-    ///
-    /// 진행 중인 요청은 취소하지 않고 무시한다. 취소하면 TCA가 그 응답을 버려서 되돌릴 수 없고,
-    /// 서버에 없는 리액션이 화면에 남기 때문이다.
+    /// 펼친 사진 한 장의 리액션을 지연 조회한다. 목록엔 리액션이 없어 사진을 펼칠 때만 그 한 장을 받는다 —
+    /// 이미 받았거나(`reactionsLoaded`) 받는 중(`reactionsLoading`)이면 건너뛴다(안 본 사진은 요청하지 않음).
+    private func loadReactions(_ state: inout State, photoID: Photo.ID?) -> Effect<Action> {
+        guard
+            let photoID,
+            state.photos[id: photoID] != nil,
+            !state.reactionsLoaded.contains(photoID),
+            !state.reactionsLoading.contains(photoID)
+        else { return .none }
+
+        state.reactionsLoading.insert(photoID)
+
+        return .run { [fetchPhotoReactionsUseCase] send in
+            do {
+                let reactions = try await fetchPhotoReactionsUseCase.run(photoID)
+                await send(.reactionsResponse(photoID: photoID, .success(reactions)))
+            } catch {
+                guard let failure = Self.failure(error) else { return }
+                await send(.reactionsResponse(photoID: photoID, .failure(failure)))
+            }
+        }
+    }
+
+    /// 이모지는 인당 무제한으로 남긴다(정책 #71). 매번 이모지 쏟아지는 애니메이션을 튀우고,
+    /// 그 유저의 **첫 이모지일 때만** 스티커를 낙관적으로 붙인다(나머지는 채팅 히스토리로만 쌓인다).
+    /// 서버가 갱신 사진을 주지 않으므로 재조회하지 않고, 실패하면 방금 붙인 스티커만 되돌린다.
     private func setReaction(_ state: inout State, kind: ReactionKind) -> Effect<Action> {
         guard let photo = state.selectedPhoto else { return .none }
 
-        let request = ReactionRequest(photoID: photo.id, kind: kind)
-        guard !state.inFlightReactions.contains(request) else { return .none }
+        let userID = state.currentUserID
+        let roomID = state.roomID
+        let photoID = photo.id
 
-        let isOn = !photo.hasReaction(kind, by: state.currentUserID)
-        state.inFlightReactions.insert(request)
-        state.photos[id: photo.id] = photo.settingReaction(kind, by: state.currentUserID, isOn: isOn)
+        // 이미 이 종류로 리액션했으면 재탭은 아무 것도 하지 않는다 (애니메이션·전송·띠 변화 없음).
+        // TODO: 리액션 해제 API가 생기면, 이 경우 삭제(토글 off)로 연결한다.
+        guard !photo.hasReacted(kind, by: userID) else { return .none }
+
+        // 낙관 반영: 종류는 칩 띠에 쌓이고, 그 유저의 첫 이모지면 사진 위 스티커로도 붙는다.
+        state.photos[id: photoID] = photo.addingReaction(kind, by: userID)
+        state.reactionBurst = ReactionBurst(id: uuid(), kind: kind)
+        // 이 사진은 이제 낙관 상태가 정답이다 — 진행 중이던 지연 조회 결과가 덮어쓰지 못하게 로딩을 풀고 로드 완료로 표시한다.
+        state.reactionsLoading.remove(photoID)
+        state.reactionsLoaded.insert(photoID)
 
         return .run { [setPhotoReactionUseCase] send in
             do {
-                let updated = try await setPhotoReactionUseCase.run(request.photoID, request.kind, isOn)
-                await send(.reactionSucceeded(request, updated))
+                try await setPhotoReactionUseCase.run(roomID, photoID, kind, true)
+                await send(.reactionSucceeded)
             } catch {
                 guard let failure = Self.failure(error) else { return }
-                await send(.reactionFailed(request, failure, appliedIsOn: isOn))
+                await send(.reactionFailed(photoID: photoID, userID: userID, kind: kind, failure))
             }
         }
     }

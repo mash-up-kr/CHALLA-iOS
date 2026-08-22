@@ -30,7 +30,7 @@
 - `State(room:)` — 홈에서 받은 `Room`을 품고 시작한다. 첫 프레임부터 제목·슬롯 그리드가 그려지고,
   초대 코드·참여자·사진은 진입 후 조회로 채운다
   - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` · `toast` · `alert`
-- `Action.delegate` — `closeTapped` · `shootTapped` · `chatTapped`
+- `Action.delegate` — `closeTapped` · `shootTapped` · `chatTapped` · `photoTapped(Photo.ID)`(사진 슬롯 탭 → 사진 상세)
 - 진입 시 상세와 사진을 병렬 조회한다. 방 상태로 거르지 않는다 — 촬영 중에도 찍은 사진이 필요하고,
   거르면 홈에서 받은 상태가 낡은 경우를 따라잡는 분기가 더 생긴다
 - 상세 조회가 실패하면 홈과 같은 방식으로 얼럿을 띄운다("다시 시도" / "확인").
@@ -59,8 +59,6 @@
 
 - **툴팁** — 시안(5604:19130)의 "초대 코드로 친구를 초대해보세요"가 빠져 있다.
   디자인 시스템에 Tooltip 컴포넌트가 없어 담당자 확인 후 추가한다
-- **슬롯 탭 → 사진 상세** — `Delegate`에 `photoTapped`를 추가하고 App이 `PhotoDetailFeature`를 연다.
-  실서버 구현(`PhotoData`)이 없어 지금 연결하면 빈 화면이라 미룬다
 - **카운트다운 0초 도달 뒤 서버 전환 지연** — 0초에 도달하면 상세·사진을 재조회한다
   (완료 예정 시각에 한 번 깨어나는 알람 이펙트). 재조회 결과가 여전히 인화 대기면
   `0:00:00`을 유지하고 알람은 다시 걸지 않는다 — 그 공백의 처리(재시도 간격 등)는 기획 확인 필요
