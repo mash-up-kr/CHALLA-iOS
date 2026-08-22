@@ -18,12 +18,19 @@ private enum Fixture {
 @MainActor
 struct SettingFeaturePathTests {
 
-    /// 이미 불러온 뒤의 상태 — 하위 화면에 무엇이 시드되는지 볼 때 쓴다.
-    private static func loadedState(theme: AppTheme = Fixture.theme) -> SettingFeature.State {
-        var state = SettingFeature.State()
-        state.profile = Fixture.profile
-        state.theme = theme
-        return state
+    /// 이미 불러온 뒤의 스토어 — 하위 화면에 무엇이 시드되는지 볼 때 쓴다.
+    ///
+    /// 테마 시드와 스토어를 같은 저장소 컨텍스트에서 만든다 (`withThemeStorage` 주석 참고).
+    private static func loadedStore(
+        theme: AppTheme = Fixture.theme,
+        path: (inout StackState<SettingFeature.Path.State>) -> Void = { _ in }
+    ) -> TestStoreOf<SettingFeature> {
+        withThemeStorage(seeding: theme) {
+            var state = SettingFeature.State()
+            state.profile = Fixture.profile
+            path(&state.path)
+            return TestStore(initialState: state) { SettingFeature() }
+        }
     }
 
     // MARK: - 늦게 도착한 프로필
@@ -48,93 +55,68 @@ struct SettingFeaturePathTests {
 
     // MARK: - push
 
-    @Test("테마 행을 누르면 현재 테마를 시드해 테마 화면을 쌓는다")
+    @Test("테마 행을 누르면 테마 화면을 쌓는다 — 시드 없이도 현재 테마가 전달된다")
     func pushesThemeScreen() async {
-        let store = TestStore(initialState: Self.loadedState(theme: .blueberry)) {
-            SettingFeature()
-        }
+        let store = Self.loadedStore(theme: .blueberry)
 
         await store.send(.view(.themeRowTapped)) {
-            $0.path.append(.theme(ThemeFeature.State(selectedTheme: .blueberry)))
+            $0.path.append(.theme(ThemeFeature.State()))
         }
+
+        #expect(store.state.path[id: 0, case: \.theme]?.selectedTheme == .blueberry)
     }
 
-    @Test("알림 행을 누르면 현재 테마를 시드해 알림 화면을 쌓는다")
+    @Test("알림 행을 누르면 알림 화면을 쌓는다")
     func pushesNotificationScreen() async {
-        let store = TestStore(initialState: Self.loadedState(theme: .cider)) {
-            SettingFeature()
-        }
+        let store = Self.loadedStore(theme: .cider)
 
         await store.send(.view(.notificationRowTapped)) {
-            $0.path.append(.notification(NotificationSettingFeature.State(theme: .cider)))
+            $0.path.append(.notification(NotificationSettingFeature.State()))
         }
     }
 
     @Test("계정 관리 행을 누르면 프로필을 시드해 계정 화면을 쌓는다")
     func pushesAccountScreen() async {
-        let store = TestStore(initialState: Self.loadedState()) {
-            SettingFeature()
-        }
+        let store = Self.loadedStore()
 
         await store.send(.view(.accountRowTapped)) {
             $0.path.append(.account(AccountFeature.State(profile: Fixture.profile)))
         }
     }
 
-    @Test("테마를 아직 읽지 못했으면 기본 테마를 시드한다 — 하위 화면이 빈 값을 받으면 안 된다")
-    func seedsDefaultThemeBeforeLoading() async {
-        let store = TestStore(initialState: SettingFeature.State()) {
-            SettingFeature()
+    @Test("고른 적이 없으면 기본 테마가 보인다")
+    func showsDefaultThemeWhenNeverPicked() {
+        let store = withThemeStorage {
+            TestStore(initialState: SettingFeature.State()) { SettingFeature() }
         }
 
-        await store.send(.view(.themeRowTapped)) {
-            $0.path.append(.theme(ThemeFeature.State(selectedTheme: .default)))
-        }
+        #expect(store.state.theme == .default)
+        #expect(store.state.themeDisplayName == "레몬에이드")
     }
 
-    // MARK: - 테마 화면 delegate
+    // MARK: - 테마 화면과의 연결
 
-    @Test("테마 화면에서 고른 값으로 표시값을 갈아끼우고 저장한다")
-    func savesThemeSelectedByChild() async {
-        let saved = LockIsolated<[AppTheme]>([])
-        let store = TestStore(initialState: Self.loadedState(theme: .blueberry)) {
-            SettingFeature()
-        } withDependencies: {
-            $0.selectThemeUseCase = SelectThemeUseCase(run: { theme in
-                saved.withValue { $0.append(theme) }
-            })
-        }
+    @Test("테마 화면에서 고르면 설정 화면 표시값도 함께 바뀐다")
+    func reflectsThemeSelectedByChild() async {
+        let store = Self.loadedStore(theme: .blueberry)
 
         await store.send(.view(.themeRowTapped)) {
-            $0.path.append(.theme(ThemeFeature.State(selectedTheme: .blueberry)))
+            $0.path.append(.theme(ThemeFeature.State()))
         }
         await store.send(.path(.element(id: 0, action: .theme(.view(.themeTapped(.orange)))))) {
-            $0.path[id: 0, case: \.theme]?.selectedTheme = .orange
+            $0.$theme.withLock { $0 = .orange }
         }
-        // 재조회 없이 표시값만 갈아끼운다.
-        await store.receive(\.path[id: 0].theme.delegate.themeChanged, .orange) {
-            $0.theme = .orange
-        }
-        await store.finish()
 
+        // delegate도 저장 이펙트도 없다. 자식이 쓴 값을 부모가 그대로 읽는다.
         #expect(store.state.themeDisplayName == "오렌지")
-        // 저장은 부모가 한다 — 테마 화면이 pop돼도 이펙트가 취소되지 않아야 한다.
-        #expect(saved.value == [.orange])
     }
 
     @Test("테마 화면이 스택에서 빠진 뒤에도 고른 값이 남는다")
     func keepsThemeAfterChildPops() async {
-        var state = Self.loadedState()
-        state.path.append(.theme(ThemeFeature.State(selectedTheme: .blueberry)))
+        let store = Self.loadedStore { $0.append(.theme(ThemeFeature.State())) }
 
-        let store = TestStore(initialState: state) {
-            SettingFeature()
-        } withDependencies: {
-            $0.selectThemeUseCase = SelectThemeUseCase(run: { _ in })
-        }
-
-        await store.send(.path(.element(id: 0, action: .theme(.delegate(.themeChanged(.raspberry)))))) {
-            $0.theme = .raspberry
+        await store.send(.path(.element(id: 0, action: .theme(.view(.themeTapped(.raspberry)))))) {
+            $0.$theme.withLock { $0 = .raspberry }
         }
         await store.send(.path(.popFrom(id: 0))) {
             $0.path.removeAll()
@@ -168,12 +150,7 @@ struct SettingFeaturePathTests {
 
     /// 계정 화면이 이미 쌓여 있는 스토어.
     private static func storeWithAccountPath() -> TestStoreOf<SettingFeature> {
-        var state = loadedState()
-        state.path.append(.account(AccountFeature.State(profile: Fixture.profile)))
-
-        return TestStore(initialState: state) {
-            SettingFeature()
-        }
+        loadedStore { $0.append(.account(AccountFeature.State(profile: Fixture.profile))) }
     }
 }
 

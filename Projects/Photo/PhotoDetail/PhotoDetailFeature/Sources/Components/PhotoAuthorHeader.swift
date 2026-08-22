@@ -8,6 +8,8 @@ struct PhotoAuthorHeader: View {
 
     // MARK: - 프로퍼티
 
+    @Environment(\.challaTheme) private var theme
+
     let author: PhotoAuthor
     let capturedAt: Date
 
@@ -31,7 +33,7 @@ struct PhotoAuthorHeader: View {
 
             Text(Self.formatted(capturedAt))
                 .challaFont(.body.small.medium)
-                .foregroundStyle(CHALLAColor.defaultTheme)
+                .foregroundStyle(theme.accent)
         }
         .accessibilityElement(children: .combine)
     }

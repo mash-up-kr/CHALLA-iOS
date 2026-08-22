@@ -8,43 +8,32 @@ struct ThemeFeatureTests {
 
     // MARK: - 선택
 
-    @Test("다른 테마를 고르면 체크가 옮겨가고 부모에게 알린다")
+    @Test("다른 테마를 고르면 체크가 옮겨간다")
     func selectsAnotherTheme() async {
-        let store = TestStore(initialState: ThemeFeature.State(selectedTheme: .lemonade)) {
+        let store = TestStore(initialState: ThemeFeature.State()) {
             ThemeFeature()
         }
 
         await store.send(.view(.themeTapped(.blueberry))) {
-            $0.selectedTheme = .blueberry
+            $0.$selectedTheme.withLock { $0 = .blueberry }
         }
-        await store.receive(\.delegate.themeChanged, .blueberry)
     }
 
-    @Test("같은 테마를 다시 고르면 알릴 변화가 없다")
+    @Test("같은 테마를 다시 고르면 남는 변화가 없다")
     func ignoresSameTheme() async {
-        let store = TestStore(initialState: ThemeFeature.State(selectedTheme: .blueberry)) {
+        let store = TestStore(initialState: ThemeFeature.State()) {
             ThemeFeature()
         }
 
-        await store.send(.view(.themeTapped(.blueberry))) // 상태 변화도 delegate도 없다
-    }
-
-    @Test("연달아 고르면 마지막 선택이 남고 고를 때마다 알린다 — 그 자리에서 다시 고를 수 있다")
-    func keepsLastSelection() async {
-        let store = TestStore(initialState: ThemeFeature.State(selectedTheme: .lemonade)) {
-            ThemeFeature()
+        await store.send(.view(.themeTapped(.blueberry))) {
+            $0.$selectedTheme.withLock { $0 = .blueberry }
         }
-
-        await store.send(.view(.themeTapped(.orange))) { $0.selectedTheme = .orange }
-        await store.receive(\.delegate.themeChanged, .orange)
-
-        await store.send(.view(.themeTapped(.cider))) { $0.selectedTheme = .cider }
-        await store.receive(\.delegate.themeChanged, .cider)
+        await store.send(.view(.themeTapped(.blueberry))) // 이미 그 값이라 바뀌는 게 없다
     }
 
     @Test("테마를 골라도 화면을 닫지 않는다 — 체크만 옮기고 머문다")
     func staysAfterSelection() async {
-        let store = TestStore(initialState: ThemeFeature.State(selectedTheme: .lemonade)) {
+        let store = TestStore(initialState: ThemeFeature.State()) {
             ThemeFeature()
         } withDependencies: {
             $0.dismiss = DismissEffect {
@@ -52,8 +41,24 @@ struct ThemeFeatureTests {
             }
         }
 
-        await store.send(.view(.themeTapped(.raspberry))) { $0.selectedTheme = .raspberry }
-        await store.receive(\.delegate.themeChanged, .raspberry)
+        await store.send(.view(.themeTapped(.raspberry))) {
+            $0.$selectedTheme.withLock { $0 = .raspberry }
+        }
+    }
+
+    // MARK: - 저장소 연결
+
+    @Test("고른 값이 저장소에 남는다 — 화면을 다시 열어도 체크가 유지된다")
+    func selectionPersistsToNewState() async {
+        let store = TestStore(initialState: ThemeFeature.State()) {
+            ThemeFeature()
+        }
+
+        await store.send(.view(.themeTapped(.acaiBowl))) {
+            $0.$selectedTheme.withLock { $0 = .acaiBowl }
+        }
+
+        #expect(ThemeFeature.State().selectedTheme == .acaiBowl)
     }
 
     // MARK: - 뒤로가기
@@ -61,7 +66,7 @@ struct ThemeFeatureTests {
     @Test("뒤로가기를 누르면 스스로 스택에서 빠진다")
     func dismissesOnBack() async {
         let dismissCount = LockIsolated(0)
-        let store = TestStore(initialState: ThemeFeature.State(selectedTheme: .lemonade)) {
+        let store = TestStore(initialState: ThemeFeature.State()) {
             ThemeFeature()
         } withDependencies: {
             $0.dismiss = DismissEffect { dismissCount.withValue { $0 += 1 } }

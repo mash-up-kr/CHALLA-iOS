@@ -3,8 +3,8 @@ import DependenciesMacros
 
 /// 설정 화면 헤더에 띄울 프로필을 불러온다.
 ///
-/// 테마는 여기 없다 — 로컬이라 실패하지 않는 값을 네트워크로 실패하는 프로필과 한 묶음으로 두면
-/// 프로필이 실패할 때 테마까지 함께 사라진다. 테마는 `LoadThemeUseCase`로 따로 읽는다.
+/// 테마는 여기 없다 — `SettingFeature`의 `@Shared(.appTheme)`가 저장소를 직접 읽어
+/// 불러오는 단계 자체가 없고, 프로필 조회 실패에 끌려가지도 않는다.
 @DependencyClient
 public struct LoadProfileUseCase: Sendable {
     public var run: @Sendable () async throws -> SettingProfile

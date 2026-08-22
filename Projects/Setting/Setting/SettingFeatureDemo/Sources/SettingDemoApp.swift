@@ -20,6 +20,9 @@ struct SettingDemoApp: App {
 
     init() {
         let arguments = DemoLaunchArguments()
+        AppThemeStorageKey.migrateIfNeeded()
+        // State를 만들기 전에 덮어써야 첫 화면부터 인자값이 보인다.
+        CompositionRoot.forceThemeIfRequested(arguments)
         _store = State(
             initialValue: Store(initialState: Self.initialState(for: arguments)) {
                 SettingFeature()._printChanges()
@@ -48,10 +51,10 @@ struct SettingDemoApp: App {
             break
 
         case .theme:
-            state.path.append(.theme(ThemeFeature.State(selectedTheme: arguments.theme)))
+            state.path.append(.theme(ThemeFeature.State()))
 
         case .notification:
-            state.path.append(.notification(NotificationSettingFeature.State(theme: arguments.theme)))
+            state.path.append(.notification(NotificationSettingFeature.State()))
 
         case .account:
             state.path.append(.account(accountState(for: arguments.state)))

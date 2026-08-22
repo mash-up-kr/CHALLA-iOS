@@ -6,6 +6,8 @@ struct PhotoPageIndicator: View {
 
     // MARK: - 프로퍼티
 
+    @Environment(\.challaTheme) private var theme
+
     let count: Int
     let currentIndex: Int
 
@@ -15,7 +17,7 @@ struct PhotoPageIndicator: View {
         HStack(spacing: Metric.spacing) {
             ForEach(PhotoPageWindow.indices(count: count, current: currentIndex), id: \.self) { index in
                 Circle()
-                    .fill(index == currentIndex ? CHALLAColor.defaultTheme : CHALLAColor.Label.disabled)
+                    .fill(index == currentIndex ? theme.accent : CHALLAColor.Label.disabled)
                     .frame(width: diameter(at: index), height: diameter(at: index))
             }
         }

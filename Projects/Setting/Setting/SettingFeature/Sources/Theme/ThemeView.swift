@@ -94,7 +94,7 @@ private enum Metric {
 
 #Preview {
     ThemeView(
-        store: Store(initialState: ThemeFeature.State(selectedTheme: .lemonade)) {
+        store: Store(initialState: ThemeFeature.State()) {
             ThemeFeature()
         }
     )
