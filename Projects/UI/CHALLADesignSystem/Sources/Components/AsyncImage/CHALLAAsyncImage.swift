@@ -46,11 +46,15 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
                 placeholder()
             }
         }
-        .onGeometryChange(for: CGSize.self) { proxy in
-            proxy.size
-        } action: { newSize in
-            measuredSize = ImageLoadSize.quantized(newSize)
-        }
+        // 크기 측정: GeometryReader + onChange(initial:)로 레이아웃 시점에 확실히 잡는다.
+        // (onGeometryChange는 페이지 TabView 첫 페이지에서 콜백이 안 와 이미지가 안 뜨는 경우가 있었다 — iOS 27)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.onChange(of: proxy.size, initial: true) {
+                    measuredSize = ImageLoadSize.quantized(proxy.size)
+                }
+            }
+        )
         // 크기는 id에 넣지 않는다 — 넣으면 배치가 다시 잡힐 때마다 로드를 새로 걸어,
         // 칸이 많은 화면에서는 한 장당 여러 번 호출되며 로더가 밀린다.
         .task(id: LoadInput(url: url, isMeasured: isMeasured, scale: displayScale)) {

@@ -4,6 +4,7 @@ import CameraSession
 import ComposableArchitecture
 import HomeFeature
 import LoginFeature
+import PhotoDetailFeature
 import ProfileSetupFeature
 import RoomDetailFeature
 import RoomDomain
@@ -24,6 +25,7 @@ public struct AppFeature {
         case profileSetup(ProfileSetupFeature.State)
         case home(HomeScreen)
         case roomDetail(RoomDetailScreen)
+        case photoDetail(PhotoDetailScreen)
         case setting(SettingScreen)
         case profileEdit(ProfileEditScreen)
         case camera(CameraScreen)
@@ -36,6 +38,7 @@ public struct AppFeature {
             case .profileSetup: return .profileSetup
             case .home: return .home
             case .roomDetail: return .roomDetail
+            case .photoDetail: return .photoDetail
             case .setting: return .setting
             case .profileEdit: return .profileEdit
             case .camera: return .camera
@@ -43,7 +46,7 @@ public struct AppFeature {
         }
 
         public enum ScreenID: Equatable, Sendable {
-            case launching, login, profileSetup, home, roomDetail, setting, profileEdit, camera
+            case launching, login, profileSetup, home, roomDetail, photoDetail, setting, profileEdit, camera
         }
     }
 
@@ -144,6 +147,7 @@ public struct AppFeature {
         case profileSetup(ProfileSetupFeature.Action)
         case home(HomeFeature.Action)
         case roomDetail(RoomDetailFeature.Action)
+        case photoDetail(PhotoDetailFeature.Action)
         case setting(SettingFeature.Action)
         case profileEdit(ProfileSetupFeature.Action)
         case camera(LiveCameraFeature.Action)
@@ -164,6 +168,49 @@ public struct AppFeature {
     // MARK: - Body
 
     public var body: some ReducerOf<Self> {
+        core
+            .ifCaseLet(\.login, action: \.login) {
+                LoginFeature()
+            }
+            .ifCaseLet(\.profileSetup, action: \.profileSetup) {
+                ProfileSetupFeature()
+            }
+            // 래퍼(HomeScreen·SettingScreen·ProfileEditScreen)를 한 겹 벗겨 자식 리듀서에 넘긴다.
+            .ifCaseLet(\.home, action: \.home) {
+                Scope(state: \.home, action: \.self) {
+                    HomeFeature()
+                }
+            }
+            .ifCaseLet(\.roomDetail, action: \.roomDetail) {
+                Scope(state: \.roomDetail, action: \.self) {
+                    RoomDetailFeature()
+                }
+            }
+            .ifCaseLet(\.photoDetail, action: \.photoDetail) {
+                Scope(state: \.photoDetail, action: \.self) {
+                    PhotoDetailFeature()
+                }
+            }
+            .ifCaseLet(\.setting, action: \.setting) {
+                Scope(state: \.setting, action: \.self) {
+                    SettingFeature()
+                }
+            }
+            .ifCaseLet(\.profileEdit, action: \.profileEdit) {
+                Scope(state: \.edit, action: \.self) {
+                    ProfileSetupFeature()
+                }
+            }
+            .ifCaseLet(\.camera, action: \.camera) {
+                Scope(state: \.live, action: \.self) {
+                    LiveCameraFeature()
+                }
+            }
+    }
+
+    /// 상태 전이 코어. `.ifCaseLet` 체인과 한 표현식에 두면 타입 추론이 오래 걸려(특히 Xcode 27)
+    /// 코어를 별도 프로퍼티로 분리해 빌더 표현식을 가볍게 만든다.
+    private var core: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
             case .task:
@@ -236,6 +283,26 @@ public struct AppFeature {
                 // TODO: 채팅 모듈이 생기면 연결한다.
                 return .none
 
+            // 슬롯의 사진을 탭 — 그 사진을 펼친 채 사진 상세로 들어간다.
+            case let .roomDetail(.delegate(.photoTapped(photoID))):
+                guard case let .roomDetail(screen) = state else { return .none }
+                state = .photoDetail(
+                    PhotoDetailScreen(
+                        profile: screen.profile,
+                        room: screen.roomDetail.room,
+                        initialPhotoID: photoID
+                    )
+                )
+                return .none
+
+            // MARK: - 사진 상세 delegate
+
+            case .photoDetail(.delegate(.closeRequested)):
+                guard case let .photoDetail(screen) = state else { return .none }
+                // 방 상세를 다시 만든다 — 상세로 돌아가면 사진·리액션을 새로 조회해 최신 상태를 그린다.
+                state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: screen.room))
+                return .none
+
             // 홈이 방·필터·카메라 권한을 모두 갖춘 뒤에만 오는 요청이라 여기서 바로 띄운다.
             case let .home(.delegate(.cameraRequested(entry))):
                 guard case let .home(screen) = state else { return .none }
@@ -279,41 +346,39 @@ public struct AppFeature {
                 state = .setting(SettingScreen(profile: screen.profile))
                 return .none
 
-            case .login, .profileSetup, .home, .roomDetail, .setting, .profileEdit, .camera:
+            case .login, .profileSetup, .home, .roomDetail, .photoDetail, .setting, .profileEdit, .camera:
                 return .none
             }
         }
-        .ifCaseLet(\.login, action: \.login) {
-            LoginFeature()
-        }
-        .ifCaseLet(\.profileSetup, action: \.profileSetup) {
-            ProfileSetupFeature()
-        }
-        // 래퍼(HomeScreen·SettingScreen·ProfileEditScreen)를 한 겹 벗겨 자식 리듀서에 넘긴다.
-        .ifCaseLet(\.home, action: \.home) {
-            Scope(state: \.home, action: \.self) {
-                HomeFeature()
-            }
-        }
-        .ifCaseLet(\.roomDetail, action: \.roomDetail) {
-            Scope(state: \.roomDetail, action: \.self) {
-                RoomDetailFeature()
-            }
-        }
-        .ifCaseLet(\.setting, action: \.setting) {
-            Scope(state: \.setting, action: \.self) {
-                SettingFeature()
-            }
-        }
-        .ifCaseLet(\.profileEdit, action: \.profileEdit) {
-            Scope(state: \.edit, action: \.self) {
-                ProfileSetupFeature()
-            }
-        }
-        .ifCaseLet(\.camera, action: \.camera) {
-            Scope(state: \.live, action: \.self) {
-                LiveCameraFeature()
-            }
+    }
+}
+
+// MARK: - PhotoDetailScreen
+
+public extension AppFeature {
+
+    /// 사진 상세 화면 State + 뒤로 갈 때 복원할 방·프로필.
+    ///
+    /// `State`가 enum이라 사진 상세로 오면 방 상세 State가 사라진다. 뒤로가기로 방 상세를 다시 만들 때
+    /// 쓸 방과 프로필을 여기 맡아 둔다 (방 상세→홈 복귀가 프로필을 들고 다니는 것과 같은 이유).
+    @ObservableState
+    struct PhotoDetailScreen: Equatable {
+        public var profile: UserProfile
+        public var room: Room
+        public var photoDetail: PhotoDetailFeature.State
+
+        public init(profile: UserProfile, room: Room, initialPhotoID: String) {
+            self.profile = profile
+            self.room = room
+            self.photoDetail = PhotoDetailFeature.State(
+                roomID: room.id,
+                roomTitle: room.title,
+                // 리액션을 남기는 주체 = 지금 보는 사람. PhotoReaction.userID(String)와 맞춘다.
+                currentUserID: String(profile.id),
+                // 인화 완료 전이면 방 상세처럼 사진을 blur로 가린다.
+                isPrinted: room.status == .printed,
+                initialPhotoID: initialPhotoID
+            )
         }
     }
 }

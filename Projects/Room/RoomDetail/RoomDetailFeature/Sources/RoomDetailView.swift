@@ -66,16 +66,22 @@ public struct RoomDetailView: View {
     @ViewBuilder
     private func slot(number: Int) -> some View {
         if number <= store.photos.count {
-            CHALLAAsyncImage(url: store.photos[number - 1].imageURL) { image in
-                CHALLAFilmCard(
-                    variant: store.room.status == .printed
-                        ? .printed(photo: image)
-                        : .printing(photo: image),
-                    slotNumber: number
-                )
-            } placeholder: {
-                loadingSlot
+            let photo = store.photos[number - 1]
+            Button {
+                send(.photoTapped(photo.id))
+            } label: {
+                CHALLAAsyncImage(url: photo.imageURL) { image in
+                    CHALLAFilmCard(
+                        variant: store.room.status == .printed
+                            ? .printed(photo: image)
+                            : .printing(photo: image),
+                        slotNumber: number
+                    )
+                } placeholder: {
+                    loadingSlot
+                }
             }
+            .buttonStyle(.plain)
         } else {
             CHALLAFilmCard(variant: .beforeCapture, slotNumber: number)
         }

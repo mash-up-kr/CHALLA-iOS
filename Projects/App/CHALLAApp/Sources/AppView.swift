@@ -3,6 +3,7 @@ import CameraSession
 import ComposableArchitecture
 import HomeFeature
 import LoginFeature
+import PhotoDetailFeature
 import ProfileSetupFeature
 import RoomDetailFeature
 import SettingFeature
@@ -56,6 +57,11 @@ public struct AppView: View {
             case .roomDetail:
                 if let roomDetailStore = store.scope(state: \.roomDetail?.roomDetail, action: \.roomDetail) {
                     RoomDetailView(store: roomDetailStore)
+                }
+
+            case .photoDetail:
+                if let photoDetailStore = store.scope(state: \.photoDetail?.photoDetail, action: \.photoDetail) {
+                    PhotoDetailView(store: photoDetailStore)
                 }
 
             case .setting:

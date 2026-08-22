@@ -46,6 +46,13 @@ public struct PhotoDetailView: View {
             photoArea
                 .padding(.top, Metric.photoTopPadding)
                 .padding(.horizontal, Metric.photoHorizontalPadding)
+                // 리액션을 남기면 이모지가 사진 위로 쏟아진다. id가 바뀔 때마다 처음부터 다시 튄다.
+                .overlay {
+                    if let burst = store.reactionBurst {
+                        ReactionBurstView(kind: burst.kind)
+                            .id(burst.id)
+                    }
+                }
                 // 화면이 작아도 Spacer보다 사진 크기를 먼저 지킨다.
                 .layoutPriority(1)
 
@@ -73,22 +80,24 @@ public struct PhotoDetailView: View {
     }
 
     private var pager: some View {
-        // TabView는 주어진 공간을 모두 채우므로, 비율만 지정한 빈 뷰로 크기를 고정한다.
-        Color.clear
-            .aspectRatio(PhotoCard.aspectRatio, contentMode: .fit)
-            .overlay {
-                TabView(selection: selection) {
-                    ForEach(store.photos) { photo in
-                        PhotoCard(photo: photo, slots: store.stickerSlots)
-                            .tag(Optional(photo.id))
-                    }
+        // GeometryReader로 페이지 크기를 확정해 각 PhotoCard에 명시적 frame으로 준다.
+        // 페이지 TabView(.page)는 처음 보이는 페이지에 크기 측정 콜백을 늦게 태워,
+        // CHALLAAsyncImage가 크기를 못 재 첫 진입에 빈 화면이 되던 문제를 막는다.
+        GeometryReader { proxy in
+            TabView(selection: selection) {
+                ForEach(store.photos) { photo in
+                    PhotoCard(photo: photo, slots: store.stickerSlots, blurred: !store.isPrinted)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .tag(Optional(photo.id))
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                // 페이지 TabView는 VoiceOver에 사진을 넘길 방법을 주지 않는다.
-                .accessibilityElement(children: .contain)
-                .accessibilityAction(named: Text("다음 사진")) { send(.adjacentPhotoRequested(offset: 1)) }
-                .accessibilityAction(named: Text("이전 사진")) { send(.adjacentPhotoRequested(offset: -1)) }
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            // 페이지 TabView는 VoiceOver에 사진을 넘길 방법을 주지 않는다.
+            .accessibilityElement(children: .contain)
+            .accessibilityAction(named: Text("다음 사진")) { send(.adjacentPhotoRequested(offset: 1)) }
+            .accessibilityAction(named: Text("이전 사진")) { send(.adjacentPhotoRequested(offset: -1)) }
+        }
+        .aspectRatio(PhotoCard.aspectRatio, contentMode: .fit)
     }
 
     /// 사진이 없을 때의 빈 자리. 로딩 중이면 스피너, 끝났으면 안내 문구를 얹는다.
@@ -168,7 +177,8 @@ public struct PhotoDetailView: View {
     }
 
     private func selectedKinds(of photo: Photo) -> Set<ReactionKind> {
-        Set(photo.reactions.filter { $0.userID == store.currentUserID }.map(\.kind))
+        // 스티커는 첫 이모지 하나지만, 칩 띠는 내가 이 사진에 누른 종류 전부에 켜진다(서버 재조회 시에도 복원).
+        photo.reactedKinds(by: store.currentUserID)
     }
 }
 
@@ -213,6 +223,7 @@ private enum Metric {
                     )
                 }
             })
+            $0.fetchPhotoReactionsUseCase = .previewValue
         }
     )
 }
