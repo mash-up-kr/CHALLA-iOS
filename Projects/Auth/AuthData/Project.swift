@@ -27,9 +27,9 @@ let project = Project(
             deploymentTargets: Environment.deploymentTarget,
             infoPlist: .default,
             sources: ["Tests/**"],
-            // .network: Tests/Support의 MockHTTPClient가 CHALLANetwork 타입을 직접 import한다.
+            // .networkTesting: 공용 MockHTTPClient. .network: 테스트가 NetworkError·Response를 직접 만든다.
             // .keychain: KeychainTokenStoreTests가 Keychain 프로토콜을 목으로 끼운다.
-            dependencies: [.target(name: "AuthData"), .authDomain, .network, .keychain]
+            dependencies: [.target(name: "AuthData"), .authDomain, .network, .networkTesting, .keychain]
         )
     ]
 )

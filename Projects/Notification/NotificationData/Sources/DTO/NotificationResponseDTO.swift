@@ -10,7 +10,3 @@ struct TestPushResponseDTO: Decodable, Sendable {
         let sentCount: Int
     }
 }
-
-/// 토큰 등록·해제처럼 돌려받을 값이 없는 응답에 쓰는 빈 타입.
-/// 서버가 `data` 키를 아예 보내지 않지만 `BaseResponseDTO.data`가 옵셔널이라 디코딩된다.
-struct EmptyResponseDTO: Decodable, Sendable {}

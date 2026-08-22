@@ -51,6 +51,10 @@ Repository에 주입해도 안전하다. `Response`는 비-Sendable `HTTPURLResp
   갱신된 토큰이 새 요청에 실린다. 요청 조립(`asURLRequest`)은 결과가 같으므로 루프 밖에서 한 번만 한다
 - `struct Response` — `statusCode` · `data` · `request` · `headers` + `filter(statusCodes:)` · `filterSuccessfulStatusCodes()` · `map(_:using:)`
 
+### 공통 응답 DTO (Data가 공유)
+- `struct BaseResponseDTO<Payload>` — 서버 공통 봉투 `{ success, message, data }`. `unwrap(orServerError:)` · `ensureSuccess(orServerError:)`로 검사하며, 실패 시 던질 도메인 오류는 호출 모듈이 클로저로 넘긴다. 각 Data 모듈은 자기 오류를 묶은 무인자 `unwrap()` / `ensureSuccess()` 확장을 둔다.
+- `struct EmptyResponseDTO` — 페이로드가 없는(무시하는) 응답용 (`BaseResponseDTO<EmptyResponseDTO>` + `ensureSuccess()`).
+
 ### 인터셉터 · 인증 · 오류
 - `protocol Interceptor` — `adapt` · `willSend` · `didReceive` (모두 기본 구현 있음)
 - `struct AuthInterceptor` · `struct LoggingInterceptor`
@@ -140,7 +144,7 @@ let client = DefaultHTTPClient(
 ## 의존성
 
 - **이 모듈이 의존**: 없음 (`Foundation` · `os`만 사용, 외부 패키지 0)
-- **이 모듈에 의존**: `*Data` 모듈들 (RoomData · PhotoData · AuthData · UserData · SettingData 등)
+- **이 모듈에 의존**: `*Data` 모듈들 (RoomData · PhotoData · AuthData · UserData · SettingData 등) · 테스트 지원 모듈 `CHALLANetworkTesting`
 - **연결**: `TokenProvider` 구현(`AuthData`)과 `HTTPClient` 주입은 조립 지점(앱 타깃의 `CompositionRoot`)이 담당
 
 ## 테스트 실행 방법
@@ -150,6 +154,7 @@ mise exec -- tuist test CHALLANetwork
 ```
 
 Swift Testing 기반 테스트 (7 suite) — Swift 6 언어 모드에서 통과:
+- `BaseResponseDTOTests` — 공용 봉투의 `unwrap`/`ensureSuccess`(성공·`success=false`·`data` 누락, 클로저 오류에 서버 메시지 전달)
 - `URLEncodingTests` — 쿼리 인코딩·이스케이프·빈 파라미터
 - `EndpointRequestTests` — Endpoint → URLRequest 변환 (plain·data·JSON·params·multipart)
 - `ResponseTests` — 상태 코드 필터·디코딩·오류 매핑
