@@ -15,7 +15,7 @@
 
 | 단계 | 다음 |
 | :-- | :-- |
-| `launching` | 저장 세션 없음 → `login` / 있으면 프로필 조회 → 성공 시 `home`·`profileSetup`, 실패 시 `login` |
+| `launching` | 버전 체크 → 강제 업데이트 필요 시 `forceUpdate` / 불필요 시 세션 복원 → 저장 세션 없음이면 `login`, 있으면 프로필 조회 → `home`·`profileSetup` / 실패 → `login` |
 | (모든 화면) | 세션 만료 알림 → `login` (이미 `login`이면 무시) |
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `home` |
@@ -23,6 +23,7 @@
 | `roomDetail` | `closeTapped` → `home`(새 State) — 촬영·채팅은 붙일 화면이 아직 없어 TODO |
 | `setting` | `backRequested` → `home` / `editProfileRequested` → `profileEdit` / `signedOut`·`accountDeleted` → `login` |
 | `profileEdit` | `editCompleted` → `setting`(새 State) / `cancelled` → `setting` |
+| `forceUpdate` | **나가는 전이 없음** — 앱 업데이트만 가능 |
 
 `roomDetail`·`setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을
 표시하는데 뒤로 나올 때 재조회 없이 바로 그려야 한다.
@@ -33,9 +34,20 @@
 방 상세에서 나올 때도 `HomeFeature.State`를 **새로 만든다.** 그 방에서 사진을 찍고 나왔을 수 있어
 목록을 다시 조회해야 한다.
 
+## 버전 체크와 강제 업데이트
+
+실행 직후 `CheckAppUpdateUseCase`(`AppDomain`)로 버전을 체크한다 — 실구현은 `AppData.DefaultAppVersionRepository`
+(`GET /api/v1/app/version`)이고 `CompositionRoot.registerAppUpdate`가 잇는다. 체크 실패는 **fail-open 정책**으로
+`.notRequired`로 취급해 정상 진행하고, 강제 업데이트 필요 시만 `forceUpdate` state에 멈춘다.
+`forceUpdate`는 **terminal state**이다 — 앱을 업데이트하거나 종료해야만 벗어난다.
+응답에 실려 온 스토어 주소를 `forceUpdate(storeURL:)`에 담아 두고 알럿 '확인'이 연다 (nil이면 아무 것도 안 한다).
+
+버전 체크만 공용 `HTTPClient`를 쓰지 않는다 — 로그인 전이라 토큰이 필요 없고,
+스플래시를 잡아 두는 호출이라 타임아웃 3초짜리 전용 세션을 쓴다 (`registerAppUpdate` 주석 참고).
+
 ## 자동 로그인 · 토큰 갱신
 
-`AppFeature.task`가 두 가지를 동시에 시작한다.
+버전 체크를 통과한 뒤에 두 가지를 동시에 시작한다 — 강제 업데이트로 막힌 화면에서는 아무것도 조회하지 않는다.
 
 1. **자동 로그인** — `RestoreSessionUseCase`로 저장된 세션을 먼저 확인한다.
    없으면 프로필 조회를 아예 보내지 않고 `login`으로 간다 (비로그인 상태에서 실패할 요청을 재시도 백오프까지
