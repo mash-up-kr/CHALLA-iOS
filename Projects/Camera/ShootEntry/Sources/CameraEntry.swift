@@ -2,7 +2,7 @@ import ComposableArchitecture
 import PhotoDomain
 import RoomDomain
 
-/// 카메라 화면을 띄우는 데 필요한 재료 한 벌. 홈이 미리 받아 App에 넘긴다 —
+/// 카메라 화면을 띄우는 데 필요한 재료 한 벌. 진입 버튼이 미리 받아 App에 넘긴다 —
 /// 카메라 화면은 목록을 스스로 조회하지 않기 때문이다 (`CameraFeature` MODULE.md 참고).
 public struct CameraEntry: Equatable, Sendable {
 
@@ -38,16 +38,18 @@ extension Error {
     }
 }
 
-extension ShootPreparationError {
+public extension ShootPreparationError {
 
     // TODO: 얼럿 제목·버튼 문구는 임의 작성본 — 기획 정책 확정 시 교체할 것.
-    var alert: AlertState<HomeFeature.Action.Alert> {
+    /// 실패 안내 얼럿. 진입 버튼이 홈에도 방 상세에도 있어 문구를 여기서 한 벌로 둔다 —
+    /// 얼럿 액션 타입은 화면마다 달라 설정 열기 액션만 받아 끼운다.
+    func alert<Action>(openSettings: Action) -> AlertState<Action> {
         switch self {
         case .cameraPermissionDenied:
             AlertState {
                 TextState("카메라 접근이 필요해요")
             } actions: {
-                ButtonState(action: .openSettingsTapped) { TextState("설정 열기") }
+                ButtonState(action: openSettings) { TextState("설정 열기") }
                 ButtonState(role: .cancel) { TextState("나중에") }
             } message: {
                 TextState("사진을 찍으려면 설정에서 카메라 접근을 허용해 주세요.")
@@ -58,7 +60,7 @@ extension ShootPreparationError {
             AlertState {
                 TextState("사진첩 접근이 필요해요")
             } actions: {
-                ButtonState(action: .openSettingsTapped) { TextState("설정 열기") }
+                ButtonState(action: openSettings) { TextState("설정 열기") }
                 ButtonState(role: .cancel) { TextState("나중에") }
             } message: {
                 TextState("촬영한 사진을 저장하려면 설정에서 사진첩 접근을 허용해 주세요.")
