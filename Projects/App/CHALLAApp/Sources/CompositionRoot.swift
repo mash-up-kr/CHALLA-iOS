@@ -198,8 +198,9 @@ enum CompositionRoot {
         let clearImageCache: @Sendable () async -> Void
     }
 
-    /// 테마·알림은 기기에 저장하고, 프로필·계정은 다른 aggregate를 어댑터로 잇는다
+    /// 알림은 기기에 저장하고, 프로필·계정은 다른 aggregate를 어댑터로 잇는다
     /// (`Sources/Adapters/` 두 파일의 주석 참고).
+    /// 테마는 여기 없다 — `@Shared(.appTheme)`가 저장소와 직접 이어져 있어 조립할 것이 없다.
     private static func registerSetting(
         into values: inout DependencyValues,
         using collaborators: SettingCollaborators
@@ -221,8 +222,6 @@ enum CompositionRoot {
         )
 
         values.loadProfileUseCase = .live(profile: profile)
-        values.loadThemeUseCase = .live(settings: settings)
-        values.selectThemeUseCase = .live(settings: settings)
         values.loadNotificationSettingsUseCase = .live(settings: settings, permission: permission)
         values.openSystemNotificationSettingsUseCase = .live(permission: permission)
         values.signOutUseCase = .live(account: account)

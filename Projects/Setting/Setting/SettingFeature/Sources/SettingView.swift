@@ -82,13 +82,12 @@ public struct SettingView: View {
 
     private var appSettingCard: some View {
         CHALLAListSection("앱 설정") {
-            // 값 글자는 고른 테마 색으로 칠한다 — 테마 화면에서 바꾸면 delegate로 돌아와 함께 바뀐다.
             CHALLAListRow(
                 "테마",
                 icon: .palette,
                 iconColor: SettingLayout.rowIconColor,
                 accessory: .arrow(value: store.themeDisplayName),
-                themeColor: store.currentTheme.themeColor
+                themeColor: store.theme.themeColor
             ) {
                 send(.themeRowTapped)
             }

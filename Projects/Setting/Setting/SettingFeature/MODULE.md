@@ -18,12 +18,10 @@ App에 올리는 `delegate`는 **설정 밖으로 나가야 하는 것**뿐이�
 ## 공개 API
 
 - `struct SettingFeature: Reducer` — 설정 메인 + 하위 화면 스택
-  - `State` — `profile`(원격, 실패 시 `nil`) · `theme`(로컬, 조회 전에만 `nil`) ·
+  - `State` — `profile`(원격, 실패 시 `nil`) · `theme`(`@Shared(.appTheme)`) ·
     `isLoading`(프로필 조회 중) · `alert` · `path`
-    - `themeDisplayName` — 테마 행에 표시할 값. 조회 전에는 `nil`이라 화살표만 보인다
-    - `currentTheme` — 하위 화면에 시드할 테마. 조회 전 한 순간만 `AppTheme.default`
-  - `view(.onAppear)`에서 프로필과 테마를 **따로** 읽는다 (`.merge`).
-    한 묶음으로 받으면 프로필 실패가 테마까지 지운다 — `SettingDomain/MODULE.md` 참고
+    - `themeDisplayName` — 테마 행에 표시할 값. 항상 값이 있다
+  - `view(.onAppear)`은 프로필만 읽는다. 테마는 `@Shared`가 저장소를 직접 읽어 불러오는 단계가 없다
   - `Action.ViewAction` — `onAppear` · `editProfileButtonTapped` · `themeRowTapped` ·
     `notificationRowTapped` · `accountRowTapped` · `supportRowTapped` · `feedbackRowTapped` · `backButtonTapped`
   - `Action.Delegate` — `editProfileRequested` · `backRequested` · `signedOut` · `accountDeleted`
@@ -31,12 +29,13 @@ App에 올리는 `delegate`는 **설정 밖으로 나가야 하는 것**뿐이�
     주소를 `@Dependency(\.openURL)`로 직접 연다 (App이 조립할 것이 없는 외부 링크다)
   - `@Reducer enum Path` — `.theme` · `.notification` · `.account`.
     `public`인 이유는 데모앱이 특정 하위 화면으로 바로 진입할 때 `path`에 직접 넣기 때문이다
-- `struct ThemeFeature` — `State(selectedTheme:)`, `Delegate.themeChanged(AppTheme)`
-  - **읽기도 저장도 부모가 한다.** 부모가 테마를 프로필과 따로 들고 있어 시드가 항상 맞다 —
-    이 화면에는 저장소 접근도, `onAppear`도, 내부 액션도 없다 (아래 "설정 저장은 누가 하나" 참고)
+- `struct ThemeFeature` — `State()`, delegate 없음
+  - 고른 값을 `@Shared(.appTheme)`에 직접 쓴다. 설정 화면과 앱 루트가 같은 값을 읽으므로
+    부모에게 알릴 것이 없다 (아래 "설정 저장은 누가 하나" 참고)
   - 고른 뒤 **화면을 닫지 않는다**. 결과가 화면에 남고, 잘못 눌렀을 때
     그 자리에서 다시 고를 수 있다 (iOS 설정 앱의 단일 선택 목록과 같은 동작)
-- `struct NotificationSettingFeature` — `State(theme:)`, delegate 없음
+- `struct NotificationSettingFeature` — `State()`, delegate 없음
+  - 토글 ON 색은 부모가 시드하지 않는다. 뷰가 `@Environment(\.challaTheme)`로 읽는다
   - `showsPermissionBanner` — 권한이 `.authorized`가 아닐 때만 `true`.
     조회 전(`systemAuthorization == nil`)에는 `false`다 — 띄웠다 사라지면 깜빡인다
   - `view(.sceneBecameActive)` — 설정 앱에 다녀온 뒤 권한을 다시 읽는다.
@@ -52,18 +51,22 @@ App에 올리는 `delegate`는 **설정 밖으로 나가야 하는 것**뿐이�
 - `struct SettingView` — `init(store:)`. `NavigationStack`을 소유하고 하위 화면 셋을 destination으로 그린다
 - `struct ThemeView` · `struct NotificationSettingView` · `struct AccountView` — 각각 `init(store:)`.
   `SettingView`가 직접 그리므로 App이 만들 일은 없지만, 데모앱 프리뷰·검증을 위해 `public`으로 연다
-- `AppTheme.themeColor` (`Sources/Support/`) — `AppTheme` → `CHALLAColor.Primary` 매핑 6쌍.
-  Domain은 UI를 모르고 DS는 Domain을 모르므로 둘 다 아는 이 레이어가 갖는다
+- `AppTheme.palette` · `AppTheme.themeColor` (`Sources/Support/`) — `AppTheme` → `CHALLATheme` 매핑 6쌍.
+  Domain은 UI를 모르고 DS는 Domain을 모르므로 둘 다 아는 이 레이어가 갖는다.
+  `palette`는 앱 루트가 `\.challaTheme`에 주입하고, `themeColor`는 테마 목록의 점처럼
+  고르지 않은 테마까지 그릴 때 쓴다
+- `SharedKey.appTheme` (`Sources/Support/SharedKeys.swift`) — 테마 저장 키.
+  설정 화면·테마 화면·앱 루트가 이 하나를 함께 읽는다. 저장 키 문자열은 이 파일에만 둔다
 
 ## 설정 저장은 누가 하나
 
-**설정 메인에 값이 표시되는 설정은 부모가 저장한다(테마). 표시되지 않는 설정은 자식이 저장한다(알림).**
+**앱 전체가 쓰는 설정은 `@Shared`가 저장한다(테마). 이 화면 안에서 끝나는 설정은 자식이 저장한다(알림).**
 
-- 부모가 표시하는 값은 어차피 delegate로 올라온다. 부모 이펙트는 화면이 pop돼도 취소되지 않아
-  "고르자마자 뒤로가기"에서 저장이 유실되지 않는다
-- 부모가 표시하지 않는 값에는 delegate를 만들 이유가 없다 — 알림 설정은 자식이 직접 저장한다
-- 부모가 저장하면 **읽기도 부모가 갖는 것이 맞다.** 시드가 항상 최신이라 자식이 다시 읽을 이유가
-  없어지고, 값의 정본이 한 곳에 남는다 (`ThemeFeature`에 저장소 접근이 아예 없는 이유)
+- 테마는 설정 밖의 화면도 전부 써야 해서, 값을 넘겨주는 대신 저장소를 직접 읽는 `@Shared`로 둔다.
+  읽는 곳이 늘어도 전달 경로를 새로 만들 필요가 없다
+- `@Shared`는 쓰는 즉시 저장되므로 "고르자마자 뒤로가기"에서 값이 유실되지 않는다.
+  저장 이펙트가 없어 이펙트 취소를 신경 쓸 일도 없다
+- 알림 설정은 이 화면 밖에서 쓰지 않아 UseCase 그대로 둔다 — 자식이 직접 저장한다
 
 ## 내부 결과 액션 이름 규칙
 
