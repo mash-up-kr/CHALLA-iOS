@@ -51,10 +51,9 @@ App에 올리는 `delegate`는 **설정 밖으로 나가야 하는 것**뿐이�
 - `struct SettingView` — `init(store:)`. `NavigationStack`을 소유하고 하위 화면 셋을 destination으로 그린다
 - `struct ThemeView` · `struct NotificationSettingView` · `struct AccountView` — 각각 `init(store:)`.
   `SettingView`가 직접 그리므로 App이 만들 일은 없지만, 데모앱 프리뷰·검증을 위해 `public`으로 연다
-- `AppTheme.palette` · `AppTheme.themeColor` (`Sources/Support/`) — `AppTheme` → `CHALLATheme` 매핑 6쌍.
+- `AppTheme.themeColor` (`Sources/Support/`) — `AppTheme` → 강조 색 매핑 6쌍.
   Domain은 UI를 모르고 DS는 Domain을 모르므로 둘 다 아는 이 레이어가 갖는다.
-  `palette`는 앱 루트가 `\.challaTheme`에 주입하고, `themeColor`는 테마 목록의 점처럼
-  고르지 않은 테마까지 그릴 때 쓴다
+  앱 루트가 이 색으로 `CHALLATheme`을 만들어 `\.challaTheme`에 주입한다
 - `SharedKey.appTheme` (`Sources/Support/SharedKeys.swift`) — 테마 저장 키.
   설정 화면·테마 화면·앱 루트가 이 하나를 함께 읽는다. 저장 키 문자열은 이 파일에만 둔다
 

@@ -1,5 +1,6 @@
 import CameraFeature
 import CameraSession
+import CHALLADesignSystem
 import ComposableArchitecture
 import HomeFeature
 import LoginFeature
@@ -87,7 +88,7 @@ public struct AppView: View {
                 }
             }
         }
-        .environment(\.challaTheme, theme.palette)
+        .environment(\.challaTheme, CHALLATheme(accent: theme.themeColor))
         .animation(.snappy, value: store.screenID)
         .task { store.send(.task) }
         // 네비게이션 없이 뷰를 갈아끼우므로 VoiceOver는 화면이 바뀐 걸 스스로 알지 못한다.

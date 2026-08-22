@@ -86,8 +86,7 @@ public struct SettingView: View {
                 "테마",
                 icon: .palette,
                 iconColor: SettingLayout.rowIconColor,
-                accessory: .arrow(value: store.themeDisplayName),
-                themeColor: store.theme.themeColor
+                accessory: .arrow(value: store.themeDisplayName)
             ) {
                 send(.themeRowTapped)
             }

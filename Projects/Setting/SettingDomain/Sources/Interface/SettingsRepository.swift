@@ -1,5 +1,3 @@
-import Foundation
-
 /// 알림 설정의 저장소 추상. 구현은 `SettingData`가 맡는다.
 ///
 /// 프로필은 여기 없다 — 다른 aggregate라 `SettingProfileProvider`가 따로 맡는다 (그쪽 주석 참고).

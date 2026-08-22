@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - challaMainBackground
 
 public extension View {
-    /// 찰나 앱의 기본 화면 배경 — surface 색 위에 하단에서 테마 색이 번진다.
+    /// 찰나 앱의 기본 화면 배경 — surface 색 위에 하단에서 고른 테마 색이 번진다.
     ///
     /// 시안의 배경은 그라데이션이 아니라 블러를 먹인 타원 하나다. 타원 중심이 화면 아래에
     /// 있어 하단만 은은하게 밝아진다. 홈·방 상세 등 화면 단위 뷰의 최상단에 붙인다.
@@ -24,7 +24,7 @@ private struct MainBackgroundModifier: ViewModifier {
             ZStack(alignment: .bottom) {
                 CHALLAColor.Background.surface
                 Ellipse()
-                    .fill(theme.glow.opacity(MainBackgroundMetric.tintOpacity))
+                    .fill(theme.accent.opacity(MainBackgroundMetric.tintOpacity))
                     .frame(
                         width: MainBackgroundMetric.ellipseWidth,
                         height: MainBackgroundMetric.ellipseHeight
@@ -47,7 +47,7 @@ private enum MainBackgroundMetric {
     static let ellipseHeight: CGFloat = 594
     /// 타원 중심이 화면 바닥에서 아래로 내려간 거리.
     static let centerDropBelowBottom: CGFloat = 43
-    /// 칠 투명도 (#EAFF00 20%).
+    /// 칠 투명도 (시안 20%).
     static let tintOpacity: CGFloat = 0.2
     /// Figma 레이어 블러 300의 절반 — 시안 육안 근사값, 디자이너 검수로 확정한다.
     static let blurRadius: CGFloat = 150
