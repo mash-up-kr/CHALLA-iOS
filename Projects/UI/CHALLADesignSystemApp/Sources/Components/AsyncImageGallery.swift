@@ -53,15 +53,25 @@ struct AsyncImageGallery: View {
         }
     }
 
-    /// 방 카드 — CHALLACardItem의 대표 사진 자리에 연결. photo가 nil이면 카드가 바닥색을 그린다.
+    /// 방 카드 — CHALLARoomCard의 대표 사진 자리에 연결. photo가 nil이면 카드가 바닥색을 그린다.
     private var cardSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            galleryTitle("방 카드 — CHALLACardItem")
+            galleryTitle("방 카드 — CHALLARoomCard")
             galleryCaption("로딩 중엔 photo: nil 카드(바닥색), 완료되면 대표 사진이 페이드인")
             CHALLAAsyncImage(url: URL(string: "https://picsum.photos/seed/challa-card/800/1064")) { image in
-                CHALLACardItem(title: "찰나 모임", memberCount: 4, photoCount: 12, photo: image)
+                CHALLARoomCard(
+                    title: "찰나 모임",
+                    memberCount: 4,
+                    photo: image,
+                    variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: false, onShoot: nil)
+                )
             } placeholder: {
-                CHALLACardItem(title: "찰나 모임", memberCount: 4, photoCount: 12, photo: nil)
+                CHALLARoomCard(
+                    title: "찰나 모임",
+                    memberCount: 4,
+                    photo: nil,
+                    variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: false, onShoot: nil)
+                )
             }
         }
     }

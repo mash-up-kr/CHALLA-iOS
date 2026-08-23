@@ -228,13 +228,16 @@ public struct HomeView: View {
 
     /// 대표 사진 유무만 다른 두 자리에서 카드 생성을 공유한다.
     private func cardItem(_ card: RoomCard, photo: Image?) -> some View {
-        CHALLACardItem(
+        CHALLARoomCard(
             title: card.room.title,
             memberCount: card.memberCount,
-            photoCount: card.room.shotPhotoCount,
             photo: photo,
-            isPreparingShoot: store.preparingShootRoomID == card.id,
-            onShoot: { send(.shootButtonTapped(card.id)) }
+            variant: .shooting(
+                shotCount: card.room.shotPhotoCount,
+                totalCount: card.room.totalPhotoCount,
+                isPreparing: store.preparingShootRoomID == card.id,
+                onShoot: { send(.shootButtonTapped(card.id)) }
+            )
         )
     }
 }

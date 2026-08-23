@@ -2,7 +2,7 @@ import CHALLADesignSystem
 import SwiftUI
 
 /// Component > Card Item 검수 화면.
-/// 방 카드(촬영 중)의 사진 유무 · 제목 길이 · 숫자 자릿수 조합을 나열한다.
+/// 방 카드의 사진 유무 · 제목 길이 · 숫자 자릿수 조합을 나열한다.
 /// 사진은 picsum.photos에서 실사진을 받아 주입한다 — 인터넷이 없으면 로딩 자리만 남는다.
 struct CardItemGallery: View {
 
@@ -31,10 +31,20 @@ struct CardItemGallery: View {
             galleryTitle("Photo")
             galleryCaption("사진 있음 (딤 그라데이션 확인)")
             samplePhotoCard(seed: "room1") {
-                CHALLACardItem(title: "친구들과 강릉 여행", memberCount: 11, photoCount: 24, photo: $0)
+                CHALLARoomCard(
+                    title: "친구들과 강릉 여행",
+                    memberCount: 11,
+                    photo: $0,
+                    variant: .shooting(shotCount: 24, totalCount: 24, isPreparing: false, onShoot: nil)
+                )
             }
             galleryCaption("사진 없음 (photo: nil — 로딩 전·사진 없는 방)")
-            CHALLACardItem(title: "이제 막 만든 방", memberCount: 1, photoCount: 0, photo: nil)
+            CHALLARoomCard(
+                title: "이제 막 만든 방",
+                memberCount: 1,
+                photo: nil,
+                variant: .shooting(shotCount: 0, totalCount: 24, isPreparing: false, onShoot: nil)
+            )
         }
     }
 
@@ -46,11 +56,11 @@ struct CardItemGallery: View {
             galleryTitle("Text")
             galleryCaption("긴 제목 (줄바꿈) + 세 자리 촬영 장수")
             samplePhotoCard(seed: "room2") {
-                CHALLACardItem(
+                CHALLARoomCard(
                     title: "동아리 엠티에서 찍은 사진 다 모아두는 방",
                     memberCount: 10,
-                    photoCount: 999,
-                    photo: $0
+                    photo: $0,
+                    variant: .shooting(shotCount: 999, totalCount: 999, isPreparing: false, onShoot: nil)
                 )
             }
         }
@@ -63,17 +73,26 @@ struct CardItemGallery: View {
         VStack(alignment: .leading, spacing: 16) {
             galleryTitle("Shoot")
             galleryCaption("액션 없음 — 장수만 보여주는 그림")
-            CHALLACardItem(title: "촬영 버튼 없는 방", memberCount: 4, photoCount: 12, photo: nil)
+            CHALLARoomCard(
+                title: "촬영 버튼 없는 방",
+                memberCount: 4,
+                photo: nil,
+                variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: false, onShoot: nil)
+            )
             galleryCaption("액션 있음 — 뱃지가 촬영 버튼이 된다")
-            CHALLACardItem(title: "촬영 가능한 방", memberCount: 4, photoCount: 12, photo: nil) {}
+            CHALLARoomCard(
+                title: "촬영 가능한 방",
+                memberCount: 4,
+                photo: nil,
+                variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: false, onShoot: {})
+            )
             galleryCaption("준비 중 — 목록·권한을 받는 동안 스피너, 다시 눌리지 않는다")
-            CHALLACardItem(
+            CHALLARoomCard(
                 title: "촬영 준비 중인 방",
                 memberCount: 4,
-                photoCount: 12,
                 photo: nil,
-                isPreparingShoot: true
-            ) {}
+                variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: true, onShoot: {})
+            )
         }
     }
 
@@ -83,7 +102,7 @@ struct CardItemGallery: View {
     /// 로딩 중에도 카드와 같은 크기(200×266)로 자리를 잡아 레이아웃이 튀지 않게 한다.
     private func samplePhotoCard(
         seed: String,
-        @ViewBuilder makeCard: @escaping (Image) -> CHALLACardItem
+        @ViewBuilder makeCard: @escaping (Image) -> CHALLARoomCard
     ) -> some View {
         AsyncImage(url: URL(string: "https://picsum.photos/seed/\(seed)/400/532")) { photo in
             makeCard(photo)
