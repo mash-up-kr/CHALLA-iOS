@@ -39,6 +39,7 @@ let project = Project.makeAppProject(
         .notificationData, .notificationDomain,
         .homeFeature, .roomDetailFeature, .roomData, .roomDomain,
         .cameraFeature, .cameraSession, .shootEntry, .photoData, .photoDomain,
+        .photoDetailFeature, .photoLibrary,
         .network, .keychain,
         .designSystem, .imageKit,
         .composableArchitecture,

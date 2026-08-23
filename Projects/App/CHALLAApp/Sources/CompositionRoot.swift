@@ -9,6 +9,7 @@ import Keychain
 import NotificationData
 import PhotoData
 import PhotoDomain
+import PhotoLibrary
 import RoomData
 import RoomDomain
 import SettingData
@@ -162,18 +163,24 @@ enum CompositionRoot {
         values.fetchRoomDetailUseCase = .live(repository: repository)
         values.fetchShootableRoomsUseCase = .live(repository: repository)
 
-        // 방 상세의 사진 그리드가 쓰는 fetchRoomPhotosUseCase는 등록하지 않는다 —
-        // PhotoData에 사진 조회 구현이 아직 없다 (필터·업로드만 있음). 미등록 상태로 두면
-        // 호출 시 런타임 경고가 뜨고 그리드는 빈 칸으로 남는다. 구현이 생기면 여기서 등록한다.
+        // 방 상세·사진 상세가 쓰는 fetchRoomPhotosUseCase는 Photo aggregate라 registerPhoto에서 등록한다.
     }
 
     /// client 공유 조건은 registerUser와 같다. 카메라 화면이 앱에 조립되면 이 배선을 그대로 쓴다.
     private static func registerPhoto(into values: inout DependencyValues, client: any HTTPClient) {
+        let photoRepository = DefaultPhotoRepository(client: client)
         let filterRepository = DefaultCameraFilterRepository(client: client)
         let uploader = DefaultPhotoUploader(client: client)
         // 안내 노출 기록만 서버가 아니라 기기에 남는다 (`CameraOnboardingRepository` 주석 참고).
         let onboarding = DefaultCameraOnboardingRepository()
         let cameraPermission = SystemCameraPermissionProvider()
+
+        // 사진 조회·리액션·저장 — 방 상세 그리드와 사진 상세가 함께 쓴다.
+        values.fetchRoomPhotosUseCase = .live(repository: photoRepository)
+        // 리액션은 목록에 없어 사진을 펼칠 때 한 장씩 지연 조회한다(1+N 회피).
+        values.fetchPhotoReactionsUseCase = .live(repository: photoRepository)
+        values.setPhotoReactionUseCase = .live(repository: photoRepository)
+        values.savePhotoUseCase = .live(repository: photoRepository, photoLibrary: PhotoLibraryWritingAdapter())
 
         values.fetchCameraFiltersUseCase = .live(repository: filterRepository)
         values.prepareCameraFiltersUseCase = .live(
@@ -244,5 +251,22 @@ enum CompositionRoot {
             }
             return status
         })
+    }
+}
+
+/// Core의 사진첩 저장(`PhotoLibraryStore`)을 도메인 인터페이스(`PhotoLibraryWriting`)에 연결한다.
+/// Core는 도메인을 모르므로(`Keychain`과 같은 이유) 앱에서 어댑터로 오류를 `PhotoError`로 바꿔 준다.
+private struct PhotoLibraryWritingAdapter: PhotoLibraryWriting {
+
+    private let store = PhotoLibraryStore()
+
+    func save(imageData: Data) async throws {
+        do {
+            try await store.save(imageData: imageData)
+        } catch PhotoLibraryError.permissionDenied {
+            throw PhotoError.permissionDenied
+        } catch {
+            throw PhotoError.saveFailed
+        }
     }
 }

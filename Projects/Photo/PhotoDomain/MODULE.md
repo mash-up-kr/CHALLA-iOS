@@ -23,10 +23,11 @@
 
 | 타입 | 내용 |
 | :-- | :-- |
-| `Photo` | `id` · `imageURL` · `author` · `capturedAt` · `reactions`. `hasReaction(_:by:)`로 내 리액션 여부를 묻고, `settingReaction(_:by:isOn:)`으로 리액션을 목표 상태에 맞춘 사본을 만든다(낙관적 갱신용). `init`에서 같은 신원의 리액션 중복을 걷어낸다 |
+| `Photo` | `id` · `imageURL` · `author` · `capturedAt` · `reactions`(스티커 = 유저당 첫 이모지, 처음 남긴 순). `hasReacted(by:)`·`reaction(by:)`로 그 유저 스티커를 묻고, `addingReaction(_:by:)`(첫 이모지만 붙음)·`removingReaction(by:)`으로 낙관적 갱신·롤백용 사본을 만든다. `init`에서 유저당 첫 스티커만 남긴다 |
 | `PhotoAuthor` | `id` · `nickname` · `avatarURL` — 사진에 박제된 시점의 촬영자 정보 |
 | `ReactionKind` | 리액션 10종(heart · sparkle · thumbsUp · poop · skull · medal · question · huh · loveEyes · fire). 시안의 리액션 바 순서 그대로이며 이모지 글리프는 화면이 정한다 |
-| `PhotoReaction` | `kind` · `userID` — 한 사람이 한 사진에 남긴 리액션 하나. `종류 + 사람`이 곧 `id`다. 스티커 좌표는 갖지 않는다 |
+| `PhotoReaction` | `kind` · `userID` — 사진에 붙는 스티커 하나 = 그 유저가 **처음 남긴** 이모지. 유저당 하나라 `id`도 `userID`다(이모지 자체는 무제한이며 나머지는 채팅 히스토리로만 쌓인다, 정책 #71). 스티커 좌표는 갖지 않는다 |
+| `PhotoReactions` | 사진 한 장의 리액션 묶음 — `stickers`(유저당 첫 이모지) + `reactedKindsByUser`(유저별 종류 전부, 칩 띠용). 목록엔 리액션이 없어 펼칠 때 따로 받아 `Photo.applyingReactions(_:)`로 채운다 |
 | `CameraFilter` | 서버가 내려주는 카메라 필터 한 개 (`GET /shoots/camera-filters` 응답 한 줄). `name`(식별자 겸 표시 이름 — 사진 업로드 API도 이 값으로 필터를 가리킨다) · `fileURL`(LUT .cube 공개 URL). `previewFilters`는 화면 확인용 샘플 |
 
 ### Errors (`Sources/Errors/`)
@@ -37,9 +38,10 @@
 
 ### Interface (`Sources/Interface/` — 구현: PhotoData · Core)
 
-- `protocol PhotoRepository` — `photos(inRoom:)` · `setReaction(photoID:kind:isOn:)` · `imageData(for:)`.
-  리액션은 뒤집기가 아니라 **목표 상태를 지시하는 멱등 형태**다 — 같은 요청이 두 번 나가도 결과가
-  같아야 재시도·취소가 안전하고, 화면이 먼저 그린 상태와 요청이 어긋나지 않는다
+- `protocol PhotoRepository` — `photos(inRoom:)`(목록만) · `reactions(forPhotoID:)`(사진 한 장의 리액션 → `PhotoReactions`) · `setReaction(roomID:photoID:kind:isOn:)` · `imageData(for:)`.
+  리액션은 뒤집기가 아니라 **목표 상태를 지시하는 멱등 형태**(isOn)다 — 같은 요청이 두 번 나가도 결과가
+  같아야 재시도·취소가 안전하다. 서버가 갱신 사진을 주지 않아 **반환값은 없고**, 화면 갱신은 호출부의
+  낙관적 반영에 맡긴다. 해제 API가 아직 없어 `isOn == false`(해제)는 호출부가 UI에서 막는다 (#71)
 - `protocol PhotoLibraryWriting` — `save(imageData:)`. 권한 요청까지 구현체 안에서 끝낸다
 - `protocol CameraFilterRepository` — `filters() -> [CameraFilter]` · `lutData(for:) -> Data`
   - LUT 파싱·CoreImage 변환은 호출부(화면 조립) 몫 — Domain·Data는 색 변환 기술을 모른다.
@@ -61,8 +63,9 @@
 
 | 키 | live 팩토리 | 하는 일 |
 | :-- | :-- | :-- |
-| `\.fetchRoomPhotosUseCase` | `.live(repository:)` | 방의 사진을 찍힌 순서대로 가져온다 |
-| `\.setPhotoReactionUseCase` | `.live(repository:)` | 리액션을 켜거나 끈 뒤 갱신된 사진을 돌려준다 |
+| `\.fetchRoomPhotosUseCase` | `.live(repository:)` | 방의 사진을 찍힌 순서대로 가져온다(목록만 — 리액션 제외) |
+| `\.fetchPhotoReactionsUseCase` | `.live(repository:)` | 사진 한 장의 리액션(`PhotoReactions`)을 가져온다. 사진을 펼칠 때만 호출해 1+N 회피 |
+| `\.setPhotoReactionUseCase` | `.live(repository:)` | 사진에 리액션을 남긴다(반환 없음 — 화면은 호출부가 낙관적으로 갱신) |
 | `\.savePhotoUseCase` | `.live(repository:photoLibrary:)` | 원본을 내려받아 사진첩에 저장한다. 계약을 어긴 오류가 새어 나와도 `PhotoError.unknown`으로 막는다 |
 
 촬영(필터·업로드·안내·권한):

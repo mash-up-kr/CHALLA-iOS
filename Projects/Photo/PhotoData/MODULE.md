@@ -2,10 +2,10 @@
 
 ## 레이어와 책임
 
-**Data 레이어**. `PhotoDomain`의 두 인터페이스를 각각 실서버·메모리로 구현한다.
+**Data 레이어**. `PhotoDomain`의 인터페이스를 각각 실서버·메모리로 구현한다.
 
-- `DefaultCameraFilterRepository` / `DefaultPhotoUploader` — **실서버 구현.** `CHALLANetwork`의
-  `HTTPClient`로 서버·스토리지를 부르고, 실패를 `PhotoError`로 번역한다. 실배포앱이 쓴다
+- `DefaultPhotoRepository` / `DefaultCameraFilterRepository` / `DefaultPhotoUploader` — **실서버 구현.**
+  `CHALLANetwork`의 `HTTPClient`로 서버·스토리지를 부르고, 실패를 `PhotoError`로 번역한다. 실배포앱이 쓴다
 - `InMemoryCameraFilterRepository` / `InMemoryPhotoUploader` — **메모리 구현.** 데모앱이 네트워크·로그인
   없이 화면을 단독 실행하는 수단이라 실서버 구현이 있어도 지우지 않는다
 
@@ -15,6 +15,16 @@
 
 ### Repository (`Sources/Repository/`)
 
+- `struct DefaultPhotoRepository: PhotoRepository` — `init(client:)`
+  - `photos(inRoom:)` — `GET /photos?roomId=&page=&size=`를 `hasNext` 없을 때까지 이어 받는다(목록만).
+    이미지 URL 없는 장은 건너뛴다(한 장 때문에 목록 전체가 실패하지 않게). 리액션은 목록에 없어 담지 않는다
+  - `reactions(forPhotoID:)` — `GET /photos/{id}`(chats)에서 그 사진 한 장의 리액션을 받는다.
+    유저별 첫 이모지 하나를 스티커로, 남긴 종류 전부를 칩 띠로(`PhotoReactions`). 사진을 펼칠 때만 호출해
+    목록의 1+N을 피한다(안 본 사진은 요청하지 않음) — 화면이 펼친 한 장씩 지연 조회·캐시한다
+  - `setReaction(roomID:photoID:kind:isOn:)` — `POST /chats/reaction`으로 EMOJI 채팅 생성
+    (`content` = `ReactionKind.rawValue`). 서버가 갱신 사진을 안 줘 성공 여부만 확인(반환 없음).
+    이모지는 무제한이며 해제 API가 없어 `isOn == false`는 no-op(방어용)
+  - `imageData(for:)` — 원본 이미지 바이트(사진첩 저장용). 표시용이 아니라 다운샘플하지 않고 그대로 받는다
 - `struct DefaultCameraFilterRepository: CameraFilterRepository` — `init(client:)`
   - `filters()` — `GET /shoots/camera-filters` → 도메인 변환 (깨진 fileUrl은 `.unknown`)
   - `lutData(for:)` — 필터의 공개 URL에서 .cube 원본을 받는다. **토큰을 붙이지 않는다**
@@ -49,9 +59,15 @@
 
 - `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`(공통 껍데기, UserData·RoomData 복사본 — #51에서
   통합), `CameraFiltersResponseDTO`(`{ shoot: { cameraFilters } }` 이중 껍데기),
-  `CompletePhotoRequestDTO`/`CompletePhotoResponseDTO`, 업로드 DTO(UserData 복사본)
+  `CompletePhotoRequestDTO`/`CompletePhotoResponseDTO`, `ListPhotosSliceResponseDTO`/`ListPhotosResponseDTO`(목록·페이지네이션),
+  `GetPhotoDetailEnvelopeDTO`/`PhotoDetailDTO`/`ChatDTO`(상세 — 리액션이 `chats`로 온다),
+  `CreateReactionRequestDTO`(리액션 = `{ chat: { roomId, photoId, type:"EMOJI", content } }`)/`CreateReactionResponseDTO`,
+  업로드 DTO(UserData 복사본)
 - `Endpoint/` — `ShootEndpoint`(cameraFilters `.bearer` · cubeFile 공개 URL `.none`),
-  `PhotoEndpoint`(complete `.bearer`), `UploadEndpoint`(issue `.bearer` · put `.none`, UserData 복사본)
+  `PhotoEndpoint`(list·detail `.get`·complete `.post`, 전부 `.bearer`), `ChatEndpoint`(reaction `POST /chats/reaction` `.bearer`),
+  `UploadEndpoint`(issue `.bearer` · put `.none`, UserData 복사본)
+- `Mapping/Photo+Mapping` — 목록 DTO→`Photo`(작성자 userId는 서버가 안 줘 빈 값),
+  `PhotoDetailDTO.reactions()`(chats의 EMOJI를 `createdAt` 오름차순 → 유저별 첫 이모지 하나), `ServerDate`(UTC 파서, RoomData 복사본 — #51 이후 통합)
 - `Mapping/PhotoError+Mapping` — `normalized`(취소는 통과, 401→unauthorized,
   409→photoExhausted는 잠정 — 스웨거에 에러 정의가 없음 TODO)
 
@@ -70,6 +86,9 @@ mise exec -- tuist test PhotoData
 Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockHTTPClient`
 (RoomData 것의 복사본)로 서버 없이 검증한다.
 
+- `DefaultPhotoRepositoryTests` — 목록 변환·roomId/page/size 쿼리, 이미지 없는 장 건너뛰기,
+  `hasNext` 페이지네이션, 상세 `chats`→유저별 첫 이모지 스티커, 리액션 POST 본문(roomId·photoId·EMOJI·content),
+  `isOn:false` no-op, transport→`.network`·401→`.unauthorized` 정규화
 - `DefaultCameraFilterRepositoryTests` — 목록 경로·bearer 확인, `success:false` 언랩,
   LUT 무토큰 다운로드와 캐시(재호출 시 요청 1회), transport→`.network` 정규화
 - `DefaultPhotoUploaderTests` — 발급→PUT→완료 3단계 순서와 각 단계의 인증·본문 계약,

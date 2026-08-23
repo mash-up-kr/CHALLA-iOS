@@ -1,7 +1,7 @@
 import PhotoDomain
 import Testing
 
-@Suite("FetchRoomPhotosUseCase · SetPhotoReactionUseCase")
+@Suite("FetchRoomPhotosUseCase · FetchPhotoReactionsUseCase · SetPhotoReactionUseCase")
 struct PhotoUseCaseTests {
 
     @Test("조회는 받은 방 ID를 그대로 저장소에 넘긴다")
@@ -26,18 +26,28 @@ struct PhotoUseCaseTests {
         }
     }
 
-    @Test("리액션은 목표 상태를 그대로 저장소에 넘기고 결과를 돌려준다")
+    @Test("리액션 조회는 사진 ID를 그대로 저장소에 넘긴다")
+    func forwardsReactionPhotoID() async throws {
+        let reactions = PhotoReactions(stickers: [PhotoReaction(kind: .heart, userID: "1")])
+        let repository = MockPhotoRepository(reactionsResult: .success(reactions))
+        let useCase = FetchPhotoReactionsUseCase.live(repository: repository)
+
+        let result = try await useCase.run("photo-7")
+
+        #expect(repository.reactionsForPhotoIDs == ["photo-7"])
+        #expect(result == reactions)
+    }
+
+    @Test("리액션은 방·사진·목표 상태를 그대로 저장소에 넘긴다")
     func forwardsReactionTarget() async throws {
-        let updated = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.heart)])
-        let repository = MockPhotoRepository(reactionResult: .success(updated))
+        let repository = MockPhotoRepository(reactionResult: .success(()))
         let useCase = SetPhotoReactionUseCase.live(repository: repository)
 
-        let result = try await useCase.run("photo-1", .heart, true)
+        try await useCase.run(42, "photo-1", .heart, true)
 
         #expect(repository.reactionCalls == [
-            MockPhotoRepository.ReactionCall(photoID: "photo-1", kind: .heart, isOn: true)
+            MockPhotoRepository.ReactionCall(roomID: 42, photoID: "photo-1", kind: .heart, isOn: true)
         ])
-        #expect(result == updated)
     }
 
     @Test("리액션 실패는 그대로 전달된다")
@@ -46,7 +56,7 @@ struct PhotoUseCaseTests {
         let useCase = SetPhotoReactionUseCase.live(repository: repository)
 
         await #expect(throws: PhotoError.network) {
-            try await useCase.run("photo-1", .thumbsUp, false)
+            try await useCase.run(42, "photo-1", .thumbsUp, true)
         }
     }
 }

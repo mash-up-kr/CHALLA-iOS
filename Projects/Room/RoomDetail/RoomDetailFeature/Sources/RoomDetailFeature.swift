@@ -69,6 +69,8 @@ public struct RoomDetailFeature {
             case copyInviteCodeTapped
             case shootButtonTapped
             case chatButtonTapped
+            /// 사진이 있는 슬롯을 탭 — 그 사진을 펼친 채 사진 상세로 들어간다.
+            case photoTapped(Photo.ID)
         }
 
         /// 부모(App)에게만 알린다. 화면 전환은 App이 조립한다.
@@ -78,8 +80,8 @@ public struct RoomDetailFeature {
             /// 촬영 준비가 끝났다 — 목록·권한이 모두 갖춰졌으니 카메라 화면을 띄우면 된다.
             case cameraRequested(CameraEntry)
             case chatTapped
-            // TODO: [#57] 슬롯 탭으로 사진 상세를 여는 photoTapped(Photo.ID)를 추가한다.
-            // 뷰의 slot(number:)에 탭을 달고, App이 PhotoDetailFeature를 연다.
+            /// 사진 상세를 연다. App이 `PhotoDetailFeature`를 조립한다 (규칙 3).
+            case photoTapped(Photo.ID)
         }
     }
 
@@ -196,6 +198,9 @@ public struct RoomDetailFeature {
             case .view(.chatButtonTapped):
                 return .send(.delegate(.chatTapped))
 
+            case let .view(.photoTapped(id)):
+                return .send(.delegate(.photoTapped(id)))
+
             case .alert:
                 return .none
 
@@ -245,6 +250,7 @@ public struct RoomDetailFeature {
     private func fetchPhotos(id: Room.ID) -> Effect<Action> {
         .run { [fetchRoomPhotosUseCase] send in
             do {
+                // 그리드는 리액션을 그리지 않으므로 목록만 받는다 (리액션은 사진 상세에서 지연 조회).
                 let photos = try await fetchRoomPhotosUseCase.run(id)
                 await send(.photosResponse(.success(photos)))
             } catch let error as PhotoError {

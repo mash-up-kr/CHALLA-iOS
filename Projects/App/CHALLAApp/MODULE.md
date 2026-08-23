@@ -20,12 +20,13 @@
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `home` |
 | `home` | 설정 버튼 → `setting` / 방 진입(목록에서 고름·방 만들기·초대 코드) → `roomDetail` |
-| `roomDetail` | `closeTapped` → `home`(새 State) — 촬영·채팅은 붙일 화면이 아직 없어 TODO |
+| `roomDetail` | `closeTapped` → `home`(새 State) / 사진 슬롯 탭(`photoTapped`) → `photoDetail` — 촬영·채팅은 붙일 화면이 아직 없어 TODO |
+| `photoDetail` | `closeRequested` → `roomDetail`(새 State — 돌아가면 사진·리액션을 새로 조회) |
 | `setting` | `backRequested` → `home` / `editProfileRequested` → `profileEdit` / `signedOut`·`accountDeleted` → `login` |
 | `profileEdit` | `editCompleted` → `setting`(새 State) / `cancelled` → `setting` |
 
-`roomDetail`·`setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을
-표시하는데 뒤로 나올 때 재조회 없이 바로 그려야 한다.
+`roomDetail`·`photoDetail`·`setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을
+표시하는데 뒤로 나올 때 재조회 없이 바로 그려야 한다. `photoDetail`은 복귀할 방(`Room`)도 함께 맡아 둔다.
 
 편집 저장 후에는 `SettingFeature.State`를 **새로 만든다.** `onAppear`가 `profile == nil`일 때만
 조회하므로, 그래야 헤더가 바뀐 닉네임을 다시 읽는다.
