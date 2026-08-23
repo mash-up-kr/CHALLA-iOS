@@ -116,6 +116,11 @@ public extension TargetDependency {
         target: "CameraSession",
         path: .relativeToRoot("Projects/Camera/CameraSession")
     )
+    /// 촬영 진입 준비(목록·LUT·권한)와 그 결과 묶음. 진입 버튼이 있는 피처들이 함께 쓴다.
+    static let shootEntry = TargetDependency.project(
+        target: "ShootEntry",
+        path: .relativeToRoot("Projects/Camera/ShootEntry")
+    )
 
     // MARK: - Notification
 

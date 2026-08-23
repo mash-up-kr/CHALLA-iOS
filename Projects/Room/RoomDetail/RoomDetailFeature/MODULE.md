@@ -8,6 +8,12 @@
 `RoomDomain`·`PhotoDomain`의 UseCase만 주입받고(규칙 2), 화면 전환(뒤로가기·촬영·채팅)은
 전부 `delegate`로 App에 알린다(규칙 3).
 
+**사진 찍기는 준비까지 마치고 넘긴다.** 카메라 화면은 아무것도 스스로 조회하지 않아서,
+버튼을 누르면 `ShootEntry`의 `ShootPreparation`이 촬영 가능 방 목록·필터(LUT 포함)·카메라/사진첩 권한을
+갖추고, 전부 성공했을 때만 `delegate(.cameraRequested)`를 보낸다. 준비 중에는 버튼이 로딩으로 바뀌고
+다시 눌리지 않으며, 실패하면 얼럿(권한이면 설정 앱으로, 조회 실패면 그 문구)을 띄우고 넘어가지 않는다.
+홈의 촬영 뱃지와 같은 준비를 같은 코드로 한다 — 규칙은 `ShootEntry/MODULE.md`.
+
 두 도메인을 함께 쓰는 이유: 방 상세 API(`GET /rooms/{id}`)는 사진 URL을 주지 않고
 대표 이미지 한 장만 준다. 그리드를 채울 사진은 `GET /photos`가 유일한 출처라
 `PhotoDomain`의 조회를 쓴다 (`docs/ARCHITECTURE.md`의 "결과 목록은 RoomDetailFeature로 흡수").
@@ -30,7 +36,9 @@
 - `State(room:)` — 홈에서 받은 `Room`을 품고 시작한다. 첫 프레임부터 제목·슬롯 그리드가 그려지고,
   초대 코드·참여자·사진은 진입 후 조회로 채운다
   - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` · `toast` · `alert`
-- `Action.delegate` — `closeTapped` · `shootTapped` · `chatTapped` · `photoTapped(Photo.ID)`(사진 슬롯 탭 → 사진 상세)
+- `Action.delegate` — `closeTapped` · `cameraRequested(CameraEntry)`(촬영 준비 완료) · `chatTapped` ·
+  `photoTapped(Photo.ID)`(사진 슬롯 탭 → 사진 상세)
+- `isPreparingShoot` — 촬영 준비 중. 사진 찍기 버튼이 로딩으로 바뀐다
 - 진입 시 상세와 사진을 병렬 조회한다. 방 상태로 거르지 않는다 — 촬영 중에도 찍은 사진이 필요하고,
   거르면 홈에서 받은 상태가 낡은 경우를 따라잡는 분기가 더 생긴다
 - 상세 조회가 실패하면 홈과 같은 방식으로 얼럿을 띄운다("다시 시도" / "확인").
@@ -52,7 +60,8 @@
 
 ## 의존성
 
-- **이 모듈이 의존**: `RoomDomain` · `PhotoDomain` · `ComposableArchitecture` · `CHALLADesignSystem`
+- **이 모듈이 의존**: `RoomDomain` · `PhotoDomain` · `ShootEntry`(촬영 진입 준비) ·
+  `ComposableArchitecture` · `CHALLADesignSystem`
 - **이 모듈에 의존**: `CHALLAApp`(조립) · `RoomDetailFeatureDemo`(데모)
 
 ## 알려진 미구현
@@ -71,6 +80,8 @@ mise exec -- tuist test RoomDetailFeature
 
 TCA `TestStore`로 리듀서를 검증한다 — 진입 조회(상세+사진), 실패 얼럿과 재시도,
 클립보드 복사와 토스트 타이머(`TestClock`), delegate 위임, 카운트다운 표기 규칙.
+`RoomDetailShootEntryTests`는 촬영 진입만 따로 본다 — 준비 중 표시와 재탭 무시, 성공 시 delegate,
+실패 얼럿과 설정 열기. 준비 자체(권한 순서·실패 판단)는 `ShootEntry` 테스트가 본다.
 
 화면 확인은 데모앱으로 한다. 상태별로 실행 인자를 받는다:
 
@@ -78,3 +89,6 @@ TCA `TestStore`로 리듀서를 검증한다 — 진입 조회(상세+사진), �
 xcrun simctl launch booted com.challa.roomdetailfeature.demo \
   --screen detail --state <shooting|shootingPartial|printWaiting|printed|invite|error>
 ```
+
+데모앱에는 카메라 화면이 없어 사진 찍기는 진입 요청(delegate)까지가 끝이다 —
+버튼이 로딩으로 바뀌었다 풀리는 것까지만 보인다. 권한도 값으로 갈아끼워 시스템 팝업이 뜨지 않는다.
