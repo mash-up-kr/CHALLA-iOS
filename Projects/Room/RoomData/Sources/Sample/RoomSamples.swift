@@ -19,11 +19,14 @@ public enum RoomSamples {
     /// 촬영 중인 방만 있는 목록.
     public static let shootingOnly: [RoomCard] = [gangneung]
 
-    /// 촬영이 끝난 방만 있는 목록 (인화 대기 + 인화 완료).
-    public static let completedOnly: [RoomCard] = [seongsu, firstMeeting]
+    // 나열 순서는 서버 정렬 합의를 흉내 낸다 — 인화 완료 → 촬영 가능 → 인화 대기(남은 시간 짧은 순).
+    // 클라는 재정렬 없이 이 순서 그대로 그리므로, 데모도 같은 순서여야 실화면과 같은 모습이 나온다.
+
+    /// 촬영이 끝난 방만 있는 목록 (인화 완료 + 인화 대기).
+    public static let completedOnly: [RoomCard] = [firstMeeting, seongsu]
 
     /// 두 섹션이 모두 보이는 목록.
-    public static let mixed: [RoomCard] = [gangneung, seongsu, firstMeeting]
+    public static let mixed: [RoomCard] = [firstMeeting, gangneung, seongsu]
 
     /// 초대 코드 → 방 id.
     public static let inviteCodes: [String: Room.ID] = [inviteCode: gangneung.id]
@@ -41,7 +44,7 @@ public enum RoomSamples {
             title: "친구들과 강릉 여행",
             status: .shooting,
             totalPhotoCount: 24,
-            remainedPhotoCount: 0, // 24장을 다 찍은 촬영 중 방 (기존 샘플 수치 유지)
+            remainedPhotoCount: 1, // 뱃지 23/24
             createdAt: createdAt,
             expiresAt: expiresAt
         ),
@@ -59,7 +62,9 @@ public enum RoomSamples {
             remainedPhotoCount: 0,
             createdAt: createdAt,
             expiresAt: expiresAt,
-            photoPrintCompletedAt: createdAt.addingTimeInterval(Room.previewPrintCompletionOffset)
+            // 고정값 원칙의 예외 — 카운트다운은 미래 시각이어야 줄어드는 모습을 검수할 수 있다.
+            // 시작값은 시안 숫자(2:15:32)라 실행할 때마다 같은 화면에서 출발한다.
+            photoPrintCompletedAt: Date().addingTimeInterval(2 * 60 * 60 + 15 * 60 + 32)
         ),
         memberCount: 6,
         thumbnailURLs: thumbnailURLs(prefix: "seongsu")
