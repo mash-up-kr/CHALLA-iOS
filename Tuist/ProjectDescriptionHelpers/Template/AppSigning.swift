@@ -14,13 +14,36 @@ public enum AppSigning {
     /// 대신 팀원 각자가 두 프로파일을 내려받아 두어야 한다.
     case manual(debugProfile: String, releaseProfile: String)
 
+    /// Xcode Cloud처럼 CI가 서명을 직접 관리하는 환경인지 (`TUIST_CLOUD_SIGNING`).
+    ///
+    /// Xcode Cloud는 클라우드 관리 인증서·프로파일로 서명하며 **자동 서명을 전제한다**.
+    /// `.manual`이 지정한 이름의 프로파일은 러너에 없으므로, 그대로 두면 Archive가
+    /// "No profile matching ..." 으로 실패한다. 그래서 이 환경에서만 manual을 automatic으로 낮춘다.
+    ///
+    /// 변수를 켜는 곳은 `ci_scripts/ci_post_clone.sh` 하나뿐이다 — 로컬과 GitHub Actions CI는
+    /// 설정하지 않으므로 기존 동작(지정 프로파일로 예측 가능한 서명)이 그대로 유지된다.
+    /// (`ProjectDescription.` 명시: 우리 헬퍼의 Environment enum과 이름이 겹침)
+    private static var prefersCIManagedSigning: Bool {
+        ProjectDescription.Environment.cloudSigning.getBoolean(default: false)
+    }
+
+    /// `.manual`이 위 이유로 자동 서명으로 강등된 상태인지.
+    private var isDowngradedToAutomatic: Bool {
+        switch self {
+        case .automatic: false
+        case .manual: Self.prefersCIManagedSigning
+        }
+    }
+
     /// 두 설정 모두에 공통으로 들어가는 값.
     var baseSettings: SettingsDictionary {
         switch self {
         case .automatic:
             ["CODE_SIGN_STYLE": "Automatic"]
         case .manual:
-            ["CODE_SIGN_STYLE": "Manual"]
+            isDowngradedToAutomatic
+                ? ["CODE_SIGN_STYLE": "Automatic"]
+                : ["CODE_SIGN_STYLE": "Manual"]
         }
     }
 
@@ -29,7 +52,9 @@ public enum AppSigning {
         case .automatic:
             [:]
         case let .manual(debugProfile, _):
-            Self.deviceSettings(profile: debugProfile, identity: "Apple Development")
+            isDowngradedToAutomatic
+                ? Self.simulatorAdHocSettings
+                : Self.deviceSettings(profile: debugProfile, identity: "Apple Development")
         }
     }
 
@@ -38,7 +63,9 @@ public enum AppSigning {
         case .automatic:
             [:]
         case let .manual(_, releaseProfile):
-            Self.deviceSettings(profile: releaseProfile, identity: "Apple Distribution")
+            isDowngradedToAutomatic
+                ? Self.simulatorAdHocSettings
+                : Self.deviceSettings(profile: releaseProfile, identity: "Apple Distribution")
         }
     }
 
@@ -53,5 +80,14 @@ public enum AppSigning {
             "CODE_SIGN_IDENTITY[sdk=iphoneos*]": .string(identity),
             "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": "-"
         ]
+    }
+
+    /// 강등 시에도 남겨야 하는 시뮬레이터 ad-hoc 서명.
+    ///
+    /// 실기기 키(`PROVISIONING_PROFILE_SPECIFIER`·`CODE_SIGN_IDENTITY[sdk=iphoneos*]`)는 **반드시 빠져야** 한다 —
+    /// 자동 서명에 프로파일 지정이 남아 있으면 Xcode가 거부한다.
+    /// 반면 시뮬레이터 ad-hoc은 서명 방식과 무관한 entitlements embed 장치라 그대로 둔다(위 주석 참고).
+    private static var simulatorAdHocSettings: SettingsDictionary {
+        ["CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": "-"]
     }
 }
