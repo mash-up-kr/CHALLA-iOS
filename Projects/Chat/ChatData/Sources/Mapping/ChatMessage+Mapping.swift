@@ -15,7 +15,7 @@ extension ChatMessageDTO {
         let text = content ?? ""
 
         let kind: ChatMessage.Kind
-        if type == "EMOJI" {
+        if messageType == .emoji {
             guard let reaction = ReactionKind(rawValue: text) else { return nil }
             kind = .reaction(reaction)
         } else if photoURL != nil {
