@@ -25,7 +25,10 @@ let project = Project.makeAppProject(
     ],
     // 실제 파일로 둔다(.dictionary가 아니라) — dictionary면 generate마다 Derived에 다시 쓰여서,
     // Xcode 빌드 중에 generate가 돌면 "Entitlements file was modified during the build"로 실패한다.
-    entitlements: .file(path: "CHALLAApp.entitlements"), // Sign in with Apple
+    entitlements: .file(path: "CHALLAApp.entitlements"), // Sign in with Apple + 푸시(development)
+    // 배포 빌드는 aps-environment가 production이어야 한다 — App Store 프로파일이 development를
+    // 포함하지 않아 서명이 거부되기 때문. 두 파일은 이 항목만 다르므로 함께 관리할 것.
+    releaseEntitlements: .file(path: "CHALLAApp.Release.entitlements"),
     hasTests: true, // AppFeature의 화면 전이가 검증 대상이다
     signing: .manual(
         debugProfile: "CHALLA_iOS_Development_2026",
