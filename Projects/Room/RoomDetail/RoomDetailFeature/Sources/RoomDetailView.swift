@@ -143,6 +143,8 @@ public struct RoomDetailView: View {
                     variant: .theme,
                     size: .large,
                     isFullWidth: true,
+                    // 목록·필터·권한을 받는 동안 로딩으로 바꾼다 — 그동안 화면은 그대로 남는다.
+                    isLoading: store.isPreparingShoot,
                     leadingIcon: .camera
                 ) {
                     send(.shootButtonTapped)
