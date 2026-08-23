@@ -79,8 +79,6 @@ enum CompositionRoot {
         }
     }
 
-    // MARK: - 테마
-
     // MARK: - 알림
 
     private static func registerNotification(

@@ -21,7 +21,7 @@ public extension SharedKey where Self == AppStorageKey<AppTheme>.Default {
 /// 테마 저장 키와 그 이전 키의 이사.
 public enum AppThemeStorageKey {
 
-    public static let current = "challaSettingTheme"
+    static let current = "challaSettingTheme"
 
     /// 마침표 때문에 버린 이전 키.
     static let legacy = "challa.setting.theme"
