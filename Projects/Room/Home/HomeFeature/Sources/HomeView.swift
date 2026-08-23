@@ -148,18 +148,17 @@ public struct HomeView: View {
     private var roomList: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: HomeMetric.sectionSpacing) {
-                if !store.board.shooting.isEmpty {
-                    section("촬영 중") {
-                        shootingCards
-                    }
+                // 상단은 시안에 섹션 라벨이 없다 (Figma의 "촬영 중" 텍스트는 hidden).
+                if !store.board.active.isEmpty {
+                    activeCards
                 }
-                if !store.board.shooting.isEmpty, !store.board.completed.isEmpty {
+                if !store.board.active.isEmpty, !store.board.printed.isEmpty {
                     Rectangle()
                         .fill(CHALLAColor.Line.normal)
                         .frame(height: HomeMetric.dividerHeight)
                 }
-                if !store.board.completed.isEmpty {
-                    section("촬영 완료") {
+                if !store.board.printed.isEmpty {
+                    section("인화 완료") {
                         completedCards
                     }
                 }
@@ -183,11 +182,11 @@ public struct HomeView: View {
         }
     }
 
-    /// 촬영 중 — 카드가 고정 폭(200)이라 가로로 넘긴다.
-    private var shootingCards: some View {
+    /// 상단 방 카드들 — 카드가 고정 폭(200)이라 가로로 넘긴다.
+    private var activeCards: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: HomeMetric.cardSpacing) {
-                ForEach(store.board.shooting) { card in
+                ForEach(store.board.active) { card in
                     Button {
                         send(.roomTapped(card.id))
                     } label: {
@@ -209,7 +208,7 @@ public struct HomeView: View {
     /// 촬영 완료 — 카드가 가로 폭을 채워 세로로 쌓는다.
     private var completedCards: some View {
         VStack(spacing: HomeMetric.cardSpacing) {
-            ForEach(store.board.completed) { card in
+            ForEach(store.board.printed) { card in
                 Button {
                     send(.roomTapped(card.id))
                 } label: {
@@ -231,13 +230,25 @@ public struct HomeView: View {
             title: card.room.title,
             memberCount: card.memberCount,
             photo: photo,
-            variant: .shooting(
+            variant: variant(for: card)
+        )
+    }
+
+    /// 방 상태를 카드 변형으로 옮긴다. 남은 시간 실계산·1초 갱신과 확인하기 기록은 타이머 단계에서 잇는다.
+    private func variant(for card: RoomCard) -> CHALLARoomCard.Variant {
+        switch card.room.status {
+        case .shooting:
+            .shooting(
                 shotCount: card.room.shotPhotoCount,
                 totalCount: card.room.totalPhotoCount,
                 isPreparing: store.preparingShootRoomID == card.id,
                 onShoot: { send(.shootButtonTapped(card.id)) }
             )
-        )
+        case .printWaiting:
+            .printWaiting(remainingTime: "--:--:--")
+        case .printed:
+            .printed(onConfirm: { send(.roomTapped(card.id)) })
+        }
     }
 }
 

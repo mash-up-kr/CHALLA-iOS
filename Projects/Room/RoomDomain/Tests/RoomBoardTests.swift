@@ -21,61 +21,68 @@ struct RoomBoardTests {
         )
     }
 
-    @Test("빈 목록이면 두 섹션 모두 비고 isEmpty다")
+    @Test("빈 목록이면 두 목록 모두 비고 isEmpty다")
     func emptyCards() {
         let board = RoomBoard(cards: [])
 
-        #expect(board.shooting.isEmpty)
-        #expect(board.completed.isEmpty)
+        #expect(board.active.isEmpty)
+        #expect(board.printed.isEmpty)
         #expect(board.isEmpty)
     }
 
-    @Test("촬영 중만 있으면 shooting 섹션에만 담긴다")
-    func shootingOnly() {
-        let cards = [Self.card(id: 1, status: .shooting), Self.card(id: 2, status: .shooting)]
+    @Test("촬영 중·인화 대기는 상단에만 담긴다")
+    func shootingAndWaitingStayActiveOnly() {
+        let cards = [Self.card(id: 1, status: .shooting), Self.card(id: 2, status: .printWaiting)]
 
         let board = RoomBoard(cards: cards)
 
-        #expect(board.shooting == cards)
-        #expect(board.completed.isEmpty)
+        #expect(board.active == cards)
+        #expect(board.printed.isEmpty)
         #expect(!board.isEmpty)
     }
 
-    @Test("인화 대기와 인화 완료는 completed 한 섹션에 함께 담긴다")
-    func printWaitingAndPrintedShareCompletedSection() {
-        let waiting = Self.card(id: 1, status: .printWaiting)
-        let printed = Self.card(id: 2, status: .printed)
+    @Test("미확인 인화 완료 방은 상단에만 나온다")
+    func uncheckedPrintedStaysActiveOnly() {
+        let printed = Self.card(id: 1, status: .printed)
 
-        let board = RoomBoard(cards: [waiting, printed])
+        let board = RoomBoard(cards: [printed])
 
-        #expect(board.shooting.isEmpty)
-        #expect(board.completed == [waiting, printed])
+        #expect(board.active == [printed])
+        #expect(board.printed.isEmpty)
     }
 
-    @Test("두 상태가 섞이면 두 섹션으로 갈린다")
-    func mixedCards() {
+    @Test("확인한 인화 완료 방은 하단으로 옮겨간다 — 양쪽에 겹치지 않는다")
+    func checkedPrintedMovesToPrintedList() {
+        let checked = Self.card(id: 1, status: .printed)
+        let unchecked = Self.card(id: 2, status: .printed)
+
+        let board = RoomBoard(cards: [checked, unchecked], checkedPrintedRoomIDs: [1])
+
+        #expect(board.active == [unchecked])
+        #expect(board.printed == [checked])
+    }
+
+    @Test("확인 기록이 인화 완료가 아닌 방을 가리켜도 그 방은 상단에 남는다")
+    func checkedIDOnNonPrintedRoomHasNoEffect() {
         let shooting = Self.card(id: 1, status: .shooting)
-        let printed = Self.card(id: 2, status: .printed)
 
-        let board = RoomBoard(cards: [printed, shooting])
+        let board = RoomBoard(cards: [shooting], checkedPrintedRoomIDs: [1])
 
-        #expect(board.shooting == [shooting])
-        #expect(board.completed == [printed])
-        #expect(!board.isEmpty)
+        #expect(board.active == [shooting])
     }
 
-    @Test("섹션 안의 순서는 입력 배열의 순서를 유지한다")
+    @Test("두 목록 모두 입력 배열(서버 정렬) 순서를 유지한다")
     func preservesInputOrder() {
         let cards = [
-            Self.card(id: 1, status: .shooting),
-            Self.card(id: 2, status: .printWaiting),
-            Self.card(id: 3, status: .shooting),
+            Self.card(id: 1, status: .printed),
+            Self.card(id: 2, status: .shooting),
+            Self.card(id: 3, status: .printWaiting),
             Self.card(id: 4, status: .printed)
         ]
 
-        let board = RoomBoard(cards: cards)
+        let board = RoomBoard(cards: cards, checkedPrintedRoomIDs: [1, 4])
 
-        #expect(board.shooting.map(\.id) == [1, 3])
-        #expect(board.completed.map(\.id) == [2, 4])
+        #expect(board.active.map(\.id) == [2, 3])
+        #expect(board.printed.map(\.id) == [1, 4])
     }
 }
