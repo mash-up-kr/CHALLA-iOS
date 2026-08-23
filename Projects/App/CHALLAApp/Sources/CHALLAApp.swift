@@ -3,7 +3,6 @@ import CHALLAImageKit
 import ComposableArchitecture
 import KakaoSDKAuth
 import KakaoSDKCommon
-import SettingFeature // AppThemeStorageKey — 테마 저장 키 이사
 import SwiftUI
 import UIKit
 
@@ -29,8 +28,6 @@ struct CHALLAApp: App {
         Self.bootstrapKakaoSDK()
         // 로그아웃·탈퇴 시 이전 계정 이미지를 지우도록 같은 로더를 조립부에 넘긴다 (self 캡처 방지용 지역 바인딩).
         let loader = imageLoader
-        // 저장소를 읽는 코드보다 먼저 — 이전 키에 남은 테마를 새 키로 옮긴다.
-        AppThemeStorageKey.migrateIfNeeded()
         prepareDependencies {
             CompositionRoot.registerLiveDependencies(
                 into: &$0,

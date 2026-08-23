@@ -20,7 +20,6 @@ struct SettingDemoApp: App {
 
     init() {
         let arguments = DemoLaunchArguments()
-        AppThemeStorageKey.migrateIfNeeded()
         // State를 만들기 전에 덮어써야 첫 화면부터 인자값이 보인다.
         CompositionRoot.forceThemeIfRequested(arguments)
         _store = State(
