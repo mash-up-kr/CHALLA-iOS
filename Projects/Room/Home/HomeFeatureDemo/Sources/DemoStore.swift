@@ -22,6 +22,8 @@ enum DemoStore {
 
     private static func initialState(for screen: DemoScreen) -> HomeFeature.State {
         var state = HomeFeature.State(nickname: nickname)
+        // 하단 "인화 완료" 목록이 처음부터 보이게 확인 기록을 미리 넣는다.
+        state.checkedPrintedRoomIDs = RoomSamples.checkedPrintedRoomIDs
         switch screen {
         case .list:
             break

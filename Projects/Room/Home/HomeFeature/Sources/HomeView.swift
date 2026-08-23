@@ -254,7 +254,7 @@ public struct HomeView: View {
                 remainingTime: PrintCountdown.text(until: card.room.photoPrintCompletedAt ?? now, now: now)
             )
         case .printed:
-            .printed(onConfirm: { send(.roomTapped(card.id)) })
+            .printed(onConfirm: { send(.confirmButtonTapped(card.id)) })
         }
     }
 }

@@ -23,13 +23,17 @@ public enum RoomSamples {
     // 클라는 재정렬 없이 이 순서 그대로 그리므로, 데모도 같은 순서여야 실화면과 같은 모습이 나온다.
 
     /// 촬영이 끝난 방만 있는 목록 (인화 완료 + 인화 대기).
-    public static let completedOnly: [RoomCard] = [firstMeeting, seongsu]
+    public static let completedOnly: [RoomCard] = [firstMeeting, happyHouse, seongsu]
 
     /// 두 섹션이 모두 보이는 목록.
-    public static let mixed: [RoomCard] = [firstMeeting, gangneung, seongsu]
+    public static let mixed: [RoomCard] = [firstMeeting, happyHouse, gangneung, seongsu]
 
     /// 초대 코드 → 방 id.
     public static let inviteCodes: [String: Room.ID] = [inviteCode: gangneung.id]
+
+    /// 확인하기를 이미 누른 방 — 데모 홈의 하단 "인화 완료" 목록이 처음부터 채워져 보이게 한다.
+    /// (firstMeeting은 하단에, happyHouse는 상단 확인하기 카드로 남는다.)
+    public static let checkedPrintedRoomIDs: Set<Room.ID> = [firstMeeting.id]
 
     // MARK: - 방
 
@@ -68,6 +72,21 @@ public enum RoomSamples {
         ),
         memberCount: 6,
         thumbnailURLs: thumbnailURLs(prefix: "seongsu")
+    )
+
+    private static let happyHouse = RoomCard(
+        room: Room(
+            id: -13,
+            title: "해피하우스 강",
+            status: .printed,
+            totalPhotoCount: 24,
+            remainedPhotoCount: 0,
+            createdAt: createdAt,
+            expiresAt: expiresAt,
+            photoPrintCompletedAt: createdAt.addingTimeInterval(Room.previewPrintCompletionOffset)
+        ),
+        memberCount: 11,
+        thumbnailURLs: thumbnailURLs(prefix: "happy-house")
     )
 
     private static let firstMeeting = RoomCard(

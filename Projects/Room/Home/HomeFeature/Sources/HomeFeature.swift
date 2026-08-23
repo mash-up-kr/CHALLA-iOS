@@ -24,13 +24,17 @@ public struct HomeFeature {
         /// 촬영 화면에 들어갈 준비(목록 조회·권한 요청) 중인 방. 그 카드의 뱃지가 스피너로 바뀐다.
         public var preparingShootRoomID: Room.ID?
 
+        /// 확인하기를 누른 인화 완료 방들 — 상단 카드가 하단 목록으로 옮겨가는 근거.
+        /// 지금은 세션 안에서만 기억한다. 서버 확인 API(합의됨)가 배포되면 응답 필드로 채운다.
+        public var checkedPrintedRoomIDs: Set<Room.ID> = []
+
         /// 상단 + 드롭다운의 열림 여부 (Destination에 넣지 않은 이유는 아래).
         public var isPlusMenuPresented = false
         @Presents public var destination: Destination.State?
 
         /// 섹션 분류는 Domain 규칙에 맡긴다. 저장하면 `cards`와 어긋날 수 있어 매번 계산한다.
         public var board: RoomBoard {
-            RoomBoard(cards: cards.elements)
+            RoomBoard(cards: cards.elements, checkedPrintedRoomIDs: checkedPrintedRoomIDs)
         }
 
         /// 첫 조회 중에만 참이다. 재조회 중에는 거짓이라 보던 목록이 스피너로 바뀌지 않는다.
@@ -90,6 +94,8 @@ public struct HomeFeature {
             case retryButtonTapped
             /// `RoomCard` 대신 id를 받는다 — 뷰가 그린 값과 State의 값이 다를 수 있어 리듀서가 State에서 찾는다.
             case roomTapped(Room.ID)
+            /// 인화 완료 카드의 확인하기. 확인 기록을 남기고 방 상세로 넘어간다.
+            case confirmButtonTapped(Room.ID)
             /// 카드 하단 촬영 뱃지. 목록·권한을 받아 두고 성공하면 카메라로 넘어간다.
             case shootButtonTapped(Room.ID)
             case settingsButtonTapped
@@ -186,6 +192,12 @@ public struct HomeFeature {
 
             case let .view(.roomTapped(id)):
                 guard let card = state.cards[id: id] else { return .none }
+                return .send(.delegate(.roomSelected(card)))
+
+            // 기록되는 순간 board가 이 방을 하단 "인화 완료" 목록으로 보낸다.
+            case let .view(.confirmButtonTapped(id)):
+                guard let card = state.cards[id: id] else { return .none }
+                state.checkedPrintedRoomIDs.insert(id)
                 return .send(.delegate(.roomSelected(card)))
 
             // MARK: 촬영 진입
