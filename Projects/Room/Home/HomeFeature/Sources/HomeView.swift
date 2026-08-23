@@ -214,7 +214,6 @@ public struct HomeView: View {
                     send(.roomTapped(card.id))
                 } label: {
                     CHALLAPrintCard(
-                        status: card.room.status == .printed ? .printed : .printing,
                         title: card.room.title,
                         memberCount: card.memberCount,
                         photoURLs: card.thumbnailURLs,
