@@ -96,7 +96,7 @@ struct ListGallery: View {
     private var themeColorSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             galleryTitle("Theme Color")
-            galleryCaption("기본값 defaultTheme(레몬에이드) / 오버라이드")
+            galleryCaption("기본값(적용된 테마) / 오버라이드")
             CHALLAListSection {
                 CHALLAListRow("기본", icon: .palette, accessory: .arrow(value: "레몬에이드")) {}
                 CHALLAListRow(

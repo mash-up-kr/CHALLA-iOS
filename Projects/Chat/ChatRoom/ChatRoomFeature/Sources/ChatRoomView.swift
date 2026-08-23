@@ -10,6 +10,9 @@ public struct ChatRoomView: View {
 
     @Bindable public var store: StoreOf<ChatRoomFeature>
 
+    /// 하단 그라데이션에 쓰는 강조 색 (PhotoDetailView와 같다).
+    @Environment(\.challaTheme) private var theme
+
     /// 더보기로 이전 메시지를 위에 붙일 때, 스크롤 위치를 유지하려고 붙이기 직전의 맨 위 메시지 id를 기억한다.
     @State private var anchorMessageID: UUID?
 
@@ -137,7 +140,7 @@ public struct ChatRoomView: View {
     /// 하단 배경 그라데이션 (PhotoDetailView와 같은 연출).
     private var glow: some View {
         Ellipse()
-            .fill(CHALLAColor.defaultTheme.opacity(Metric.glowOpacity))
+            .fill(theme.accent.opacity(Metric.glowOpacity))
             .frame(height: Metric.glowHeight)
             .blur(radius: Metric.glowBlurRadius)
             .frame(maxHeight: .infinity, alignment: .bottom)

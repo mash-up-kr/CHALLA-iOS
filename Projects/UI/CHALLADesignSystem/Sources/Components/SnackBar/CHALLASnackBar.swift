@@ -18,6 +18,8 @@ public struct CHALLASnackBar: View {
         }
     }
 
+    @Environment(\.challaTheme) private var theme
+
     private let message: String
     private let action: Action?
 
@@ -47,7 +49,7 @@ public struct CHALLASnackBar: View {
         Button(action: action.handler) {
             Text(action.title)
                 .challaFont(CHALLAButtonSize.small.typography)
-                .foregroundStyle(CHALLAColor.Primary.yellow)
+                .foregroundStyle(theme.accent)
                 .lineLimit(1)
                 .padding(.horizontal, CHALLAButtonSize.small.horizontalPadding)
                 .frame(height: CHALLAButtonSize.small.height)

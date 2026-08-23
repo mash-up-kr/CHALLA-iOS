@@ -26,7 +26,7 @@ public struct CHALLAPrintCard: View {
     public enum Status {
         /// 인화 대기 — 칩 회색톤, 낱장 blur.
         case printing
-        /// 인화 완료 — 칩 노랑톤, 낱장 선명.
+        /// 인화 완료 — 칩이 테마 색을 쓰고 낱장이 선명하다.
         case printed
     }
 
@@ -48,6 +48,8 @@ public struct CHALLAPrintCard: View {
             }
         }
     }
+
+    @Environment(\.challaTheme) private var theme
 
     private let status: Status
     private let title: String
@@ -143,19 +145,19 @@ public struct CHALLAPrintCard: View {
     }
 
     private var chipForeground: Color {
-        status == .printing ? CHALLAColor.Label.alternative : CHALLAColor.Primary.yellow
+        status == .printing ? CHALLAColor.Label.alternative : theme.accent
     }
 
     private var chipBackground: Color {
         status == .printing
             ? CHALLAColor.Background.level1
-            : CHALLAColor.Primary.yellow.opacity(PrintCardMetric.chipPrintedBackgroundOpacity)
+            : theme.accent.opacity(PrintCardMetric.chipPrintedBackgroundOpacity)
     }
 
     private var chipBorder: Color {
         status == .printing
             ? CHALLAColor.Line.normal
-            : CHALLAColor.Primary.yellow.opacity(PrintCardMetric.chipPrintedBorderOpacity)
+            : theme.accent.opacity(PrintCardMetric.chipPrintedBorderOpacity)
     }
 
     private var memberRow: some View {
@@ -251,7 +253,7 @@ private enum PrintCardMetric {
     static let chipHorizontalPadding: CGFloat = 8
     static let chipVerticalPadding: CGFloat = 5
     static let chipBorderWidth: CGFloat = 1
-    /// 인화 완료 칩의 노랑 배경(8%)·테두리(20%) 불투명도.
+    /// 인화 완료 칩의 배경(8%)·테두리(20%) 불투명도. 색은 테마를 따른다.
     static let chipPrintedBackgroundOpacity: Double = 0.08
     static let chipPrintedBorderOpacity: Double = 0.2
 }

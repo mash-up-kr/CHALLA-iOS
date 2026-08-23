@@ -17,6 +17,8 @@ public struct CHALLAMessageInputBar: View {
     private let placeholder: String
     private let onSend: () -> Void
     @FocusState private var isFocused: Bool
+    /// 포커스 테두리·커서에 쓰는 강조 색. #83에서 테마가 생기며 고정색 대신 이 값을 따른다.
+    @Environment(\.challaTheme) private var theme
 
     public init(
         text: Binding<String>,
@@ -48,7 +50,7 @@ public struct CHALLAMessageInputBar: View {
         .overlay {
             if isFocused {
                 RoundedRectangle(cornerRadius: Metric.radius)
-                    .strokeBorder(CHALLAColor.defaultTheme, lineWidth: Metric.focusBorderWidth)
+                    .strokeBorder(theme.accent, lineWidth: Metric.focusBorderWidth)
             }
         }
         .animation(.easeOut(duration: Metric.toggleDuration), value: isActive)
@@ -67,7 +69,7 @@ public struct CHALLAMessageInputBar: View {
             TextField("", text: $text)
                 .challaFont(.body.medium.medium)
                 .foregroundStyle(CHALLAColor.Label.normal)
-                .tint(CHALLAColor.defaultTheme)
+                .tint(theme.accent)
                 .multilineTextAlignment(.leading)
                 .focused($isFocused)
                 .submitLabel(.send)

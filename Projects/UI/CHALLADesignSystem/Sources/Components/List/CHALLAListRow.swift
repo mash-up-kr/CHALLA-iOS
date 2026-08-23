@@ -30,8 +30,15 @@ public struct CHALLAListRow: View {
     private let description: String?
     private let icon: CHALLAIcon?
     private let iconColor: Color
-    private let themeColor: Color
+    /// 호출부가 넘긴 색. nil이면 지금 적용된 테마를 따른다.
+    private let themeColorOverride: Color?
     private let kind: Kind
+
+    @Environment(\.challaTheme) private var theme
+
+    private var themeColor: Color {
+        themeColorOverride ?? theme.accent
+    }
 
     /// 탭 행.
     /// - Parameters:
@@ -42,7 +49,8 @@ public struct CHALLAListRow: View {
     ///   - accessory: 우측 요소. 기본은 화면 이동을 뜻하는 화살표 —
     ///     `action`을 생략해 눌리지 않는 행을 만들 때는 `.empty`를 함께 넘긴다
     ///     (화살표만 남으면 누를 수 있는 것처럼 보인다).
-    ///   - themeColor: 사용자가 고른 테마 색. `.arrow(value:)`의 값 글자에 쓰인다.
+    ///   - themeColor: `.arrow(value:)`의 값 글자 색. 생략하면 지금 적용된 테마를 따른다 —
+    ///     테마 목록처럼 여러 테마를 나란히 보여줄 때만 넘긴다.
     ///   - action: 행 전체를 눌렀을 때 실행할 동작. 생략하면 눌리지 않는 행이 된다.
     public init(
         _ title: String,
@@ -50,7 +58,7 @@ public struct CHALLAListRow: View {
         icon: CHALLAIcon? = nil,
         iconColor: Color = CHALLAColor.Label.neutral,
         accessory: CHALLAListRowAccessory = .arrow,
-        themeColor: Color = CHALLAColor.defaultTheme,
+        themeColor: Color? = nil,
         action: (() -> Void)? = nil
     ) {
         if case .arrow = accessory, action == nil {
@@ -60,27 +68,27 @@ public struct CHALLAListRow: View {
         self.description = description
         self.icon = icon
         self.iconColor = iconColor
-        self.themeColor = themeColor
+        themeColorOverride = themeColor
         kind = .tappable(accessory: accessory, action: action)
     }
 
     /// 토글 행. 행 전체가 스위치이므로 `action`을 받지 않는다.
     /// - Parameters:
     ///   - isOn: 스위치 상태. 소유는 호출부가 한다.
-    ///   - themeColor: 사용자가 고른 테마 색. 스위치가 켜졌을 때의 배경에 쓰인다.
+    ///   - themeColor: 스위치가 켜졌을 때의 배경색. 생략하면 지금 적용된 테마를 따른다.
     public init(
         _ title: String,
         description: String? = nil,
         icon: CHALLAIcon? = nil,
         iconColor: Color = CHALLAColor.Label.neutral,
-        themeColor: Color = CHALLAColor.defaultTheme,
+        themeColor: Color? = nil,
         isOn: Binding<Bool>
     ) {
         self.title = title
         self.description = description
         self.icon = icon
         self.iconColor = iconColor
-        self.themeColor = themeColor
+        themeColorOverride = themeColor
         kind = .toggle(isOn: isOn)
     }
 

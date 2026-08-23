@@ -8,6 +8,8 @@ import UIKit
 @ViewAction(for: PhotoDetailFeature.self)
 public struct PhotoDetailView: View {
 
+    @Environment(\.challaTheme) private var theme
+
     @Bindable public var store: StoreOf<PhotoDetailFeature>
 
     /// 입력창이 차지하는 높이 — 콘텐츠가 그만큼 하단 여백을 비워 입력창과 겹치지 않게 한다.
@@ -176,7 +178,7 @@ public struct PhotoDetailView: View {
     /// 화면 하단의 배경 그라데이션.
     private var glow: some View {
         Ellipse()
-            .fill(CHALLAColor.defaultTheme.opacity(Metric.glowOpacity))
+            .fill(theme.accent.opacity(Metric.glowOpacity))
             .frame(height: Metric.glowHeight)
             .blur(radius: Metric.glowBlurRadius)
             .frame(maxHeight: .infinity, alignment: .bottom)
