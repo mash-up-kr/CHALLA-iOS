@@ -24,4 +24,8 @@ public protocol RoomRepository: Sendable {
 
     /// 참여자 목록 (`GET /rooms/{id}/users`). 참여한 순서대로 돌려준다.
     func members(roomID: Room.ID) async throws -> [RoomMember]
+
+    /// 인화 완료를 확인했다고 서버에 알린다 (`PUT /rooms/{id}/photo-print-completion/check`).
+    /// 응답에 돌려줄 것이 없고, 이후 목록 조회부터 `photoPrintCompletionCheckedAt`이 채워진다.
+    func checkPrintCompletion(roomID: Room.ID) async throws
 }
