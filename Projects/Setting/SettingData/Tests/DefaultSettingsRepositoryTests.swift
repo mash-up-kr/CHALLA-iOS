@@ -11,33 +11,6 @@ struct DefaultSettingsRepositoryTests {
         DefaultSettingsRepository(storage: storage)
     }
 
-    // MARK: - 테마
-
-    @Test("저장한 적 없으면 기본 테마를 돌려준다")
-    func themeFallsBackToDefault() async {
-        let theme = await makeRepository().fetchTheme()
-        #expect(theme == .lemonade)
-    }
-
-    @Test("저장한 테마를 그대로 다시 읽는다")
-    func themeRoundTrip() async {
-        let repository = makeRepository()
-
-        for expected in AppTheme.allCases {
-            await repository.updateTheme(expected)
-            #expect(await repository.fetchTheme() == expected)
-        }
-    }
-
-    @Test("알 수 없는 값이 저장돼 있으면 기본 테마로 떨어진다")
-    func themeIgnoresUnknownRawValue() async {
-        let storage = InMemorySettingsStorage(strings: ["challa.setting.theme": "망고스틴"])
-
-        let theme = await makeRepository(storage: storage).fetchTheme()
-
-        #expect(theme == .default)
-    }
-
     // MARK: - 알림
 
     @Test("설정한 적 없으면 알림 기본값(꺼짐)을 돌려준다")

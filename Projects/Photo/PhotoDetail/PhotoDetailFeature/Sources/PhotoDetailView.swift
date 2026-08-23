@@ -7,6 +7,8 @@ import SwiftUI
 @ViewAction(for: PhotoDetailFeature.self)
 public struct PhotoDetailView: View {
 
+    @Environment(\.challaTheme) private var theme
+
     @Bindable public var store: StoreOf<PhotoDetailFeature>
 
     public init(store: StoreOf<PhotoDetailFeature>) {
@@ -155,7 +157,7 @@ public struct PhotoDetailView: View {
     /// 화면 하단의 배경 그라데이션.
     private var glow: some View {
         Ellipse()
-            .fill(CHALLAColor.defaultTheme.opacity(Metric.glowOpacity))
+            .fill(theme.accent.opacity(Metric.glowOpacity))
             .frame(height: Metric.glowHeight)
             .blur(radius: Metric.glowBlurRadius)
             .frame(maxHeight: .infinity, alignment: .bottom)

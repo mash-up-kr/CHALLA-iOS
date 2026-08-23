@@ -71,7 +71,6 @@ public struct NotificationSettingView: View {
             CHALLAListRow(
                 "서비스 알림",
                 description: "인화 대기, 인화 완료 등",
-                themeColor: store.theme.themeColor,
                 isOn: isServiceNotificationEnabled
             )
         }
@@ -91,7 +90,7 @@ public struct NotificationSettingView: View {
 
 #Preview {
     NotificationSettingView(
-        store: Store(initialState: NotificationSettingFeature.State(theme: .lemonade)) {
+        store: Store(initialState: NotificationSettingFeature.State()) {
             NotificationSettingFeature()
         }
     )
