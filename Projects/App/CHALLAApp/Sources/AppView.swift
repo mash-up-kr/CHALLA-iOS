@@ -1,5 +1,6 @@
 import CameraFeature
 import CameraSession
+import ChatRoomFeature
 import ComposableArchitecture
 import HomeFeature
 import LoginFeature
@@ -62,6 +63,11 @@ public struct AppView: View {
             case .photoDetail:
                 if let photoDetailStore = store.scope(state: \.photoDetail?.photoDetail, action: \.photoDetail) {
                     PhotoDetailView(store: photoDetailStore)
+                }
+
+            case .chat:
+                if let chatStore = store.scope(state: \.chat?.chat, action: \.chat) {
+                    ChatRoomView(store: chatStore)
                 }
 
             case .setting:
