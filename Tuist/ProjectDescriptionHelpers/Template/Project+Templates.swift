@@ -58,6 +58,9 @@ public extension Project {
     ///     (ci_post_clone.sh가 CI_BUILD_NUMBER를 넘겨 업로드마다 자동 증가 — 수동 +1 커밋 불필요)
     ///   - additionalInfoPlist: 앱별 추가 Info.plist 항목 (URL 스킴 등). 기본 항목과 겹치면 이 값이 이긴다
     ///   - entitlements: 앱 엔타이틀먼트 (예: Sign in with Apple). 없으면 nil
+    ///   - releaseEntitlements: Release 구성에서만 쓸 엔타이틀먼트. nil이면 `entitlements`를 두 구성 모두 쓴다.
+    ///     배포앱은 `aps-environment`가 Debug=development / Release=production 으로 갈려야 해서 필요하다
+    ///     (App Store 프로파일은 production만 포함 → development인 채로 아카이브하면 서명이 거부된다)
     ///   - hasTests: 테스트 타깃(<앱이름>Tests, Tests/** 규약) 포함 여부.
     ///     실배포앱은 조립(화면 전이·의존성 배선) 자체가 검증 대상이라 켠다. 데모·검수앱은 끈다
     ///   - signing: 서명 방식. 기본은 자동이고, 팀 프로파일을 직접 지정할 때만 `.manual`을 쓴다
@@ -73,6 +76,7 @@ public extension Project {
         buildNumber: String,
         additionalInfoPlist: [String: Plist.Value] = [:],
         entitlements: Entitlements? = nil,
+        releaseEntitlements: Entitlements? = nil,
         hasTests: Bool = false,
         signing: AppSigning = .automatic,
         usesAPIEnvironment: Bool = false,
@@ -80,6 +84,13 @@ public extension Project {
     ) -> Project {
         var infoPlist: [String: Plist.Value] = [
             "CFBundleDisplayName": .string(displayName),
+            // 버전 두 키는 반드시 빌드 설정을 참조해야 한다.
+            // Tuist의 기본 Info.plist는 "1.0"/"1"을 리터럴로 넣는데, 그러면 아래 appSettings가
+            // 정한 MARKETING_VERSION·CURRENT_PROJECT_VERSION을 아무도 읽지 않는다.
+            // 그 상태로는 CI의 빌드 번호 자동 증가가 앱에 반영되지 않아, 두 번째 업로드부터
+            // App Store Connect가 빌드 번호 중복으로 거부한다.
+            "CFBundleShortVersionString": .string("$(MARKETING_VERSION)"),
+            "CFBundleVersion": .string("$(CURRENT_PROJECT_VERSION)"),
             "UILaunchScreen": .dictionary([:]),
             "UISupportedInterfaceOrientations": .array([
                 .string("UIInterfaceOrientationPortrait")
@@ -106,7 +117,8 @@ public extension Project {
                 settings: appSettings(
                     marketingVersion: marketingVersion,
                     buildNumber: buildNumber,
-                    signing: signing
+                    signing: signing,
+                    releaseEntitlements: releaseEntitlements
                 )
             )
         ]
@@ -129,15 +141,21 @@ public extension Project {
     private static func appSettings(
         marketingVersion: String,
         buildNumber: String,
-        signing: AppSigning
+        signing: AppSigning,
+        releaseEntitlements: Entitlements? = nil
     ) -> Settings {
         // 빌드 번호: TUIST_BUILD_NUMBER 환경변수가 있으면(CI) 그 값, 없으면(로컬) 파라미터 값.
         // xcconfig 주입이 아닌 generate 시점 결정이라 빌드 설정 우선순위(base > xcconfig)에 안 밀린다.
         // (ProjectDescription. 명시: 우리 헬퍼의 Environment enum과 이름이 겹침)
         let resolvedBuildNumber = ProjectDescription.Environment.buildNumber.getString(default: buildNumber)
 
+        // 마케팅 버전도 같은 방식. ci_post_clone.sh 가 릴리즈 태그(v1.2.0)에서 뽑아 넘긴다.
+        // 태그 없는 빌드(release/* 브랜치 등)와 로컬에서는 파라미터 값이 그대로 쓰인다.
+        let resolvedMarketingVersion = ProjectDescription.Environment.marketingVersion
+            .getString(default: marketingVersion)
+
         var base: SettingsDictionary = [
-            "MARKETING_VERSION": .string(marketingVersion),
+            "MARKETING_VERSION": .string(resolvedMarketingVersion),
             "CURRENT_PROJECT_VERSION": .string(resolvedBuildNumber),
             "SWIFT_VERSION": .string(Environment.swiftVersion),
             // Firebase·GoogleUtilities는 static framework로 링크된다. -ObjC가 없으면 링커가
@@ -146,6 +164,15 @@ public extension Project {
             "OTHER_LDFLAGS": .array(["$(inherited)", "-ObjC"])
         ]
         base.merge(signing.baseSettings) { _, new in new }
+
+        // Release 전용 엔타이틀먼트는 구성 레벨에서 타깃 기본값(entitlements: 가 설정한 값)을 덮어쓴다.
+        // 타깃에는 파일을 하나만 걸 수 있고, .dictionary로 바꾸면 generate가 매번 Derived에 다시 써서
+        // "Entitlements file was modified during the build"로 빌드가 깨진다(CHALLAApp Project.swift 주석).
+        // 경로는 SRCROOT(= 프로젝트 디렉터리) 기준 상대경로이고, 구성 설정이 xcconfig보다 우선한다.
+        var releaseSettings = signing.releaseSettings
+        if let releaseEntitlementsPath = releaseEntitlements?.path?.pathString {
+            releaseSettings["CODE_SIGN_ENTITLEMENTS"] = .string(releaseEntitlementsPath)
+        }
 
         return .settings(
             base: base,
@@ -157,7 +184,7 @@ public extension Project {
                 ),
                 .release(
                     name: .release,
-                    settings: signing.releaseSettings,
+                    settings: releaseSettings,
                     xcconfig: .relativeToRoot("Configs/Shared.xcconfig")
                 )
             ]

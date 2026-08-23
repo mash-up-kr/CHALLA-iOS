@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Debug(개발) 구성 엔타이틀먼트. 배포용은 CHALLAApp.Release.entitlements 로 따로 있고
+    aps-environment 만 다르다 — 항목을 추가할 때는 양쪽을 같이 고칠 것.
+-->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
