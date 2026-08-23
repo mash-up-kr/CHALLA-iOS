@@ -25,7 +25,9 @@ extension RoomListResponseDTO.RoomDTO {
                 photoPrintCompletedAt: photoPrintCompletedAt.flatMap(ServerDate.parse)
             ),
             memberCount: memberCount,
-            thumbnailURLs: thumbnailImageUrls.compactMap(URL.init(string:))
+            thumbnailURLs: thumbnailImageUrls.compactMap(URL.init(string:)),
+            // 인화 완료가 아니거나 아직 확인 전이면 null이 정상.
+            photoPrintCompletionCheckedAt: photoPrintCompletionCheckedAt.flatMap(ServerDate.parse)
         )
     }
 }

@@ -28,10 +28,14 @@ struct RoomListResponseDTO: Decodable, Sendable {
         let remainedPhotoCount: Int
         let thumbnailImageUrls: [String]
         let photoPrintCompletedAt: String?
+        let photoPrintCompletionCheckedAt: String?
         let createdAt: String
         let expiresAt: String
     }
 }
+
+/// data가 없는 응답(Unit)용 — `ensureSuccess()`와 짝을 이룬다.
+struct EmptyResponseDTO: Decodable, Sendable {}
 
 /// `GET /api/v1/rooms/{id}` 응답 페이로드 (`BaseResponseDTO.data`).
 struct RoomDetailResponseDTO: Decodable, Sendable {

@@ -17,4 +17,11 @@ struct BaseResponseDTO<Payload: Decodable & Sendable>: Decodable, Sendable {
         }
         return data
     }
+
+    /// data가 없는 응답(Unit)용 — 성공 여부만 확인한다 (NotificationData와 같은 패턴).
+    func ensureSuccess() throws {
+        guard success else {
+            throw RoomError.server(message: message)
+        }
+    }
 }
