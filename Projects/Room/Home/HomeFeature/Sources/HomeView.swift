@@ -183,20 +183,24 @@ public struct HomeView: View {
     }
 
     /// 상단 방 카드들 — 카드가 고정 폭(200)이라 가로로 넘긴다.
+    /// 인화 대기 뱃지가 초마다 줄어야 해서 TimelineView로 감싼다 — 남은 값은 State에 두지 않고
+    /// 완료 예정 시각에서 그때그때 계산한다 (방 상세 카운트다운과 같은 방식).
     private var activeCards: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: HomeMetric.cardSpacing) {
-                ForEach(store.board.active) { card in
-                    Button {
-                        send(.roomTapped(card.id))
-                    } label: {
-                        CHALLAAsyncImage(url: card.coverImageURL) { image in
-                            cardItem(card, photo: image)
-                        } placeholder: {
-                            cardItem(card, photo: nil)
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: HomeMetric.cardSpacing) {
+                    ForEach(store.board.active) { card in
+                        Button {
+                            send(.roomTapped(card.id))
+                        } label: {
+                            CHALLAAsyncImage(url: card.coverImageURL) { image in
+                                cardItem(card, photo: image, now: context.date)
+                            } placeholder: {
+                                cardItem(card, photo: nil, now: context.date)
+                            }
                         }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -225,17 +229,17 @@ public struct HomeView: View {
     }
 
     /// 대표 사진 유무만 다른 두 자리에서 카드 생성을 공유한다.
-    private func cardItem(_ card: RoomCard, photo: Image?) -> some View {
+    private func cardItem(_ card: RoomCard, photo: Image?, now: Date) -> some View {
         CHALLARoomCard(
             title: card.room.title,
             memberCount: card.memberCount,
             photo: photo,
-            variant: variant(for: card)
+            variant: variant(for: card, now: now)
         )
     }
 
-    /// 방 상태를 카드 변형으로 옮긴다. 남은 시간 실계산·1초 갱신과 확인하기 기록은 타이머 단계에서 잇는다.
-    private func variant(for card: RoomCard) -> CHALLARoomCard.Variant {
+    /// 방 상태를 카드 변형으로 옮긴다. 확인하기 기록은 서버 확인 API 배포 후 잇는다.
+    private func variant(for card: RoomCard, now: Date) -> CHALLARoomCard.Variant {
         switch card.room.status {
         case .shooting:
             .shooting(
@@ -245,7 +249,10 @@ public struct HomeView: View {
                 onShoot: { send(.shootButtonTapped(card.id)) }
             )
         case .printWaiting:
-            .printWaiting(remainingTime: "--:--:--")
+            // 완료 시각이 없으면(비정상 응답) 0:00:00 — 표기 규칙의 지난 시각 처리와 같은 모습으로 둔다.
+            .printWaiting(
+                remainingTime: PrintCountdown.text(until: card.room.photoPrintCompletedAt ?? now, now: now)
+            )
         case .printed:
             .printed(onConfirm: { send(.roomTapped(card.id)) })
         }

@@ -122,6 +122,8 @@ public struct HomeFeature {
 
         case roomsResponse(Result<[RoomCard], RoomError>)
         case shootPreparationResponse(Result<CameraEntry, ShootPreparationError>)
+        /// 인화 완료 예정 시각의 알람이 깨어났다 — 목록을 다시 받아 상태 전이를 반영한다.
+        case printCompletionReached
 
         public enum Alert: Equatable, Sendable {
             case retryTapped
@@ -136,6 +138,8 @@ public struct HomeFeature {
 
     // MARK: - Dependencies
 
+    @Dependency(\.continuousClock) var clock
+    @Dependency(\.date) var date
     @Dependency(\.fetchRoomsUseCase) var fetchRoomsUseCase
     @Dependency(\.fetchShootableRoomsUseCase) var fetchShootableRoomsUseCase
     @Dependency(\.fetchCameraFiltersUseCase) var fetchCameraFiltersUseCase
@@ -157,7 +161,10 @@ public struct HomeFeature {
             case let .roomsResponse(.success(cards)):
                 state.loadState = .loaded
                 state.cards = IdentifiedArray(uniqueElements: cards)
-                return .none
+                return refreshAtPrintCompletion(cards: cards)
+
+            case .printCompletionReached:
+                return fetchRooms(&state)
 
             case let .roomsResponse(.failure(error)):
                 state.loadState = .failed(error)
@@ -257,6 +264,27 @@ public struct HomeFeature {
     private enum CancelID {
         case fetchRooms
         case prepareShoot
+        case printRefresh
+    }
+
+    /// 가장 이른 인화 완료 예정 시각에 한 번 깨어나 목록을 재조회하는 알람 (방 상세와 같은 방식).
+    ///
+    /// 미래 시각일 때만 건다 — 시각이 지났는데 상태가 그대로면(서버 전환 지연) 다시 걸지 않는다.
+    /// 걸면 0초짜리 알람이 반복돼 무한 재조회가 된다. 재조회 응답이 이 함수를 다시 불러
+    /// 다음 방의 알람이 이어진다.
+    private func refreshAtPrintCompletion(cards: [RoomCard]) -> Effect<Action> {
+        let upcoming = cards
+            .filter { $0.room.status == .printWaiting }
+            .compactMap(\.room.photoPrintCompletedAt)
+            .filter { $0 > date.now }
+            .min()
+        guard let upcoming else { return .none }
+
+        return .run { [clock, date] send in
+            try await clock.sleep(for: .seconds(upcoming.timeIntervalSince(date.now)))
+            await send(.printCompletionReached)
+        }
+        .cancellable(id: CancelID.printRefresh, cancelInFlight: true)
     }
 
     /// 촬영에 필요한 것을 한꺼번에 받는다 — 방 목록·필터(목록과 LUT)·카메라 권한·사진첩 저장 권한.
