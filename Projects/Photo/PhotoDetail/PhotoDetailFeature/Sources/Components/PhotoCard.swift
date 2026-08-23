@@ -14,7 +14,7 @@ struct PhotoCard: View {
     /// 스티커 자리
     let slots: [String: Int]
     /// 인화 완료 전이면 blur로 가린다 (방 상세의 인화 대기 연출과 동일).
-    var blurred = false
+    var isBlurred = false
 
     // MARK: - Body
 
@@ -45,14 +45,14 @@ struct PhotoCard: View {
                 .resizable()
                 .scaledToFill()
                 // blur는 가장자리를 투명하게 번지게 하므로, 번짐 폭만큼 키워 그린 뒤 카드가 잘라낸다.
-                .padding(blurred ? -Metric.blurEdgeBleed : 0)
-                .blur(radius: blurred ? Metric.photoBlurRadius : 0)
+                .padding(isBlurred ? -Metric.blurEdgeBleed : 0)
+                .blur(radius: isBlurred ? Metric.photoBlurRadius : 0)
         } placeholder: {
             // 실패, 로딩 같은 UI
             CHALLAColor.Background.level2
         }
         .overlay {
-            if blurred {
+            if isBlurred {
                 CHALLAColor.Static.white.opacity(Metric.veilOpacity)
             }
         }

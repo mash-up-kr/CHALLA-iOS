@@ -86,7 +86,7 @@ public struct PhotoDetailView: View {
         GeometryReader { proxy in
             TabView(selection: selection) {
                 ForEach(store.photos) { photo in
-                    PhotoCard(photo: photo, slots: store.stickerSlots, blurred: !store.isPrinted)
+                    PhotoCard(photo: photo, slots: store.stickerSlots, isBlurred: !store.isPrinted)
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .tag(Optional(photo.id))
                 }
