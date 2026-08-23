@@ -2,6 +2,8 @@ import AuthData
 import AuthDomain
 import CameraFeature // CameraFilterCatalog — 진입 전에 LUT를 등록해 둔다
 import CHALLANetwork
+import ChatData
+import ChatDomain
 import ComposableArchitecture
 import FirebaseMessaging // 델리게이트 콜백 전에도 이미 발급된 토큰을 물어볼 수 있다
 import Foundation
@@ -67,6 +69,7 @@ enum CompositionRoot {
         registerUser(into: &values, client: client, repository: userRepository)
         registerRoom(into: &values, client: client)
         registerPhoto(into: &values, client: client)
+        registerChat(into: &values, client: client)
         registerSetting(
             into: &values,
             using: SettingCollaborators(
@@ -192,6 +195,13 @@ enum CompositionRoot {
         values.markCameraCoachMarkSeenUseCase = .live(repository: onboarding)
         values.requestCameraPermissionUseCase = .live(permission: cameraPermission)
         values.openCameraSettingsUseCase = .live(permission: cameraPermission)
+    }
+
+    /// 채팅 조회·작성. client 공유 조건은 registerUser와 같다(공유 client여야 토큰이 붙는다).
+    private static func registerChat(into values: inout DependencyValues, client: any HTTPClient) {
+        let chatRepository = DefaultChatRepository(client: client)
+        values.fetchChatsUseCase = .live(repository: chatRepository)
+        values.sendChatUseCase = .live(repository: chatRepository)
     }
 
     /// 설정 조립이 필요로 하는 다른 aggregate의 결과물.

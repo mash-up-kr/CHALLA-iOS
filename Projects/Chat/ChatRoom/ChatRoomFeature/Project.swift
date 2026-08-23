@@ -2,11 +2,11 @@ import ProjectDescription
 import ProjectDescriptionHelpers
 
 let project = Project.makeModule(
-    name: "PhotoDetailFeature",
+    name: "ChatRoomFeature",
     hasTests: true,
     dependencies: [
-        .photoDomain,
-        .chatDomain, // 사진 상세에서 채팅 메시지 전송(SendChatUseCase)
+        .chatDomain,
+        .photoDomain, // ReactionKind + 이모지 스티커 매핑(사진에 달린 리액션 렌더)
         .composableArchitecture,
         .designSystem
     ]

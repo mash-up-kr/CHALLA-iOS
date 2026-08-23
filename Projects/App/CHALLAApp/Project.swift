@@ -40,6 +40,7 @@ let project = Project.makeAppProject(
         .homeFeature, .roomDetailFeature, .roomData, .roomDomain,
         .cameraFeature, .cameraSession, .shootEntry, .photoData, .photoDomain,
         .photoDetailFeature, .photoLibrary,
+        .chatRoomFeature, .chatData, .chatDomain,
         .network, .keychain,
         .designSystem, .imageKit,
         .composableArchitecture,

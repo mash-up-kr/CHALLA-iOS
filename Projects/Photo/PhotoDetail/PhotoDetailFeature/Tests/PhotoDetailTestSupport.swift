@@ -1,3 +1,4 @@
+import ChatDomain
 import ComposableArchitecture
 import Foundation
 import PhotoDetailFeature
@@ -42,6 +43,9 @@ func makeTestStore(
     setReaction: @escaping @Sendable (Int64, String, ReactionKind, Bool) async throws -> Void = { _, _, _, _ in
         throw PhotoError.unknown
     },
+    sendChat: @escaping @Sendable (Int64, Int64?, String) async throws -> Void = { _, _, _ in
+        throw ChatError.unknown
+    },
     save: @escaping @Sendable (Photo) async throws -> Void = { _ in }
 ) -> TestStoreOf<PhotoDetailFeature> {
     TestStore(
@@ -57,6 +61,7 @@ func makeTestStore(
         $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { room in try await photos(room) })
         $0.fetchPhotoReactionsUseCase = FetchPhotoReactionsUseCase(run: reactions)
         $0.setPhotoReactionUseCase = SetPhotoReactionUseCase(run: setReaction)
+        $0.sendChatUseCase = SendChatUseCase(run: sendChat)
         $0.savePhotoUseCase = SavePhotoUseCase(run: save)
         $0.uuid = .incrementing // 리액션 애니메이션(reactionBurst) id를 결정적으로
     }
@@ -69,6 +74,9 @@ func openedTestStore(
     setReaction: @escaping @Sendable (Int64, String, ReactionKind, Bool) async throws -> Void = { _, _, _, _ in
         throw PhotoError.unknown
     },
+    sendChat: @escaping @Sendable (Int64, Int64?, String) async throws -> Void = { _, _, _ in
+        throw ChatError.unknown
+    },
     save: @escaping @Sendable (Photo) async throws -> Void = { _ in }
 ) async -> TestStoreOf<PhotoDetailFeature> {
     // 지연 로딩: 펼친 사진의 리액션을 그 사진이 이미 가진 값으로 돌려준다(서버 = 픽스처와 동일 → 병합해도 사진은 그대로).
@@ -79,6 +87,7 @@ func openedTestStore(
         photos: { _ in loaded },
         reactions: { reactionsByID[$0] ?? PhotoReactions() },
         setReaction: setReaction,
+        sendChat: sendChat,
         save: save
     )
     await store.send(.view(.onAppear)) { $0.isLoading = true }

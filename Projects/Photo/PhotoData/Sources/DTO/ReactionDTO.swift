@@ -9,7 +9,7 @@ struct CreateReactionRequestDTO: Encodable, Sendable {
     let chat: Payload
 
     init(roomID: Int64, photoID: Int64, content: String) {
-        chat = Payload(roomId: roomID, photoId: photoID, type: "EMOJI", content: content)
+        chat = Payload(roomId: roomID, photoId: photoID, type: ChatMessageType.emoji.rawValue, content: content)
     }
 
     struct Payload: Encodable, Sendable {

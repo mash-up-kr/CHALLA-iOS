@@ -13,7 +13,7 @@ struct PhotoDetailDTO: Decodable, Sendable {
     let chats: [ChatDTO]
 }
 
-/// 채팅 한 줄. 리액션은 `type == "EMOJI"` 채팅이고 `content`가 이모지 의미(ReactionKind.rawValue)다.
+/// 채팅 한 줄. 리액션은 `.emoji` 채팅이고 `content`가 이모지 의미(ReactionKind.rawValue)다.
 struct ChatDTO: Decodable, Sendable {
 
     let id: Int64?
@@ -22,4 +22,9 @@ struct ChatDTO: Decodable, Sendable {
     let userId: Int64
     /// 서버가 타임존 없이 UTC로 주는 문자열. 정렬(먼저 남긴 순)에 쓴다.
     let createdAt: String?
+
+    /// 알 수 없는 종류가 와도 디코딩이 깨지지 않게 String으로 받고, 여기서 enum으로 해석한다.
+    var messageType: ChatMessageType? {
+        ChatMessageType(rawValue: type)
+    }
 }

@@ -41,7 +41,7 @@ extension PhotoDetailDTO {
     /// 이모지가 아닌 채팅(DEFAULT·COMMENT)과 알 수 없는 종류는 버린다.
     func reactionData() -> (stickers: [PhotoReaction], kindsByUser: [String: Set<ReactionKind>]) {
         let emojiChats = chats
-            .filter { $0.type == "EMOJI" }
+            .filter { $0.messageType == .emoji }
             // 먼저 남긴 순으로 정렬 — 날짜가 없으면 뒤로 민다.
             .sorted { ($0.createdAt.flatMap(ServerDate.parse) ?? .distantFuture)
                 < ($1.createdAt.flatMap(ServerDate.parse) ?? .distantFuture)
