@@ -41,9 +41,11 @@ public enum AppSigning {
         case .automatic:
             ["CODE_SIGN_STYLE": "Automatic"]
         case .manual:
-            isDowngradedToAutomatic
-                ? ["CODE_SIGN_STYLE": "Automatic"]
-                : ["CODE_SIGN_STYLE": "Manual"]
+            if isDowngradedToAutomatic {
+                ["CODE_SIGN_STYLE": "Automatic"]
+            } else {
+                ["CODE_SIGN_STYLE": "Manual"]
+            }
         }
     }
 
@@ -52,9 +54,11 @@ public enum AppSigning {
         case .automatic:
             [:]
         case let .manual(debugProfile, _):
-            isDowngradedToAutomatic
-                ? Self.simulatorAdHocSettings
-                : Self.deviceSettings(profile: debugProfile, identity: "Apple Development")
+            if isDowngradedToAutomatic {
+                Self.cloudManagedSettings(identity: "Apple Development")
+            } else {
+                Self.deviceSettings(profile: debugProfile, identity: "Apple Development")
+            }
         }
     }
 
@@ -63,9 +67,11 @@ public enum AppSigning {
         case .automatic:
             [:]
         case let .manual(_, releaseProfile):
-            isDowngradedToAutomatic
-                ? Self.simulatorAdHocSettings
-                : Self.deviceSettings(profile: releaseProfile, identity: "Apple Distribution")
+            if isDowngradedToAutomatic {
+                Self.cloudManagedSettings(identity: "Apple Distribution")
+            } else {
+                Self.deviceSettings(profile: releaseProfile, identity: "Apple Distribution")
+            }
         }
     }
 
@@ -82,12 +88,20 @@ public enum AppSigning {
         ]
     }
 
-    /// 강등 시에도 남겨야 하는 시뮬레이터 ad-hoc 서명.
+    /// 강등됐을 때 쓰는 설정. `deviceSettings`에서 프로파일 지정만 뺀 형태다.
     ///
-    /// 실기기 키(`PROVISIONING_PROFILE_SPECIFIER`·`CODE_SIGN_IDENTITY[sdk=iphoneos*]`)는 **반드시 빠져야** 한다 —
-    /// 자동 서명에 프로파일 지정이 남아 있으면 Xcode가 거부한다.
-    /// 반면 시뮬레이터 ad-hoc은 서명 방식과 무관한 entitlements embed 장치라 그대로 둔다(위 주석 참고).
-    private static var simulatorAdHocSettings: SettingsDictionary {
-        ["CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": "-"]
+    /// `PROVISIONING_PROFILE_SPECIFIER`는 **반드시 빠져야** 한다 — 자동 서명에 프로파일 지정이
+    /// 남아 있으면 Xcode가 거부한다. 프로파일은 Xcode Cloud가 발급해 주므로 이름을 지정할 필요도 없다.
+    ///
+    /// 반면 `CODE_SIGN_IDENTITY[sdk=iphoneos*]`는 **남겨야 한다.** Tuist가 타깃 기본값으로
+    /// `CODE_SIGN_IDENTITY = "iPhone Developer"`를 넣는데, sdk 한정 키가 없으면 그 개발용 신원이
+    /// 실기기 빌드에 적용된다 — 배포 아카이브를 개발 인증서로 서명하려다 실패한다.
+    ///
+    /// 시뮬레이터 ad-hoc(`-`)은 서명 방식과 무관한 entitlements embed 장치라 그대로 둔다(위 주석 참고).
+    private static func cloudManagedSettings(identity: String) -> SettingsDictionary {
+        [
+            "CODE_SIGN_IDENTITY[sdk=iphoneos*]": .string(identity),
+            "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": "-"
+        ]
     }
 }

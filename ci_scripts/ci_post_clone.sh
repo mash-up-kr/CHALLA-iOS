@@ -15,7 +15,9 @@ cd "$(dirname "$0")/.."   # 레포 루트로 이동
 #        ATS 예외 도메인은 plist dictionary의 key라 $(API_HOST) 빌드타임 치환이 안 통해서,
 #        APIEnvironment(Tuist/ProjectDescriptionHelpers)가 매니페스트에서 이 파일을 직접 읽는다.
 #      · KAKAO_NATIVE_APP_KEY 누락 → 빌드는 통과하고 "실행 즉시 죽는 빌드"가 TestFlight에 올라간다
-#        (CHALLAApp.swift의 assert, CHALLAAPIEnvironment의 fatalError).
+#        (CHALLAAPIEnvironment의 fatalError. CHALLAApp.swift에도 assert가 있지만 Release에서는 컴파일에서 빠진다).
+#      · API_SCHEME/API_PORT를 안 넣으면 조용히 https로 나가서, 백엔드가 http면 빌드는 멀쩡한데
+#        모든 API 호출이 실패한다. 기본값에 맡기지 않고 둘 다 명시하게 강제한다.
 #    Swift fatalError로 죽는 것보다 여기서 변수 이름을 찍고 죽는 편이 원인 파악이 훨씬 빠르다.
 #
 #    (배열 대신 문자열로 모으는 이유: macOS 기본 bash 3.2는 set -u 와 빈 배열 확장이 충돌한다)
@@ -23,6 +25,10 @@ missing=""
 [ -n "${CHALLA_TEAM_ID:-}" ]               || missing="$missing CHALLA_TEAM_ID"
 [ -n "${CHALLA_API_HOST:-}" ]              || missing="$missing CHALLA_API_HOST"
 [ -n "${CHALLA_KAKAO_NATIVE_APP_KEY:-}" ]  || missing="$missing CHALLA_KAKAO_NATIVE_APP_KEY"
+[ -n "${CHALLA_API_SCHEME:-}" ]            || missing="$missing CHALLA_API_SCHEME"
+# API_PORT는 https에서 비어 있는 게 정상이라 값은 안 보고 "정의됐는지"만 본다.
+# 빈 값으로라도 등록하게 해서, 포트를 뺀 것이 실수가 아니라 선택이었음을 남긴다.
+[ -n "${CHALLA_API_PORT+defined}" ]        || missing="$missing CHALLA_API_PORT(비워두더라도 등록할 것)"
 if [ -n "$missing" ]; then
     echo "❌ 환경변수가 없습니다:$missing" >&2
     echo "   App Store Connect > Xcode Cloud > 워크플로우 > Environment 에서 설정하세요." >&2
@@ -32,13 +38,12 @@ fi
 
 # 2. 서명 설정 생성.
 #    API_PORT는 빈 값이 정상이라(https는 포트를 안 쓴다) 필수 검사에서 뺐다.
-#    API_SCHEME 기본값이 https인 이유 — http면 매니페스트가 ATS 평문 예외를 자동으로 붙이므로,
-#    배포 빌드에 실수로 그 예외가 박히지 않도록 안전한 쪽을 기본으로 둔다.
+#    scheme이 http면 매니페스트가 해당 도메인에 ATS 평문 예외를 자동으로 붙인다.
 cat > Configs/Shared.xcconfig <<EOF
 // ci_scripts/ci_post_clone.sh 가 Xcode Cloud 환경변수로 생성한 파일 — 직접 수정하지 말 것.
-API_SCHEME = ${CHALLA_API_SCHEME:-https}
+API_SCHEME = ${CHALLA_API_SCHEME}
 API_HOST = ${CHALLA_API_HOST}
-API_PORT = ${CHALLA_API_PORT:-}
+API_PORT = ${CHALLA_API_PORT}
 DEVELOPMENT_TEAM = ${CHALLA_TEAM_ID}
 KAKAO_NATIVE_APP_KEY = ${CHALLA_KAKAO_NATIVE_APP_KEY}
 EOF

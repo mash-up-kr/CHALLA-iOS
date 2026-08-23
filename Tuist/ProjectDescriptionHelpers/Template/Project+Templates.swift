@@ -170,8 +170,13 @@ public extension Project {
         // "Entitlements file was modified during the build"로 빌드가 깨진다(CHALLAApp Project.swift 주석).
         // 경로는 SRCROOT(= 프로젝트 디렉터리) 기준 상대경로이고, 구성 설정이 xcconfig보다 우선한다.
         var releaseSettings = signing.releaseSettings
-        if let releaseEntitlementsPath = releaseEntitlements?.path?.pathString {
-            releaseSettings["CODE_SIGN_ENTITLEMENTS"] = .string(releaseEntitlementsPath)
+        if let releaseEntitlements {
+            // `.dictionary`·`.variable`은 path가 nil이라 그냥 두면 Release가 Debug 엔타이틀먼트를
+            // 그대로 쓰게 된다 — 이 파라미터가 막으려던 바로 그 사고(development로 배포)를 조용히 낸다.
+            guard let path = releaseEntitlements.path?.pathString else {
+                fatalError("releaseEntitlements는 .file(path:)만 지원한다. 받은 값: \(releaseEntitlements)")
+            }
+            releaseSettings["CODE_SIGN_ENTITLEMENTS"] = .string(path)
         }
 
         return .settings(

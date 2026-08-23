@@ -71,19 +71,21 @@ App Store Connect UI에만 있고 저장소에는 남지 않는 설정이라, **
 - `API_SCHEME` 누락 → `tuist generate`가 즉사한다. ATS 예외 도메인은 plist dictionary의 **key**라
   `$(API_HOST)` 빌드타임 치환이 안 통해서, 매니페스트가 이 파일을 직접 읽기 때문이다.
   (에러 메시지가 "signal with code 5"라 원인을 못 알려준다 — 그래서 스크립트가 먼저 검사한다.)
-- `KAKAO_NATIVE_APP_KEY` 누락 → 빌드는 통과하고 **실행 즉시 죽는 빌드**가 TestFlight에 올라간다.
+- `KAKAO_NATIVE_APP_KEY` 누락 → 빌드는 통과하고 **실행 즉시 죽는 빌드**가 TestFlight에 올라간다
+  (`CHALLAAPIEnvironment`의 `fatalError`. `CHALLAApp.swift`에도 `assert`가 있지만 Release에서는 빠진다).
 
 | 환경변수 | xcconfig 키 | 필수 | secret | 값의 출처 |
 | :-- | :-- | :--: | :--: | :-- |
 | `CHALLA_TEAM_ID` | `DEVELOPMENT_TEAM` | ✅ | | Xcode > Settings > Accounts |
 | `CHALLA_API_HOST` | `API_HOST` | ✅ | ✅ | 백엔드 팀 채널 |
-| `CHALLA_API_SCHEME` | `API_SCHEME` | | | 미설정 시 `https` |
-| `CHALLA_API_PORT` | `API_PORT` | | | https면 빈 값 |
+| `CHALLA_API_SCHEME` | `API_SCHEME` | ✅ | | `http` 또는 `https` |
+| `CHALLA_API_PORT` | `API_PORT` | ✅ | | https면 **빈 값으로 등록** |
 | `CHALLA_KAKAO_NATIVE_APP_KEY` | `KAKAO_NATIVE_APP_KEY` | ✅ | ✅ | 카카오 개발자 콘솔 > 앱 키 |
 
-> ⚠️ `CHALLA_API_SCHEME` 기본값이 `https`인 것은 **평문 ATS 예외가 실수로 배포 빌드에 박히는 걸 막기 위해서**다.
-> 배포 서버가 아직 http라면 `CHALLA_API_SCHEME=http`와 `CHALLA_API_PORT`를 **명시적으로** 넣어야 한다.
-> 그러면 매니페스트가 해당 도메인에 ATS 예외를 자동으로 붙인다.
+> ⚠️ scheme·port에 기본값을 두지 않는다. 기본값을 두면 둘을 빠뜨렸을 때 조용히 `https`로 나가서,
+> 백엔드가 http인 동안에는 **빌드는 멀쩡한데 모든 API 호출이 실패하는 빌드**가 TestFlight에 올라간다.
+> port는 https에서 비어 있는 게 정상이므로 값이 아니라 **등록 여부**만 본다 — 빈 값으로라도 등록해야 통과한다.
+> scheme이 `http`면 매니페스트가 해당 도메인에 ATS 평문 예외를 자동으로 붙인다.
 
 ### 서명
 
