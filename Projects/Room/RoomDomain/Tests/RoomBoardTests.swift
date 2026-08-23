@@ -5,7 +5,7 @@ import Testing
 @Suite("RoomBoard")
 struct RoomBoardTests {
 
-    private static func card(id: Int64, status: Room.Status) -> RoomCard {
+    private static func card(id: Int64, status: Room.Status, checkedAt: Date? = nil) -> RoomCard {
         RoomCard(
             room: Room(
                 id: id,
@@ -17,7 +17,8 @@ struct RoomBoardTests {
                 expiresAt: Date(timeIntervalSince1970: 60 * 60 * 24 * 30)
             ),
             memberCount: 1,
-            thumbnailURLs: []
+            thumbnailURLs: [],
+            photoPrintCompletionCheckedAt: checkedAt
         )
     }
 
@@ -51,8 +52,19 @@ struct RoomBoardTests {
         #expect(board.printed.isEmpty)
     }
 
-    @Test("확인한 인화 완료 방은 하단으로 옮겨간다 — 양쪽에 겹치지 않는다")
-    func checkedPrintedMovesToPrintedList() {
+    @Test("서버가 확인됐다고 준 인화 완료 방은 하단으로 옮겨간다 — 양쪽에 겹치지 않는다")
+    func serverCheckedPrintedMovesToPrintedList() {
+        let checked = Self.card(id: 1, status: .printed, checkedAt: Date(timeIntervalSince1970: 100))
+        let unchecked = Self.card(id: 2, status: .printed)
+
+        let board = RoomBoard(cards: [checked, unchecked])
+
+        #expect(board.active == [unchecked])
+        #expect(board.printed == [checked])
+    }
+
+    @Test("세션 확인 기록도 같은 효력을 갖는다 — 서버 기록이 목록에 실려 오기 전 구간용")
+    func sessionCheckedPrintedMovesToPrintedList() {
         let checked = Self.card(id: 1, status: .printed)
         let unchecked = Self.card(id: 2, status: .printed)
 
