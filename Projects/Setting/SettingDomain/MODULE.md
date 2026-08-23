@@ -105,6 +105,31 @@ Domain이 `CHALLADesignSystem`을 import하면 도메인이 UI에 묶이기 때�
 `@Shared(.appTheme)`가 저장소를 직접 읽는다 — 읽는 곳이 늘어도 UseCase 주입을 새로 배선하지
 않아도 되고, 프로필 실패와도 무관하다. 알림은 설정 화면 안에서만 쓰므로 UseCase 그대로다.
 
+### `@Shared`를 쓸지 판단하는 기준
+
+테마가 첫 사례다. 계기는 `AppFeature.State`가 화면 9개짜리 enum이라는 점이었다 —
+값을 state에 얹으려면 `profile`처럼 9개 case 전부에 끼워야 하고, 화면이 늘 때마다 그 배선이 늘어난다.
+`@Shared`는 그 배선을 없애지만 공짜가 아니라서, **아래 네 가지가 모두 "예"일 때만 쓴다.**
+
+1. 여러 화면이 읽는가 — 한 화면 안에서 끝나면 UseCase로 충분하다
+2. 실패할 일이 없는가 — 서버를 타면 로딩·에러 상태가 필요해 Repository가 맞다
+3. 쓰는 곳이 한 군데인가 — 여러 곳이 쓰면 순서 관리가 필요해 Reducer를 거친다
+4. 아래 테스트 비용을 치를 만큼 중요한가
+
+**테스트 비용** — 테스트의 `defaultAppStorage`는 읽을 때마다 새 저장소를 만든다.
+값을 미리 넣어둔 저장소와 `TestStore`가 보는 저장소가 서로 다른 물건이 되어,
+시드가 반영되지 않은 채로 통과하거나 엉뚱한 변화로 잡힌다.
+`SettingFeature/Tests/Support/ThemeStorage.swift`의 `withThemeStorage`가 둘을 같은 컨텍스트로 묶는다.
+값 하나를 옮길 때마다 이 헬퍼를 거쳐야 한다.
+
+| 값 | 여러 화면 | 실패 없음 | 쓰기 한 곳 | 결론 |
+| :-- | :-: | :-: | :-: | :-- |
+| 테마 | O | O | O | `@Shared` |
+| 알림 설정 | X (설정 안에서 끝남) | O | O | UseCase 유지 |
+| 프로필 | O | X (서버 조회) | X | Repository 유지 |
+
+설정 화면 쪽 배경은 `SettingFeature/MODULE.md`의 "설정 저장은 누가 하나" 참고.
+
 ## 의존 관계
 
 - **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (swift-dependencies, TCA 전이 의존)

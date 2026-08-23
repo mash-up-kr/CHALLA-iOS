@@ -55,7 +55,10 @@ App에 올리는 `delegate`는 **설정 밖으로 나가야 하는 것**뿐이�
   Domain은 UI를 모르고 DS는 Domain을 모르므로 둘 다 아는 이 레이어가 갖는다.
   앱 루트가 이 색으로 `CHALLATheme`을 만들어 `\.challaTheme`에 주입한다
 - `SharedKey.appTheme` (`Sources/Support/SharedKeys.swift`) — 테마 저장 키.
-  설정 화면·테마 화면·앱 루트가 이 하나를 함께 읽는다. 저장 키 문자열은 이 파일에만 둔다
+  설정 화면·테마 화면·앱 루트가 이 하나를 함께 읽는다. 저장 키 문자열은 이 파일에만 둔다.
+  키에 마침표를 쓰지 않는다 — KVO가 키패스 구분자로 읽어 값 변경 관찰이 깨진다.
+  다른 전역 값도 이 방식으로 옮길지는 `SettingDomain/MODULE.md`의
+  "`@Shared`를 쓸지 판단하는 기준" 참고
 
 ## 설정 저장은 누가 하나
 
