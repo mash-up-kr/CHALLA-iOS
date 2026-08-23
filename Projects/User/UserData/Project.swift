@@ -22,8 +22,8 @@ let project = Project(
             deploymentTargets: Environment.deploymentTarget,
             infoPlist: .default,
             sources: ["Tests/**"],
-            // .network: Tests/Support의 MockHTTPClient가 CHALLANetwork 타입을 직접 import한다.
-            dependencies: [.target(name: "UserData"), .userDomain, .network]
+            // .networkTesting: 공용 MockHTTPClient. .network: 테스트가 NetworkError·Response를 직접 만든다.
+            dependencies: [.target(name: "UserData"), .userDomain, .network, .networkTesting]
         )
     ]
 )

@@ -1,5 +1,6 @@
 @testable import PhotoData
 import CHALLANetwork
+import CHALLANetworkTesting
 import Foundation
 import PhotoDomain
 import Testing

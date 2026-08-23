@@ -1,6 +1,7 @@
 @testable import AuthData
 import AuthDomain
 import CHALLANetwork
+import CHALLANetworkTesting
 import Foundation
 import Testing
 
@@ -30,7 +31,8 @@ struct DefaultAuthRepositoryTests {
             isNewUser: true
         ))
         // 라우팅 계약: login은 POST /api/v1/auth/login으로 나가야 한다.
-        #expect(client.requests == [.init(path: "/api/v1/auth/login", method: .post)])
+        #expect(client.requests.map(\.path) == ["/api/v1/auth/login"])
+        #expect(client.requests.map(\.method) == [.post])
     }
 
     @Test("success=false면 서버 메시지를 담은 .server를 던진다")
@@ -82,7 +84,8 @@ struct DefaultAuthRepositoryTests {
         let token = try await repository.refresh(refreshToken: "old-refresh")
 
         #expect(token == AuthToken(accessToken: "new-access", refreshToken: "new-refresh"))
-        #expect(client.requests == [.init(path: "/api/v1/auth/refresh", method: .post)])
+        #expect(client.requests.map(\.path) == ["/api/v1/auth/refresh"])
+        #expect(client.requests.map(\.method) == [.post])
     }
 
     @Test("리프레시 401(만료)이면 .unauthorized를 던진다")
@@ -108,7 +111,8 @@ struct DefaultAuthRepositoryTests {
 
         try await repository.logout(refreshToken: "refresh") // throw되면 테스트 실패
 
-        #expect(client.requests == [.init(path: "/api/v1/auth/logout", method: .post)])
+        #expect(client.requests.map(\.path) == ["/api/v1/auth/logout"])
+        #expect(client.requests.map(\.method) == [.post])
     }
 
     @Test("로그아웃 success=false면 .server를 던진다")
