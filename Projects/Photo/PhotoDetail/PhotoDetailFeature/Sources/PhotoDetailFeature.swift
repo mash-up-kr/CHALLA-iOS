@@ -1,3 +1,4 @@
+import ChatDomain
 import ComposableArchitecture
 import Foundation
 import PhotoDomain
@@ -28,6 +29,10 @@ public struct PhotoDetailFeature {
         public var selectedPhotoID: Photo.ID?
         public var isLoading = false
         public var isSaving = false
+        /// 이 사진에 보낼 채팅 메시지 입력값.
+        public var messageDraft = ""
+        /// 메시지를 보내는 중 — 중복 전송을 막는다.
+        public var isSendingMessage = false
         @Presents public var alert: AlertState<Action.Alert>?
 
         /// 방금 남긴 리액션 — 뷰가 이모지 쏟아지는 애니메이션을 재생한다. id가 바뀔 때마다 새로 튄다.
@@ -94,6 +99,8 @@ public struct PhotoDetailFeature {
             case photoSelected(Photo.ID?)
             /// VoiceOver에서 좌우 스와이프 대신 쓰는 사진 이동.
             case adjacentPhotoRequested(offset: Int)
+            case messageChanged(String)
+            case sendMessageTapped
         }
 
         case view(ViewAction)
@@ -119,6 +126,9 @@ public struct PhotoDetailFeature {
         case saveSucceeded
         case saveFailed(PhotoError)
 
+        /// 이 사진에 채팅 메시지를 보낸 결과. 성공하면 입력창을 비운 상태를 확정한다(메시지는 채팅 화면에서 확인).
+        case messageSent(Result<Void, ChatError>)
+
         public enum Alert: Equatable, Sendable {
             case retryButtonTapped
             case openSettingsButtonTapped
@@ -136,6 +146,7 @@ public struct PhotoDetailFeature {
     @Dependency(\.fetchRoomPhotosUseCase) var fetchRoomPhotosUseCase
     @Dependency(\.fetchPhotoReactionsUseCase) var fetchPhotoReactionsUseCase
     @Dependency(\.setPhotoReactionUseCase) var setPhotoReactionUseCase
+    @Dependency(\.sendChatUseCase) var sendChatUseCase
     @Dependency(\.savePhotoUseCase) var savePhotoUseCase
     @Dependency(\.openURL) var openURL
     @Dependency(\.uuid) var uuid
@@ -172,6 +183,13 @@ public struct PhotoDetailFeature {
                 let targetID = state.photos[targetIndex].id
                 state.selectedPhotoID = targetID
                 return loadReactions(&state, photoID: targetID)
+
+            case let .view(.messageChanged(text)):
+                state.messageDraft = text
+                return .none
+
+            case .view(.sendMessageTapped):
+                return sendMessage(&state)
 
             case let .photosResponse(.success(photos)):
                 state.isLoading = false
@@ -226,6 +244,22 @@ public struct PhotoDetailFeature {
                 state.alert = Self.errorAlert(title: "사진을 저장하지 못했어요", error: error, canRetry: false)
                 return .none
 
+            case .messageSent(.success):
+                // 메시지는 채팅 화면에서 확인한다 — 여기선 입력창만 비운 상태를 확정한다.
+                state.isSendingMessage = false
+                return .none
+
+            case let .messageSent(.failure(error)):
+                state.isSendingMessage = false
+                state.alert = AlertState {
+                    TextState("메시지를 보내지 못했어요")
+                } actions: {
+                    ButtonState(role: .cancel) { TextState("확인") }
+                } message: {
+                    TextState(error.userMessage)
+                }
+                return .none
+
             case .alert(.presented(.retryButtonTapped)):
                 return loadPhotos(&state)
 
@@ -241,8 +275,11 @@ public struct PhotoDetailFeature {
         }
         .ifLet(\.$alert, action: \.alert)
     }
+}
 
-    // MARK: - Effects
+// MARK: - Effects
+
+extension PhotoDetailFeature {
 
     private func loadPhotos(_ state: inout State) -> Effect<Action> {
         guard !state.isLoading else { return .none }
@@ -326,6 +363,29 @@ public struct PhotoDetailFeature {
             } catch {
                 guard let failure = Self.failure(error) else { return }
                 await send(.saveFailed(failure))
+            }
+        }
+    }
+
+    /// 펼친 사진에 채팅 메시지를 보낸다. 빈 입력·전송 중 재탭은 무시하고, 낙관적으로 입력창을 비운다.
+    /// 메시지 목록은 채팅 화면에서 보므로 여기선 표시하지 않는다.
+    private func sendMessage(_ state: inout State) -> Effect<Action> {
+        let content = state.messageDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !content.isEmpty, !state.isSendingMessage, let photo = state.selectedPhoto else { return .none }
+        guard let photoID = Int64(photo.id) else { return .none }
+
+        state.isSendingMessage = true
+        state.messageDraft = ""
+        let roomID = state.roomID
+
+        return .run { [sendChatUseCase] send in
+            do {
+                try await sendChatUseCase.run(roomID, photoID, content)
+                await send(.messageSent(.success(())))
+            } catch is CancellationError {
+                return
+            } catch {
+                await send(.messageSent(.failure((error as? ChatError) ?? .unknown)))
             }
         }
     }
