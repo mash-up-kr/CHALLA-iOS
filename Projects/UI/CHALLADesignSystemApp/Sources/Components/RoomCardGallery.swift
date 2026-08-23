@@ -1,10 +1,10 @@
 import CHALLADesignSystem
 import SwiftUI
 
-/// Component > Card Item 검수 화면.
-/// 방 카드의 사진 유무 · 제목 길이 · 숫자 자릿수 조합을 나열한다.
+/// Component > Room Card 검수 화면.
+/// 방 카드의 상태 3종(촬영 중 · 인화 대기 · 인화 완료) × 사진 유무 · 제목 길이 · 액션 유무 조합을 나열한다.
 /// 사진은 picsum.photos에서 실사진을 받아 주입한다 — 인터넷이 없으면 로딩 자리만 남는다.
-struct CardItemGallery: View {
+struct RoomCardGallery: View {
 
     var body: some View {
         ScrollView {
@@ -12,6 +12,8 @@ struct CardItemGallery: View {
                 photoSection
                 textSection
                 shootSection
+                printWaitingSection
+                printedSection
             }
             .padding(20)
             // 내용물이 전부 고정 폭(카드 200 등)이라 그대로 두면 ScrollView가 내용 폭만큼만
@@ -19,7 +21,7 @@ struct CardItemGallery: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(CHALLAColor.Background.surface)
-        .navigationTitle("Card Item")
+        .navigationTitle("Room Card")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -96,6 +98,63 @@ struct CardItemGallery: View {
         }
     }
 
+    // MARK: - Print Waiting 섹션
+
+    /// 인화 대기 뱃지 검수 — 사진 위 어두운 뱃지 대비, 남은 시간 자릿수별 뱃지 폭 확인.
+    private var printWaitingSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            galleryTitle("Print Waiting")
+            galleryCaption("사진 있음 — 딤 위 시계 뱃지 대비")
+            samplePhotoCard(seed: "room3") {
+                CHALLARoomCard(
+                    title: "친구들과 유럽 여행",
+                    memberCount: 5,
+                    photo: $0,
+                    variant: .printWaiting(remainingTime: "2:15:32")
+                )
+            }
+            galleryCaption("자릿수 최대(23:59:59) — 뱃지 폭이 제일 넓어지는 경우")
+            CHALLARoomCard(
+                title: "방금 대기로 넘어간 방",
+                memberCount: 5,
+                photo: nil,
+                variant: .printWaiting(remainingTime: "23:59:59")
+            )
+            galleryCaption("자릿수 최소(0:00:01) — 곧 완료로 넘어가기 직전")
+            CHALLARoomCard(
+                title: "곧 인화가 끝나는 방",
+                memberCount: 5,
+                photo: nil,
+                variant: .printWaiting(remainingTime: "0:00:01")
+            )
+        }
+    }
+
+    // MARK: - Printed 섹션
+
+    /// 확인하기 버튼 검수 — 테마색 글로우 세기, 액션 유무(버튼/그림) 확인.
+    private var printedSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            galleryTitle("Printed")
+            galleryCaption("액션 있음 — 확인하기 버튼 + 노랑 글로우")
+            samplePhotoCard(seed: "room4") {
+                CHALLARoomCard(
+                    title: "친구들과 유럽 여행",
+                    memberCount: 5,
+                    photo: $0,
+                    variant: .printed(onConfirm: {})
+                )
+            }
+            galleryCaption("액션 없음 — 버튼 모양의 그림 (눌리지 않는 자리용)")
+            CHALLARoomCard(
+                title: "인화 완료된 방",
+                memberCount: 5,
+                photo: nil,
+                variant: .printed(onConfirm: nil)
+            )
+        }
+    }
+
     // MARK: - 공통 헬퍼
 
     /// picsum 실사진을 받아 카드에 주입한다. seed가 같으면 같은 사진이 온다.
@@ -128,6 +187,6 @@ struct CardItemGallery: View {
 
 #Preview {
     NavigationStack {
-        CardItemGallery()
+        RoomCardGallery()
     }
 }
