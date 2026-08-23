@@ -75,6 +75,21 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Photo/PhotoDetail/PhotoDetailFeature")
     )
 
+    // MARK: - Chat
+
+    static let chatDomain = TargetDependency.project(
+        target: "ChatDomain",
+        path: .relativeToRoot("Projects/Chat/ChatDomain")
+    )
+    static let chatData = TargetDependency.project(
+        target: "ChatData",
+        path: .relativeToRoot("Projects/Chat/ChatData")
+    )
+    static let chatRoomFeature = TargetDependency.project(
+        target: "ChatRoomFeature",
+        path: .relativeToRoot("Projects/Chat/ChatRoom/ChatRoomFeature")
+    )
+
     // MARK: - User
 
     static let userDomain = TargetDependency.project(
