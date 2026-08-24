@@ -31,10 +31,6 @@ public enum RoomSamples {
     /// 초대 코드 → 방 id.
     public static let inviteCodes: [String: Room.ID] = [inviteCode: gangneung.id]
 
-    /// 확인하기를 이미 누른 방 — 데모 홈의 하단 "인화 완료" 목록이 처음부터 채워져 보이게 한다.
-    /// (firstMeeting은 하단에, happyHouse는 상단 확인하기 카드로 남는다.)
-    public static let checkedPrintedRoomIDs: Set<Room.ID> = [firstMeeting.id]
-
     // MARK: - 방
 
     /// id가 음수인 이유는 `InMemoryRoomRepository.nextID` 주석 참고 — 샘플은 -10번대를 쓴다.
@@ -101,7 +97,10 @@ public enum RoomSamples {
             photoPrintCompletedAt: createdAt.addingTimeInterval(Room.previewPrintCompletionOffset)
         ),
         memberCount: 11,
-        thumbnailURLs: thumbnailURLs(prefix: "first-meeting")
+        thumbnailURLs: thumbnailURLs(prefix: "first-meeting"),
+        // 확인을 마친 방 — 홈 하단 "인화 완료" 목록이 처음부터 채워져 보인다
+        // (happyHouse는 미확인이라 상단 확인하기 카드로 남는다).
+        photoPrintCompletionCheckedAt: createdAt.addingTimeInterval(Room.previewPrintCompletionOffset)
     )
 
     // MARK: - 사진 URL
