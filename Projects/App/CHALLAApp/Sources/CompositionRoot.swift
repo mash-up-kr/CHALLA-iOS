@@ -161,6 +161,7 @@ enum CompositionRoot {
         values.joinRoomUseCase = .live(repository: repository)
         values.fetchRoomDetailUseCase = .live(repository: repository)
         values.fetchShootableRoomsUseCase = .live(repository: repository)
+        values.checkPrintCompletionUseCase = .live(repository: repository)
 
         // 방 상세의 사진 그리드가 쓰는 fetchRoomPhotosUseCase는 등록하지 않는다 —
         // PhotoData에 사진 조회 구현이 아직 없다 (필터·업로드만 있음). 미등록 상태로 두면

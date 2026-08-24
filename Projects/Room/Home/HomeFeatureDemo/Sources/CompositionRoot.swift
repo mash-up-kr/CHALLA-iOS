@@ -13,6 +13,7 @@ enum CompositionRoot {
         values.fetchRoomsUseCase = .live(repository: repository)
         values.createRoomUseCase = .live(repository: repository)
         values.joinRoomUseCase = .live(repository: repository)
+        values.checkPrintCompletionUseCase = .live(repository: repository)
     }
 
     /// 화면·상태별로 저장소 구성을 바꾼다 — 어떤 방이 들어 있는지, 응답이 늦는지, 실패하는지.

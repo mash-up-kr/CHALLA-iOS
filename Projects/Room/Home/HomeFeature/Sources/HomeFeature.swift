@@ -24,8 +24,8 @@ public struct HomeFeature {
         /// 촬영 화면에 들어갈 준비(목록 조회·권한 요청) 중인 방. 그 카드의 뱃지가 스피너로 바뀐다.
         public var preparingShootRoomID: Room.ID?
 
-        /// 확인하기를 누른 인화 완료 방들 — 상단 카드가 하단 목록으로 옮겨가는 근거.
-        /// 지금은 세션 안에서만 기억한다. 서버 확인 API(합의됨)가 배포되면 응답 필드로 채운다.
+        /// 이번 세션에서 확인하기를 누른 방들. 영구 기록은 서버(check API)가 갖고,
+        /// 이 셋은 그 기록이 다음 목록 조회에 실려 오기 전까지 화면을 먼저 하단으로 옮기는 용도다.
         public var checkedPrintedRoomIDs: Set<Room.ID> = []
 
         /// 상단 + 드롭다운의 열림 여부 (Destination에 넣지 않은 이유는 아래).
@@ -146,6 +146,7 @@ public struct HomeFeature {
 
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date) var date
+    @Dependency(\.checkPrintCompletionUseCase) var checkPrintCompletionUseCase
     @Dependency(\.fetchRoomsUseCase) var fetchRoomsUseCase
     @Dependency(\.fetchShootableRoomsUseCase) var fetchShootableRoomsUseCase
     @Dependency(\.fetchCameraFiltersUseCase) var fetchCameraFiltersUseCase
@@ -198,7 +199,14 @@ public struct HomeFeature {
             case let .view(.confirmButtonTapped(id)):
                 guard let card = state.cards[id: id] else { return .none }
                 state.checkedPrintedRoomIDs.insert(id)
-                return .send(.delegate(.roomSelected(card)))
+                return .merge(
+                    // 서버 기록은 결과를 기다리지 않는다 — 화면은 세션 기록으로 이미 옮겨졌고,
+                    // 실패하면 다음 조회에서 확인하기가 다시 보여 그때 재시도된다.
+                    .run { [checkPrintCompletionUseCase] _ in
+                        try? await checkPrintCompletionUseCase.run(id)
+                    },
+                    .send(.delegate(.roomSelected(card)))
+                )
 
             // MARK: 촬영 진입
 
