@@ -85,6 +85,18 @@ public struct DefaultRoomRepository: RoomRepository {
         }
     }
 
+    public func updateTitle(roomID: Room.ID, title: String) async throws {
+        do {
+            let response = try await client.request(
+                RoomEndpoint.updateTitle(roomID: roomID, UpdateTitleRequestDTO(title: title)),
+                as: BaseResponseDTO<EmptyResponseDTO>.self
+            )
+            try response.ensureSuccess()
+        } catch {
+            throw RoomError.normalized(error)
+        }
+    }
+
     public func members(roomID: Room.ID) async throws -> [RoomMember] {
         do {
             let response = try await client.request(

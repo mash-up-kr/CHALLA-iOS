@@ -28,4 +28,7 @@ public protocol RoomRepository: Sendable {
     /// 인화 완료를 확인했다고 서버에 알린다 (`PUT /rooms/{id}/photo-print-completion/check`).
     /// 응답에 돌려줄 것이 없고, 이후 목록 조회부터 `photoPrintCompletionCheckedAt`이 채워진다.
     func checkPrintCompletion(roomID: Room.ID) async throws
+
+    /// 방 이름을 바꾼다 (`PUT /rooms/{id}/title`). 응답에 돌려줄 것이 없어 성공 여부만 확인한다.
+    func updateTitle(roomID: Room.ID, title: String) async throws
 }

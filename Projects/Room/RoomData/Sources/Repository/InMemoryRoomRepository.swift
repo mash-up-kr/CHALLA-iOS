@@ -141,6 +141,15 @@ public actor InMemoryRoomRepository: RoomRepository {
         storedCards[index] = storedCards[index].withPrintCompletionChecked(at: .now)
     }
 
+    public func updateTitle(roomID: Room.ID, title: String) async throws {
+        try await waitAndCheckFailure()
+
+        guard let index = storedCards.firstIndex(where: { $0.id == roomID }) else {
+            throw RoomError.roomNotFound
+        }
+        storedCards[index] = storedCards[index].withTitle(title)
+    }
+
     // MARK: - 초대 코드
 
     /// 초대 코드 자릿수. 서버가 발급하는 코드와 같은 길이로 맞춘다.
@@ -191,6 +200,26 @@ private extension RoomCard {
             memberCount: memberCount,
             thumbnailURLs: thumbnailURLs,
             photoPrintCompletionCheckedAt: date
+        )
+    }
+
+    /// 제목만 바꾼 새 값 — 실서버가 title 변경 후 목록 조회에 반영해 주는 것을 재현한다.
+    /// 제목이 `Room` 안에 있어 Room부터 다시 만든다.
+    func withTitle(_ title: String) -> RoomCard {
+        RoomCard(
+            room: Room(
+                id: room.id,
+                title: title,
+                status: room.status,
+                totalPhotoCount: room.totalPhotoCount,
+                remainedPhotoCount: room.remainedPhotoCount,
+                createdAt: room.createdAt,
+                expiresAt: room.expiresAt,
+                photoPrintCompletedAt: room.photoPrintCompletedAt
+            ),
+            memberCount: memberCount,
+            thumbnailURLs: thumbnailURLs,
+            photoPrintCompletionCheckedAt: photoPrintCompletionCheckedAt
         )
     }
 }
