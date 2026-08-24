@@ -24,6 +24,7 @@ public struct AppFeature {
         case profileSetup(ProfileSetupFeature.State)
         case home(HomeScreen)
         case roomDetail(RoomDetailScreen)
+        case roomSettings(RoomSettingsScreen)
         case setting(SettingScreen)
         case profileEdit(ProfileEditScreen)
         case camera(CameraScreen)
@@ -36,6 +37,7 @@ public struct AppFeature {
             case .profileSetup: return .profileSetup
             case .home: return .home
             case .roomDetail: return .roomDetail
+            case .roomSettings: return .roomSettings
             case .setting: return .setting
             case .profileEdit: return .profileEdit
             case .camera: return .camera
@@ -43,7 +45,7 @@ public struct AppFeature {
         }
 
         public enum ScreenID: Equatable, Sendable {
-            case launching, login, profileSetup, home, roomDetail, setting, profileEdit, camera
+            case launching, login, profileSetup, home, roomDetail, roomSettings, setting, profileEdit, camera
         }
     }
 
@@ -78,6 +80,23 @@ public struct AppFeature {
         public init(profile: UserProfile, room: Room) {
             self.profile = profile
             self.roomDetail = RoomDetailFeature.State(room: room)
+        }
+    }
+
+    /// 방 설정 화면 State + 상세 복귀용 재료.
+    ///
+    /// `State`가 enum이라 설정으로 오면 상세 State는 사라진다. 뒤로가기로 상세를 다시 만들 때
+    /// 필요한 방·프로필을 여기 맡아둔다 (RoomDetailScreen이 프로필을 맡아두는 것과 같은 이유).
+    @ObservableState
+    public struct RoomSettingsScreen: Equatable {
+        public var profile: UserProfile
+        public var room: Room
+        public var settings: RoomSettingsFeature.State
+
+        public init(profile: UserProfile, room: Room) {
+            self.profile = profile
+            self.room = room
+            self.settings = RoomSettingsFeature.State(roomID: room.id, title: room.title)
         }
     }
 
@@ -144,6 +163,7 @@ public struct AppFeature {
         case profileSetup(ProfileSetupFeature.Action)
         case home(HomeFeature.Action)
         case roomDetail(RoomDetailFeature.Action)
+        case roomSettings(RoomSettingsFeature.Action)
         case setting(SettingFeature.Action)
         case profileEdit(ProfileSetupFeature.Action)
         case camera(LiveCameraFeature.Action)
@@ -228,6 +248,11 @@ public struct AppFeature {
                 state = .home(HomeScreen(profile: screen.profile))
                 return .none
 
+            case .roomDetail(.delegate(.settingsTapped)):
+                guard case let .roomDetail(screen) = state else { return .none }
+                state = .roomSettings(RoomSettingsScreen(profile: screen.profile, room: screen.roomDetail.room))
+                return .none
+
             case .roomDetail(.delegate(.shootTapped)):
                 // TODO: CameraFeature로 연결한다. 촬영을 마치고 방 상세로 돌아오는 흐름까지 함께 정한다.
                 return .none
@@ -248,6 +273,18 @@ public struct AppFeature {
             case .camera(.camera(.delegate(.closeRequested))):
                 guard case let .camera(screen) = state else { return .none }
                 state = .home(HomeScreen(profile: screen.profile))
+                return .none
+
+            // MARK: - 방 설정 delegate
+
+            // 상세를 새로 만들어 되돌아간다 — 상세가 task에서 재조회하므로 바뀐 이름도 최신으로 그려진다.
+            case .roomSettings(.delegate(.closeTapped)):
+                guard case let .roomSettings(screen) = state else { return .none }
+                state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: screen.room))
+                return .none
+
+            case .roomSettings(.delegate(.coverEditRequested)):
+                // TODO: #69 커버 수정 화면이 생기면 연결한다.
                 return .none
 
             // MARK: - 설정 delegate
@@ -279,7 +316,7 @@ public struct AppFeature {
                 state = .setting(SettingScreen(profile: screen.profile))
                 return .none
 
-            case .login, .profileSetup, .home, .roomDetail, .setting, .profileEdit, .camera:
+            case .login, .profileSetup, .home, .roomDetail, .roomSettings, .setting, .profileEdit, .camera:
                 return .none
             }
         }
@@ -298,6 +335,11 @@ public struct AppFeature {
         .ifCaseLet(\.roomDetail, action: \.roomDetail) {
             Scope(state: \.roomDetail, action: \.self) {
                 RoomDetailFeature()
+            }
+        }
+        .ifCaseLet(\.roomSettings, action: \.roomSettings) {
+            Scope(state: \.settings, action: \.self) {
+                RoomSettingsFeature()
             }
         }
         .ifCaseLet(\.setting, action: \.setting) {

@@ -23,7 +23,8 @@ public struct RoomDetailView: View {
         VStack(spacing: 0) {
             CHALLATopNavigation.sub(
                 title: store.room.title,
-                leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") { send(.backButtonTapped) }
+                leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") { send(.backButtonTapped) },
+                trailing: .icon(.setting, accessibilityLabel: "방 설정") { send(.settingsButtonTapped) }
             )
             slotGrid
                 .overlay(alignment: .top) { memberBar }

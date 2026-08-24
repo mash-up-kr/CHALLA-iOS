@@ -58,6 +58,11 @@ public struct AppView: View {
                     RoomDetailView(store: roomDetailStore)
                 }
 
+            case .roomSettings:
+                if let settingsStore = store.scope(state: \.roomSettings?.settings, action: \.roomSettings) {
+                    RoomSettingsView(store: settingsStore)
+                }
+
             case .setting:
                 if let settingStore = store.scope(state: \.setting?.setting, action: \.setting) {
                     SettingView(store: settingStore)

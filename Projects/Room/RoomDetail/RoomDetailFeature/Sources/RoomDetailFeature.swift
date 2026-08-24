@@ -60,6 +60,7 @@ public struct RoomDetailFeature {
         public enum View: Sendable {
             case task
             case backButtonTapped
+            case settingsButtonTapped
             case copyInviteCodeTapped
             case shootButtonTapped
             case chatButtonTapped
@@ -69,6 +70,7 @@ public struct RoomDetailFeature {
         @CasePathable
         public enum Delegate: Equatable, Sendable {
             case closeTapped
+            case settingsTapped
             case shootTapped
             case chatTapped
             // TODO: [#57] 슬롯 탭으로 사진 상세를 여는 photoTapped(Photo.ID)를 추가한다.
@@ -162,6 +164,9 @@ public struct RoomDetailFeature {
             case .toastDismissed:
                 state.toast = nil
                 return .none
+
+            case .view(.settingsButtonTapped):
+                return .send(.delegate(.settingsTapped))
 
             case .view(.shootButtonTapped):
                 return .send(.delegate(.shootTapped))
