@@ -39,6 +39,24 @@ public struct RoomSettingsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CHALLAColor.Background.surface)
+        .challaDrawer(isPresented: renameBinding, allowsInteractiveDismiss: false) { renameDrawer }
+    }
+
+    // MARK: - 이름 수정 드로어
+
+    // challaDrawer는 Bool만 받아서 자식 State의 유무를 직접 확인한다 (홈 드로어와 동일).
+    private var renameBinding: Binding<Bool> {
+        Binding(
+            get: { store.rename != nil },
+            set: { isPresented in if !isPresented { send(.drawerDismissed) } }
+        )
+    }
+
+    @ViewBuilder
+    private var renameDrawer: some View {
+        if let childStore = store.scope(state: \.rename, action: \.rename.presented) {
+            RenameRoomDrawer(store: childStore)
+        }
     }
 }
 

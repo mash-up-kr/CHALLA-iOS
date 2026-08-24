@@ -13,6 +13,8 @@ public struct RoomSettingsFeature {
         public let roomID: Room.ID
         /// 방 이름 행의 값. 이름 수정이 성공하면 여기가 갱신된다.
         public var title: String
+        /// 이름 수정 드로어. nil이면 닫혀 있다.
+        @Presents public var rename: RenameRoomFeature.State?
 
         public init(roomID: Room.ID, title: String) {
             self.roomID = roomID
@@ -28,6 +30,9 @@ public struct RoomSettingsFeature {
             case backButtonTapped
             case renameRowTapped
             case coverRowTapped
+            /// 드로어를 딤 탭이나 끌어내려서 닫았을 때 온다.
+            /// 지금은 그 방식을 막아 뒀고(`allowsInteractiveDismiss: false`) X 버튼으로만 닫힌다.
+            case drawerDismissed
         }
 
         case view(ViewAction)
@@ -40,6 +45,8 @@ public struct RoomSettingsFeature {
         }
 
         case delegate(Delegate)
+
+        case rename(PresentationAction<RenameRoomFeature.Action>)
     }
 
     public init() {}
@@ -47,21 +54,35 @@ public struct RoomSettingsFeature {
     // MARK: - Body
 
     public var body: some ReducerOf<Self> {
-        Reduce { _, action in
+        Reduce { state, action in
             switch action {
             case .view(.backButtonTapped):
                 return .send(.delegate(.closeTapped))
 
             case .view(.renameRowTapped):
-                // 이름 수정 드로어는 다음 걸음에서 연다.
+                state.rename = RenameRoomFeature.State(roomID: state.roomID, title: state.title)
                 return .none
 
             case .view(.coverRowTapped):
                 return .send(.delegate(.coverEditRequested))
 
-            case .delegate:
+            case .view(.drawerDismissed):
+                state.rename = nil
+                return .none
+
+            // 행 값을 서버에 저장된 이름으로 갱신하고 드로어를 닫는다.
+            case let .rename(.presented(.delegate(.renamed(name)))):
+                state.title = name
+                state.rename = nil
+                return .none
+
+            // delegate는 부모가 받고, 나머지 rename 액션은 ifLet이 자식에게 넘긴다.
+            case .delegate, .rename:
                 return .none
             }
+        }
+        .ifLet(\.$rename, action: \.rename) {
+            RenameRoomFeature()
         }
     }
 }
