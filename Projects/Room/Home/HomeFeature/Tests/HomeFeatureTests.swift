@@ -1,5 +1,6 @@
 @testable import HomeFeature
 import ComposableArchitecture
+import Foundation
 import RoomDomain
 import Testing
 
@@ -13,12 +14,18 @@ struct HomeFeatureTests {
 
     private static func makeStore(
         initialState: HomeFeature.State = HomeFeature.State(nickname: "찰나"),
-        fetchRooms: FetchRoomsUseCase = .testValue
+        fetchRooms: FetchRoomsUseCase = .testValue,
+        clock: any Clock<Duration> = TestClock()
     ) -> TestStoreOf<HomeFeature> {
         TestStore(initialState: initialState) {
             HomeFeature()
         } withDependencies: {
             $0.fetchRoomsUseCase = fetchRooms
+            $0.continuousClock = clock
+            // 알람을 걸지 말지는 "지금이 완료 시각 전인가"로 갈리는데, 실제 시각을 읽으면 돌릴 때마다
+            // 결과가 달라진다. 프리뷰 카드의 완료 시각(생성 + 3일)보다 뒤로 고정해 두면 기본 픽스처에서는
+            // 알람이 걸리지 않는다 — 알람 동작 자체는 미래 완료 시각 카드를 쓰는 전용 테스트가 본다.
+            $0.date = .constant(Date(timeIntervalSince1970: 1_790_000_000))
         }
     }
 
@@ -115,6 +122,72 @@ struct HomeFeatureTests {
         #expect(store.state.errorMessage == nil)
         #expect(!store.state.showsLoading)
         #expect(store.state.cards.count == Self.cards.count)
+    }
+
+    // MARK: - 인화 완료 알람
+
+    /// makeStore 고정 시각 기준 100초 뒤에 인화가 끝나는 대기 방과, 서버가 전환을 끝낸 뒤의 같은 방.
+    private nonisolated static let alarmNow = Date(timeIntervalSince1970: 1_790_000_000)
+
+    private nonisolated static let waitingSoon = RoomCard(
+        room: Room(
+            id: -50,
+            title: "알람 검증 방",
+            status: .printWaiting,
+            totalPhotoCount: 24,
+            remainedPhotoCount: 0,
+            createdAt: alarmNow.addingTimeInterval(-3600),
+            expiresAt: alarmNow.addingTimeInterval(Room.previewLifetime),
+            photoPrintCompletedAt: alarmNow.addingTimeInterval(100)
+        ),
+        memberCount: 1,
+        thumbnailURLs: []
+    )
+
+    private nonisolated static let printedAfterAlarm = RoomCard(
+        room: Room(
+            id: -50,
+            title: "알람 검증 방",
+            status: .printed,
+            totalPhotoCount: 24,
+            remainedPhotoCount: 0,
+            createdAt: alarmNow.addingTimeInterval(-3600),
+            expiresAt: alarmNow.addingTimeInterval(Room.previewLifetime),
+            photoPrintCompletedAt: alarmNow.addingTimeInterval(100)
+        ),
+        memberCount: 1,
+        thumbnailURLs: []
+    )
+
+    @Test("인화 완료 예정 시각에 도달하면 재조회하고, 서버가 전환을 끝냈으면 인화 완료로 바뀐다")
+    func refetchesWhenPrintCompletionReached() async {
+        let clock = TestClock()
+        // 첫 조회는 인화 대기, 재조회는 인화 완료 — 알람이 울리는 사이 서버가 전환을 끝낸 상황.
+        let callCount = LockIsolated(0)
+        let store = Self.makeStore(
+            fetchRooms: FetchRoomsUseCase(run: {
+                callCount.withValue { $0 += 1 }
+                return callCount.value == 1 ? [Self.waitingSoon] : [Self.printedAfterAlarm]
+            }),
+            clock: clock
+        )
+
+        await store.send(.view(.task)) {
+            $0.loadState = .loading
+        }
+        await store.receive(\.roomsResponse.success) {
+            $0.loadState = .loaded
+            $0.cards = IdentifiedArray(uniqueElements: [Self.waitingSoon]) // 이 응답이 100초 뒤 알람을 건다
+        }
+
+        await clock.advance(by: .seconds(100)) // 완료 예정 시각 도달
+        await store.receive(\.printCompletionReached) {
+            $0.loadState = .loading // 알람이 깨어나 재조회를 시작한다
+        }
+        await store.receive(\.roomsResponse.success) {
+            $0.loadState = .loaded
+            $0.cards = IdentifiedArray(uniqueElements: [Self.printedAfterAlarm]) // 완료 — 알람은 다시 걸리지 않는다
+        }
     }
 
     @Test("드로어가 열려 있으면 조회 실패 얼럿으로 덮지 않는다")
