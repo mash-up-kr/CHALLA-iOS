@@ -1,17 +1,18 @@
 import Dependencies
 import DependenciesMacros
 
-/// 사진의 리액션을 켜거나 끄고 갱신된 사진을 돌려준다.
+/// 사진에 리액션을 남긴다. 서버가 갱신 사진을 주지 않으므로 반환값은 없다 —
+/// 화면 갱신은 호출부가 낙관적으로 반영한다.
 @DependencyClient
 public struct SetPhotoReactionUseCase: Sendable {
-    public var run: @Sendable (_ photoID: String, _ kind: ReactionKind, _ isOn: Bool) async throws -> Photo
+    public var run: @Sendable (_ roomID: Int64, _ photoID: String, _ kind: ReactionKind, _ isOn: Bool) async throws -> Void
 }
 
 extension SetPhotoReactionUseCase: TestDependencyKey {
 
     public static func live(repository: any PhotoRepository) -> SetPhotoReactionUseCase {
-        SetPhotoReactionUseCase(run: { photoID, kind, isOn in
-            try await repository.setReaction(photoID: photoID, kind: kind, isOn: isOn)
+        SetPhotoReactionUseCase(run: { roomID, photoID, kind, isOn in
+            try await repository.setReaction(roomID: roomID, photoID: photoID, kind: kind, isOn: isOn)
         })
     }
 

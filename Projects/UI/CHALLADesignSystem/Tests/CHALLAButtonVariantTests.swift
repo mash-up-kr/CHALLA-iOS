@@ -11,30 +11,34 @@ private let allRoles: [CHALLAButtonRole?] = [nil, .destructive]
 /// 조합 전수로 고정한다. 토큰 static 값을 그대로 반환하므로 `==`로 직접 비교한다.
 struct CHALLAButtonVariantTests {
 
+    /// variant가 테마 색을 그대로 돌려주는지 보려고 쓰는 값.
+    /// 실제 색은 호출부(`CHALLAButtonBackgroundModifier`)가 Environment에서 읽어 넘긴다.
+    private static let themeColor = CHALLAColor.Primary.pink
+
     // MARK: - 활성 · role 없음
 
     @Test("활성 theme은 테마 색 채움 + 검정 글자다")
     func enabledThemeDefault() {
-        #expect(CHALLAButtonVariant.theme.backgroundColor(isEnabled: true) == CHALLAColor.defaultTheme)
+        #expect(CHALLAButtonVariant.theme.backgroundColor(isEnabled: true, themeColor: Self.themeColor) == Self.themeColor)
         #expect(CHALLAButtonVariant.theme.contentColor(isEnabled: true) == CHALLAColor.Static.black)
     }
 
     @Test("활성 primary는 밝은 채움 + 어두운 글자다")
     func enabledPrimaryDefault() {
-        #expect(CHALLAButtonVariant.primary.backgroundColor(isEnabled: true) == CHALLAColor.Label.normal)
+        #expect(CHALLAButtonVariant.primary.backgroundColor(isEnabled: true, themeColor: Self.themeColor) == CHALLAColor.Label.normal)
         // 어두운 글자는 별도 토큰 없이 Label.disabled와 같은 값을 쓴다 (Figma 실측)
         #expect(CHALLAButtonVariant.primary.contentColor(isEnabled: true) == CHALLAColor.Label.disabled)
     }
 
     @Test("활성 neutral은 회색 채움 + 밝은 글자다")
     func enabledNeutralDefault() {
-        #expect(CHALLAButtonVariant.neutral.backgroundColor(isEnabled: true) == CHALLAColor.Background.level3)
+        #expect(CHALLAButtonVariant.neutral.backgroundColor(isEnabled: true, themeColor: Self.themeColor) == CHALLAColor.Background.level3)
         #expect(CHALLAButtonVariant.neutral.contentColor(isEnabled: true) == CHALLAColor.Label.normal)
     }
 
     @Test("활성 transparent는 배경 없이 밝은 글자다")
     func enabledTransparentDefault() {
-        #expect(CHALLAButtonVariant.transparent.backgroundColor(isEnabled: true) == nil)
+        #expect(CHALLAButtonVariant.transparent.backgroundColor(isEnabled: true, themeColor: Self.themeColor) == nil)
         #expect(CHALLAButtonVariant.transparent.contentColor(isEnabled: true) == CHALLAColor.Label.normal)
     }
 
@@ -43,7 +47,7 @@ struct CHALLAButtonVariantTests {
     @Test("destructive primary는 빨간 채움 + 밝은 글자다")
     func enabledDestructivePrimary() {
         #expect(
-            CHALLAButtonVariant.primary.backgroundColor(role: .destructive, isEnabled: true)
+            CHALLAButtonVariant.primary.backgroundColor(role: .destructive, isEnabled: true, themeColor: Self.themeColor)
                 == CHALLAColor.Status.destructive
         )
         #expect(
@@ -63,8 +67,8 @@ struct CHALLAButtonVariantTests {
     @Test("theme은 destructive를 무시하고 테마 색·검정 글자를 유지한다")
     func themeIgnoresDestructive() {
         #expect(
-            CHALLAButtonVariant.theme.backgroundColor(role: .destructive, isEnabled: true)
-                == CHALLAColor.defaultTheme
+            CHALLAButtonVariant.theme.backgroundColor(role: .destructive, isEnabled: true, themeColor: Self.themeColor)
+                == Self.themeColor
         )
         #expect(
             CHALLAButtonVariant.theme.contentColor(role: .destructive, isEnabled: true)
@@ -75,7 +79,7 @@ struct CHALLAButtonVariantTests {
     @Test("destructive는 neutral의 회색 채움을 바꾸지 않는다")
     func enabledDestructiveKeepsNeutralBackground() {
         #expect(
-            CHALLAButtonVariant.neutral.backgroundColor(role: .destructive, isEnabled: true)
+            CHALLAButtonVariant.neutral.backgroundColor(role: .destructive, isEnabled: true, themeColor: Self.themeColor)
                 == CHALLAColor.Background.level3
         )
     }
@@ -88,7 +92,7 @@ struct CHALLAButtonVariantTests {
         arguments: [CHALLAButtonVariant.theme, .primary, .neutral], allRoles
     )
     func disabledBackgroundFallsToCommonPalette(variant: CHALLAButtonVariant, role: CHALLAButtonRole?) {
-        #expect(variant.backgroundColor(role: role, isEnabled: false) == CHALLAColor.Background.level2)
+        #expect(variant.backgroundColor(role: role, isEnabled: false, themeColor: Self.themeColor) == CHALLAColor.Background.level2)
     }
 
     @Test("비활성 글자색은 variant·role과 무관하게 disabled다", arguments: CHALLAButtonVariant.allCases, allRoles)
@@ -98,6 +102,6 @@ struct CHALLAButtonVariantTests {
 
     @Test("transparent는 role·활성 여부와 무관하게 배경이 없다", arguments: allRoles, [true, false])
     func transparentNeverHasBackground(role: CHALLAButtonRole?, isEnabled: Bool) {
-        #expect(CHALLAButtonVariant.transparent.backgroundColor(role: role, isEnabled: isEnabled) == nil)
+        #expect(CHALLAButtonVariant.transparent.backgroundColor(role: role, isEnabled: isEnabled, themeColor: Self.themeColor) == nil)
     }
 }

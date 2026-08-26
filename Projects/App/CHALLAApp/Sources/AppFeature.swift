@@ -1,13 +1,16 @@
 import AuthDomain
 import CameraFeature
 import CameraSession
+import ChatRoomFeature
 import ComposableArchitecture
 import HomeFeature
 import LoginFeature
+import PhotoDetailFeature
 import ProfileSetupFeature
 import RoomDetailFeature
 import RoomDomain
 import SettingFeature
+import ShootEntry
 import UserDomain
 
 /// 앱 루트 리듀서 — 진입할 때마다 내 프로필을 조회해 첫 화면을 고르고, 각 화면이 끝나면 다음 화면으로 넘긴다.
@@ -25,6 +28,8 @@ public struct AppFeature {
         case home(HomeScreen)
         case roomDetail(RoomDetailScreen)
         case roomSettings(RoomSettingsScreen)
+        case photoDetail(PhotoDetailScreen)
+        case chat(ChatScreen)
         case setting(SettingScreen)
         case profileEdit(ProfileEditScreen)
         case camera(CameraScreen)
@@ -38,6 +43,8 @@ public struct AppFeature {
             case .home: return .home
             case .roomDetail: return .roomDetail
             case .roomSettings: return .roomSettings
+            case .photoDetail: return .photoDetail
+            case .chat: return .chat
             case .setting: return .setting
             case .profileEdit: return .profileEdit
             case .camera: return .camera
@@ -45,7 +52,7 @@ public struct AppFeature {
         }
 
         public enum ScreenID: Equatable, Sendable {
-            case launching, login, profileSetup, home, roomDetail, roomSettings, setting, profileEdit, camera
+            case launching, login, profileSetup, home, roomDetail, roomSettings, photoDetail, chat, setting, profileEdit, camera
         }
     }
 
@@ -114,28 +121,6 @@ public struct AppFeature {
         }
     }
 
-    /// 카메라 화면 State + 홈 복귀용 프로필.
-    ///
-    /// 방·필터 목록은 홈의 촬영 버튼이 미리 받아 둔 것을 그대로 옮겨 담는다 —
-    /// 카메라 화면은 목록을 스스로 조회하지 않는다.
-    @ObservableState
-    public struct CameraScreen: Equatable {
-        public var profile: UserProfile
-        /// 카메라 화면 + 실기기 촬영 배선(`CameraSession`).
-        public var live: LiveCameraFeature.State
-
-        public init(profile: UserProfile, entry: CameraEntry) {
-            self.profile = profile
-            live = LiveCameraFeature.State(
-                camera: CameraFeature.State(
-                    rooms: IdentifiedArray(uniqueElements: entry.rooms),
-                    filters: IdentifiedArray(uniqueElements: entry.filters),
-                    selectedRoomID: entry.roomID
-                )
-            )
-        }
-    }
-
     /// 프로필 편집 화면 State + 취소 시 복원할 프로필.
     @ObservableState
     public struct ProfileEditScreen: Equatable {
@@ -164,6 +149,8 @@ public struct AppFeature {
         case home(HomeFeature.Action)
         case roomDetail(RoomDetailFeature.Action)
         case roomSettings(RoomSettingsFeature.Action)
+        case photoDetail(PhotoDetailFeature.Action)
+        case chat(ChatRoomFeature.Action)
         case setting(SettingFeature.Action)
         case profileEdit(ProfileSetupFeature.Action)
         case camera(LiveCameraFeature.Action)
@@ -184,6 +171,64 @@ public struct AppFeature {
     // MARK: - Body
 
     public var body: some ReducerOf<Self> {
+        core
+            .ifCaseLet(\.login, action: \.login) {
+                LoginFeature()
+            }
+            .ifCaseLet(\.profileSetup, action: \.profileSetup) {
+                ProfileSetupFeature()
+            }
+            // 래퍼(HomeScreen·SettingScreen·ProfileEditScreen)를 한 겹 벗겨 자식 리듀서에 넘긴다.
+            .ifCaseLet(\.home, action: \.home) {
+                Scope(state: \.home, action: \.self) {
+                    HomeFeature()
+                }
+            }
+            .ifCaseLet(\.roomDetail, action: \.roomDetail) {
+                Scope(state: \.roomDetail, action: \.self) {
+                    RoomDetailFeature()
+                }
+            }
+            .ifCaseLet(\.roomSettings, action: \.roomSettings) {
+                Scope(state: \.settings, action: \.self) {
+                    RoomSettingsFeature()
+                }
+            }
+            .ifCaseLet(\.photoDetail, action: \.photoDetail) {
+                Scope(state: \.photoDetail, action: \.self) {
+                    PhotoDetailFeature()
+                }
+            }
+            .ifCaseLet(\.chat, action: \.chat) {
+                Scope(state: \.chat, action: \.self) {
+                    ChatRoomFeature()
+                }
+            }
+            .ifCaseLet(\.setting, action: \.setting) {
+                Scope(state: \.setting, action: \.self) {
+                    SettingFeature()
+                }
+            }
+            .ifCaseLet(\.profileEdit, action: \.profileEdit) {
+                Scope(state: \.edit, action: \.self) {
+                    ProfileSetupFeature()
+                }
+            }
+            .ifCaseLet(\.camera, action: \.camera) {
+                Scope(state: \.live, action: \.self) {
+                    LiveCameraFeature()
+                }
+            }
+    }
+}
+
+// MARK: - 화면 전이
+
+extension AppFeature {
+
+    /// 상태 전이 코어. `.ifCaseLet` 체인과 한 표현식에 두면 타입 추론이 오래 걸려(특히 Xcode 27)
+    /// 코어를 별도 프로퍼티로 분리해 빌더 표현식을 가볍게 만든다.
+    private var core: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
             case .task:
@@ -240,6 +285,14 @@ public struct AppFeature {
                 state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: card.room))
                 return .none
 
+            // 진입 버튼이 방·필터·권한을 모두 갖춘 뒤에만 오는 요청이라 여기서 바로 띄운다.
+            case let .home(.delegate(.cameraRequested(entry))):
+                guard case let .home(screen) = state else { return .none }
+                state = .camera(
+                    CameraScreen(profile: screen.profile, entry: entry, origin: .home)
+                )
+                return .none
+
             // MARK: - 방 상세 delegate
 
             case .roomDetail(.delegate(.closeTapped)):
@@ -253,26 +306,62 @@ public struct AppFeature {
                 state = .roomSettings(RoomSettingsScreen(profile: screen.profile, room: screen.roomDetail.room))
                 return .none
 
-            case .roomDetail(.delegate(.shootTapped)):
-                // TODO: CameraFeature로 연결한다. 촬영을 마치고 방 상세로 돌아오는 흐름까지 함께 정한다.
-                return .none
-
+            // 방 상세에서 채팅 버튼 — 방 채팅 화면으로 들어간다.
             case .roomDetail(.delegate(.chatTapped)):
-                // TODO: 채팅 모듈이 생기면 연결한다.
+                guard case let .roomDetail(screen) = state else { return .none }
+                state = .chat(ChatScreen(profile: screen.profile, room: screen.roomDetail.room))
                 return .none
 
-            // 홈이 방·필터·카메라 권한을 모두 갖춘 뒤에만 오는 요청이라 여기서 바로 띄운다.
-            case let .home(.delegate(.cameraRequested(entry))):
-                guard case let .home(screen) = state else { return .none }
-                state = .camera(CameraScreen(profile: screen.profile, entry: entry))
+            case let .roomDetail(.delegate(.cameraRequested(entry))):
+                guard case let .roomDetail(screen) = state else { return .none }
+                state = .camera(
+                    CameraScreen(
+                        profile: screen.profile,
+                        entry: entry,
+                        origin: .roomDetail(screen.roomDetail.room)
+                    )
+                )
+                return .none
+
+            // 슬롯의 사진을 탭 — 그 사진을 펼친 채 사진 상세로 들어간다.
+            case let .roomDetail(.delegate(.photoTapped(photoID))):
+                guard case let .roomDetail(screen) = state else { return .none }
+                state = .photoDetail(
+                    PhotoDetailScreen(
+                        profile: screen.profile,
+                        room: screen.roomDetail.room,
+                        initialPhotoID: photoID
+                    )
+                )
+                return .none
+
+            // MARK: - 사진 상세 delegate
+
+            case .photoDetail(.delegate(.closeRequested)):
+                guard case let .photoDetail(screen) = state else { return .none }
+                // 방 상세를 다시 만든다 — 상세로 돌아가면 사진·리액션을 새로 조회해 최신 상태를 그린다.
+                state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: screen.room))
+                return .none
+
+            // MARK: - 채팅 delegate
+
+            case .chat(.delegate(.closeRequested)):
+                guard case let .chat(screen) = state else { return .none }
+                // 방 상세를 다시 만든다 — 돌아가면 사진·리액션을 새로 조회해 최신 상태를 그린다.
+                state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: screen.room))
                 return .none
 
             // MARK: - 카메라 delegate
 
-            // 홈을 새로 만들어 방 목록을 다시 받는다 — 촬영으로 남은 장수가 줄었을 수 있다.
+            // 들어온 화면을 새로 만들어 되돌린다 — 촬영으로 남은 장수·사진이 바뀌었을 수 있어 다시 조회된다.
             case .camera(.camera(.delegate(.closeRequested))):
                 guard case let .camera(screen) = state else { return .none }
-                state = .home(HomeScreen(profile: screen.profile))
+                switch screen.origin {
+                case .home:
+                    state = .home(HomeScreen(profile: screen.profile))
+                case let .roomDetail(room):
+                    state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: room))
+                }
                 return .none
 
             // MARK: - 방 설정 delegate
@@ -316,46 +405,103 @@ public struct AppFeature {
                 state = .setting(SettingScreen(profile: screen.profile))
                 return .none
 
-            case .login, .profileSetup, .home, .roomDetail, .roomSettings, .setting, .profileEdit, .camera:
+            case .login, .profileSetup, .home, .roomDetail, .roomSettings, .photoDetail, .chat, .setting, .profileEdit, .camera:
                 return .none
             }
         }
-        .ifCaseLet(\.login, action: \.login) {
-            LoginFeature()
+    }
+}
+
+// MARK: - PhotoDetailScreen
+
+public extension AppFeature {
+
+    /// 사진 상세 화면 State + 뒤로 갈 때 복원할 방·프로필.
+    ///
+    /// `State`가 enum이라 사진 상세로 오면 방 상세 State가 사라진다. 뒤로가기로 방 상세를 다시 만들 때
+    /// 쓸 방과 프로필을 여기 맡아 둔다 (방 상세→홈 복귀가 프로필을 들고 다니는 것과 같은 이유).
+    @ObservableState
+    struct PhotoDetailScreen: Equatable {
+        public var profile: UserProfile
+        public var room: Room
+        public var photoDetail: PhotoDetailFeature.State
+
+        public init(profile: UserProfile, room: Room, initialPhotoID: String) {
+            self.profile = profile
+            self.room = room
+            self.photoDetail = PhotoDetailFeature.State(
+                roomID: room.id,
+                roomTitle: room.title,
+                // 리액션을 남기는 주체 = 지금 보는 사람. PhotoReaction.userID(String)와 맞춘다.
+                currentUserID: String(profile.id),
+                // 인화 완료 전이면 방 상세처럼 사진을 blur로 가린다.
+                isPrinted: room.status == .printed,
+                initialPhotoID: initialPhotoID
+            )
         }
-        .ifCaseLet(\.profileSetup, action: \.profileSetup) {
-            ProfileSetupFeature()
+    }
+}
+
+// MARK: - CameraScreen
+
+public extension AppFeature {
+
+    /// 카메라 화면 State + 닫을 때 돌아갈 곳.
+    ///
+    /// 방·필터 목록은 진입 버튼(홈의 촬영 뱃지 · 방 상세의 사진 찍기)이 미리 받아 둔 것을 그대로 옮겨 담는다 —
+    /// 카메라 화면은 목록을 스스로 조회하지 않는다.
+    @ObservableState
+    struct CameraScreen: Equatable {
+        public var profile: UserProfile
+        /// 어디서 들어왔는지. 카메라를 닫으면 여기로 되돌린다.
+        public var origin: CameraOrigin
+        /// 카메라 화면 + 실기기 촬영 배선(`CameraSession`).
+        public var live: LiveCameraFeature.State
+
+        public init(profile: UserProfile, entry: CameraEntry, origin: CameraOrigin) {
+            self.profile = profile
+            self.origin = origin
+            live = LiveCameraFeature.State(
+                camera: CameraFeature.State(
+                    rooms: IdentifiedArray(uniqueElements: entry.rooms),
+                    filters: IdentifiedArray(uniqueElements: entry.filters),
+                    selectedRoomID: entry.roomID
+                )
+            )
         }
-        // 래퍼(HomeScreen·SettingScreen·ProfileEditScreen)를 한 겹 벗겨 자식 리듀서에 넘긴다.
-        .ifCaseLet(\.home, action: \.home) {
-            Scope(state: \.home, action: \.self) {
-                HomeFeature()
-            }
-        }
-        .ifCaseLet(\.roomDetail, action: \.roomDetail) {
-            Scope(state: \.roomDetail, action: \.self) {
-                RoomDetailFeature()
-            }
-        }
-        .ifCaseLet(\.roomSettings, action: \.roomSettings) {
-            Scope(state: \.settings, action: \.self) {
-                RoomSettingsFeature()
-            }
-        }
-        .ifCaseLet(\.setting, action: \.setting) {
-            Scope(state: \.setting, action: \.self) {
-                SettingFeature()
-            }
-        }
-        .ifCaseLet(\.profileEdit, action: \.profileEdit) {
-            Scope(state: \.edit, action: \.self) {
-                ProfileSetupFeature()
-            }
-        }
-        .ifCaseLet(\.camera, action: \.camera) {
-            Scope(state: \.live, action: \.self) {
-                LiveCameraFeature()
-            }
+    }
+
+    /// 카메라를 닫았을 때 돌아갈 화면. 방 상세로 돌아가려면 그 방이 필요해 함께 들고 있는다 —
+    /// `State`가 enum이라 카메라로 오면 앞 화면의 State는 사라진다.
+    enum CameraOrigin: Equatable {
+        case home
+        case roomDetail(Room)
+    }
+}
+
+// MARK: - ChatScreen
+
+public extension AppFeature {
+
+    /// 방 채팅 화면 State + 뒤로 갈 때 복원할 방·프로필.
+    ///
+    /// `State`가 enum이라 채팅으로 오면 방 상세 State가 사라진다. 뒤로가기로 방 상세를 다시 만들 때
+    /// 쓸 방과 프로필을 여기 맡아 둔다 (PhotoDetailScreen과 같은 이유).
+    @ObservableState
+    struct ChatScreen: Equatable {
+        public var profile: UserProfile
+        public var room: Room
+        public var chat: ChatRoomFeature.State
+
+        public init(profile: UserProfile, room: Room) {
+            self.profile = profile
+            self.room = room
+            self.chat = ChatRoomFeature.State(
+                roomID: room.id,
+                roomTitle: room.title,
+                // 내 메시지(오른쪽 흰 버블) 판별 기준. 서버가 userId를 주면 그때 교체한다.
+                currentUserNickname: profile.nickname ?? ""
+            )
         }
     }
 }

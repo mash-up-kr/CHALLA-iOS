@@ -14,7 +14,8 @@ let project = Project(
         .makeModuleTarget(
             name: "RoomDetailFeature",
             // .photoDomain: 사진 그리드가 인화된 사진 목록을 조회한다 (ARCHITECTURE.md — 결과 그리드는 방 상세가 흡수).
-            dependencies: [.roomDomain, .photoDomain, .composableArchitecture, .designSystem]
+            // .shootEntry: 사진 찍기 버튼이 카메라 진입 준비(목록·LUT·권한)를 홈과 공유한다.
+            dependencies: [.roomDomain, .photoDomain, .shootEntry, .composableArchitecture, .designSystem]
         ),
         .target(
             name: "RoomDetailFeatureTests",
@@ -25,7 +26,11 @@ let project = Project(
             infoPlist: .default,
             sources: ["Tests/**"],
             // 테스트가 Room·RoomDetail·Photo 값을 직접 만들어 리듀서에 넣는다.
-            dependencies: [.target(name: "RoomDetailFeature"), .roomDomain, .photoDomain, .composableArchitecture]
+            dependencies: [
+                .target(name: "RoomDetailFeature"), .roomDomain, .photoDomain, .shootEntry,
+                .photoLibrary, // 촬영 진입이 묻는 사진첩 권한을 테스트가 값으로 갈아끼운다
+                .composableArchitecture
+            ]
         )
     ]
 )

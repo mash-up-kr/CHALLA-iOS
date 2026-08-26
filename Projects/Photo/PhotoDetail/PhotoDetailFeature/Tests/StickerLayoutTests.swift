@@ -1,4 +1,4 @@
-import PhotoDetailFeature
+@testable import PhotoDetailFeature
 import PhotoDomain
 import Testing
 

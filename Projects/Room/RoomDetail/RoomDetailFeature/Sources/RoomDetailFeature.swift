@@ -2,6 +2,7 @@ import ComposableArchitecture
 import Foundation
 import PhotoDomain
 import RoomDomain
+import ShootEntry
 
 /// 방 상세 화면. 홈에서 받은 `Room`으로 제목·그리드를 즉시 그리고,
 /// 초대 코드·참여자는 진입 후 조회해 채운다. 화면 전환은 전부 `delegate`로 App에 알린다.
@@ -23,6 +24,8 @@ public struct RoomDetailFeature {
         public var toast: String?
         /// 인화된 사진들 (찍힌 순). 그리드가 배열 순서를 슬롯 번호와 짝짓는다.
         public var photos: [Photo] = []
+        /// 촬영 화면에 들어갈 준비(목록 조회·권한 요청) 중. 사진 찍기 버튼이 로딩으로 바뀌고 다시 눌리지 않는다.
+        public var isPreparingShoot = false
         /// 조회 실패 얼럿. 다시 시도해도 실패하면 다시 뜬다.
         @Presents public var alert: AlertState<Action.Alert>?
         /// 이 화면에서 인화 완료 확인 기록을 이미 보냈는지 — 재시도·알람 재조회마다 다시 보내지 않게 막는다.
@@ -49,6 +52,7 @@ public struct RoomDetailFeature {
         case binding(BindingAction<State>)
         case detailResponse(Result<RoomDetail, RoomError>)
         case photosResponse(Result<[Photo], PhotoError>)
+        case shootPreparationResponse(Result<CameraEntry, ShootPreparationError>)
         /// 인화 완료 예정 시각에 도달 — 서버가 상태를 바꿨는지 확인할 차례.
         case printCompletionReached
         case toastDismissed
@@ -57,6 +61,8 @@ public struct RoomDetailFeature {
 
         public enum Alert: Equatable, Sendable {
             case retryTapped
+            /// 카메라·사진첩 얼럿이 함께 쓴다 — 둘 다 앱 설정 화면 한 곳으로 간다.
+            case openSettingsTapped
         }
 
         public enum View: Sendable {
@@ -66,6 +72,8 @@ public struct RoomDetailFeature {
             case copyInviteCodeTapped
             case shootButtonTapped
             case chatButtonTapped
+            /// 사진이 있는 슬롯을 탭 — 그 사진을 펼친 채 사진 상세로 들어간다.
+            case photoTapped(Photo.ID)
         }
 
         /// 부모(App)에게만 알린다. 화면 전환은 App이 조립한다.
@@ -73,10 +81,11 @@ public struct RoomDetailFeature {
         public enum Delegate: Equatable, Sendable {
             case closeTapped
             case settingsTapped
-            case shootTapped
+            /// 촬영 준비가 끝났다 — 목록·권한이 모두 갖춰졌으니 카메라 화면을 띄우면 된다.
+            case cameraRequested(CameraEntry)
             case chatTapped
-            // TODO: [#57] 슬롯 탭으로 사진 상세를 여는 photoTapped(Photo.ID)를 추가한다.
-            // 뷰의 slot(number:)에 탭을 달고, App이 PhotoDetailFeature를 연다.
+            /// 사진 상세를 연다. App이 `PhotoDetailFeature`를 조립한다 (규칙 3).
+            case photoTapped(Photo.ID)
         }
     }
 
@@ -90,6 +99,7 @@ public struct RoomDetailFeature {
     @Dependency(\.fetchRoomDetailUseCase) var fetchRoomDetailUseCase
     @Dependency(\.fetchRoomPhotosUseCase) var fetchRoomPhotosUseCase
     @Dependency(\.copyToPasteboard) var copyToPasteboard
+    @Dependency(\.openCameraSettingsUseCase) var openCameraSettingsUseCase
     @Dependency(\.continuousClock) var clock
     /// 현재 시각. 인화 완료까지 남은 시간을 계산할 때 쓴다 — 테스트가 고정할 수 있게 주입받는다.
     @Dependency(\.date) var date
@@ -174,11 +184,33 @@ public struct RoomDetailFeature {
             case .view(.settingsButtonTapped):
                 return .send(.delegate(.settingsTapped))
 
+            // MARK: 촬영 진입
+
+            // 준비가 끝나야 카메라로 넘어간다 — 홈의 촬영 뱃지와 같은 준비를 같은 코드로 한다.
             case .view(.shootButtonTapped):
-                return .send(.delegate(.shootTapped))
+                guard !state.isPreparingShoot else { return .none }
+                state.isPreparingShoot = true
+                return prepareShoot(roomID: state.room.id)
+
+            case let .shootPreparationResponse(.success(entry)):
+                state.isPreparingShoot = false
+                return .send(.delegate(.cameraRequested(entry)))
+
+            case let .shootPreparationResponse(.failure(error)):
+                state.isPreparingShoot = false
+                state.alert = error.alert(openSettings: .openSettingsTapped)
+                return .none
+
+            case .alert(.presented(.openSettingsTapped)):
+                return .run { [openCameraSettingsUseCase] _ in
+                    await openCameraSettingsUseCase.run()
+                }
 
             case .view(.chatButtonTapped):
                 return .send(.delegate(.chatTapped))
+
+            case let .view(.photoTapped(id)):
+                return .send(.delegate(.photoTapped(id)))
 
             case .alert:
                 return .none
@@ -190,12 +222,24 @@ public struct RoomDetailFeature {
         .ifLet(\.$alert, action: \.alert)
     }
 
-    private enum CancelID { case detail, photos, toast, printRefresh }
+    private enum CancelID { case detail, photos, toast, printRefresh, prepareShoot }
 
     private enum Const {
         // TODO: 노출 시간은 기획 미확정 — ProfileSetup과 같은 임시값. 확정 시 교체할 것.
         static let toastDuration: Duration = .seconds(2)
         static let copyToastMessage = "초대 코드를 복사했어요"
+    }
+
+    /// 촬영에 필요한 것(목록·LUT·권한)은 `ShootEntry`가 받아 온다 — 홈의 촬영 뱃지와 같은 준비다.
+    /// 의존성 해석은 이펙트 바깥에서 끝낸다 (`ShootPreparation()`).
+    private func prepareShoot(roomID: Room.ID) -> Effect<Action> {
+        let preparation = ShootPreparation()
+
+        return .run { send in
+            let result = try await preparation.run(roomID: roomID)
+            await send(.shootPreparationResponse(result))
+        }
+        .cancellable(id: CancelID.prepareShoot, cancelInFlight: true)
     }
 
     private func fetchDetail(id: Room.ID) -> Effect<Action> {
@@ -217,6 +261,7 @@ public struct RoomDetailFeature {
     private func fetchPhotos(id: Room.ID) -> Effect<Action> {
         .run { [fetchRoomPhotosUseCase] send in
             do {
+                // 그리드는 리액션을 그리지 않으므로 목록만 받는다 (리액션은 사진 상세에서 지연 조회).
                 let photos = try await fetchRoomPhotosUseCase.run(id)
                 await send(.photosResponse(.success(photos)))
             } catch let error as PhotoError {

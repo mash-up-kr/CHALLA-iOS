@@ -1,10 +1,14 @@
 import CameraFeature
 import CameraSession
+import CHALLADesignSystem
+import ChatRoomFeature
 import ComposableArchitecture
 import HomeFeature
 import LoginFeature
+import PhotoDetailFeature
 import ProfileSetupFeature
 import RoomDetailFeature
+import SettingDomain
 import SettingFeature
 import SwiftUI
 
@@ -23,6 +27,13 @@ public struct AppView: View {
     /// 실기기 카메라 세션. 리듀서(`LiveCameraFeature`)와 프리뷰가 같은 인스턴스를 봐야 하므로
     /// `@Dependency`로 공유되는 live 값을 뷰에서도 그대로 가져와 프리뷰에 넘긴다.
     @Dependency(\.cameraSession) private var cameraSession
+
+    /// 사용자가 고른 테마. 앱에서 여기서만 읽어 Environment로 내려보낸다.
+    /// 설정 화면이 값을 바꾸면 같은 저장소를 보고 있어 화면 전체가 함께 다시 그려진다.
+    ///
+    /// `CHALLAApp`이 아니라 이 뷰가 읽는다 — `App`의 저장 프로퍼티는 `init` 본문보다 먼저
+    /// 초기화돼서, 거기 두면 `prepareDependencies`가 깔리기 전에 저장소를 구독한다.
+    @SharedReader(.appTheme) private var theme: AppTheme
 
     public init(store: StoreOf<AppFeature>) {
         self.store = store
@@ -63,6 +74,16 @@ public struct AppView: View {
                     RoomSettingsView(store: settingsStore)
                 }
 
+            case .photoDetail:
+                if let photoDetailStore = store.scope(state: \.photoDetail?.photoDetail, action: \.photoDetail) {
+                    PhotoDetailView(store: photoDetailStore)
+                }
+
+            case .chat:
+                if let chatStore = store.scope(state: \.chat?.chat, action: \.chat) {
+                    ChatRoomView(store: chatStore)
+                }
+
             case .setting:
                 if let settingStore = store.scope(state: \.setting?.setting, action: \.setting) {
                     SettingView(store: settingStore)
@@ -84,6 +105,7 @@ public struct AppView: View {
                 }
             }
         }
+        .environment(\.challaTheme, CHALLATheme(accent: theme.themeColor))
         .animation(.snappy, value: store.screenID)
         .task { store.send(.task) }
         // 네비게이션 없이 뷰를 갈아끼우므로 VoiceOver는 화면이 바뀐 걸 스스로 알지 못한다.

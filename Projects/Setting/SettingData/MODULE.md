@@ -6,8 +6,9 @@
 `NotificationPermissionProvider` · `AccountRepository`)를 구현한다
 (아키텍처 규칙 1: `Feature → Domain ← Data`).
 
-테마와 알림 설정을 기기에 저장하고 다시 읽으며, 시스템 알림 권한을 조회한다.
-**네트워크 의존이 없다** — 테마·알림은 기기 저장이고, 프로필·계정은 다른 aggregate라
+알림 설정을 기기에 저장하고 다시 읽으며, 시스템 알림 권한을 조회한다.
+테마는 여기서 다루지 않는다 — `SettingFeature`의 `@Shared(.appTheme)`가 저장소를 직접 읽는다.
+**네트워크 의존이 없다** — 알림은 기기 저장이고, 프로필·계정은 다른 aggregate라
 실행 앱의 어댑터가 잇는다 (`CHALLAApp/Sources/Adapters/`).
 
 ## 프로필은 왜 여기 없나
@@ -41,8 +42,7 @@
 
 - `struct DefaultSettingsRepository: SettingsRepository`
   - `init(storage:)` — 저장소를 주입받는다 (기본값 `UserDefaultsSettingsStorage()`)
-  - 저장 키: `challa.setting.theme` · `challa.setting.notification.service`
-  - 알 수 없는 테마 문자열이 저장돼 있으면(앱 다운그레이드·수동 조작) `AppTheme.default`로 떨어진다
+  - 저장 키: `challa.setting.notification.service`
 
 ### System (`Sources/System/`)
 

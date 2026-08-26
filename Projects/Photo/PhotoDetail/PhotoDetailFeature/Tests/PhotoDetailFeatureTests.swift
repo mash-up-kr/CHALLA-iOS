@@ -22,6 +22,11 @@ struct PhotoDetailPhotoTests {
             $0.isLoading = false
             $0.photos = IdentifiedArray(uniqueElements: loaded)
             $0.selectedPhotoID = "photo-1"
+            $0.reactionsLoading.insert("photo-1")
+        }
+        await store.receive(\.reactionsResponse) {
+            $0.reactionsLoading.remove("photo-1")
+            $0.reactionsLoaded.insert("photo-1")
         }
     }
 
@@ -35,6 +40,11 @@ struct PhotoDetailPhotoTests {
             $0.isLoading = false
             $0.photos = IdentifiedArray(uniqueElements: loaded)
             $0.selectedPhotoID = "photo-2"
+            $0.reactionsLoading.insert("photo-2")
+        }
+        await store.receive(\.reactionsResponse) {
+            $0.reactionsLoading.remove("photo-2")
+            $0.reactionsLoaded.insert("photo-2")
         }
     }
 
@@ -48,6 +58,11 @@ struct PhotoDetailPhotoTests {
             $0.isLoading = false
             $0.photos = IdentifiedArray(uniqueElements: loaded)
             $0.selectedPhotoID = "photo-1"
+            $0.reactionsLoading.insert("photo-1")
+        }
+        await store.receive(\.reactionsResponse) {
+            $0.reactionsLoading.remove("photo-1")
+            $0.reactionsLoaded.insert("photo-1")
         }
     }
 
@@ -62,11 +77,22 @@ struct PhotoDetailPhotoTests {
             $0.isLoading = false
             $0.photos = IdentifiedArray(uniqueElements: first)
             $0.selectedPhotoID = "photo-1"
+            $0.reactionsLoading.insert("photo-1")
+        }
+        await store.receive(\.reactionsResponse) {
+            $0.reactionsLoading.remove("photo-1")
+            $0.reactionsLoaded.insert("photo-1")
         }
 
         await store.send(.photosResponse(.success(second))) {
             $0.photos = IdentifiedArray(uniqueElements: second)
             $0.selectedPhotoID = "photo-2"
+            // 새로 펼쳐진 photo-2의 리액션을 지연 조회한다(photo-1은 이미 받아 캐시됨).
+            $0.reactionsLoading.insert("photo-2")
+        }
+        await store.receive(\.reactionsResponse) {
+            $0.reactionsLoading.remove("photo-2")
+            $0.reactionsLoaded.insert("photo-2")
         }
     }
 
@@ -103,6 +129,11 @@ struct PhotoDetailPhotoTests {
             $0.isLoading = false
             $0.photos = IdentifiedArray(uniqueElements: loaded)
             $0.selectedPhotoID = "photo-1"
+            $0.reactionsLoading.insert("photo-1")
+        }
+        await store.receive(\.reactionsResponse) {
+            $0.reactionsLoading.remove("photo-1")
+            $0.reactionsLoaded.insert("photo-1")
         }
     }
 
@@ -123,7 +154,14 @@ struct PhotoDetailPhotoTests {
         let loaded = [Fixture.photo(id: "photo-1"), Fixture.photo(id: "photo-2")]
         let store = await openedTestStore(photos: loaded)
 
-        await store.send(.view(.photoSelected("photo-2"))) { $0.selectedPhotoID = "photo-2" }
+        await store.send(.view(.photoSelected("photo-2"))) {
+            $0.selectedPhotoID = "photo-2"
+            $0.reactionsLoading.insert("photo-2")
+        }
+        await store.receive(\.reactionsResponse) {
+            $0.reactionsLoading.remove("photo-2")
+            $0.reactionsLoaded.insert("photo-2")
+        }
     }
 
     @Test("목록에 없는 사진으로는 넘어가지 않는다")
@@ -140,7 +178,14 @@ struct PhotoDetailPhotoTests {
         let store = await openedTestStore(photos: loaded)
 
         await store.send(.view(.adjacentPhotoRequested(offset: -1)))
-        await store.send(.view(.adjacentPhotoRequested(offset: 1))) { $0.selectedPhotoID = "photo-2" }
+        await store.send(.view(.adjacentPhotoRequested(offset: 1))) {
+            $0.selectedPhotoID = "photo-2"
+            $0.reactionsLoading.insert("photo-2")
+        }
+        await store.receive(\.reactionsResponse) {
+            $0.reactionsLoading.remove("photo-2")
+            $0.reactionsLoaded.insert("photo-2")
+        }
         await store.send(.view(.adjacentPhotoRequested(offset: 1)))
     }
 }

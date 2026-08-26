@@ -37,18 +37,25 @@ struct DemoPhotoRepository: PhotoRepository {
         }
     }
 
-    func setReaction(photoID: String, kind: ReactionKind, isOn: Bool) async throws -> Photo {
+    func reactions(forPhotoID photoID: String) async throws -> PhotoReactions {
+        guard case let .populated(store) = scenario else { return PhotoReactions() }
+        try await Task.sleep(for: latency)
+        // 데모는 서버가 없으니 메모리 저장소에 쌓인 리액션을 그대로 돌려준다(재진입 시 스티커·띠 복원).
+        guard let photo = await store.photo(id: photoID) else { return PhotoReactions() }
+        return PhotoReactions(stickers: photo.reactions, reactedKindsByUser: photo.reactedKindsByUser)
+    }
+
+    func setReaction(roomID _: Int64, photoID: String, kind: ReactionKind, isOn _: Bool) async throws {
         guard case let .populated(store) = scenario else { throw PhotoError.unknown }
         try await Task.sleep(for: latency)
 
-        let updated = await store.setReaction(
+        // 데모는 서버가 없으니 메모리 저장소에 반영해 재진입 시에도 스티커가 남게 한다.
+        let updated = await store.addReaction(
             photoID: photoID,
             kind: kind,
-            isOn: isOn,
             userID: DemoFixture.currentUserID
         )
-        guard let updated else { throw PhotoError.unknown }
-        return updated
+        guard updated != nil else { throw PhotoError.unknown }
     }
 
     func imageData(for photo: Photo) async throws -> Data {

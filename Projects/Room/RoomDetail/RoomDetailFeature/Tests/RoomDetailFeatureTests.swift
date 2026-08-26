@@ -258,14 +258,12 @@ struct RoomDetailFeatureTests {
 
     // MARK: - 위임
 
-    @Test("뒤로가기·촬영·채팅 버튼은 delegate로 위임한다")
+    @Test("뒤로가기·채팅 버튼은 delegate로 위임한다")
     func buttonsDelegate() async {
         let store = Self.makeStore()
 
         await store.send(.view(.backButtonTapped))
         await store.receive(\.delegate.closeTapped)
-        await store.send(.view(.shootButtonTapped))
-        await store.receive(\.delegate.shootTapped)
         await store.send(.view(.chatButtonTapped))
         await store.receive(\.delegate.chatTapped)
     }

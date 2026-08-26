@@ -8,6 +8,8 @@ struct ReactionBar: View {
 
     // MARK: - 프로퍼티
 
+    @Environment(\.challaTheme) private var theme
+
     let selectedKinds: Set<ReactionKind>
     let onTap: (ReactionKind) -> Void
 
@@ -57,7 +59,7 @@ struct ReactionBar: View {
             }
             .overlay {
                 if selectedKinds.contains(kind) {
-                    Circle().strokeBorder(CHALLAColor.defaultTheme, lineWidth: 2)
+                    Circle().strokeBorder(theme.accent, lineWidth: 2)
                 }
             }
             .frame(width: Metric.chipSize, height: Metric.chipSize)

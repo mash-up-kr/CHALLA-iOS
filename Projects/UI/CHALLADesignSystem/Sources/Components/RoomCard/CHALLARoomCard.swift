@@ -24,7 +24,7 @@ public struct CHALLARoomCard: View {
 
     /// 방 상태에 따라 달라지는 하단 요소. 공통 틀(사진·딤·제목·인원)은 상태와 무관하다.
     public enum Variant {
-        /// 촬영 중 — 노랑 카메라 뱃지에 `찍은 장수/총 장수`를 보여준다.
+        /// 촬영 중 — 테마 색 카메라 뱃지에 `찍은 장수/총 장수`를 보여준다.
         /// isPreparing이면 뱃지가 스피너로 바뀌고 눌리지 않는다.
         /// 준비가 카드마다 따로 도므로 어느 방을 눌렀는지도 이 값으로 드러난다.
         /// onShoot이 nil이면 뱃지는 장수만 보여주는 그림으로 남는다
@@ -32,12 +32,14 @@ public struct CHALLARoomCard: View {
         case shooting(shotCount: Int, totalCount: Int, isPreparing: Bool, onShoot: (() -> Void)?)
         /// 인화 대기 — 어두운 시계 뱃지에 남은 시간 문자열을 보여준다. 뱃지는 눌리지 않는 그림이다.
         case printWaiting(remainingTime: String)
-        /// 인화 완료 — 노랑 확인하기 버튼. 테마색 글로우로 시선을 끈다.
+        /// 인화 완료 — 테마 색 확인하기 버튼. 같은 색 글로우로 시선을 끈다.
         /// onConfirm이 nil이면 버튼 모양의 그림으로 남는다.
         case printed(onConfirm: (() -> Void)?)
     }
 
     // MARK: - 프로퍼티와 init
+
+    @Environment(\.challaTheme) private var theme
 
     private let title: String
     private let memberCount: Int
@@ -226,7 +228,7 @@ public struct CHALLARoomCard: View {
         .padding(.vertical, RoomCardMetric.badgeVerticalPadding)
         .background {
             RoundedRectangle(cornerRadius: CHALLARadius.large)
-                .fill(CHALLAColor.Primary.yellow)
+                .fill(theme.accent)
         }
     }
 
@@ -272,9 +274,10 @@ public struct CHALLARoomCard: View {
         .padding(.vertical, RoomCardMetric.badgeVerticalPadding)
         .background {
             RoundedRectangle(cornerRadius: CHALLARadius.large)
-                .fill(CHALLAColor.Primary.yellow)
+                .fill(theme.accent)
         }
-        .shadow(color: CHALLAColor.Primary.yellow, radius: RoomCardMetric.glowRadius)
+        // 시안 명세 "확인하기 버튼에 테마 컬러로 drop shadow" — 배경과 같은 테마 색을 그림자로 깐다.
+        .shadow(color: theme.accent, radius: RoomCardMetric.glowRadius)
     }
 }
 
@@ -302,7 +305,7 @@ private enum RoomCardMetric {
     /// 흰색 하이라이트 시작 불투명도(0.2)와 소멸 지점(Figma 76.378%).
     static let highlightOpacity: Double = 0.2
     static let highlightEnd: CGFloat = 0.764
-    /// 확인하기 버튼 글로우. Figma drop shadow(0 0 8)의 blur를 radius로 옮긴 시안 육안 근사값 — 디자이너 검수로 확정한다.
+    /// 확인하기 버튼 글로우(색은 테마). Figma drop shadow(0 0 8)의 blur를 radius로 옮긴 시안 육안 근사값 — 디자이너 검수로 확정한다.
     static let glowRadius: CGFloat = 8
 }
 
