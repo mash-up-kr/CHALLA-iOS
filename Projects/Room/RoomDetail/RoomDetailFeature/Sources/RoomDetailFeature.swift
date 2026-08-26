@@ -25,6 +25,8 @@ public struct RoomDetailFeature {
         public var photos: [Photo] = []
         /// 조회 실패 얼럿. 다시 시도해도 실패하면 다시 뜬다.
         @Presents public var alert: AlertState<Action.Alert>?
+        /// 이 화면에서 인화 완료 확인 기록을 이미 보냈는지 — 재시도·알람 재조회마다 다시 보내지 않게 막는다.
+        public var hasReportedPrintCompletionCheck = false
 
         public init(room: Room) {
             self.room = room
@@ -84,6 +86,7 @@ public struct RoomDetailFeature {
 
     // MARK: - Dependencies
 
+    @Dependency(\.checkPrintCompletionUseCase) var checkPrintCompletionUseCase
     @Dependency(\.fetchRoomDetailUseCase) var fetchRoomDetailUseCase
     @Dependency(\.fetchRoomPhotosUseCase) var fetchRoomPhotosUseCase
     @Dependency(\.copyToPasteboard) var copyToPasteboard
@@ -113,7 +116,10 @@ public struct RoomDetailFeature {
                 state.detail = detail
                 // 홈에서 받은 방은 목록 조회 시점의 값이라, 방금 조회한 상세 응답의 값으로 덮는다.
                 state.room = detail.room
-                return refreshAtPrintCompletion(room: detail.room)
+                return .merge(
+                    refreshAtPrintCompletion(room: detail.room),
+                    reportPrintCompletionCheck(&state, room: detail.room)
+                )
 
             case .printCompletionReached:
                 // 화면 카운트다운은 이미 0:00:00 — 서버가 인화 완료로 넘어갔는지 다시 묻는다.
@@ -238,6 +244,21 @@ public struct RoomDetailFeature {
             await send(.printCompletionReached)
         }
         .cancellable(id: CancelID.printRefresh, cancelInFlight: true)
+    }
+
+    /// 인화 완료 방에 들어왔다고 서버에 기록한다 (`PUT .../photo-print-completion/check`) —
+    /// 이 기록이 홈 확인하기 카드를 다음 목록 조회부터 하단 "인화 완료" 목록으로 내려보낸다.
+    ///
+    /// 홈(확인하기 탭)이 아니라 여기서 부르는 이유: 탭 직후 화면이 상세로 바뀌면서
+    /// 홈 State가 사라지고, 홈이 보내던 요청도 함께 취소돼 기록이 유실됐다.
+    /// 상세는 사용자가 보는 동안 화면에 남아 있어 요청이 끝까지 나간다.
+    /// 실패는 무시한다 — 확인하기 카드가 남아 다음 진입 때 다시 시도된다.
+    private func reportPrintCompletionCheck(_ state: inout State, room: Room) -> Effect<Action> {
+        guard room.status == .printed, !state.hasReportedPrintCompletionCheck else { return .none }
+        state.hasReportedPrintCompletionCheck = true
+        return .run { [checkPrintCompletionUseCase] _ in
+            try? await checkPrintCompletionUseCase.run(room.id)
+        }
     }
 
     /// 일정 시간 뒤 토스트를 거둔다. 복사를 연타하면 이전 타이머를 취소해 노출 시간이 처음부터 다시 센다.

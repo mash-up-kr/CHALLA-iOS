@@ -22,6 +22,7 @@ enum CompositionRoot {
         )
 
         values.fetchRoomDetailUseCase = .live(repository: repository)
+        values.checkPrintCompletionUseCase = .live(repository: repository)
         values.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
             DemoSamples.photos(count: DemoSamples.photoCount(for: state))
         })

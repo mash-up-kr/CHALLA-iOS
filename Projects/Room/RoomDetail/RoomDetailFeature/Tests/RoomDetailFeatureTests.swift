@@ -49,6 +49,8 @@ struct RoomDetailFeatureTests {
             $0.fetchRoomPhotosUseCase = fetchPhotos
             $0.copyToPasteboard = copy
             $0.continuousClock = clock
+            // 인화 완료 응답이 확인 기록(check)을 보낸다 — 여기 테스트들은 기록 자체를 검증하지 않아 무시 스텁.
+            $0.checkPrintCompletionUseCase = CheckPrintCompletionUseCase(run: { _ in })
             // 인화 완료 알람의 남은 시간 계산이 쓴다 — 고정해야 테스트가 결정적이다.
             $0.date = .constant(Date(timeIntervalSince1970: 0))
         }
@@ -249,6 +251,7 @@ struct RoomDetailFeatureTests {
         await store.receive(\.detailResponse.success) {
             $0.detail = RoomDetail(room: Self.printedRoom, invitationCode: "1928121", members: [])
             $0.room = Self.printedRoom // 인화 완료 — 방 상태가 바뀌어 알람은 다시 걸리지 않는다
+            $0.hasReportedPrintCompletionCheck = true // 인화 완료 응답이 확인 기록을 보낸다
         }
         await store.receive(\.photosResponse.success)
     }
