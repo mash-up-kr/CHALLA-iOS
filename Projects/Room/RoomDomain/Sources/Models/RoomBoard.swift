@@ -18,20 +18,14 @@ public struct RoomBoard: Equatable, Sendable {
     /// 하단 "인화 완료" 목록 (확인을 마친 인화 완료 방).
     public let printed: [RoomCard]
 
-    /// - Parameters:
-    ///   - cards: 서버가 내려준 순서 그대로의 방 목록.
-    ///   - checkedPrintedRoomIDs: 이번 세션에서 확인하기를 누른 방 id 모음.
-    ///     서버 기록은 다음 목록 조회에야 실려 오므로, 그 전까지 방금 누른 방을
-    ///     화면에서 먼저 하단으로 옮기는 데 쓴다. 판정은 서버 값과 이 모음 중 하나만 참이면 된다.
-    public init(cards: [RoomCard], checkedPrintedRoomIDs: Set<Room.ID> = []) {
-        func isChecked(_ card: RoomCard) -> Bool {
-            card.isPrintCompletionChecked || checkedPrintedRoomIDs.contains(card.room.id)
-        }
+    /// 순서는 입력 배열(서버 정렬)을 그대로 따른다.
+    /// - Parameter cards: 서버가 내려준 순서 그대로의 방 목록.
+    public init(cards: [RoomCard]) {
         active = cards.filter { card in
-            card.room.status != .printed || !isChecked(card)
+            card.room.status != .printed || !card.isPrintCompletionChecked
         }
         printed = cards.filter { card in
-            card.room.status == .printed && isChecked(card)
+            card.room.status == .printed && card.isPrintCompletionChecked
         }
     }
 

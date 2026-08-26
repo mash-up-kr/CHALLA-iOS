@@ -52,8 +52,8 @@ struct RoomBoardTests {
         #expect(board.printed.isEmpty)
     }
 
-    @Test("서버가 확인됐다고 준 인화 완료 방은 하단으로 옮겨간다 — 양쪽에 겹치지 않는다")
-    func serverCheckedPrintedMovesToPrintedList() {
+    @Test("확인한 인화 완료 방은 하단으로 옮겨간다 — 양쪽에 겹치지 않는다")
+    func checkedPrintedMovesToPrintedList() {
         let checked = Self.card(id: 1, status: .printed, checkedAt: Date(timeIntervalSince1970: 100))
         let unchecked = Self.card(id: 2, status: .printed)
 
@@ -63,22 +63,11 @@ struct RoomBoardTests {
         #expect(board.printed == [checked])
     }
 
-    @Test("세션 확인 기록도 같은 효력을 갖는다 — 서버 기록이 목록에 실려 오기 전 구간용")
-    func sessionCheckedPrintedMovesToPrintedList() {
-        let checked = Self.card(id: 1, status: .printed)
-        let unchecked = Self.card(id: 2, status: .printed)
+    @Test("확인 시각이 있어도 인화 완료가 아니면 상단에 남는다")
+    func checkedAtOnNonPrintedRoomHasNoEffect() {
+        let shooting = Self.card(id: 1, status: .shooting, checkedAt: Date(timeIntervalSince1970: 100))
 
-        let board = RoomBoard(cards: [checked, unchecked], checkedPrintedRoomIDs: [1])
-
-        #expect(board.active == [unchecked])
-        #expect(board.printed == [checked])
-    }
-
-    @Test("확인 기록이 인화 완료가 아닌 방을 가리켜도 그 방은 상단에 남는다")
-    func checkedIDOnNonPrintedRoomHasNoEffect() {
-        let shooting = Self.card(id: 1, status: .shooting)
-
-        let board = RoomBoard(cards: [shooting], checkedPrintedRoomIDs: [1])
+        let board = RoomBoard(cards: [shooting])
 
         #expect(board.active == [shooting])
     }
@@ -86,15 +75,13 @@ struct RoomBoardTests {
     @Test("두 목록 모두 입력 배열(서버 정렬) 순서를 유지한다")
     func preservesInputOrder() {
         let cards = [
-            Self.card(id: 1, status: .printed),
+            Self.card(id: 1, status: .printed, checkedAt: Date(timeIntervalSince1970: 100)),
             Self.card(id: 2, status: .shooting),
             Self.card(id: 3, status: .printWaiting),
-            Self.card(id: 4, status: .printed)
+            Self.card(id: 4, status: .printed, checkedAt: Date(timeIntervalSince1970: 100))
         ]
 
-        let board = RoomBoard(cards: cards, checkedPrintedRoomIDs: [1, 4])
-
-        #expect(board.active.map(\.id) == [2, 3])
-        #expect(board.printed.map(\.id) == [1, 4])
+        #expect(RoomBoard(cards: cards).active.map(\.id) == [2, 3])
+        #expect(RoomBoard(cards: cards).printed.map(\.id) == [1, 4])
     }
 }

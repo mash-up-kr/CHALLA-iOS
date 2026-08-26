@@ -254,7 +254,8 @@ public struct HomeView: View {
                 remainingTime: PrintCountdown.text(until: card.room.photoPrintCompletedAt ?? now, now: now)
             )
         case .printed:
-            .printed(onConfirm: { send(.confirmButtonTapped(card.id)) })
+            // 확인 기록은 방 상세가 진입 시점에 남긴다 — 여기서는 방을 열기만 한다.
+            .printed(onConfirm: { send(.roomTapped(card.id)) })
         }
     }
 }
