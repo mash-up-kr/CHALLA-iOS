@@ -272,7 +272,9 @@ public struct HomeFeature {
             .compactMap(\.room.photoPrintCompletedAt)
             .filter { $0 > date.now }
             .min()
-        guard let upcoming else { return .none }
+        // 다음 목록에 대기 방이 없으면 이전 응답으로 걸어 둔 알람도 거둔다 —
+        // 남겨 두면 그 시각에 깨어나 불필요한 재조회가 한 번 나간다.
+        guard let upcoming else { return .cancel(id: CancelID.printRefresh) }
 
         return .run { [clock, date] send in
             try await clock.sleep(for: .seconds(upcoming.timeIntervalSince(date.now)))
