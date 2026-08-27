@@ -35,6 +35,9 @@ struct DefaultRoomRepositoryTests {
 
     private static let idJSON = #"{ "success": true, "message": "ok", "data": { "room": { "id": 7 } } }"#
 
+    /// data가 없는 성공 응답 — 확인·이름 변경처럼 성공 여부만 보는 API가 받는다.
+    private static let emptyOKJSON = #"{ "success": true, "message": "ok", "data": null }"#
+
     // MARK: - 조회
 
     @Test("목록을 받아 카드로 돌려주고, 세 상태를 전부 쿼리로 싣는다")
@@ -223,6 +226,91 @@ struct DefaultRoomRepositoryTests {
 
         await #expect(throws: RoomError.roomFull) {
             _ = try await repository.joinRoom(inviteCode: "1928121")
+        }
+    }
+
+    // MARK: - 인화 완료 확인
+
+    @Test("인화 완료 확인: 그 방 주소로 PUT을 보내고, 실어 보낼 본문은 없다")
+    func checkPrintCompletionSendsEmptyPut() async throws {
+        let client = MockHTTPClient.returning(json: Self.emptyOKJSON)
+        let repository = DefaultRoomRepository(client: client)
+
+        try await repository.checkPrintCompletion(roomID: 7)
+
+        let request = try #require(client.requests.first)
+        #expect(request.path == "/api/v1/rooms/7/photo-print-completion/check")
+        #expect(request.method == .put)
+        #expect(request.usesBearerToken)
+        #expect(request.body == nil) // 대상은 경로가 가리켜 실을 것이 없다
+    }
+
+    @Test("인화 완료 확인: success가 false면 서버 메시지를 담아 던진다")
+    func checkPrintCompletionUnwrapsFailureEnvelope() async {
+        let client = MockHTTPClient.returning(
+            json: #"{ "success": false, "message": "확인 처리에 실패했습니다.", "data": null }"#
+        )
+        let repository = DefaultRoomRepository(client: client)
+
+        await #expect(throws: RoomError.server(message: "확인 처리에 실패했습니다.")) {
+            try await repository.checkPrintCompletion(roomID: 7)
+        }
+    }
+
+    @Test("인화 완료 확인: 전송 실패는 .network로 정규화된다")
+    func checkPrintCompletionNormalizesTransportError() async {
+        let client = MockHTTPClient.failing(
+            NetworkError.transport(underlying: URLError(.notConnectedToInternet))
+        )
+        let repository = DefaultRoomRepository(client: client)
+
+        await #expect(throws: RoomError.network) {
+            try await repository.checkPrintCompletion(roomID: 7)
+        }
+    }
+
+    // MARK: - 이름 변경
+
+    @Test("이름 변경: 그 방 주소로 PUT을 보내고, 본문에는 새 이름만 싣는다")
+    func updateTitleSendsBody() async throws {
+        let client = MockHTTPClient.returning(json: Self.emptyOKJSON)
+        let repository = DefaultRoomRepository(client: client)
+
+        try await repository.updateTitle(roomID: 7, title: "강릉 여행")
+
+        let request = try #require(client.requests.first)
+        #expect(request.path == "/api/v1/rooms/7/title")
+        #expect(request.method == .put)
+        #expect(request.usesBearerToken)
+
+        // 본문 계약: { room: { title } }
+        let body = try #require(request.body)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: [String: Any]])
+        #expect(json["room"]?["title"] as? String == "강릉 여행")
+        #expect(json["room"]?.count == 1) // title 외의 값이 딸려 나가면 안 된다
+    }
+
+    @Test("이름 변경: success가 false면 서버 메시지를 담아 던진다")
+    func updateTitleUnwrapsFailureEnvelope() async {
+        let client = MockHTTPClient.returning(
+            json: #"{ "success": false, "message": "이름을 바꿀 수 없습니다.", "data": null }"#
+        )
+        let repository = DefaultRoomRepository(client: client)
+
+        await #expect(throws: RoomError.server(message: "이름을 바꿀 수 없습니다.")) {
+            try await repository.updateTitle(roomID: 7, title: "강릉 여행")
+        }
+    }
+
+    @Test("이름 변경: 전송 실패는 .network로 정규화된다")
+    func updateTitleNormalizesTransportError() async {
+        let client = MockHTTPClient.failing(
+            NetworkError.transport(underlying: URLError(.notConnectedToInternet))
+        )
+        let repository = DefaultRoomRepository(client: client)
+
+        await #expect(throws: RoomError.network) {
+            try await repository.updateTitle(roomID: 7, title: "강릉 여행")
         }
     }
 }

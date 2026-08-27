@@ -16,6 +16,14 @@ final class MockRoomRepository: RoomRepository {
         var joinedCodes: [String] = []
         var roomInfoIDs: [Room.ID] = []
         var memberRoomIDs: [Room.ID] = []
+        var checkedPrintCompletionRoomIDs: [Room.ID] = []
+        var titleUpdates: [TitleUpdate] = []
+    }
+
+    /// updateTitle 한 번의 호출 내용. 인자가 둘이라 배열 하나로 못 담아 묶는다.
+    struct TitleUpdate: Equatable {
+        let roomID: Room.ID
+        let title: String
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -25,6 +33,8 @@ final class MockRoomRepository: RoomRepository {
     private let joinResult: Result<RoomCard, RoomError>
     private let roomInfoResult: Result<(room: Room, invitationCode: String), RoomError>
     private let membersResult: Result<[RoomMember], RoomError>
+    private let checkPrintCompletionResult: Result<Void, RoomError>
+    private let updateTitleResult: Result<Void, RoomError>
 
     init(
         roomsResult: Result<[RoomCard], RoomError> = .failure(.unknown),
@@ -32,7 +42,9 @@ final class MockRoomRepository: RoomRepository {
         createResult: Result<RoomCard, RoomError> = .failure(.unknown),
         joinResult: Result<RoomCard, RoomError> = .failure(.unknown),
         roomInfoResult: Result<(room: Room, invitationCode: String), RoomError> = .failure(.unknown),
-        membersResult: Result<[RoomMember], RoomError> = .failure(.unknown)
+        membersResult: Result<[RoomMember], RoomError> = .failure(.unknown),
+        checkPrintCompletionResult: Result<Void, RoomError> = .failure(.unknown),
+        updateTitleResult: Result<Void, RoomError> = .failure(.unknown)
     ) {
         self.roomsResult = roomsResult
         self.shootableRoomsResult = shootableRoomsResult
@@ -40,6 +52,8 @@ final class MockRoomRepository: RoomRepository {
         self.joinResult = joinResult
         self.roomInfoResult = roomInfoResult
         self.membersResult = membersResult
+        self.checkPrintCompletionResult = checkPrintCompletionResult
+        self.updateTitleResult = updateTitleResult
     }
 
     // MARK: - 검증용 프로퍼티
@@ -74,6 +88,16 @@ final class MockRoomRepository: RoomRepository {
         state.withLock { $0.memberRoomIDs }
     }
 
+    /// checkPrintCompletion에 전달된 방 id (호출 순서대로).
+    var checkedPrintCompletionRoomIDs: [Room.ID] {
+        state.withLock { $0.checkedPrintCompletionRoomIDs }
+    }
+
+    /// updateTitle에 전달된 방 id·이름 (호출 순서대로).
+    var titleUpdates: [TitleUpdate] {
+        state.withLock { $0.titleUpdates }
+    }
+
     // MARK: - RoomRepository
 
     func rooms() async throws -> [RoomCard] {
@@ -104,5 +128,15 @@ final class MockRoomRepository: RoomRepository {
     func members(roomID: Room.ID) async throws -> [RoomMember] {
         state.withLock { $0.memberRoomIDs.append(roomID) }
         return try membersResult.get()
+    }
+
+    func checkPrintCompletion(roomID: Room.ID) async throws {
+        state.withLock { $0.checkedPrintCompletionRoomIDs.append(roomID) }
+        try checkPrintCompletionResult.get()
+    }
+
+    func updateTitle(roomID: Room.ID, title: String) async throws {
+        state.withLock { $0.titleUpdates.append(TitleUpdate(roomID: roomID, title: title)) }
+        try updateTitleResult.get()
     }
 }
