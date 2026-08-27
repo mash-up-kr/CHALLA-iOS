@@ -24,6 +24,8 @@
   - `shootableRooms()`는 `GET /rooms/shootable`을 그대로 옮긴다 (촬영 가능 판단은 서버 몫)
   - 생성·입장은 서버 응답이 `{ id }`뿐이라 **목록을 재조회해 그 id의 카드를 돌려준다**
     (`card(withID:)`에 격리 — 백엔드가 응답에 방 전체를 실어주면 이 메서드만 지운다)
+  - 확인 기록(`checkPrintCompletion`)·이름 변경(`updateTitle`)은 PUT — 응답 data가 비어 있어
+    (`EmptyResponseDTO`) 껍데기 성공 여부만 확인하고 돌려줄 것이 없다
   - 상태 없는 `struct`다 — 진짜 데이터가 전부 서버에 있고 이 타입은 통로라 actor가 필요 없다
 - `actor InMemoryRoomRepository: RoomRepository`
   - `init(cards:inviteCodes:membersByRoom:latency:failure:)` — 시작 목록, 초대 코드→방 id 매핑,
@@ -34,6 +36,8 @@
   - `shootableRooms()`는 들고 있는 카드 중 촬영 중 상태만 축약형으로 내려준다 (실서버 기준을 흉내)
   - 방 생성 id는 음수 카운터(-1000부터 감소) — 서버는 양수만 주므로 음수 = 서버가 발급하지 않은
     데이터라는 표식. 프리뷰(-1~-3)·샘플(-10번대)과 겹치지 않는다
+  - 확인 기록·이름 변경은 들고 있는 카드를 새 값으로 바꿔 재현한다 — 실서버가 다음 목록
+    조회에 반영해 주는 것과 같은 모습이다
 
 **`actor`인 이유** (InMemory): 방 목록이 계속 바뀌는데 `RoomRepository`는 `Sendable`이라 동시 접근이
 안전해야 한다. 락으로 묶는 방법도 있으나 `await`로 기다리는 구간이 있어 쓸 수 없다(락은 스레드를 붙잡고
@@ -58,13 +62,14 @@
   UserData 복사본 — CHALLANetwork 공통화는 #51 진행 중), 요청·응답 DTO, `RoomStatusDTO`
   (모르는 상태 값은 디코딩 실패를 택한다). 날짜는 `String`으로 받는다 — 공용 디코더에 날짜 규칙을
   설정하면 다른 도메인 API까지 영향을 받아 매핑에서만 파싱한다
-- `Endpoint/RoomEndpoint` — rooms(배열 쿼리) · shootable · create · join · detail · members 선언. 전부 `.bearer`
+- `Endpoint/RoomEndpoint` — rooms(배열 쿼리) · shootable · create · join · detail · members ·
+  checkPrintCompletion(PUT) · updateTitle(PUT) 선언. 전부 `.bearer`
 - `Mapping/` — `toDomain()`(DTO→RoomCard·RoomDetail·ShootableRoom), `ServerDate`(소수점 초 자릿수만 다른 3형식
   파싱 — 마이크로초 6·밀리초 3·생략. 타임존 표기 없이 UTC로 내려온다, 백엔드 확정 2026-08-13),
   `RoomError.normalized`(취소는 통과,
   401→unauthorized, 404→roomNotFound·409→roomFull은 잠정 — 스웨거에 에러 정의가 없음 TODO)
-  - 필수 날짜(createdAt·expiresAt) 파싱 실패는 그 방을 오류 처리, 인화 완료 시각은 인화 전 null이
-    정상이라 형식이 깨져도 그 값만 nil
+  - 필수 날짜(createdAt·expiresAt) 파싱 실패는 그 방을 오류 처리, 인화 완료 시각·확인 시각은
+    null이 정상인 값이라(인화 전·확인 전) 형식이 깨져도 그 값만 nil
 
 ## 의존성
 

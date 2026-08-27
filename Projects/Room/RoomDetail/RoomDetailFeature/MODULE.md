@@ -8,6 +8,9 @@
 `RoomDomain`·`PhotoDomain`의 UseCase만 주입받고(규칙 2), 화면 전환(뒤로가기·촬영·채팅)은
 전부 `delegate`로 App에 알린다(규칙 3).
 
+방 설정 화면(이름 수정 드로어 포함)도 이 모듈이 갖는다 — 상세에서만 들어가는 화면이라
+별도 Feature로 쪼개지 않았다 (#82).
+
 **사진 찍기는 준비까지 마치고 넘긴다.** 카메라 화면은 아무것도 스스로 조회하지 않아서,
 버튼을 누르면 `ShootEntry`의 `ShootPreparation`이 촬영 가능 방 목록·필터(LUT 포함)·카메라/사진첩 권한을
 갖추고, 전부 성공했을 때만 `delegate(.cameraRequested)`를 보낸다. 준비 중에는 버튼이 로딩으로 바뀌고
@@ -36,7 +39,8 @@
 - `State(room:)` — 홈에서 받은 `Room`을 품고 시작한다. 첫 프레임부터 제목·슬롯 그리드가 그려지고,
   초대 코드·참여자·사진은 진입 후 조회로 채운다
   - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` · `toast` · `alert`
-- `Action.delegate` — `closeTapped` · `cameraRequested(CameraEntry)`(촬영 준비 완료) · `chatTapped` ·
+- `Action.delegate` — `closeTapped` · `settingsTapped`(설정 화면 요청 — App이 조립) ·
+  `cameraRequested(CameraEntry)`(촬영 준비 완료) · `chatTapped` ·
   `photoTapped(Photo.ID)`(사진 슬롯 탭 → 사진 상세)
 - `isPreparingShoot` — 촬영 준비 중. 사진 찍기 버튼이 로딩으로 바뀐다
 - 진입 시 상세와 사진을 병렬 조회한다. 방 상태로 거르지 않는다 — 촬영 중에도 찍은 사진이 필요하고,
@@ -45,12 +49,34 @@
   다시 시도해도 실패하면 얼럿이 또 뜬다 — 성공할 때까지 복구 경로가 남는다
 - 사진만 실패하면 얼럿을 띄우지 않는다. 상세가 성공했으면 화면 대부분이 그려져 있고,
   상세까지 실패했다면 그 얼럿의 "다시 시도"가 사진도 함께 부른다
+- 상세 조회가 성공했고 방이 인화 완료면 확인을 서버에 기록한다(`CheckPrintCompletionUseCase`) —
+  다음 홈 조회부터 이 방이 하단 "인화 완료" 목록으로 옮겨진다
+  - 홈이 아니라 상세가 부르는 이유: 화면 전환으로 홈 State가 사라지면 걸어 둔 이펙트도
+    취소돼 요청이 유실됐다. 도착한 화면이 부르면 수명이 요청과 같이 간다
+  - 실패해도 알리지 않는다 — 다음 진입에서 다시 기록된다. 같은 상세에서 두 번 보내지 않게
+    `hasReportedPrintCompletionCheck`로 1회 제한
 
 ### RoomDetailView
 
 - `RoomDetailView(store:)` — `@ViewAction`으로 뷰 액션을 보낸다
 - 카운트다운은 State에 두지 않는다. `TimelineView`가 `photoPrintCompletedAt`에서 매초 계산한다 —
   초마다 상태를 바꾸면 화면 전체가 다시 그려지고 테스트에 타이머가 섞인다
+
+### RoomSettingsFeature / RoomSettingsView (`Sources/Settings/`)
+
+- `State(roomID:title:)` — 방 이름 행의 값과 이름 수정 드로어(`@Presents rename`)를 든다.
+  이름 수정이 성공하면 행 값이 갱신된다
+- `Action.delegate` — `closeTapped`(뒤로) · `coverEditRequested`(커버 수정 화면 — #69에서 App이 연결)
+- 상세 ↔ 설정 전환은 App이 한다. 돌아갈 때 App이 설정의 최신 제목으로 `Room`을 다시 조립해
+  (`Room.renamed(to:)`) 재조회가 오기 전에도 새 이름이 보인다
+
+### RenameRoomFeature / RenameRoomDrawer
+
+- `State(roomID:title:)` — 현재 이름이 미리 채워진다. `canSubmit`은 요청 중이 아니고
+  규칙에 맞는 이름이며 실제로 달라졌을 때만 참이다
+- 타이핑은 `BindingReducer`가 20자로 자르고, 제출은 `UpdateRoomTitleUseCase`가 규칙을 적용한다 —
+  방 만들기와 같은 규칙(`RoomNameRule`) 하나를 쓴다
+- 성공하면 `delegate(.renamed(정제된 이름))`만 보낸다 — 행 값 갱신과 드로어 닫기는 부모(방 설정)가 한다
 
 ### CopyToPasteboard
 

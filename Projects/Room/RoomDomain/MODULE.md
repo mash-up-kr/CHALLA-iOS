@@ -34,6 +34,8 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   `status` · `totalPhotoCount: Int` · `remainedPhotoCount` · `createdAt` · `expiresAt` ·
   `photoPrintCompletedAt?`(인화 완료 예정 시각 = 촬영 완료 +24h — 촬영 중에만 nil, 카운트다운 기준값). 전 필드 `let`이라 갱신은 새 값을 만든다
   - `shotPhotoCount` — 찍은 장수 계산 프로퍼티 (`total − remained`, 서버는 남은 장수를 준다)
+  - `renamed(to:)` — 제목만 바꾼 사본. 이름 변경이 서버에 저장된 직후, 재조회가 오기 전
+    구간에 화면이 새 제목을 먼저 그리는 용도 (App의 화면 조립·InMemory 저장소가 쓴다)
   - `enum Room.Status` — `.shooting` / `.printWaiting` / `.printed`
   - `Room.previewShooting` · `previewPrintWaiting` · `previewPrinted` · `previewRooms` —
     `#Preview`·테스트용 상수. id는 음수(-1~-3, 서버 양수 id와 불겹침 표식), 날짜는 고정값
@@ -56,19 +58,23 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 
 - `protocol RoomRepository` — `rooms() -> [RoomCard]` · `shootableRooms() -> [ShootableRoom]` ·
   `createRoom(_:) -> RoomCard` · `joinRoom(inviteCode:) -> RoomCard` ·
-  `roomInfo(id:) -> (room, invitationCode)` · `members(roomID:) -> [RoomMember]`
+  `roomInfo(id:) -> (room, invitationCode)` · `members(roomID:) -> [RoomMember]` ·
+  `checkPrintCompletion(roomID:)` · `updateTitle(roomID:title:)`
   - 구현체 계약: 실패는 반드시 `RoomError`로 번역해 던진다. 입력값 검증은 UseCase가 이미 마쳤다
   - 생성·입장도 카드를 돌려준다 — 홈이 성공 직후 목록에 꽂을 수 있어야 하고, 서버 응답이
     부실해도(id만 주는 등) 그 사정은 구현체가 흡수한다
   - 상세는 API 하나당 메서드 하나로 나뉜다 — 상세 API 하나로는 `RoomDetail`을 완성할 수 없어
     (참여자 없음) 반쪽짜리를 돌려주지 않기 위한 분리. 합치기는 UseCase 몫
+  - 확인 기록·이름 변경은 반환이 없다 — 반영된 값은 다음 목록 조회가 내려준다
 
 ### Models (`Sources/Models/`)
 
 경계 하나만을 위한 입출력 구조와 엔티티에서 파생된 결과. 정체성도 수명도 없어 `Entities/`와 섞지 않는다.
 
 - `struct RoomCard` — 홈 목록 한 칸 (`GET /rooms` 응답 한 줄에 대응). `room: Room` +
-  목록 API만 주는 값(`memberCount` · `thumbnailURLs`)
+  목록 API만 주는 값(`memberCount` · `thumbnailURLs` · `photoPrintCompletionCheckedAt?`)
+  - `isPrintCompletionChecked` — 확인 여부 (`photoPrintCompletionCheckedAt != nil`).
+    홈이 인화 완료 방을 상단(미확인)·하단(확인)으로 가르는 기준값
   - `id`는 `room.id`를 그대로 노출 — 카드 탭이 방 식별로 바로 이어진다
   - `coverImageURL` — 촬영 중 카드의 대표 사진 = 첫 썸네일 (서버에 별도 필드 없음, 백엔드 확인 TODO)
   - `previewShooting` · `previewPrintWaiting` · `previewPrinted` · `previewCards` 상수
@@ -76,11 +82,13 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   (`invitationCode` · `members`). `RoomCard`와 같은 구조로 `Room` 코어를 감싼다. `preview` 상수 포함
 - `struct RoomDraft` — `name` · `shotCount`. 방을 만들기 전의 입력값이라 `Room`으로 표현할 수 없다
   (id·상태·인원수는 서버가 채운다)
-- `struct RoomBoard` — 카드 배열 하나를 `shooting` / `completed` 두 배열로 가른 결과. `isEmpty`
+- `struct RoomBoard` — 카드 배열 하나를 `active`(촬영 중·인화 대기·미확인 인화 완료) /
+  `printed`(확인을 마친 인화 완료) 두 배열로 가른 결과. `isEmpty`
+  - 인화 완료 방은 확인 여부에 따라 한쪽에만 놓인다 — 겹치지 않는다
+  - 순서는 두 목록 모두 입력 배열 그대로 — 정렬(완료 → 촬영 가능 → 대기 남은 시간 짧은 순)은
+    서버가 구현하기로 합의했다 (2026-08-23 백엔드 합의)
   - 섹션별로 따로 조회하지 않기 위한 타입이다. 두 번 조회하면 그 사이에 상태가 바뀐 방이
     양쪽에 나오거나 어디에도 안 나온다
-- `enum RoomSection` — `.shooting` / `.completed`
-- `Room.Status.section` — 상태 셋을 섹션 둘로 줄인다
 - `struct ShootableRoom` — 카메라의 방 선택 목록 한 줄 (`GET /rooms/shootable` 응답 한 줄에 대응).
   `id: Room.ID` · `title` · `remainedPhotoCount` · `totalPhotoCount`
   - 촬영 화면은 제목·남은 장수만 필요해 `Room` 전체가 아니라 이 축약형을 쓴다
@@ -94,6 +102,9 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
   - `truncated`는 타이핑 중에, `trimmed`는 제출 시점에 쓴다. 타이핑 중 공백을 떼면 단어 사이를 띄울 수 없다
 - `enum InviteCodeRule` — `trimmed(_:)` · `isSubmittable(_:)`
   - 지금 거르는 것은 빈 값 하나뿐이다. 자릿수·문자셋은 형식이 정해지면 추가한다
+- `enum PrintCountdown` — `text(until:now:)`. "2:59:58" 표기 — 시는 자릿수 제한 없이,
+  분·초는 두 자리, 0 아래로 내려가지 않는다. 홈 카드의 대기 뱃지와 방 상세 카운트다운 바가
+  같은 표기를 쓴다
 
 ### UseCases (`@DependencyClient` — `liveValue` 없음)
 
@@ -107,8 +118,12 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
 - `FetchRoomDetailUseCase` (`\.fetchRoomDetailUseCase`) — 상세·참여자 두 API를 `async let`
   병렬 조회해 `RoomDetail` 하나로 (`-> RoomDetail`). 한쪽이 실패하면 다른 쪽은 취소되고
   오류 하나만 전파된다
+- `CheckPrintCompletionUseCase` (`\.checkPrintCompletionUseCase`) — 인화 완료 확인을 서버에 기록
+  (`(roomID) -> Void`). 규칙 없는 단순 통과지만 Feature는 UseCase만 보는 관례를 유지한다
+- `UpdateRoomTitleUseCase` (`\.updateRoomTitleUseCase`) — `RoomNameRule` 적용 후 이름 변경
+  (`(roomID, title) -> String`). 정제된 이름을 돌려줘 화면이 입력값 대신 서버 저장값으로 갱신한다
 
-넷 다 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
+전부 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
 
 ## 의존성
 
@@ -129,7 +144,8 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `RoomNameRuleTests` — 20자 경계, 한글·조합 이모지 한 글자 계산, `normalize`가 앞뒤만 떼는지,
   공백만 입력한 이름
 - `InviteCodeRuleTests` — 앞뒤 공백 제거, 공백만 입력한 코드
-- `RoomBoardTests` — 상태 셋 → 섹션 둘 분류, 섹션 안 순서 유지, 빈 판단
+- `RoomBoardTests` — 확인 여부 기준 상단·하단 분류(겹침 없음), 입력 순서 유지, 빈 판단
+- `PrintCountdownTests` — 시 자릿수 무제한, 분·초 두 자리 패딩, 완료 시각 경과 시 0:00:00 고정
 - `RoomErrorTests` — `userMessage` 각 케이스, 빈 서버 메시지의 기본 문구 대체, 연관값까지 보는 동등성
 - `FetchRoomsUseCaseLiveTests` — 저장소 결과 그대로 전달, 오류 전파
 - `FetchShootableRoomsUseCaseLiveTests` — 저장소 결과 그대로 전달, 오류 전파
