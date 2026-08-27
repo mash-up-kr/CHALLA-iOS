@@ -72,10 +72,10 @@ Projects/
 │  ├─ RoomCreateFeature              (모듈) 방 이름 · 색상 · 필름 장수 설정
 │  ├─ RoomJoinFeature                (모듈) 초대코드 입력 · 입장
 │  ├─ RoomInviteFeature              (모듈) 초대코드 표시 · 공유
-│  ├─ RoomDetailFeature              (모듈) 방 상세 · 참여자 · 남은 장수
-│  │                                        ├ 인화대기/완료 = 이 화면의 "상태"  ← FilmWaiting/Completed 흡수
-│  │                                        └ 결과 사진 목록 = 이 화면의 그리드   ← PhotoResult 흡수
-│  └─ RoomSettingFeature             (모듈) 방 이름 수정 · 나가기 · 삭제
+│  └─ RoomDetailFeature              (모듈) 방 상세 · 참여자 · 남은 장수
+│                                           ├ 인화대기/완료 = 이 화면의 "상태"  ← FilmWaiting/Completed 흡수
+│                                           ├ 결과 사진 목록 = 이 화면의 그리드   ← PhotoResult 흡수
+│                                           └ 방 설정 · 이름 수정 = 이 화면의 하위 화면 ← RoomSettingFeature 흡수 (#82)
 │
 ├─ Camera/                           (폴더) 촬영  (Domain/Data 없음)
 │  ├─ CameraFeature                  (모듈) 셔터 · 플래시 · 전후면 · 장수 카운트
