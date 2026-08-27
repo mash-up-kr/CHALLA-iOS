@@ -1,5 +1,3 @@
-import ComposableArchitecture
-import RoomDetailFeature
 import SwiftUI
 
 /// 인자 없이 Xcode에서 Run 했을 때 뜨는 화면 선택 목록.
@@ -16,6 +14,11 @@ struct DemoRootView: View {
                         NavigationLink("--state \(state.rawValue)", value: DemoScreen.detail(state))
                     }
                 }
+                Section("방 설정 (--screen settings)") {
+                    ForEach(DemoScreen.SettingsState.allCases, id: \.self) { state in
+                        NavigationLink("--state \(state.rawValue)", value: DemoScreen.settings(state))
+                    }
+                }
             }
             .navigationTitle("방 상세 데모")
             .navigationDestination(for: DemoScreen.self) { screen in
@@ -27,22 +30,17 @@ struct DemoRootView: View {
 
 /// 목록에서 고른 화면.
 ///
-/// 방 상세가 자기 상단 바를 그리므로 NavigationStack의 바는 숨기고, 대신 목록으로 돌아가는
+/// 데모 화면이 자기 상단 바를 그리므로 NavigationStack의 바는 숨기고, 대신 목록으로 돌아가는
 /// 버튼을 화면 위에 얹는다. 실행 인자로 바로 띄운 화면에는 이 버튼이 붙지 않는다 —
 /// 시안 대조 스크린샷에 데모용 장치가 찍히면 안 되기 때문이다.
 private struct DemoScreenView: View {
 
-    @State private var store: StoreOf<RoomDetailFeature>
+    let screen: DemoScreen
 
     @Environment(\.dismiss) private var dismiss
 
-    init(screen: DemoScreen) {
-        // 화면이 다시 그려질 때마다 스토어가 새로 만들어지면 조회 결과도 초기화된다.
-        _store = State(initialValue: DemoStore.make(for: screen))
-    }
-
     var body: some View {
-        RoomDetailView(store: store)
+        DemoScreenContentView(screen: screen)
             .toolbar(.hidden, for: .navigationBar)
             .overlay(alignment: .bottomTrailing) {
                 Button("목록") { dismiss() }

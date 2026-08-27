@@ -10,9 +10,10 @@ import RoomDomain
 /// 여기서 값을 직접 만들어 넣는다 — 구현이 생기면 이 자리만 바꾸고 Feature는 손대지 않는다.
 enum CompositionRoot {
 
-    static func registerDependencies(for screen: DemoScreen, into values: inout DependencyValues) {
-        guard case let .detail(state) = screen else { return }
-
+    static func registerDetailDependencies(
+        for state: DemoScreen.DetailState,
+        into values: inout DependencyValues
+    ) {
         let room = DemoSamples.room(for: state)
         let repository = InMemoryRoomRepository(
             cards: [RoomCard(room: room, memberCount: DemoSamples.members.count, thumbnailURLs: [])],
@@ -30,6 +31,15 @@ enum CompositionRoot {
         registerShootEntry(room: room, into: &values)
         // copyToPasteboard는 등록하지 않는다 — liveValue(실제 클립보드)가 그대로 쓰여
         // 데모에서 복사 후 붙여넣기까지 확인할 수 있다.
+    }
+
+    /// 방 설정이 쓰는 의존성 — 이름 변경 하나뿐이다.
+    /// InMemory 저장소에 방을 넣어 두어 "변경" 제출이 실서버처럼 성공한다.
+    static func registerSettingsDependencies(room: Room, into values: inout DependencyValues) {
+        let repository = InMemoryRoomRepository(
+            cards: [RoomCard(room: room, memberCount: DemoSamples.members.count, thumbnailURLs: [])]
+        )
+        values.updateRoomTitleUseCase = .live(repository: repository)
     }
 
     /// 사진 찍기 버튼이 부르는 촬영 준비. 데모앱에는 카메라 화면이 없어 진입 요청(delegate)까지가 끝이다 —
