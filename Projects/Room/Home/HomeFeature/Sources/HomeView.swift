@@ -209,7 +209,7 @@ public struct HomeView: View {
         .contentMargins(.horizontal, HomeMetric.horizontalPadding, for: .scrollContent)
     }
 
-    /// 촬영 완료 — 카드가 가로 폭을 채워 세로로 쌓는다.
+    /// 인화 완료 — 카드가 가로 폭을 채워 세로로 쌓는다.
     private var completedCards: some View {
         VStack(spacing: HomeMetric.cardSpacing) {
             ForEach(store.board.printed) { card in
@@ -238,7 +238,7 @@ public struct HomeView: View {
         )
     }
 
-    /// 방 상태를 카드 변형으로 옮긴다. 확인하기 기록은 서버 확인 API 배포 후 잇는다.
+    /// 방 상태를 카드 변형으로 옮긴다.
     private func variant(for card: RoomCard, now: Date) -> CHALLARoomCard.Variant {
         switch card.room.status {
         case .shooting:

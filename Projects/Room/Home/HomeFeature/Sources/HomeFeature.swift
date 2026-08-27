@@ -3,7 +3,9 @@ import Foundation
 import RoomDomain
 import ShootEntry
 
-/// 홈 화면. 방 목록을 한 번 가져와 촬영 중·촬영 완료 두 섹션으로 나눠 보여준다.
+/// 홈 화면. 방 목록을 한 번 가져와 상단(진행 중 방 카드 가로 스크롤)과
+/// 하단(확인한 인화 완료 목록)으로 나눠 보여주고, 인화 완료 예정 시각에는
+/// 알람을 걸어 두었다가 재조회로 상태 전이를 반영한다.
 /// 방이 없으면 빈 상태를 그리고, 방 상세·설정으로 가는 것은 `delegate`로 App에 넘긴다.
 @Reducer
 public struct HomeFeature {

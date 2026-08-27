@@ -6,7 +6,7 @@ import SwiftUI
 @ViewAction(for: RoomSettingsFeature.self)
 public struct RoomSettingsView: View {
 
-    @Bindable public var store: StoreOf<RoomSettingsFeature>
+    public let store: StoreOf<RoomSettingsFeature>
 
     public init(store: StoreOf<RoomSettingsFeature>) {
         self.store = store

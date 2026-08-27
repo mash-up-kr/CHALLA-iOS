@@ -310,21 +310,18 @@ private enum RoomCardMetric {
 }
 
 #Preview {
-    let sampleURL = URL(string: "https://picsum.photos/seed/challa-room/400/532")
+    // 실사진 로딩은 갤러리(검수앱)에서 확인한다 — 프리뷰는 상태별 배치 확인용 심볼 이미지.
+    let sample = Image(systemName: "photo")
 
     // 카드 두 장을 가로로 놓으면 420pt로 화면 폭을 넘어 잘리므로 세로로 나열한다.
     ScrollView {
         VStack(spacing: 20) {
-            AsyncImage(url: sampleURL) { photo in
-                CHALLARoomCard(
-                    title: "친구들과 강릉 여행",
-                    memberCount: 11,
-                    photo: photo,
-                    variant: .shooting(shotCount: 24, totalCount: 24, isPreparing: false, onShoot: nil)
-                )
-            } placeholder: {
-                ProgressView()
-            }
+            CHALLARoomCard(
+                title: "친구들과 강릉 여행",
+                memberCount: 11,
+                photo: sample,
+                variant: .shooting(shotCount: 24, totalCount: 24, isPreparing: false, onShoot: nil)
+            )
             CHALLARoomCard(
                 title: "촬영 준비 중",
                 memberCount: 4,
