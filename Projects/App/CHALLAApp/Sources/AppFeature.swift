@@ -366,10 +366,14 @@ extension AppFeature {
 
             // MARK: - 방 설정 delegate
 
-            // 상세를 새로 만들어 되돌아간다 — 상세가 task에서 재조회하므로 바뀐 이름도 최신으로 그려진다.
             case .roomSettings(.delegate(.closeTapped)):
                 guard case let .roomSettings(screen) = state else { return .none }
-                state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: screen.room))
+                // 맡아둔 room의 제목은 설정 진입 시점 값이라, 설정 화면이 들고 있는 최신 제목으로 고쳐서 넘긴다.
+                // 상세 첫 프레임부터 새 이름이 보이고, 재조회가 실패해도 옛 이름으로 되돌아가지 않는다.
+                state = .roomDetail(RoomDetailScreen(
+                    profile: screen.profile,
+                    room: screen.room.renamed(to: screen.settings.title)
+                ))
                 return .none
 
             case .roomSettings(.delegate(.coverEditRequested)):

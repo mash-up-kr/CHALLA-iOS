@@ -147,7 +147,7 @@ public actor InMemoryRoomRepository: RoomRepository {
         guard let index = storedCards.firstIndex(where: { $0.id == roomID }) else {
             throw RoomError.roomNotFound
         }
-        storedCards[index] = storedCards[index].withTitle(title)
+        storedCards[index] = storedCards[index].renamed(to: title)
     }
 
     // MARK: - 초대 코드
@@ -204,19 +204,9 @@ private extension RoomCard {
     }
 
     /// 제목만 바꾼 새 값 — 실서버가 title 변경 후 목록 조회에 반영해 주는 것을 재현한다.
-    /// 제목이 `Room` 안에 있어 Room부터 다시 만든다.
-    func withTitle(_ title: String) -> RoomCard {
+    func renamed(to title: String) -> RoomCard {
         RoomCard(
-            room: Room(
-                id: room.id,
-                title: title,
-                status: room.status,
-                totalPhotoCount: room.totalPhotoCount,
-                remainedPhotoCount: room.remainedPhotoCount,
-                createdAt: room.createdAt,
-                expiresAt: room.expiresAt,
-                photoPrintCompletedAt: room.photoPrintCompletedAt
-            ),
+            room: room.renamed(to: title),
             memberCount: memberCount,
             thumbnailURLs: thumbnailURLs,
             photoPrintCompletionCheckedAt: photoPrintCompletionCheckedAt

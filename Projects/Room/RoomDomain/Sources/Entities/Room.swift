@@ -32,6 +32,22 @@ public struct Room: Identifiable, Equatable, Sendable {
         totalPhotoCount - remainedPhotoCount
     }
 
+    /// 제목만 바꾼 사본. 필드가 전부 let이라 제목 하나를 고치려면 통째로 다시 만들어야 해서 둔다.
+    /// 이름 변경이 서버에 저장된 직후, 재조회가 오기 전 구간에 화면이 새 제목을 먼저 그리는 용도다 —
+    /// 설정에서 상세로 돌아갈 때의 조립(App)과 데모 저장소의 변경 반영(RoomData)이 쓴다.
+    public func renamed(to title: String) -> Room {
+        Room(
+            id: id,
+            title: title,
+            status: status,
+            totalPhotoCount: totalPhotoCount,
+            remainedPhotoCount: remainedPhotoCount,
+            createdAt: createdAt,
+            expiresAt: expiresAt,
+            photoPrintCompletedAt: photoPrintCompletedAt
+        )
+    }
+
     public init(
         id: Int64,
         title: String,
