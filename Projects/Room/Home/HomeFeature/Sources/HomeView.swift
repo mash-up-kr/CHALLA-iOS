@@ -188,7 +188,7 @@ public struct HomeView: View {
     private var activeCards: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: HomeMetric.cardSpacing) {
+                HStack(spacing: HomeMetric.activeCardSpacing) {
                     ForEach(store.board.active) { card in
                         Button {
                             send(.roomTapped(card.id))
@@ -211,7 +211,7 @@ public struct HomeView: View {
 
     /// 인화 완료 — 카드가 가로 폭을 채워 세로로 쌓는다.
     private var completedCards: some View {
-        VStack(spacing: HomeMetric.cardSpacing) {
+        VStack(spacing: HomeMetric.printedCardSpacing) {
             ForEach(store.board.printed) { card in
                 Button {
                     send(.roomTapped(card.id))
@@ -275,8 +275,10 @@ private enum HomeMetric {
     static let dividerHeight: CGFloat = 1
     /// 실패 문구와 다시 시도 버튼 사이. 시안이 없어 임의값.
     static let errorSpacing: CGFloat = 16
-    /// 같은 섹션 안의 카드 사이 (완료 카드 블록 200 → 다음 블록 y=224).
-    static let cardSpacing: CGFloat = 24
+    /// 상단 가로 스크롤의 카드 사이 (Figma 카드 x=16 폭 200 → 다음 카드 x=228).
+    static let activeCardSpacing: CGFloat = 12
+    /// 하단 인화 완료 목록의 블록 사이 (Figma 블록 y=70 높이 168 → 다음 블록 y=258).
+    static let printedCardSpacing: CGFloat = 20
     /// + 메뉴 상단 간격 — 상단 바 위 여백 15 + 터치 영역 40 (메뉴가 + 버튼 바로 아래 붙는다).
     static let menuTopSpacing: CGFloat = 55
     /// + 메뉴 우측 간격 — 메뉴 오른쪽 끝이 + 버튼 오른쪽과 정렬 (Figma x=154, 390−154−180).
