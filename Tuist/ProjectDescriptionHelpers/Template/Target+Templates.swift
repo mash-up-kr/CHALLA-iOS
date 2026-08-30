@@ -12,7 +12,7 @@ public extension Target {
     ///   - hasResource: 리소스(폰트/애셋) 유무 → product 타입 + Resources/** 포함 여부를 함께 결정
     ///   - product: 산출물 형태를 직접 정한다. nil이면 위 규칙대로 자동 결정한다.
     ///     이 모듈을 링크하는 곳이 여럿이고 그중 하나가 dynamic이면 `.framework`를 지정한다 —
-    ///     static은 링크하는 곳마다 코드가 복사돼 같은 타입이 여러 벌 생기고,
+    ///     static은 링크하는 곳마다 코드가 복사돼 같은 타입이 여러 개 생기고,
     ///     한쪽이 던진 오류를 다른 쪽 catch가 잡지 못한다 (#90의 이미지 로딩 버그)
     ///   - dependencies: 이 모듈이 의존하는 대상
     static func makeModuleTarget(
