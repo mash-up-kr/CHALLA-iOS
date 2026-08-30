@@ -163,17 +163,17 @@ public struct CHALLARoomCard: View {
 
     private var hasAction: Bool {
         switch variant {
-        case .shooting(_, _, _, let onShoot): onShoot != nil
+        case let .shooting(_, _, _, onShoot): onShoot != nil
         case .printWaiting: false
-        case .printed(let onConfirm): onConfirm != nil
+        case let .printed(onConfirm): onConfirm != nil
         }
     }
 
     private var cardAccessibilityLabel: String {
         switch variant {
-        case .shooting(let shot, let total, _, _):
+        case let .shooting(shot, total, _, _):
             "\(title), \(memberCount)명 참여, 사진 \(shot)/\(total)장 촬영 중"
-        case .printWaiting(let remaining):
+        case let .printWaiting(remaining):
             "\(title), \(memberCount)명 참여, 인화까지 \(remaining) 남음"
         case .printed:
             "\(title), \(memberCount)명 참여, 인화 완료"
@@ -185,11 +185,11 @@ public struct CHALLARoomCard: View {
     @ViewBuilder
     private var bottomElement: some View {
         switch variant {
-        case .shooting(let shot, let total, let isPreparing, let onShoot):
+        case let .shooting(shot, total, isPreparing, onShoot):
             shootingBadge(shot: shot, total: total, isPreparing: isPreparing, onShoot: onShoot)
-        case .printWaiting(let remaining):
+        case let .printWaiting(remaining):
             waitingBadge(remaining: remaining)
-        case .printed(let onConfirm):
+        case let .printed(onConfirm):
             confirmButton(onConfirm: onConfirm)
         }
     }

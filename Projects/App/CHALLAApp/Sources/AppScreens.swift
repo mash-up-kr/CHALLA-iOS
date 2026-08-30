@@ -11,12 +11,12 @@ import SettingFeature
 import ShootEntry
 import UserDomain
 
-/// 화면 하나를 띄우는 데 필요한 값을 모은 구조체들 — 자식 Feature의 State와,
-/// 이전 화면으로 돌아갈 때 다시 쓸 값(프로필·방)을 함께 둔다.
-///
-/// `AppFeature.State`가 enum이라 다음 화면으로 가면 이전 화면의 State는 사라진다.
-/// 그래서 뒤로가기로 이전 화면을 다시 만들 때 필요한 값을 각 Screen이 미리 들고 다닌다.
-/// 어느 delegate가 어느 Screen을 만들지는 `AppFeature.swift`의 "화면 전이" 부분이 정한다.
+// 화면 하나를 띄우는 데 필요한 값을 모은 구조체들 — 자식 Feature의 State와,
+// 이전 화면으로 돌아갈 때 다시 쓸 값(프로필·방)을 함께 둔다.
+//
+// `AppFeature.State`가 enum이라 다음 화면으로 가면 이전 화면의 State는 사라진다.
+// 그래서 뒤로가기로 이전 화면을 다시 만들 때 필요한 값을 각 Screen이 미리 들고 다닌다.
+// 어느 delegate가 어느 Screen을 만들지는 `AppFeature.swift`의 "화면 전이" 부분이 정한다.
 
 // MARK: - HomeScreen
 

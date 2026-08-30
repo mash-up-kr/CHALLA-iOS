@@ -34,7 +34,7 @@ struct RenameRoomFeatureTests {
         #expect(!state.canSubmit)
     }
 
-    // canSubmit은 순수 계산이라 스토어 없이 조건별로 본다.
+    /// canSubmit은 순수 계산이라 스토어 없이 조건별로 본다.
     @Test("제출 중이면 규칙에 맞는 새 이름이라도 버튼이 잠긴다")
     func lockedWhileSubmitting() {
         var state = RenameRoomFeature.State(roomID: Self.roomID, title: Self.originalTitle)

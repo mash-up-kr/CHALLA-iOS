@@ -44,11 +44,15 @@ public struct RoomSettingsView: View {
 
     // MARK: - 이름 수정 드로어
 
-    // challaDrawer는 Bool만 받아서 자식 State의 유무를 직접 확인한다 (홈 드로어와 동일).
+    /// challaDrawer는 Bool만 받아서 자식 State의 유무를 직접 확인한다 (홈 드로어와 동일).
     private var renameBinding: Binding<Bool> {
         Binding(
             get: { store.rename != nil },
-            set: { isPresented in if !isPresented { send(.drawerDismissed) } }
+            set: { isPresented in
+                if !isPresented {
+                    send(.drawerDismissed)
+                }
+            }
         )
     }
 
