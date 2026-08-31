@@ -17,6 +17,21 @@ struct LoginFeatureTests {
         }
     }
 
+    @Test("온보딩 페이저 스와이프 → onboardingPage 갱신")
+    func onboardingPageChanged() async {
+        // 로그인 이펙트를 타지 않는 액션이라 useCase override 없이 testValue(unimplemented) 그대로 둔다.
+        let store = TestStore(initialState: LoginFeature.State()) {
+            LoginFeature()
+        }
+
+        await store.send(.view(.onboardingPageChanged(2))) {
+            $0.onboardingPage = 2
+        }
+        await store.send(.view(.onboardingPageChanged(0))) {
+            $0.onboardingPage = 0
+        }
+    }
+
     @Test("카카오 탭 → 로딩 → 성공 → delegate.loginSucceeded 전달")
     func kakaoLoginSuccess() async {
         let store = makeStore(
