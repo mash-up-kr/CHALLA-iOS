@@ -1,4 +1,5 @@
 @testable import CHALLAApp
+import AppDomain
 import AuthDomain
 import ComposableArchitecture
 import Foundation
@@ -20,6 +21,7 @@ private enum Fixture {
     static let renamedProfile = UserProfile(id: 1, nickname: "새이름", imageURL: profile.imageURL)
     static let pushToken = "fcm-token"
     static let card = RoomCard.previewShooting
+    static let appStore = URL(string: "https://apps.apple.com/kr/app/id0000000000")
 }
 
 /// 로그인 성공 뒤 토큰 등록이 걸리는지만 본다.
@@ -67,12 +69,14 @@ struct AppFeatureTests {
         let store = TestStore(initialState: AppFeature.State.launching) {
             AppFeature()
         } withDependencies: {
+            $0.checkAppUpdateUseCase.run = { .notRequired }
             $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .restored })
             $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: { Fixture.profile })
             $0.sessionExpirationChannel = channel
         }
 
         await store.send(.task)
+        await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .restored)
         await store.receive(\.profileResponse.success, Fixture.profile) {
             $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
@@ -89,6 +93,7 @@ struct AppFeatureTests {
         let store = TestStore(initialState: AppFeature.State.launching) {
             AppFeature()
         } withDependencies: {
+            $0.checkAppUpdateUseCase.run = { .notRequired }
             $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .signedOut })
             $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: {
                 profileRequested.setValue(true)
@@ -98,6 +103,7 @@ struct AppFeatureTests {
         }
 
         await store.send(.task)
+        await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .signedOut) {
             $0 = .login(.init())
         }
@@ -314,5 +320,6 @@ struct AppFeatureTests {
         #expect(setting.screenID == .setting)
         #expect(edit.screenID == .profileEdit)
         #expect(roomDetail.screenID == .roomDetail)
+        #expect(AppFeature.State.forceUpdate(storeURL: nil).screenID == .forceUpdate)
     }
 }

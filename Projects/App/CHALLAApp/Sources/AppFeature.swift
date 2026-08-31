@@ -1,8 +1,10 @@
+import AppDomain
 import AuthDomain
 import CameraFeature
 import CameraSession
 import ChatRoomFeature
 import ComposableArchitecture
+import Foundation
 import HomeFeature
 import LoginFeature
 import PhotoDetailFeature
@@ -33,6 +35,10 @@ public struct AppFeature {
         case profileEdit(ProfileEditScreen)
         case camera(CameraScreen)
 
+        /// 강제 업데이트. 여기서 나가는 전이는 없다 — 앱을 지우거나 업데이트해야 끝난다.
+        /// `storeURL`은 버전 체크 응답에 실려 온 스토어 주소 — '확인'이 연다 (nil이면 아무 것도 안 한다).
+        case forceUpdate(storeURL: URL?)
+
         /// 화면 전환만 식별한다 — 자식 State 변화(닉네임 입력 등)에는 반응하지 않는다.
         public var screenID: ScreenID {
             switch self {
@@ -46,11 +52,13 @@ public struct AppFeature {
             case .setting: return .setting
             case .profileEdit: return .profileEdit
             case .camera: return .camera
+            case .forceUpdate: return .forceUpdate
             }
         }
 
         public enum ScreenID: Equatable, Sendable {
             case launching, login, profileSetup, home, roomDetail, photoDetail, chat, setting, profileEdit, camera
+            case forceUpdate
         }
     }
 
@@ -134,6 +142,11 @@ public struct AppFeature {
         case setting(SettingFeature.Action)
         case profileEdit(ProfileSetupFeature.Action)
         case camera(LiveCameraFeature.Action)
+
+        /// 버전 체크 결과. 실패는 여기 오기 전에 `.notRequired`로 접힌다 (fail-open).
+        case updateCheckResponse(AppUpdateRequirement)
+        /// 강제 업데이트 알럿의 '확인'.
+        case forceUpdateConfirmTapped
     }
 
     // MARK: - Init
@@ -147,6 +160,8 @@ public struct AppFeature {
     @Dependency(\.sessionExpirationChannel) var sessionExpirationChannel
     @Dependency(\.continuousClock) var clock
     @Dependency(\.pushTokenSynchronizer) var pushTokenSynchronizer
+    @Dependency(\.checkAppUpdateUseCase) var checkAppUpdateUseCase
+    @Dependency(\.openURL) var openURL
 
     // MARK: - Body
 
@@ -207,7 +222,22 @@ extension AppFeature {
         Reduce { state, action in
             switch action {
             case .task:
+                // 버전 체크는 실행 직후 1회다 — 뷰 재생성으로 task가 다시 와도 재검사하지 않는다.
+                guard case .launching = state else { return .none }
+                return checkAppUpdate()
+
+            // 세션 복원은 버전 체크를 통과한 뒤에 시작한다 — 강제 업데이트 화면에서는 아무것도 조회하지 않는다.
+            case .updateCheckResponse(.notRequired):
                 return .merge(restoreSession(), observeSessionExpiration())
+
+            case let .updateCheckResponse(.forced(storeURL)):
+                // 여기서 나가는 전이는 없다. 업데이트해야만 앱을 쓸 수 있다.
+                state = .forceUpdate(storeURL: storeURL)
+                return .none
+
+            case .forceUpdateConfirmTapped:
+                guard case let .forceUpdate(storeURL) = state, let url = storeURL else { return .none }
+                return .run { [openURL] _ in await openURL(url) }
 
             case .sessionRestored(.restored):
                 return fetchMyProfile()
@@ -222,12 +252,15 @@ extension AppFeature {
                 return .cancel(id: CancelID.profile)
 
             case let .profileResponse(.success(profile)):
+                // 늦게 도착한 프로필 응답이 강제 업데이트 화면을 덮지 못하게 하는 방어선.
+                guard case .launching = state else { return .none }
                 state = profile.isProfileCompleted
                     ? .home(HomeScreen(profile: profile))
                     : .profileSetup(ProfileSetupFeature.State())
                 return .none
 
             case .profileResponse(.failure):
+                guard case .launching = state else { return .none }
                 // 미로그인(401)도 조회 실패도 결론은 같다 — 로그인부터 다시.
                 state = .login(LoginFeature.State())
                 return .none
@@ -370,105 +403,22 @@ extension AppFeature {
     }
 }
 
-// MARK: - PhotoDetailScreen
-
-public extension AppFeature {
-
-    /// 사진 상세 화면 State + 뒤로 갈 때 복원할 방·프로필.
-    ///
-    /// `State`가 enum이라 사진 상세로 오면 방 상세 State가 사라진다. 뒤로가기로 방 상세를 다시 만들 때
-    /// 쓸 방과 프로필을 여기 맡아 둔다 (방 상세→홈 복귀가 프로필을 들고 다니는 것과 같은 이유).
-    @ObservableState
-    struct PhotoDetailScreen: Equatable {
-        public var profile: UserProfile
-        public var room: Room
-        public var photoDetail: PhotoDetailFeature.State
-
-        public init(profile: UserProfile, room: Room, initialPhotoID: String) {
-            self.profile = profile
-            self.room = room
-            self.photoDetail = PhotoDetailFeature.State(
-                roomID: room.id,
-                roomTitle: room.title,
-                // 리액션을 남기는 주체 = 지금 보는 사람. PhotoReaction.userID(String)와 맞춘다.
-                currentUserID: String(profile.id),
-                // 인화 완료 전이면 방 상세처럼 사진을 blur로 가린다.
-                isPrinted: room.status == .printed,
-                initialPhotoID: initialPhotoID
-            )
-        }
-    }
-}
-
-// MARK: - CameraScreen
-
-public extension AppFeature {
-
-    /// 카메라 화면 State + 닫을 때 돌아갈 곳.
-    ///
-    /// 방·필터 목록은 진입 버튼(홈의 촬영 뱃지 · 방 상세의 사진 찍기)이 미리 받아 둔 것을 그대로 옮겨 담는다 —
-    /// 카메라 화면은 목록을 스스로 조회하지 않는다.
-    @ObservableState
-    struct CameraScreen: Equatable {
-        public var profile: UserProfile
-        /// 어디서 들어왔는지. 카메라를 닫으면 여기로 되돌린다.
-        public var origin: CameraOrigin
-        /// 카메라 화면 + 실기기 촬영 배선(`CameraSession`).
-        public var live: LiveCameraFeature.State
-
-        public init(profile: UserProfile, entry: CameraEntry, origin: CameraOrigin) {
-            self.profile = profile
-            self.origin = origin
-            live = LiveCameraFeature.State(
-                camera: CameraFeature.State(
-                    rooms: IdentifiedArray(uniqueElements: entry.rooms),
-                    filters: IdentifiedArray(uniqueElements: entry.filters),
-                    selectedRoomID: entry.roomID
-                )
-            )
-        }
-    }
-
-    /// 카메라를 닫았을 때 돌아갈 화면. 방 상세로 돌아가려면 그 방이 필요해 함께 들고 있는다 —
-    /// `State`가 enum이라 카메라로 오면 앞 화면의 State는 사라진다.
-    enum CameraOrigin: Equatable {
-        case home
-        case roomDetail(Room)
-    }
-}
-
-// MARK: - ChatScreen
-
-public extension AppFeature {
-
-    /// 방 채팅 화면 State + 뒤로 갈 때 복원할 방·프로필.
-    ///
-    /// `State`가 enum이라 채팅으로 오면 방 상세 State가 사라진다. 뒤로가기로 방 상세를 다시 만들 때
-    /// 쓸 방과 프로필을 여기 맡아 둔다 (PhotoDetailScreen과 같은 이유).
-    @ObservableState
-    struct ChatScreen: Equatable {
-        public var profile: UserProfile
-        public var room: Room
-        public var chat: ChatRoomFeature.State
-
-        public init(profile: UserProfile, room: Room) {
-            self.profile = profile
-            self.room = room
-            self.chat = ChatRoomFeature.State(
-                roomID: room.id,
-                roomTitle: room.title,
-                // 내 메시지(오른쪽 흰 버블) 판별 기준. 서버가 userId를 주면 그때 교체한다.
-                currentUserNickname: profile.nickname ?? ""
-            )
-        }
-    }
-}
-
 // MARK: - Effects
 
 extension AppFeature {
 
-    private enum CancelID { case profile, sessionExpiration }
+    private enum CancelID { case profile, sessionExpiration, updateCheck }
+
+    /// 실행 직후 1회 버전 체크.
+    /// 실패는 `.notRequired`로 접는다 — 체크 서버가 죽었다고 전 사용자 앱을 스플래시에 가둘 수는 없다.
+    private func checkAppUpdate() -> Effect<Action> {
+        .run { [checkAppUpdateUseCase] send in
+            // 취소되면 send 자체가 무시되므로 try? 가 취소를 .notRequired 로 오인해도 화면이 진행되지 않는다.
+            let requirement = await (try? checkAppUpdateUseCase.run()) ?? .notRequired
+            await send(.updateCheckResponse(requirement))
+        }
+        .cancellable(id: CancelID.updateCheck, cancelInFlight: true)
+    }
 
     /// 저절로 풀릴 수 있는 실패가 이어질 때의 재시도 정책.
     private enum RetryBackoff {

@@ -98,14 +98,35 @@ public struct AppView: View {
                     }
                     .transition(.move(edge: .bottom))
                 }
+
+            case .forceUpdate:
+                // 알럿 뒤 배경. 강제 업데이트는 실행 직후 판정이라 스플래시가 그대로 남는 게 자연스럽다.
+                LaunchingView()
             }
         }
         .environment(\.challaTheme, CHALLATheme(accent: theme.themeColor))
         .animation(.snappy, value: store.screenID)
+        // 이 알럿에는 "닫힘" 상태가 없다. 표시 여부가 화면 상태에서 100% 파생되므로
+        // `@Presents`(optional 저장)는 파생값 저장 금지 원칙에 어긋나 `.constant` 바인딩을 쓴다.
+        .alert(
+            Text(ForceUpdateCopy.title),
+            isPresented: .constant(store.screenID == .forceUpdate),
+            actions: {
+                Button(ForceUpdateCopy.confirm) { store.send(.forceUpdateConfirmTapped) }
+            },
+            message: { Text(ForceUpdateCopy.message) }
+        )
         .task { store.send(.task) }
         // 네비게이션 없이 뷰를 갈아끼우므로 VoiceOver는 화면이 바뀐 걸 스스로 알지 못한다.
         .onChange(of: store.screenID) {
             AccessibilityNotification.ScreenChanged().post()
         }
     }
+}
+
+// TODO: 임의 작성 문구 — 기획 확정 시 교체할 것.
+private enum ForceUpdateCopy {
+    static let title = "업데이트가 필요해요"
+    static let message = "지금 버전에서는 서비스를 이용할 수 없어요.\nApp Store에서 최신 버전으로 업데이트해 주세요."
+    static let confirm = "업데이트하러 가기"
 }
