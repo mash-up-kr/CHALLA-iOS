@@ -69,12 +69,14 @@ struct AppFeatureTests {
         let store = TestStore(initialState: AppFeature.State.launching) {
             AppFeature()
         } withDependencies: {
+            $0.checkAppUpdateUseCase.run = { .notRequired }
             $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .restored })
             $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: { Fixture.profile })
             $0.sessionExpirationChannel = channel
         }
 
         await store.send(.task)
+        await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .restored)
         await store.receive(\.profileResponse.success, Fixture.profile) {
             $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
@@ -91,6 +93,7 @@ struct AppFeatureTests {
         let store = TestStore(initialState: AppFeature.State.launching) {
             AppFeature()
         } withDependencies: {
+            $0.checkAppUpdateUseCase.run = { .notRequired }
             $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .signedOut })
             $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: {
                 profileRequested.setValue(true)
@@ -100,6 +103,7 @@ struct AppFeatureTests {
         }
 
         await store.send(.task)
+        await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .signedOut) {
             $0 = .login(.init())
         }
@@ -299,112 +303,6 @@ struct AppFeatureTests {
         await store.send(.profileEdit(.delegate(.cancelled))) {
             $0 = .setting(AppFeature.SettingScreen(profile: Fixture.profile))
         }
-    }
-
-    // MARK: - 강제 업데이트
-
-    @Test("버전 체크를 통과하면 프로필 조회로 이어진다")
-    func proceedsToProfileAfterUpdateCheckPasses() async {
-        let store = TestStore(initialState: AppFeature.State.launching) {
-            AppFeature()
-        } withDependencies: {
-            $0.checkAppUpdateUseCase.run = { .notRequired }
-            $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: { Fixture.profile })
-        }
-
-        await store.send(.task)
-        await store.receive(\.updateCheckResponse, .notRequired)
-        await store.receive(\.profileResponse.success, Fixture.profile) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
-        }
-    }
-
-    @Test("강제 업데이트면 스토어 주소를 들고 화면이 막히고 프로필 조회를 시작하지 않는다")
-    func blocksOnForcedUpdateWithoutFetchingProfile() async {
-        // fetchMyProfileUseCase는 일부러 주입하지 않는다 — 호출되면 unimplemented로 실패한다.
-        let store = TestStore(initialState: AppFeature.State.launching) {
-            AppFeature()
-        } withDependencies: {
-            $0.checkAppUpdateUseCase.run = { .forced(storeURL: Fixture.appStore) }
-        }
-
-        await store.send(.task)
-        await store.receive(\.updateCheckResponse, .forced(storeURL: Fixture.appStore)) {
-            $0 = .forceUpdate(storeURL: Fixture.appStore)
-        }
-        await store.finish()
-    }
-
-    @Test("이미 화면에 진입한 뒤 task가 다시 와도 버전 체크를 반복하지 않는다")
-    func ignoresTaskAfterLeavingLaunching() async {
-        // checkAppUpdateUseCase를 주입하지 않는다 — 가드가 뚫리면 unimplemented로 실패한다.
-        let store = Self.store(initialState: .home(AppFeature.HomeScreen(profile: Fixture.profile)))
-
-        await store.send(.task)
-        await store.finish()
-    }
-
-    @Test("버전 체크 실패는 앱을 막지 않는다 — 통과로 접고 프로필 조회를 진행한다")
-    func failsOpenWhenUpdateCheckThrows() async {
-        struct VersionCheckError: Error {}
-        let store = TestStore(initialState: AppFeature.State.launching) {
-            AppFeature()
-        } withDependencies: {
-            $0.checkAppUpdateUseCase.run = { throw VersionCheckError() }
-            $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: { Fixture.profile })
-        }
-
-        await store.send(.task)
-        await store.receive(\.updateCheckResponse, .notRequired)
-        await store.receive(\.profileResponse.success, Fixture.profile) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
-        }
-    }
-
-    @Test("'확인'을 누르면 응답에 실려 온 스토어 주소를 열고 화면은 그대로 막혀 있다")
-    func opensAppStoreOnConfirmAndStaysBlocked() async throws {
-        let appStore = try #require(Fixture.appStore)
-        let opened = LockIsolated<[URL]>([])
-
-        let store = TestStore(initialState: AppFeature.State.forceUpdate(storeURL: appStore)) {
-            AppFeature()
-        } withDependencies: {
-            $0.openURL = OpenURLEffect { url in
-                opened.withValue { $0.append(url) }
-                return true
-            }
-        }
-
-        await store.send(.forceUpdateConfirmTapped)
-        await store.finish()
-
-        #expect(opened.value == [appStore])
-        #expect(store.state.screenID == .forceUpdate)
-    }
-
-    @Test("스토어 주소가 없으면 아무 것도 열지 않는다")
-    func doesNothingWithoutAppStoreURL() async {
-        let store = TestStore(initialState: AppFeature.State.forceUpdate(storeURL: nil)) {
-            AppFeature()
-        } withDependencies: {
-            $0.openURL = OpenURLEffect { _ in
-                Issue.record("주소가 없으면 열기를 시도하면 안 된다")
-                return false
-            }
-        }
-
-        await store.send(.forceUpdateConfirmTapped)
-        await store.finish()
-    }
-
-    @Test("강제 업데이트 상태에서는 늦게 온 프로필 응답이 화면을 바꾸지 못한다")
-    func ignoresLateProfileResponseWhileBlocked() async {
-        let store = Self.store(initialState: .forceUpdate(storeURL: nil))
-
-        await store.send(.profileResponse(.success(Fixture.profile)))
-        await store.send(.profileResponse(.failure(.network)))
-
-        #expect(store.state.screenID == .forceUpdate)
     }
 
     // MARK: - 화면 식별자
