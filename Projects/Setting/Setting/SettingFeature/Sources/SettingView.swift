@@ -114,13 +114,14 @@ public struct SettingView: View {
 
     private var feedbackCard: some View {
         CHALLAListSection("피드백") {
-            CHALLAListRow(
-                "찰나 응원하기",
-                icon: .carrot,
-                iconColor: SettingLayout.rowIconColor
-            ) {
-                send(.supportRowTapped)
-            }
+            // 찰나 응원하기 — App Store 리뷰 주소가 없어 눌러도 아무 일이 없다. 주소가 정해질 때까지 숨긴다.
+            // CHALLAListRow(
+            //     "찰나 응원하기",
+            //     icon: .carrot,
+            //     iconColor: SettingLayout.rowIconColor
+            // ) {
+            //     send(.supportRowTapped)
+            // }
             CHALLAListRow(
                 "피드백 보내기",
                 icon: .chatTeardropDots,
