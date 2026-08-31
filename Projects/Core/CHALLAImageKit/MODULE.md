@@ -21,7 +21,7 @@ CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetw
 
 | 항목 | 정책 |
 | :-- | :-- |
-| 구조 | 메모리 · 디스크 2단. 메모리는 디코딩된 `UIImage`(표시 즉시 사용), 디스크는 다운샘플된 HEIC 바이트(재실행 생존) |
+| 구조 | 메모리 · 디스크 2단. 메모리는 디코딩된 `UIImage`(표시 즉시 사용), 디스크는 다운샘플된 JPEG 바이트(재실행 생존) |
 | 키 | `URL + 타깃 픽셀 크기(ceil(pt × scale))`. 같은 URL이라도 표시 크기가 다르면 별도 항목 |
 | 상한 | 메모리 = 기기 총 메모리의 10%, 최대 512MB(cost 합산) · 디스크 500MB — `.default` 기준, 생성자 주입으로 변경 가능 |
 | 메모리 삭제 | 자체 LRU — 저장할 때마다 cost 합산, 상한 초과분을 가장 오래 사용하지 않은 항목부터 삭제. 조회 적중 시 사용 순서 갱신 |
@@ -144,7 +144,7 @@ public actor DiskImageCache {
 - `MemoryImageCache`가 `internal`이고 동시성 보호 장치가 없는 이유: `ImageLoader`(actor)의 private
   상태로만 존재해 모든 접근이 그 액터 격리 안에서 직렬화된다. 딕셔너리 조회는 액터를 잡는 시간이
   무시할 수준이라 `DiskImageCache`처럼 별도 actor로 뺄 이유가 없다 — 파일 I/O(ms 단위)만 빼서 로더를 놓아준다.
-- `ImageDataEncoder`는 **디스크 캐시 저장 전용** HEIC 인코더다. 업로드 포맷과는 별개 정책이므로 공유하지 않는다 —
+- `ImageDataEncoder`는 **디스크 캐시 저장 전용** JPEG 인코더다. 업로드 포맷과는 별개 정책이므로 공유하지 않는다 —
   서버는 업로드에 `image/jpeg`·`png`·`webp`만 허용하고 다르면 S3가 403을 낸다(`POST /api/v1/uploads`).
   업로드 인코딩은 그 요청을 담당하는 Data 레이어에 둔다.
 - `URLCache`(HTTP 캐시)는 사용하지 않는다 — 원본만 캐싱돼 다운샘플·크기별 캐싱과 맞지 않고
@@ -165,7 +165,7 @@ public enum ImageLoadingError: Error, Sendable, Equatable {
     case httpStatus(Int)          // 2xx 벗어남
     case emptyData                // 0바이트 응답
     case downsampling(ImageDownsamplingError)
-    case encodingFailed           // 디스크 저장용 HEIC 재인코딩 실패
+    case encodingFailed           // 디스크 저장용 JPEG 재인코딩 실패
     case networkFailed(URLError.Code)  // 서버 응답 전 전송 실패(오프라인·타임아웃)
     case cancelled
 }
@@ -182,7 +182,7 @@ public actor ImageLoader {
 ```
 
 - 조회 순서: **메모리 히트 → 중복 제거(진행 중 동일 요청 공유) → 디스크 히트(디코딩·메모리 승격,
-  실패 시 조용히 네트워크 폴백) → 네트워크(다운샘플·HEIC 인코딩 후 디스크·메모리 저장)**.
+  실패 시 조용히 네트워크 폴백) → 네트워크(다운샘플·JPEG 인코딩 후 디스크·메모리 저장)**.
 - 무거운 CPU 작업(다운샘플·인코딩·디코딩)은 `Task.detached(.utility)`로 액터 밖에서 실행한다
   (iOS 17이라 `@concurrent` 대신 detached). 비-Sendable `CGImage`는 detached 클로저 안에 가둔다.
 - 같은 URL이라도 표시 크기(픽셀)가 다르면 별도 항목이다. `scale`은 호출부(뷰)가 넘긴다 —

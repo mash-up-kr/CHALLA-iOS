@@ -25,6 +25,17 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Network/CHALLANetwork")
     )
 
+    // MARK: - App
+
+    static let appDomain = TargetDependency.project(
+        target: "AppDomain",
+        path: .relativeToRoot("Projects/App/AppDomain")
+    )
+    static let appData = TargetDependency.project(
+        target: "AppData",
+        path: .relativeToRoot("Projects/App/AppData")
+    )
+
     // MARK: - Auth
 
     static let authDomain = TargetDependency.project(
@@ -55,6 +66,11 @@ public extension TargetDependency {
         path: .relativeToRoot("Projects/Room/Home/HomeFeature")
     )
 
+    static let roomDetailFeature = TargetDependency.project(
+        target: "RoomDetailFeature",
+        path: .relativeToRoot("Projects/Room/RoomDetail/RoomDetailFeature")
+    )
+
     // MARK: - Photo
 
     static let photoDomain = TargetDependency.project(
@@ -64,6 +80,25 @@ public extension TargetDependency {
     static let photoData = TargetDependency.project(
         target: "PhotoData",
         path: .relativeToRoot("Projects/Photo/PhotoData")
+    )
+    static let photoDetailFeature = TargetDependency.project(
+        target: "PhotoDetailFeature",
+        path: .relativeToRoot("Projects/Photo/PhotoDetail/PhotoDetailFeature")
+    )
+
+    // MARK: - Chat
+
+    static let chatDomain = TargetDependency.project(
+        target: "ChatDomain",
+        path: .relativeToRoot("Projects/Chat/ChatDomain")
+    )
+    static let chatData = TargetDependency.project(
+        target: "ChatData",
+        path: .relativeToRoot("Projects/Chat/ChatData")
+    )
+    static let chatRoomFeature = TargetDependency.project(
+        target: "ChatRoomFeature",
+        path: .relativeToRoot("Projects/Chat/ChatRoom/ChatRoomFeature")
     )
 
     // MARK: - User
@@ -106,6 +141,11 @@ public extension TargetDependency {
     static let cameraSession = TargetDependency.project(
         target: "CameraSession",
         path: .relativeToRoot("Projects/Camera/CameraSession")
+    )
+    /// 촬영 진입 준비(목록·LUT·권한)와 그 결과 묶음. 진입 버튼이 있는 피처들이 함께 쓴다.
+    static let shootEntry = TargetDependency.project(
+        target: "ShootEntry",
+        path: .relativeToRoot("Projects/Camera/ShootEntry")
     )
 
     // MARK: - Notification

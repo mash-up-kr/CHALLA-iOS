@@ -8,6 +8,8 @@ struct CameraControlBar: View {
     /// `CameraView`가 상단 뭉치 전체 높이를 계산할 때 참조하는 이 컴포넌트의 외부 치수.
     static let height: CGFloat = 80
 
+    @Environment(\.challaTheme) private var theme
+
     let flashMode: CameraFlashMode
     /// 셔터를 누른 순간 안쪽 흰 원이 살짝 작아졌다가 돌아온다 (탭 피드백).
     let isShutterPressed: Bool
@@ -60,7 +62,7 @@ struct CameraControlBar: View {
                 .frame(width: ControlBarMetric.shutterOuterSize, height: ControlBarMetric.shutterOuterSize)
                 .overlay {
                     Circle()
-                        .strokeBorder(CHALLAColor.Primary.yellow, lineWidth: ControlBarMetric.shutterRingWidth)
+                        .strokeBorder(theme.accent, lineWidth: ControlBarMetric.shutterRingWidth)
                 }
                 .shadow(
                     color: CHALLAColor.Static.white

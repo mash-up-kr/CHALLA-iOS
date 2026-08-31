@@ -2,48 +2,73 @@
 
 ## 레이어와 책임
 
-**Domain 레이어**. 사진 촬영·업로드에 관한 순수 도메인 모듈이다 — 서버가 내려주는 카메라 필터,
-사진 업로드 인터페이스, Feature-facing UseCase를 정의한다. 서버·스토리지의 존재를 모르며
-(import는 `Foundation` + `Dependencies`/`DependenciesMacros`뿐), 인터페이스 구현은 `PhotoData`가
-맡는다 (아키텍처 규칙 1: `Feature → Domain ← Data`).
+**Domain 레이어**. 사진 aggregate 한 벌 — 방에서 찍힌 사진(조회·리액션·저장)과
+사진 촬영(카메라 필터·업로드·권한·안내)의 규칙을 함께 담는다. 서버·사진첩·SwiftUI를 모르며
+(import는 `Foundation` + `Dependencies`/`DependenciesMacros`뿐), 인터페이스 구현은
+`PhotoData`·Core가 맡는다 (아키텍처 규칙 1: `Feature → Domain ← Data`).
 
-**화면이 아니라 대상 단위로 한 벌이다.** 카메라·(추후) 사진 상세 등 사진을 다루는 Feature가 이 모듈을
+**화면이 아니라 대상 단위로 한 벌이다.** 카메라·사진 상세 등 사진을 다루는 Feature가 이 모듈을
 공유한다 (`RoomDomain`과 같은 원칙 — `docs/ARCHITECTURE.md`의 "Camera는 Room·Photo·Core 재사용").
+인화 전 필름은 여기 없다 — 인화 상태는 방의 상태라 `RoomDomain` 소관이고,
+이 모듈은 촬영과 인화가 끝나 볼 수 있게 된 사진을 다룬다.
 
 **의존 주입 설계**: UseCase는 `@DependencyClient` + `TestDependencyKey`로 선언하고 `liveValue`를
-의도적으로 두지 않는다 — 조립은 합성 루트가 `.live(repository:)`/`.live(uploader:)`로 한다
-(`RoomDomain`과 같은 구조, 이유는 그쪽 MODULE.md 참고).
+의도적으로 두지 않는다 — 인자 없는 `liveValue`를 만들려면 Domain이 Data를 import해야 해서
+규칙 2가 깨진다. 조립은 합성 루트가 `.live(repository:)`/`.live(uploader:)`로 한다.
+주입하지 않고 쓰면 런타임에 "no live implementation"이 뜨는데, 이는 의도된 설계다.
 
 ## 공개 API
 
 ### Entities (`Sources/Entities/`)
 
-- `struct CameraFilter` — 서버가 내려주는 카메라 필터 한 개 (`GET /shoots/camera-filters` 응답 한 줄).
-  `name`(식별자 겸 표시 이름 — 사진 업로드 API도 이 값으로 필터를 가리킨다) · `fileURL`(LUT .cube 공개 URL)
-  - `previewFilters` — 화면 확인용 샘플 (URL은 유효하지 않은 자리표시자)
+| 타입 | 내용 |
+| :-- | :-- |
+| `Photo` | `id` · `imageURL` · `author` · `capturedAt` · `reactions`(스티커 = 유저당 첫 이모지, 처음 남긴 순). `hasReacted(by:)`·`reaction(by:)`로 그 유저 스티커를 묻고, `addingReaction(_:by:)`(첫 이모지만 붙음)·`removingReaction(by:)`으로 낙관적 갱신·롤백용 사본을 만든다. `init`에서 유저당 첫 스티커만 남긴다 |
+| `PhotoAuthor` | `id` · `nickname` · `avatarURL` — 사진에 박제된 시점의 촬영자 정보 |
+| `ReactionKind` | 리액션 10종(heart · sparkle · thumbsUp · poop · skull · medal · question · huh · loveEyes · fire). 시안의 리액션 바 순서 그대로이며 이모지 글리프는 화면이 정한다 |
+| `PhotoReaction` | `kind` · `userID` — 사진에 붙는 스티커 하나 = 그 유저가 **처음 남긴** 이모지. 유저당 하나라 `id`도 `userID`다(이모지 자체는 무제한이며 나머지는 채팅 히스토리로만 쌓인다, 정책 #71). 스티커 좌표는 갖지 않는다 |
+| `PhotoReactions` | 사진 한 장의 리액션 묶음 — `stickers`(유저당 첫 이모지) + `reactedKindsByUser`(유저별 종류 전부, 칩 띠용). 목록엔 리액션이 없어 펼칠 때 따로 받아 `Photo.applyingReactions(_:)`로 채운다 |
+| `CameraFilter` | 서버가 내려주는 카메라 필터 한 개 (`GET /shoots/camera-filters` 응답 한 줄). `name`(식별자 겸 표시 이름 — 사진 업로드 API도 이 값으로 필터를 가리킨다) · `fileURL`(LUT .cube 공개 URL). `previewFilters`는 화면 확인용 샘플 |
 
 ### Errors (`Sources/Errors/`)
 
 - `enum PhotoError` — `.network` · `.unauthorized` · `.photoExhausted`(방의 남은 장수 소진) ·
-  `.server(message:)` · `.unknown`
+  `.permissionDenied` · `.saveFailed` · `.server(message:)` · `.unknown`
   - `userMessage` — 토스트·얼럿 문구. 기획 가이드 확정 전까지는 임의 작성본이다
 
-### Interface (`Sources/Interface/` — 구현: PhotoData)
+### Interface (`Sources/Interface/` — 구현: PhotoData · Core)
 
+- `protocol PhotoRepository` — `photos(inRoom:)`(목록만) · `reactions(forPhotoID:)`(사진 한 장의 리액션 → `PhotoReactions`) · `setReaction(roomID:photoID:kind:isOn:)` · `imageData(for:)`.
+  리액션은 뒤집기가 아니라 **목표 상태를 지시하는 멱등 형태**(isOn)다 — 같은 요청이 두 번 나가도 결과가
+  같아야 재시도·취소가 안전하다. 서버가 갱신 사진을 주지 않아 **반환값은 없고**, 화면 갱신은 호출부의
+  낙관적 반영에 맡긴다. 해제 API가 아직 없어 `isOn == false`(해제)는 호출부가 UI에서 막는다 (#71)
+- `protocol PhotoLibraryWriting` — `save(imageData:)`. 권한 요청까지 구현체 안에서 끝낸다
 - `protocol CameraFilterRepository` — `filters() -> [CameraFilter]` · `lutData(for:) -> Data`
   - LUT 파싱·CoreImage 변환은 호출부(화면 조립) 몫 — Domain·Data는 색 변환 기술을 모른다.
     `PrepareCameraFiltersUseCase`가 그 호출부의 `register`를 받아 다운로드와 이어 붙인다
 - `protocol PhotoUploader` — `upload(jpegData:roomID:filterName:) -> Int`(그 방의 남은 장수)
   - 서명 URL 발급 → 스토리지 PUT → 완료 통보의 다단계 절차를 한 호출로 감춘다
     (`ProfileImageUploader`와 같은 구조)
-  - 구현체 계약: 실패는 반드시 `PhotoError`로 정규화해 던진다
 - `protocol CameraOnboardingRepository` — `hasSeenCoachMark() -> Bool` · `markCoachMarkSeen()`
   - 카메라 진입 안내를 이미 봤는지 기억한다. 기기에만 남기고 서버에 올리지 않는다
 - `protocol CameraPermissionProvider` — `requestAccess() -> Bool` · `openSystemSettings()`
   - 촬영 진입 버튼이 목록 조회와 함께 권한을 받아 둔다. 이미 거절한 뒤에는 다시 물을 수 없어
     `false`가 오고, 호출부가 설정 앱으로 안내한다
 
-### UseCases (`@DependencyClient` — `liveValue` 없음)
+구현체 공통 계약: 실패는 반드시 `PhotoError`로 정규화해 던진다.
+
+### UseCases (`DependencyValues` 키 — `liveValue` 없음)
+
+사진(조회·리액션·저장):
+
+| 키 | live 팩토리 | 하는 일 |
+| :-- | :-- | :-- |
+| `\.fetchRoomPhotosUseCase` | `.live(repository:)` | 방의 사진을 찍힌 순서대로 가져온다(목록만 — 리액션 제외) |
+| `\.fetchPhotoReactionsUseCase` | `.live(repository:)` | 사진 한 장의 리액션(`PhotoReactions`)을 가져온다. 사진을 펼칠 때만 호출해 1+N 회피 |
+| `\.setPhotoReactionUseCase` | `.live(repository:)` | 사진에 리액션을 남긴다(반환 없음 — 화면은 호출부가 낙관적으로 갱신) |
+| `\.savePhotoUseCase` | `.live(repository:photoLibrary:)` | 원본을 내려받아 사진첩에 저장한다. 계약을 어긴 오류가 새어 나와도 `PhotoError.unknown`으로 막는다 |
+
+촬영(필터·업로드·안내·권한):
 
 - `FetchCameraFiltersUseCase` (`\.fetchCameraFiltersUseCase`) — 필터 목록 조회 (`-> [CameraFilter]`)
 - `PrepareCameraFiltersUseCase` (`\.prepareCameraFiltersUseCase`) — 필터들의 LUT를 모두 내려받아 등록.
@@ -58,11 +83,22 @@
 전부 `static func live(...)` · `testValue` · `previewValue`를 갖는다.
 안내·권한 관련 넷은 기기 저장값과 OS 권한만 다뤄 실패 개념이 없다 — 던지지 않는다.
 
+### 이 모듈에 두지 않은 것
+
+**스티커 배치** — 사진 위 어디에 붙는지는 `PhotoDetailFeature.StickerLayout`이 정한다.
+격자·비워 두는 구간·기울기가 전부 시안 레이아웃에서 나온 값이고(사진 358 × 477, 스티커 82,
+촬영자 표시 32 + 48), 서버는 좌표를 주지 않는다. 도메인이 "사진 카드 위쪽에 촬영자 이름이 얹힌다"를
+알 이유가 없어 화면 쪽에 뒀다. 서버가 좌표를 주기 시작하면 그때 `PhotoReaction`에 실어 도메인으로 들인다.
+
+**표시 문구** — `PhotoError.userMessage`만 예외로 여기 있다. 얼럿 제목은 화면이 정하고 본문만
+오류가 들고 있는 형태인데, `AuthError.userMessage`가 같은 방식이라 선례를 따랐다.
+문구 정책이 정해지면 두 모듈을 함께 옮기는 게 맞다.
+
 ## 의존성
 
-- **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (TCA 전이 의존, `Tuist/Package.swift` 경유)
-- **이 모듈에 의존**: `CameraFeature`(UseCase를 `@Dependency`로 주입받음) ·
-  `PhotoData`(인터페이스 구현) · 합성 루트(`CHALLAApp`·`CameraFeatureDemo`)
+- **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (TCA 전이 의존 — `@DependencyClient` 키 선언)
+- **이 모듈에 의존**: `PhotoDetailFeature` · `CameraFeature` · `PhotoData`(인터페이스 구현) ·
+  합성 루트(`CHALLAApp` · `PhotoDetailFeatureDemo` · `CameraFeatureDemo`)
 
 ## 테스트 실행 방법
 
@@ -70,8 +106,12 @@
 mise exec -- tuist test PhotoDomain
 ```
 
-Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/Mocks`의
-`MockCameraFilterRepository`·`MockPhotoUploader`·`MockCameraOnboardingRepository`로
+Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support`의 목으로
 인터페이스만 갈아끼워 검증한다.
 
-- `PhotoUseCasesLiveTests` — UseCase들의 결과 전달·인자 전달·오류 전파, 안내 노출 판단·기록
+- `PhotoReactionTests` — 켜기·끄기, 멱등성, 없는 것 끄기, 남의 리액션 보존, 종류별 누적, 중복 제거, 신원 규칙
+- `PhotoUseCaseTests` — 방 ID 전달, 조회 실패 전파, 리액션 목표 상태 전달
+- `SavePhotoUseCaseTests` — 바이트 전달, 내려받기 실패·권한 거부 전파, 취소 통과, 계약 밖 오류의 `unknown` 정규화
+- `PhotoUseCasesLiveTests` — 촬영 쪽 UseCase들의 결과 전달·인자 전달·오류 전파, 안내 노출 판단·기록
+
+스티커 배치 테스트는 `PhotoDetailFeature`로 옮겼다 — 규칙이 그쪽에 있다.

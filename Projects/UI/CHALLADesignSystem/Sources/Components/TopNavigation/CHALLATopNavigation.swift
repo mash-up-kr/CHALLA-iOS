@@ -57,6 +57,8 @@ public struct CHALLATopNavigation: View {
         case sub(title: String, leading: Item?, trailing: Item?)
     }
 
+    @Environment(\.challaTheme) private var theme
+
     private let variant: Variant
 
     private init(variant: Variant) {
@@ -102,7 +104,7 @@ public struct CHALLATopNavigation: View {
             // Dirtyline은 소문자를 스타일된 대문자꼴로 그린다 — Figma 원문도 "home"
             Text("home")
                 .challaFont(.heading.home)
-                .foregroundStyle(CHALLAColor.Primary.yellow)
+                .foregroundStyle(theme.accent)
                 .accessibilityLabel("홈") // VoiceOver가 영문 "home" 대신 한국어로 낭독
             Spacer(minLength: 0)
             if !trailing.isEmpty {

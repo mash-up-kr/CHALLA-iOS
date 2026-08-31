@@ -33,6 +33,36 @@ struct RoomListResponseDTO: Decodable, Sendable {
     }
 }
 
+/// `GET /api/v1/rooms/{id}` 응답 페이로드 (`BaseResponseDTO.data`).
+struct RoomDetailResponseDTO: Decodable, Sendable {
+
+    let room: Payload
+
+    struct Payload: Decodable, Sendable {
+        let id: Int64
+        let title: String
+        let status: RoomStatusDTO
+        let totalPhotoCount: Int
+        let remainedPhotoCount: Int
+        let invitationCode: String
+        let photoPrintCompletedAt: String?
+        let createdAt: String
+        let expiresAt: String
+    }
+}
+
+/// `GET /api/v1/rooms/{id}/users` 응답 페이로드.
+struct RoomMembersResponseDTO: Decodable, Sendable {
+
+    let users: [MemberDTO]
+
+    struct MemberDTO: Decodable, Sendable {
+        let id: Int64
+        let nickname: String?
+        let profileImageUrl: String?
+    }
+}
+
 /// `GET /rooms/shootable` 응답 페이로드 (`BaseResponseDTO.data`).
 struct ShootableRoomListResponseDTO: Decodable, Sendable {
 

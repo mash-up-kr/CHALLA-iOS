@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    개인정보 매니페스트. 없으면 업로드 후 App Store Connect가
+    "ITMS-91053: Missing API declaration" 경고를 보내고 심사에서 막힌다.
+
+    아래 두 API는 실제 호출 지점이 있어서 선언한다:
+      · FileTimestamp — CHALLAImageKit/DiskImageCache (contentModificationDateKey·creationDateKey로 캐시 수명 판단)
+      · UserDefaults  — AuthData/UserDefaultsLaunchStateStore (첫 실행 여부 기록)
+    새로 Required Reason API를 쓰게 되면 여기에 추가할 것.
+
+    Firebase·Kakao SDK는 각자 매니페스트를 갖고 있어 여기서 다루지 않는다.
+
+    TODO(심사 전): NSPrivacyCollectedDataTypes 를 채울 것.
+    이 앱은 최소한 소셜 로그인 식별자·닉네임·프로필 이미지, 사용자가 올린 사진,
+    푸시 토큰을 다룬다. App Store Connect의 "앱 개인정보 보호" 항목과 내용이
+    일치해야 하므로, 무엇을 어떤 목적으로 수집하는지 팀이 확정한 뒤 함께 작성한다.
+    (사실과 다르게 적는 것이 비워두는 것보다 위험해서 지금은 넣지 않는다)
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- C617.1: 앱 컨테이너 내부 파일의 타임스탬프 접근 (디스크 이미지 캐시) -->
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- CA92.1: 앱 자신의 UserDefaults 만 읽고 쓴다 (앱 그룹 공유 아님) -->
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

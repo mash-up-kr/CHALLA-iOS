@@ -7,26 +7,12 @@ import Foundation
 /// 순차로만 호출하므로 경쟁이 없다. 호출 기록만 남긴다.
 final class MockSettingsRepository: SettingsRepository, @unchecked Sendable {
 
-    private let storedTheme: AppTheme
     private let storedNotification: NotificationSetting
 
-    private(set) var updatedThemes: [AppTheme] = []
     private(set) var updatedNotifications: [NotificationSetting] = []
 
-    init(
-        storedTheme: AppTheme = .default,
-        storedNotification: NotificationSetting = .default
-    ) {
-        self.storedTheme = storedTheme
+    init(storedNotification: NotificationSetting = .default) {
         self.storedNotification = storedNotification
-    }
-
-    func fetchTheme() async -> AppTheme {
-        storedTheme
-    }
-
-    func updateTheme(_ theme: AppTheme) async {
-        updatedThemes.append(theme)
     }
 
     func fetchNotificationSetting() async -> NotificationSetting {

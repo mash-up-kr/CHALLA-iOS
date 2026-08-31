@@ -22,7 +22,7 @@ struct NotificationSettingFeatureTests {
     private static func store(
         loading snapshot: NotificationSettingsSnapshot
     ) -> TestStoreOf<NotificationSettingFeature> {
-        TestStore(initialState: NotificationSettingFeature.State(theme: .blueberry)) {
+        TestStore(initialState: NotificationSettingFeature.State()) {
             NotificationSettingFeature()
         } withDependencies: {
             $0.loadNotificationSettingsUseCase = LoadNotificationSettingsUseCase(run: { snapshot })
@@ -47,7 +47,7 @@ struct NotificationSettingFeatureTests {
 
     @Test("권한을 조회하기 전에는 배너를 띄우지 않는다 — 허용이면 곧바로 사라져 깜빡인다")
     func hidesBannerBeforeLoading() {
-        let state = NotificationSettingFeature.State(theme: .blueberry)
+        let state = NotificationSettingFeature.State()
 
         #expect(state.systemAuthorization == nil)
         #expect(state.showsPermissionBanner == false)
@@ -87,7 +87,7 @@ struct NotificationSettingFeatureTests {
     @Test("포그라운드로 돌아오면 권한을 다시 조회한다 — 설정 앱에서 켜고 오면 배너가 사라진다")
     func reloadsWhenSceneBecomesActive() async {
         let callCount = LockIsolated(0)
-        let store = TestStore(initialState: NotificationSettingFeature.State(theme: .blueberry)) {
+        let store = TestStore(initialState: NotificationSettingFeature.State()) {
             NotificationSettingFeature()
         } withDependencies: {
             $0.loadNotificationSettingsUseCase = LoadNotificationSettingsUseCase(run: {
@@ -119,7 +119,7 @@ struct NotificationSettingFeatureTests {
     @Test("토글을 켜면 상태가 즉시 바뀌고 켠 값을 저장한다")
     func savesToggleOn() async {
         let saved = LockIsolated<[Bool]>([])
-        let store = TestStore(initialState: NotificationSettingFeature.State(theme: .blueberry)) {
+        let store = TestStore(initialState: NotificationSettingFeature.State()) {
             NotificationSettingFeature()
         } withDependencies: {
             $0.updateServiceNotificationUseCase = UpdateServiceNotificationUseCase(run: { isOn in
@@ -138,7 +138,7 @@ struct NotificationSettingFeatureTests {
     @Test("껐다 켜면 바꾼 값이 순서대로 저장된다")
     func savesEveryToggle() async {
         let saved = LockIsolated<[Bool]>([])
-        var initialState = NotificationSettingFeature.State(theme: .blueberry)
+        var initialState = NotificationSettingFeature.State()
         initialState.isServiceNotificationEnabled = true
 
         let store = TestStore(initialState: initialState) {
@@ -164,7 +164,7 @@ struct NotificationSettingFeatureTests {
     @Test("조회가 떠 있는 동안 토글하면 늦게 끝난 조회가 방금 뒤집은 값을 되돌리지 못한다")
     func toggleCancelsInFlightLoad() async {
         let gate = EffectGate()
-        let store = TestStore(initialState: NotificationSettingFeature.State(theme: .blueberry)) {
+        let store = TestStore(initialState: NotificationSettingFeature.State()) {
             NotificationSettingFeature()
         } withDependencies: {
             $0.loadNotificationSettingsUseCase = LoadNotificationSettingsUseCase(run: {
@@ -196,7 +196,7 @@ struct NotificationSettingFeatureTests {
         openCount: LockIsolated<Int> = LockIsolated(0)
     ) async -> TestStoreOf<NotificationSettingFeature> {
         let snapshot = Fixture.snapshot(authorization: authorization)
-        let store = TestStore(initialState: NotificationSettingFeature.State(theme: .blueberry)) {
+        let store = TestStore(initialState: NotificationSettingFeature.State()) {
             NotificationSettingFeature()
         } withDependencies: {
             $0.loadNotificationSettingsUseCase = LoadNotificationSettingsUseCase(run: { snapshot })
@@ -287,7 +287,7 @@ struct NotificationSettingFeatureTests {
     func ignoresBannerTapBeforeLoading() async {
         let requestCount = LockIsolated(0)
         let openCount = LockIsolated(0)
-        let store = TestStore(initialState: NotificationSettingFeature.State(theme: .blueberry)) {
+        let store = TestStore(initialState: NotificationSettingFeature.State()) {
             NotificationSettingFeature()
         } withDependencies: {
             $0.requestNotificationAuthorizationUseCase = RequestNotificationAuthorizationUseCase(run: {
@@ -311,7 +311,7 @@ struct NotificationSettingFeatureTests {
     @Test("뒤로가기를 누르면 스스로 스택에서 빠진다")
     func dismissesOnBack() async {
         let dismissCount = LockIsolated(0)
-        let store = TestStore(initialState: NotificationSettingFeature.State(theme: .blueberry)) {
+        let store = TestStore(initialState: NotificationSettingFeature.State()) {
             NotificationSettingFeature()
         } withDependencies: {
             $0.dismiss = DismissEffect { dismissCount.withValue { $0 += 1 } }

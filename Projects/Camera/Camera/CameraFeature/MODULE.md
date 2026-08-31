@@ -9,12 +9,13 @@
 
 **UI·필터(LUT)·서버 연동까지 구현돼 있다.** AVFoundation 캡처는 `CameraSession` 모듈이 붙인다.
 
-- **이 화면은 아무것도 조회하지 않는다.** 방 목록·필터 목록·필터 LUT를 진입 버튼(홈의 촬영 뱃지 —
-  방 상세의 사진 찍기는 아직 없다)이 미리 받아 두고, 전부 성공했을 때만 `State(rooms:filters:)`로 넘기며
+- **이 화면은 아무것도 조회하지 않는다.** 방 목록·필터 목록·필터 LUT를 진입 버튼(홈의 촬영 뱃지 ·
+  방 상세의 사진 찍기)이 미리 받아 두고, 전부 성공했을 때만 `State(rooms:filters:)`로 넘기며
   들어온다. 실패하면 애초에 이 화면으로 넘어오지 않으므로, 여기에는 로딩·조회 실패 상태가 없다.
+  준비는 두 진입 버튼이 `ShootEntry` 모듈의 `ShootPreparation`으로 함께 한다 —
   쓰는 UseCase는 `FetchShootableRoomsUseCase`(RoomDomain, `GET /rooms/shootable`) ·
-  `FetchCameraFiltersUseCase` · `PrepareCameraFiltersUseCase`(PhotoDomain)이며, 호출은 부르는 쪽 몫이다.
-  방 상세처럼 방이 정해진 경로는 `selectedRoomID`를 함께 넘긴다.
+  `FetchCameraFiltersUseCase` · `PrepareCameraFiltersUseCase`(PhotoDomain)다.
+  방 상세처럼 방이 정해진 경로는 `selectedRoomID`를 함께 넘긴다 — 그 방이 선택된 채로 열린다.
 - 촬영 가능 여부(`captureAvailability`)는 선택된 방의 남은 장수에서 나오는 계산값이라 따로 들고 있지 않는다.
 - **LUT(.cube)도 진입 전에 전부 등록된 상태로 들어온다.** 진입 버튼이 `PrepareCameraFiltersUseCase`에
   `CameraFilterCatalog.register`를 넘겨 주고, 열 개 남짓을 동시에 받아 하나라도 실패하면 진입을 막는다 —
@@ -53,7 +54,7 @@
 | `CameraPreviewPlaceholder` | `preview` 슬롯을 주입하지 않았을 때 뷰파인더를 채우는 대역 뷰 (프리뷰·시뮬레이터용) |
 | `CameraCardsLevel` | 남은 장수 표시 단계 (`normal` · `low` · `unavailable`) |
 | `CameraCoachMark` | 온보딩 안내 단계 (`shutterCost` · `shutterCaution`). 단계별 `message` · `actionTitle` |
-| `CameraFilterCatalog` | 서버에서 내려받은 LUT의 등록소. `register(cubeData:for:)`(다운로드 원자료 파싱·등록 — 진입 버튼이 부른다) · `lutFilter(id:)`(id → 새 `CIColorCube`) · `filteredJPEG(from:filterID:)`(촬영본 후처리 — JPEG 품질 1.0으로 굽는다. 업로드 상한은 `CHALLAImageKit.ImageCompressor`가 맞추므로 여기서 미리 깎지 않는다) |
+| `CameraFilterCatalog` | 서버에서 내려받은 LUT의 등록소. `register(cubeData:for:)`(다운로드 원자료 파싱·등록 — 진입 준비가 부른다) · `lutFilter(id:)`(id → 새 `CIColorCube`) · `filteredJPEG(from:filterID:)`(촬영본 후처리 — JPEG 품질 1.0으로 굽는다. 업로드 상한은 `CHALLAImageKit.ImageCompressor`가 맞추므로 여기서 미리 깎지 않는다) |
 | `CameraFilteredPreviewView` | LUT 입힌 프레임(`CIImage`)을 Metal로 그리는 프리뷰 뷰 — `preview` 슬롯용 |
 | `CameraPreviewFrameSource` | 프리뷰 프레임 공급자 프로토콜. 카메라 세션(조립 지점 소유)이 구현한다 |
 | `CameraZoom` | 뷰파인더 배율 (`factor` · `label` · `range`) |
@@ -114,7 +115,7 @@ FlashOn·SelectRoom은 아직 인자로 띄우지 못한다 — 목록에서 들
 
 진입 경로도 실앱과 같은 모양으로 재현한다 — `CameraEntryView`가 카메라를 띄우기 전에
 방 목록과 필터(목록·LUT)를 먼저 받고, 전부 성공했을 때만 `CameraView`로 넘어간다(실패하면 그 자리에서 알린다).
-실앱에서 홈·방 상세의 진입 버튼이 할 일을 데모에서는 이 화면이 대신한다.
+실앱에서 홈·방 상세의 진입 버튼이 `ShootEntry`로 하는 일을 데모에서는 이 화면이 대신한다.
 
 방·필터·업로드 데이터는 `CompositionRoot`가 InMemory 구현(RoomData·PhotoData)으로 꽂는다 —
 로그인이 없어 실서버를 못 부르고, 필터 LUT는 코드에서 생성한 목 .cube 데이터로 제공한다

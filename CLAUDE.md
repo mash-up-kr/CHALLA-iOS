@@ -12,6 +12,8 @@ Tuist 기반 모듈화 프로젝트이며, 개발자 3명이 협업한다. Featu
 
 ```bash
 mise install                      # 최초 1회: mise.toml에 고정된 Tuist 설치
+mise exec -- tuist install        # 외부 패키지 설치 — Tuist/Package.swift가 바뀐 머지·rebase 후 필수
+                                  # (건너뛰면 generate가 "not a valid configured external dependency"로 실패)
 mise exec -- tuist generate       # 워크스페이스 생성 (Xcode 프로젝트는 커밋 안 됨 — 매번 생성)
 mise exec -- tuist build          # 전체 빌드
 mise exec -- tuist scaffold feature --name <피처명> --group <그룹>  # 새 피처(모듈+데모앱) 한 세트 생성

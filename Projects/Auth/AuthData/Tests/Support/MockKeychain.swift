@@ -73,4 +73,11 @@ final class MockKeychain: Keychain {
             $0.storage[key] = nil
         }
     }
+
+    func deleteAll() throws {
+        try state.withLock {
+            guard !$0.failOnDelete else { throw InjectedFailure() }
+            $0.storage.removeAll()
+        }
+    }
 }

@@ -78,10 +78,12 @@ Projects/
 │  └─ RoomSettingFeature             (모듈) 방 이름 수정 · 나가기 · 삭제
 │
 ├─ Camera/                           (폴더) 촬영  (Domain/Data 없음)
-│  └─ CameraFeature                  (모듈) 셔터 · 플래시 · 전후면 · 장수 카운트
-│                                          ├ 장수 제한   → RoomDomain
-│                                          ├ 업로드 큐   → PhotoData (PhotoDomain UseCase 경유)
-│                                          └ 촬영 장치   → Core/Camera
+│  ├─ CameraFeature                  (모듈) 셔터 · 플래시 · 전후면 · 장수 카운트
+│  │                                        ├ 장수 제한   → RoomDomain
+│  │                                        ├ 업로드 큐   → PhotoData (PhotoDomain UseCase 경유)
+│  │                                        └ 촬영 장치   → Core/Camera
+│  └─ ShootEntry                     (모듈) 촬영 진입 준비 — 목록 · LUT · 권한을 갖춰 CameraEntry로
+│                                          └ 홈 · 방 상세의 진입 버튼이 함께 쓴다 (비-Feature 공용)
 │
 ├─ Photo/                            (폴더) 사진 결과
 │  ├─ PhotoDetailFeature             (모듈) 사진 상세 · 리액션 · 다운로드
@@ -247,7 +249,14 @@ camera.capture()                   // 하드웨어 작동 · 파일 생성
    참여자 + 남은 장수 + 인화 상태 + 결과 사진 그리드를 모두 흡수 →
    `RoomDetailFeature`가 가장 큼. 필요 시 내부에서 child reducer로 분리.
 
-3. **CameraSession — Feature를 의존하는 조립 보조 모듈**
+3. **ShootEntry — 두 Feature가 함께 쓰는 진입 준비 모듈**
+   카메라 화면은 아무것도 조회하지 않으므로 진입 버튼이 목록·LUT·권한을 먼저 갖춰야 하는데,
+   그 버튼이 홈과 방 상세 두 곳이다. 피처끼리는 서로를 import 할 수 없어(규칙 3) 준비를 모듈로 뺐다.
+   Domain에 두지 않은 이유는 방(RoomDomain)과 필터·권한(PhotoDomain)을 함께 쓰는데
+   두 Domain이 서로를 모르기 때문이다 — Domain끼리 엮는 대신 그 위에 얇게 얹었다.
+   **Feature 공통 로직을 여기 모으지 말 것.** 화면 하나를 띄우기 위한 준비만 담는다.
+
+4. **CameraSession — Feature를 의존하는 조립 보조 모듈**
    `AVCaptureSession`은 Equatable·Sendable이 아니라 TCA State에 담을 수 없다. 리듀서와
    프리뷰가 같은 세션 인스턴스를 봐야 해서 조립 지점이 직접 넘겨주고, 그 배선이 `CHALLAApp`과
    `CameraFeatureDemo`에서 똑같아 `CameraSession` 모듈로 모았다 (`CameraSession/MODULE.md`).
