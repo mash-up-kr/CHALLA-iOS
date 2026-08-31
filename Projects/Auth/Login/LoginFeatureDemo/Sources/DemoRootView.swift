@@ -24,12 +24,17 @@ struct DemoRootView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                NavigationLink("실서버(AuthData) 로그인") { LoginView(store: liveStore) }
-                NavigationLink("Mock 로그인 (신규 유저)") { LoginView(store: mockStore) }
+        // 실행 인자 진입 규약 (--screen login) — 시뮬레이터를 탭 없이 UI 검증하기 위한 통로.
+        if CommandLine.arguments.contains("login") {
+            LoginView(store: mockStore)
+        } else {
+            NavigationStack {
+                List {
+                    NavigationLink("실서버(AuthData) 로그인") { LoginView(store: liveStore) }
+                    NavigationLink("Mock 로그인 (신규 유저)") { LoginView(store: mockStore) }
+                }
+                .navigationTitle("로그인 데모")
             }
-            .navigationTitle("로그인 데모")
         }
     }
 }
