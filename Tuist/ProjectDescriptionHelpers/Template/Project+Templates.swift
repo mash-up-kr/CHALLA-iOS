@@ -3,10 +3,12 @@ import ProjectDescription
 public extension Project {
 
     /// 프레임워크 모듈 하나를 담은 프로젝트를 생성한다.
-    /// - 이 프로젝트가 담는 타깃의 product(static/dynamic)는 `makeModuleTarget`이 hasResource로 자동 결정.
+    /// - 이 프로젝트가 담는 타깃의 product(static/dynamic)는 `makeModuleTarget`이 정한다.
     /// - Parameters:
     ///   - name: 모듈 이름 (= 프로젝트/타깃 이름)
     ///   - hasResource: 리소스(폰트/애셋) 유무
+    ///   - product: 산출물 형태를 직접 정한다. nil이면 자동 결정 —
+    ///     어떤 모듈에 지정해야 하는지는 `Target.makeModuleTarget` 주석 참고
     ///   - hasTests: 테스트 타깃(<모듈명>Tests, Tests/** 규약) 포함 여부
     ///   - dependencies: 이 모듈(타깃)이 의존하는 대상 (호출부에서 헬퍼로 명시)
     ///   - testDependencies: 테스트에서만 필요한 의존 (`Tests/Support`의 목이 쓰는 타입 등)
@@ -14,6 +16,7 @@ public extension Project {
     static func makeModule(
         name: String,
         hasResource: Bool = false,
+        product: Product? = nil,
         hasTests: Bool = false,
         dependencies: [TargetDependency] = [],
         testDependencies: [TargetDependency] = []
@@ -22,6 +25,7 @@ public extension Project {
             Target.makeModuleTarget(
                 name: name,
                 hasResource: hasResource,
+                product: product,
                 dependencies: dependencies
             )
         ]
