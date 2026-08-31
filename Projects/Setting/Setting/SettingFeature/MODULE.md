@@ -127,9 +127,10 @@ push 하면 안 된다** — 중첩 `NavigationStack`은 SwiftUI에서 동작이
   되살리려면 `interactivePopGestureRecognizer` 대리자를 손대야 해서 DS/App 차원의 별도 결정이 필요하다
 - **로그아웃 확인 드로어 문구는 임의 작성본이다** — 시안에 로그아웃 행 탭 이후가 없다.
   되돌리려면 재로그인이 필요해 확인 단계를 넣었다. 문구 확정 필요 (`AccountFeature`의 TODO)
-- **찰나 응원하기 · 피드백 보내기를 눌러도 아직 아무 일이 없다** — App ID와 구글폼 주소가 없어
-  `SettingExternalLinks.liveValue`의 두 값이 `nil`이다. 플레이스홀더를 넣으면 존재하지 않는 페이지가
-  실제로 열리므로 값이 정해질 때까지 열지 않는다 (해당 파일의 TODO)
+- **찰나 응원하기 행은 숨겨져 있다** — App ID가 없어 `SettingExternalLinks.liveValue.appStoreReview`가
+  `nil`이라, 눌러도 아무 일이 없는 행 대신 `SettingView.feedbackCard`에서 주석 처리했다.
+  리듀서 배선(`supportRowTapped`)은 그대로라 주소가 정해지면 주석만 풀면 된다.
+  피드백 보내기는 구글폼 주소가 확정되어 실제로 열린다
 - **접근성 글꼴은 `accessibility1`까지만 대응한다** — 시안이 픽셀 고정 명세라 행 높이(52·74)와
   프로필 블록(100)이 상수인데 `challaFont`는 Dynamic Type을 따라 커진다. 그 이상에서 글자가
   잘리므로 네 화면 루트에 `.dynamicTypeSize(...accessibility1)` 상한을 건다
