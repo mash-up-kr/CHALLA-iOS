@@ -54,7 +54,7 @@
 | `CameraPreviewPlaceholder` | `preview` 슬롯을 주입하지 않았을 때 뷰파인더를 채우는 대역 뷰 (프리뷰·시뮬레이터용) |
 | `CameraCardsLevel` | 남은 장수 표시 단계 (`normal` · `low` · `unavailable`) |
 | `CameraCoachMark` | 온보딩 안내 단계 (`shutterCost` · `shutterCaution`). 단계별 `message` · `actionTitle` |
-| `CameraFilterCatalog` | 서버에서 내려받은 LUT의 등록소. `register(cubeData:for:)`(다운로드 원자료 파싱·등록 — 진입 준비가 부른다) · `lutFilter(id:)`(id → 새 `CIColorCube`) · `filteredJPEG(from:filterID:)`(촬영본 후처리) |
+| `CameraFilterCatalog` | 서버에서 내려받은 LUT의 등록소. `register(cubeData:for:)`(다운로드 원자료 파싱·등록 — 진입 준비가 부른다) · `lutFilter(id:)`(id → 새 `CIColorCube`) · `filteredJPEG(from:filterID:)`(촬영본 후처리 — JPEG 품질 1.0으로 굽는다. 업로드 상한은 `CHALLAImageKit.ImageCompressor`가 맞추므로 여기서 미리 깎지 않는다) |
 | `CameraFilteredPreviewView` | LUT 입힌 프레임(`CIImage`)을 Metal로 그리는 프리뷰 뷰 — `preview` 슬롯용 |
 | `CameraPreviewFrameSource` | 프리뷰 프레임 공급자 프로토콜. 카메라 세션(조립 지점 소유)이 구현한다 |
 | `CameraZoom` | 뷰파인더 배율 (`factor` · `label` · `range`) |
