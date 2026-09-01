@@ -191,6 +191,8 @@ enum CompositionRoot {
         values.joinRoomUseCase = .live(repository: repository)
         values.fetchRoomDetailUseCase = .live(repository: repository)
         values.fetchShootableRoomsUseCase = .live(repository: repository)
+        values.checkPrintCompletionUseCase = .live(repository: repository)
+        values.updateRoomTitleUseCase = .live(repository: repository)
 
         // 방 상세·사진 상세가 쓰는 fetchRoomPhotosUseCase는 Photo aggregate라 registerPhoto에서 등록한다.
     }

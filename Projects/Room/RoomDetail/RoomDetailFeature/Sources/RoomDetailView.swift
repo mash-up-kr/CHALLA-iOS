@@ -23,7 +23,8 @@ public struct RoomDetailView: View {
         VStack(spacing: 0) {
             CHALLATopNavigation.sub(
                 title: store.room.title,
-                leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") { send(.backButtonTapped) }
+                leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") { send(.backButtonTapped) },
+                trailing: .icon(.setting, accessibilityLabel: "방 설정") { send(.settingsButtonTapped) }
             )
             slotGrid
                 .overlay(alignment: .top) { memberBar }
@@ -193,19 +194,6 @@ public struct RoomDetailView: View {
             RoundedRectangle(cornerRadius: CHALLARadius.large)
                 .fill(CHALLAColor.Background.level2)
         }
-    }
-}
-
-// MARK: - 카운트다운 표기
-
-/// 인화 완료까지 남은 시간 표기 규칙.
-enum PrintCountdown {
-
-    /// "2:59:58" — 시는 자릿수 제한 없이, 분·초는 두 자리. 0 아래로 내려가지 않는다
-    /// (완료 시각이 지나도 서버 상태가 갱신될 때까지 0:00:00으로 고정).
-    static func text(until end: Date, now: Date) -> String {
-        let remaining = max(0, Int(end.timeIntervalSince(now)))
-        return "\(remaining / 3600):" + String(format: "%02d:%02d", remaining % 3600 / 60, remaining % 60)
     }
 }
 

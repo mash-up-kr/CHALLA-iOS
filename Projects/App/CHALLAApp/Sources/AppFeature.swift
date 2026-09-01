@@ -29,6 +29,7 @@ public struct AppFeature {
         case profileSetup(ProfileSetupFeature.State)
         case home(HomeScreen)
         case roomDetail(RoomDetailScreen)
+        case roomSettings(RoomSettingsScreen)
         case photoDetail(PhotoDetailScreen)
         case chat(ChatScreen)
         case setting(SettingScreen)
@@ -47,6 +48,7 @@ public struct AppFeature {
             case .profileSetup: return .profileSetup
             case .home: return .home
             case .roomDetail: return .roomDetail
+            case .roomSettings: return .roomSettings
             case .photoDetail: return .photoDetail
             case .chat: return .chat
             case .setting: return .setting
@@ -57,72 +59,8 @@ public struct AppFeature {
         }
 
         public enum ScreenID: Equatable, Sendable {
-            case launching, login, profileSetup, home, roomDetail, photoDetail, chat, setting, profileEdit, camera
+            case launching, login, profileSetup, home, roomDetail, roomSettings, photoDetail, chat, setting, profileEdit, camera
             case forceUpdate
-        }
-    }
-
-    /// 홈 화면 State + 설정으로 넘길 프로필.
-    ///
-    /// `HomeFeature.State`는 인사말용 닉네임·이미지만 들고 있다. 설정·프로필 편집은 전체 `UserProfile`이
-    /// 필요해서, 홈에 들어올 때 받은 프로필을 여기 함께 두었다가 설정 진입 때 넘긴다.
-    @ObservableState
-    public struct HomeScreen: Equatable {
-        public var profile: UserProfile
-        public var home: HomeFeature.State
-
-        public init(profile: UserProfile) {
-            self.profile = profile
-            self.home = HomeFeature.State(
-                nickname: profile.nickname ?? "",
-                profileImageURL: profile.imageURL
-            )
-        }
-    }
-
-    /// 방 상세 화면 State + 홈으로 돌아갈 때 쓸 프로필.
-    ///
-    /// `State`가 enum이라 방 상세로 오면 홈 State는 사라진다. 뒤로가기로 홈을 다시 만들 때
-    /// 인사말에 쓸 프로필이 필요한데, 안 들고 오면 서버를 다시 조회해야 하고 그동안 화면이 빈다.
-    /// 방 상세 화면 자체는 이 프로필을 쓰지 않는다 — 돌아갈 때까지 맡아두는 값이다.
-    @ObservableState
-    public struct RoomDetailScreen: Equatable {
-        public var profile: UserProfile
-        public var roomDetail: RoomDetailFeature.State
-
-        public init(profile: UserProfile, room: Room) {
-            self.profile = profile
-            self.roomDetail = RoomDetailFeature.State(room: room)
-        }
-    }
-
-    /// 설정 화면 State + 홈 복귀용 프로필.
-    ///
-    /// 프로필을 함께 두는 이유: 홈이 닉네임을 표시하는데, 설정에서 뒤로가면 재조회 없이 바로 그려야 한다.
-    @ObservableState
-    public struct SettingScreen: Equatable {
-        public var profile: UserProfile
-        public var setting: SettingFeature.State
-
-        public init(profile: UserProfile, setting: SettingFeature.State = .init()) {
-            self.profile = profile
-            self.setting = setting
-        }
-    }
-
-    /// 프로필 편집 화면 State + 취소 시 복원할 프로필.
-    @ObservableState
-    public struct ProfileEditScreen: Equatable {
-        public var profile: UserProfile
-        public var edit: ProfileSetupFeature.State
-
-        public init(profile: UserProfile) {
-            self.profile = profile
-            self.edit = ProfileSetupFeature.State(
-                mode: .edit,
-                nickname: profile.nickname ?? "",
-                remoteImageURL: profile.imageURL
-            )
         }
     }
 
@@ -137,6 +75,7 @@ public struct AppFeature {
         case profileSetup(ProfileSetupFeature.Action)
         case home(HomeFeature.Action)
         case roomDetail(RoomDetailFeature.Action)
+        case roomSettings(RoomSettingsFeature.Action)
         case photoDetail(PhotoDetailFeature.Action)
         case chat(ChatRoomFeature.Action)
         case setting(SettingFeature.Action)
@@ -182,6 +121,11 @@ public struct AppFeature {
             .ifCaseLet(\.roomDetail, action: \.roomDetail) {
                 Scope(state: \.roomDetail, action: \.self) {
                     RoomDetailFeature()
+                }
+            }
+            .ifCaseLet(\.roomSettings, action: \.roomSettings) {
+                Scope(state: \.settings, action: \.self) {
+                    RoomSettingsFeature()
                 }
             }
             .ifCaseLet(\.photoDetail, action: \.photoDetail) {
@@ -309,6 +253,11 @@ extension AppFeature {
                 state = .home(HomeScreen(profile: screen.profile))
                 return .none
 
+            case .roomDetail(.delegate(.settingsTapped)):
+                guard case let .roomDetail(screen) = state else { return .none }
+                state = .roomSettings(RoomSettingsScreen(profile: screen.profile, room: screen.roomDetail.room))
+                return .none
+
             // 방 상세에서 채팅 버튼 — 방 채팅 화면으로 들어간다.
             case .roomDetail(.delegate(.chatTapped)):
                 guard case let .roomDetail(screen) = state else { return .none }
@@ -367,6 +316,22 @@ extension AppFeature {
                 }
                 return .none
 
+            // MARK: - 방 설정 delegate
+
+            case .roomSettings(.delegate(.closeTapped)):
+                guard case let .roomSettings(screen) = state else { return .none }
+                // 맡아둔 room의 제목은 설정 진입 시점 값이라, 설정 화면이 들고 있는 최신 제목으로 고쳐서 넘긴다.
+                // 상세 첫 프레임부터 새 이름이 보이고, 재조회가 실패해도 옛 이름으로 되돌아가지 않는다.
+                state = .roomDetail(RoomDetailScreen(
+                    profile: screen.profile,
+                    room: screen.room.renamed(to: screen.settings.title)
+                ))
+                return .none
+
+            case .roomSettings(.delegate(.coverEditRequested)):
+                // TODO: #69 커버 수정 화면이 생기면 연결한다.
+                return .none
+
             // MARK: - 설정 delegate
 
             case .setting(.delegate(.backRequested)):
@@ -396,7 +361,7 @@ extension AppFeature {
                 state = .setting(SettingScreen(profile: screen.profile))
                 return .none
 
-            case .login, .profileSetup, .home, .roomDetail, .photoDetail, .chat, .setting, .profileEdit, .camera:
+            case .login, .profileSetup, .home, .roomDetail, .roomSettings, .photoDetail, .chat, .setting, .profileEdit, .camera:
                 return .none
             }
         }

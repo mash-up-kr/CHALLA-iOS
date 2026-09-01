@@ -3,7 +3,9 @@ import Foundation
 import RoomDomain
 import ShootEntry
 
-/// 홈 화면. 방 목록을 한 번 가져와 촬영 중·촬영 완료 두 섹션으로 나눠 보여준다.
+/// 홈 화면. 방 목록을 한 번 가져와 상단(진행 중 방 카드 가로 스크롤)과
+/// 하단(확인한 인화 완료 목록)으로 나눠 보여주고, 인화 완료 예정 시각에는
+/// 알람을 걸어 두었다가 재조회로 상태 전이를 반영한다.
 /// 방이 없으면 빈 상태를 그리고, 방 상세·설정으로 가는 것은 `delegate`로 App에 넘긴다.
 @Reducer
 public struct HomeFeature {
@@ -121,6 +123,8 @@ public struct HomeFeature {
 
         case roomsResponse(Result<[RoomCard], RoomError>)
         case shootPreparationResponse(Result<CameraEntry, ShootPreparationError>)
+        /// 인화 완료 예정 시각의 알람이 깨어났다 — 목록을 다시 받아 상태 전이를 반영한다.
+        case printCompletionReached
 
         public enum Alert: Equatable, Sendable {
             case retryTapped
@@ -135,6 +139,8 @@ public struct HomeFeature {
 
     // MARK: - Dependencies
 
+    @Dependency(\.continuousClock) var clock
+    @Dependency(\.date) var date
     @Dependency(\.fetchRoomsUseCase) var fetchRoomsUseCase
     @Dependency(\.openCameraSettingsUseCase) var openCameraSettingsUseCase
 
@@ -151,7 +157,10 @@ public struct HomeFeature {
             case let .roomsResponse(.success(cards)):
                 state.loadState = .loaded
                 state.cards = IdentifiedArray(uniqueElements: cards)
-                return .none
+                return refreshAtPrintCompletion(cards: cards)
+
+            case .printCompletionReached:
+                return fetchRooms(&state)
 
             case let .roomsResponse(.failure(error)):
                 state.loadState = .failed(error)
@@ -251,6 +260,29 @@ public struct HomeFeature {
     private enum CancelID {
         case fetchRooms
         case prepareShoot
+        case printRefresh
+    }
+
+    /// 가장 이른 인화 완료 예정 시각에 한 번 깨어나 목록을 재조회하는 알람 (방 상세와 같은 방식).
+    ///
+    /// 미래 시각일 때만 건다 — 시각이 지났는데 상태가 그대로면(서버 전환 지연) 다시 걸지 않는다.
+    /// 걸면 0초짜리 알람이 반복돼 무한 재조회가 된다. 재조회 응답이 이 함수를 다시 불러
+    /// 다음 방의 알람이 이어진다.
+    private func refreshAtPrintCompletion(cards: [RoomCard]) -> Effect<Action> {
+        let upcoming = cards
+            .filter { $0.room.status == .printWaiting }
+            .compactMap(\.room.photoPrintCompletedAt)
+            .filter { $0 > date.now }
+            .min()
+        // 다음 목록에 대기 방이 없으면 이전 응답으로 걸어 둔 알람도 거둔다 —
+        // 남겨 두면 그 시각에 깨어나 불필요한 재조회가 한 번 나간다.
+        guard let upcoming else { return .cancel(id: CancelID.printRefresh) }
+
+        return .run { [clock, date] send in
+            try await clock.sleep(for: .seconds(upcoming.timeIntervalSince(date.now)))
+            await send(.printCompletionReached)
+        }
+        .cancellable(id: CancelID.printRefresh, cancelInFlight: true)
     }
 
     /// 촬영에 필요한 것(목록·LUT·권한)은 `ShootEntry`가 받아 온다 — 방 상세의 촬영 버튼과 같은 준비다.

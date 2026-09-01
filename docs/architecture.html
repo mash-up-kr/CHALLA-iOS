@@ -280,8 +280,7 @@
     <div class="row" style="margin-top:12px;">
       <div class="group"><div class="group-label">Room/ <span class="kind">(폴더 · 화면 5분할)</span></div><div class="row">
         <div class="box">RoomCreateFeature</div><div class="box">RoomJoinFeature</div>
-        <div class="box">RoomInviteFeature</div><div class="box">RoomDetailFeature<small>인화대기/완료 = 상태</small></div>
-        <div class="box">RoomSettingFeature</div></div></div>
+        <div class="box">RoomInviteFeature</div><div class="box">RoomDetailFeature<small>인화대기/완료 = 상태 · 방 설정 흡수</small></div></div></div>
     </div>
     <div class="row" style="margin-top:12px;">
       <div class="group"><div class="group-label">Camera/ <span class="kind">(폴더)</span></div><div class="row">
@@ -454,10 +453,10 @@ Projects/
 │  ├─ RoomCreateFeature              <span class="k-mod">(모듈)</span> 방 이름 · 색상 · 필름 장수 설정
 │  ├─ RoomJoinFeature                <span class="k-mod">(모듈)</span> 초대코드 입력 · 입장
 │  ├─ RoomInviteFeature              <span class="k-mod">(모듈)</span> 초대코드 표시 · 공유
-│  ├─ RoomDetailFeature              <span class="k-mod">(모듈)</span> 방 상세 · 참여자 · 남은 장수
-│  │                                        <span class="cm">├ 인화대기/완료 = 이 화면의 "상태"  ← FilmWaiting/Completed 흡수</span>
-│  │                                        <span class="cm">└ 결과 사진 목록 = 이 화면의 그리드   ← PhotoResult 흡수</span>
-│  └─ RoomSettingFeature             <span class="k-mod">(모듈)</span> 방 이름 수정 · 나가기 · 삭제
+│  └─ RoomDetailFeature              <span class="k-mod">(모듈)</span> 방 상세 · 참여자 · 남은 장수
+│                                           <span class="cm">├ 인화대기/완료 = 이 화면의 "상태"  ← FilmWaiting/Completed 흡수</span>
+│                                           <span class="cm">├ 결과 사진 목록 = 이 화면의 그리드   ← PhotoResult 흡수</span>
+│                                           <span class="cm">└ 방 설정 · 이름 수정 = 이 화면의 하위 화면 ← RoomSettingFeature 흡수 (#82)</span>
 │
 ├─ Camera/                           <span class="k-folder">(폴더)</span> 촬영  (Domain/Data 없음)
 │  └─ CameraFeature                  <span class="k-mod">(모듈)</span> 셔터 · 플래시 · 전후면 · 장수 카운트

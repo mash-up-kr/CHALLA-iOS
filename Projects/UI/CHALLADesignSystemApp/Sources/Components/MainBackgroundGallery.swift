@@ -44,8 +44,13 @@ struct MainBackgroundGallery: View {
 
         case .card:
             // 번짐에서 먼 위쪽에 둬서 카드 배경이 배경색에 묻히지 않는지 본다.
-            CHALLACardItem(title: "친구들과 강릉 여행", memberCount: 11, photoCount: 24, photo: nil)
-                .padding(.top, 20)
+            CHALLARoomCard(
+                title: "친구들과 강릉 여행",
+                memberCount: 11,
+                photo: nil,
+                variant: .shooting(shotCount: 24, totalCount: 24, isPreparing: false, onShoot: nil)
+            )
+            .padding(.top, 20)
             Spacer()
 
         case .actions:

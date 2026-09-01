@@ -148,18 +148,17 @@ public struct HomeView: View {
     private var roomList: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: HomeMetric.sectionSpacing) {
-                if !store.board.shooting.isEmpty {
-                    section("촬영 중") {
-                        shootingCards
-                    }
+                // 상단은 시안에 섹션 라벨이 없다 (Figma의 "촬영 중" 텍스트는 hidden).
+                if !store.board.active.isEmpty {
+                    activeCards
                 }
-                if !store.board.shooting.isEmpty, !store.board.completed.isEmpty {
+                if !store.board.active.isEmpty, !store.board.printed.isEmpty {
                     Rectangle()
                         .fill(CHALLAColor.Line.normal)
                         .frame(height: HomeMetric.dividerHeight)
                 }
-                if !store.board.completed.isEmpty {
-                    section("촬영 완료") {
+                if !store.board.printed.isEmpty {
+                    section("인화 완료") {
                         completedCards
                     }
                 }
@@ -183,19 +182,15 @@ public struct HomeView: View {
         }
     }
 
-    /// 촬영 중 — 카드가 고정 폭(200)이라 가로로 넘긴다.
-    private var shootingCards: some View {
+    /// 상단 방 카드들 — 카드가 고정 폭(200)이라 가로로 넘긴다.
+    private var activeCards: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: HomeMetric.cardSpacing) {
-                ForEach(store.board.shooting) { card in
+            HStack(spacing: HomeMetric.activeCardSpacing) {
+                ForEach(store.board.active) { card in
                     Button {
                         send(.roomTapped(card.id))
                     } label: {
-                        CHALLAAsyncImage(url: card.coverImageURL) { image in
-                            cardItem(card, photo: image)
-                        } placeholder: {
-                            cardItem(card, photo: nil)
-                        }
+                        activeCard(card)
                     }
                     .buttonStyle(.plain)
                 }
@@ -206,15 +201,38 @@ public struct HomeView: View {
         .contentMargins(.horizontal, HomeMetric.horizontalPadding, for: .scrollContent)
     }
 
-    /// 촬영 완료 — 카드가 가로 폭을 채워 세로로 쌓는다.
+    /// 카드 하나 — 인화 대기 카드만 뱃지가 초마다 줄어야 해서 TimelineView로 감싼다.
+    /// 남은 값은 State에 두지 않고 완료 예정 시각에서 그때그때 계산한다 (방 상세 카운트다운과 같은 방식).
+    /// 촬영 중·인화 완료 카드는 시간과 무관하므로 매초 재평가에서 빼 둔다 (TimelineView 밖).
+    @ViewBuilder
+    private func activeCard(_ card: RoomCard) -> some View {
+        if card.room.status == .printWaiting {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                cardImage(card, now: context.date)
+            }
+        } else {
+            // 이 카드들의 variant는 now를 쓰지 않는다 — 아무 시각이나 넘겨도 결과가 같다.
+            cardImage(card, now: .now)
+        }
+    }
+
+    /// 카드 커버 이미지 로드 슬롯. 성공·placeholder 양쪽에서 같은 카드 본문을 그린다.
+    private func cardImage(_ card: RoomCard, now: Date) -> some View {
+        CHALLAAsyncImage(url: card.coverImageURL) { image in
+            cardItem(card, photo: image, now: now)
+        } placeholder: {
+            cardItem(card, photo: nil, now: now)
+        }
+    }
+
+    /// 인화 완료 — 카드가 가로 폭을 채워 세로로 쌓는다.
     private var completedCards: some View {
-        VStack(spacing: HomeMetric.cardSpacing) {
-            ForEach(store.board.completed) { card in
+        VStack(spacing: HomeMetric.printedCardSpacing) {
+            ForEach(store.board.printed) { card in
                 Button {
                     send(.roomTapped(card.id))
                 } label: {
                     CHALLAPrintCard(
-                        status: card.room.status == .printed ? .printed : .printing,
                         title: card.room.title,
                         memberCount: card.memberCount,
                         photoURLs: card.thumbnailURLs,
@@ -227,15 +245,34 @@ public struct HomeView: View {
     }
 
     /// 대표 사진 유무만 다른 두 자리에서 카드 생성을 공유한다.
-    private func cardItem(_ card: RoomCard, photo: Image?) -> some View {
-        CHALLACardItem(
+    private func cardItem(_ card: RoomCard, photo: Image?, now: Date) -> some View {
+        CHALLARoomCard(
             title: card.room.title,
             memberCount: card.memberCount,
-            photoCount: card.room.shotPhotoCount,
             photo: photo,
-            isPreparingShoot: store.preparingShootRoomID == card.id,
-            onShoot: { send(.shootButtonTapped(card.id)) }
+            variant: variant(for: card, now: now)
         )
+    }
+
+    /// 방 상태를 카드 변형으로 옮긴다.
+    private func variant(for card: RoomCard, now: Date) -> CHALLARoomCard.Variant {
+        switch card.room.status {
+        case .shooting:
+            .shooting(
+                shotCount: card.room.shotPhotoCount,
+                totalCount: card.room.totalPhotoCount,
+                isPreparing: store.preparingShootRoomID == card.id,
+                onShoot: { send(.shootButtonTapped(card.id)) }
+            )
+        case .printWaiting:
+            // 완료 시각이 없으면(비정상 응답) 0:00:00 — 표기 규칙의 지난 시각 처리와 같은 모습으로 둔다.
+            .printWaiting(
+                remainingTime: PrintCountdown.text(until: card.room.photoPrintCompletedAt ?? now, now: now)
+            )
+        case .printed:
+            // 확인 기록은 방 상세가 진입 시점에 남긴다 — 여기서는 방을 열기만 한다.
+            .printed(onConfirm: { send(.roomTapped(card.id)) })
+        }
     }
 }
 
@@ -254,8 +291,10 @@ private enum HomeMetric {
     static let dividerHeight: CGFloat = 1
     /// 실패 문구와 다시 시도 버튼 사이. 시안이 없어 임의값.
     static let errorSpacing: CGFloat = 16
-    /// 같은 섹션 안의 카드 사이 (완료 카드 블록 200 → 다음 블록 y=224).
-    static let cardSpacing: CGFloat = 24
+    /// 상단 가로 스크롤의 카드 사이 (Figma 카드 x=16 폭 200 → 다음 카드 x=228).
+    static let activeCardSpacing: CGFloat = 12
+    /// 하단 인화 완료 목록의 블록 사이 (Figma 블록 y=70 높이 168 → 다음 블록 y=258).
+    static let printedCardSpacing: CGFloat = 20
     /// + 메뉴 상단 간격 — 상단 바 위 여백 15 + 터치 영역 40 (메뉴가 + 버튼 바로 아래 붙는다).
     static let menuTopSpacing: CGFloat = 55
     /// + 메뉴 우측 간격 — 메뉴 오른쪽 끝이 + 버튼 오른쪽과 정렬 (Figma x=154, 390−154−180).

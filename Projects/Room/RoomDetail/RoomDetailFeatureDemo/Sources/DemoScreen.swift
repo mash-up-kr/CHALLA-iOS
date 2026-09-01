@@ -2,16 +2,18 @@ import Foundation
 
 /// 데모앱을 어느 화면의 어느 상태로 시작할지 나타낸다.
 ///
-/// 실행 인자로 받는다 — 시뮬레이터를 탭으로 조작할 수 없어, 탭해야 열리는 초대 코드 팝오버는
-/// 인자로 열어 두지 않으면 시안 대조 검증에서 확인할 수 없다
+/// 실행 인자로 받는다 — 시뮬레이터를 탭으로 조작할 수 없어, 탭해야 열리는 초대 코드 팝오버·
+/// 이름 수정 드로어는 인자로 열어 두지 않으면 시안 대조 검증에서 확인할 수 없다
 /// (규약은 CLAUDE.md, 쓰는 곳은 `zeplin-ui-verification` 스킬).
 ///
 ///     xcrun simctl launch booted <bundle-id> --screen detail --state printWaiting
-///     xcrun simctl launch booted <bundle-id> --screen detail --state invite
+///     xcrun simctl launch booted <bundle-id> --screen settings --state rename
 enum DemoScreen: Hashable {
 
-    /// 방 상세. 이 데모앱의 화면은 하나뿐이라 상태만 갈린다.
+    /// 방 상세.
     case detail(DetailState)
+    /// 방 설정. 실제 앱에서는 상세 → 설정 전환을 App이 조립하지만 데모는 바로 띄운다.
+    case settings(SettingsState)
 
     /// 앞의 넷은 방이 어느 단계인지, 뒤의 둘은 겹쳐 뜨는 화면과 조회 실패다.
     enum DetailState: String, CaseIterable {
@@ -28,6 +30,14 @@ enum DemoScreen: Hashable {
         /// 상세 조회 실패 — 얼럿이 뜨고, 다시 시도해도 실패하면 다시 뜬다.
         case error
     }
+
+    /// 방 설정 화면의 상태.
+    enum SettingsState: String, CaseIterable {
+        /// 설정 화면만.
+        case `default`
+        /// 이름 수정 드로어가 열린 화면.
+        case rename
+    }
 }
 
 // MARK: - 실행 인자 파싱
@@ -41,6 +51,7 @@ extension DemoScreen {
 
         switch screen {
         case "detail": return .detail(state(stateValue, default: .shooting))
+        case "settings": return .settings(state(stateValue, default: .default))
         default:
             assertionFailure("--screen 값을 알 수 없음: \(screen)")
             return .detail(.shooting)

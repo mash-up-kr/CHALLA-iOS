@@ -57,8 +57,6 @@ public struct CHALLATopNavigation: View {
         case sub(title: String, leading: Item?, trailing: Item?)
     }
 
-    @Environment(\.challaTheme) private var theme
-
     private let variant: Variant
 
     private init(variant: Variant) {
@@ -101,11 +99,10 @@ public struct CHALLATopNavigation: View {
     /// main: 로고 왼쪽 정렬 + 우측 아이콘들.
     private func mainBar(trailing: [Item]) -> some View {
         HStack(spacing: TopNavigationMetric.contentSpacing) {
-            // Dirtyline은 소문자를 스타일된 대문자꼴로 그린다 — Figma 원문도 "home"
-            Text("home")
-                .challaFont(.heading.home)
-                .foregroundStyle(theme.accent)
-                .accessibilityLabel("홈") // VoiceOver가 영문 "home" 대신 한국어로 낭독
+            Image("HomeLogo", bundle: .module)
+                .resizable()
+                .frame(width: TopNavigationMetric.logoSize, height: TopNavigationMetric.logoSize)
+                .accessibilityLabel("홈")
             Spacer(minLength: 0)
             if !trailing.isEmpty {
                 HStack(spacing: TopNavigationMetric.iconSpacing) {
@@ -116,7 +113,8 @@ public struct CHALLATopNavigation: View {
                 }
             }
         }
-        .padding(.horizontal, TopNavigationMetric.horizontalPadding)
+        .padding(.leading, TopNavigationMetric.mainLeadingPadding)
+        .padding(.trailing, TopNavigationMetric.horizontalPadding)
     }
 
     /// sub: 타이틀은 좌우 슬롯 유무와 무관하게 항상 화면 중앙 (Figma도 절대 위치 중앙).
@@ -168,6 +166,10 @@ private enum TopNavigationMetric {
     static let barHeight: CGFloat = 70
     /// 좌우 가장자리 패딩.
     static let horizontalPadding: CGFloat = 16
+    /// main variant 왼쪽 가장자리 패딩 — 시안이 좌 22 / 우 16 비대칭이다 (sub는 16 유지).
+    static let mainLeadingPadding: CGFloat = 22
+    /// main 로고 한 변 (시안 42×42, 2색이라 template이 아닌 원본색 에셋).
+    static let logoSize: CGFloat = 42
     /// main variant의 로고·아이콘 사이 간격.
     static let contentSpacing: CGFloat = 16
     /// 우측 아이콘끼리의 간격. 터치 영역 기준이라 아이콘 사이 여백은 8+2+8 = 18로 보인다.
