@@ -63,12 +63,14 @@ struct AppFeatureTests {
 
     // MARK: - 앱 진입 분기
 
-    @Test("저장된 세션이 있으면 프로필을 조회해 자동 로그인한다")
+    @Test("저장된 세션이 있으면 스플래시 동안 프로필을 조회하고, 최소 노출이 끝나면 홈으로 간다")
     func autoLoginWithStoredSession() async {
         let channel = SessionExpirationChannel()
-        let store = TestStore(initialState: AppFeature.State.launching) {
+        let clock = TestClock()
+        let store = TestStore(initialState: AppFeature.State.launching(.init())) {
             AppFeature()
         } withDependencies: {
+            $0.continuousClock = clock
             $0.checkAppUpdateUseCase.run = { .notRequired }
             $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .restored })
             $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: { Fixture.profile })
@@ -78,7 +80,13 @@ struct AppFeatureTests {
         await store.send(.task)
         await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .restored)
+        // 프로필이 2초보다 먼저 준비돼도 스플래시가 유지되고 목적지만 맡아 둔다.
         await store.receive(\.profileResponse.success, Fixture.profile) {
+            $0 = .launching(.init(pendingDestination: .home(Fixture.profile)))
+        }
+
+        await clock.advance(by: AppFeature.splashMinimumHold)
+        await store.receive(\.splashMinimumHoldFinished) {
             $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
         }
 
@@ -86,13 +94,15 @@ struct AppFeatureTests {
         await store.finish()
     }
 
-    @Test("저장된 세션이 없으면 요청을 보내지 않고 곧바로 로그인 화면으로 간다")
+    @Test("저장된 세션이 없으면 요청을 보내지 않고 스플래시가 끝난 뒤 로그인 화면으로 간다")
     func showsLoginWithoutStoredSession() async {
         let channel = SessionExpirationChannel()
+        let clock = TestClock()
         let profileRequested = LockIsolated(false)
-        let store = TestStore(initialState: AppFeature.State.launching) {
+        let store = TestStore(initialState: AppFeature.State.launching(.init())) {
             AppFeature()
         } withDependencies: {
+            $0.continuousClock = clock
             $0.checkAppUpdateUseCase.run = { .notRequired }
             $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .signedOut })
             $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: {
@@ -105,6 +115,11 @@ struct AppFeatureTests {
         await store.send(.task)
         await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .signedOut) {
+            $0 = .launching(.init(pendingDestination: .login))
+        }
+
+        await clock.advance(by: AppFeature.splashMinimumHold)
+        await store.receive(\.splashMinimumHoldFinished) {
             $0 = .login(.init())
         }
 
@@ -129,9 +144,9 @@ struct AppFeatureTests {
         await store.send(.sessionExpired)
     }
 
-    @Test("프로필 설정을 마쳤으면 홈으로 간다")
+    @Test("최소 노출이 끝난 뒤 프로필이 오면 붙잡지 않고 곧바로 홈으로 간다")
     func entersHomeWhenProfileCompleted() async {
-        let store = Self.store(initialState: .launching)
+        let store = Self.store(initialState: .launching(.init(isMinimumHoldElapsed: true)))
 
         await store.send(.profileResponse(.success(Fixture.profile))) {
             $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
@@ -141,7 +156,7 @@ struct AppFeatureTests {
     @Test("닉네임이 없으면 프로필 설정으로 보낸다")
     func entersProfileSetupWhenNicknameMissing() async {
         let incomplete = UserProfile(id: 1)
-        let store = Self.store(initialState: .launching)
+        let store = Self.store(initialState: .launching(.init(isMinimumHoldElapsed: true)))
 
         await store.send(.profileResponse(.success(incomplete))) {
             $0 = .profileSetup(.init())
@@ -153,7 +168,7 @@ struct AppFeatureTests {
         arguments: [UserError.unauthorized, .network, .unknown]
     )
     func resetsToLoginOnProfileFailure(error: UserError) async {
-        let store = Self.store(initialState: .launching)
+        let store = Self.store(initialState: .launching(.init(isMinimumHoldElapsed: true)))
 
         await store.send(.profileResponse(.failure(error))) {
             $0 = .login(.init())
@@ -175,8 +190,9 @@ struct AppFeatureTests {
             $0.pushTokenSynchronizer = synchronizer
         }
 
+        // 로그인 직후 재진입은 최소 노출을 다시 적용하지 않는다 — 프로필이 오면 바로 홈으로 간다.
         await store.send(.login(.delegate(.loginSucceeded))) {
-            $0 = .launching
+            $0 = .launching(.init(isMinimumHoldElapsed: true))
         }
         await store.receive(\.profileResponse.success, Fixture.profile) {
             $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
