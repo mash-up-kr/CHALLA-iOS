@@ -183,30 +183,46 @@ public struct HomeView: View {
     }
 
     /// 상단 방 카드들 — 카드가 고정 폭(200)이라 가로로 넘긴다.
-    /// 인화 대기 뱃지가 초마다 줄어야 해서 TimelineView로 감싼다 — 남은 값은 State에 두지 않고
-    /// 완료 예정 시각에서 그때그때 계산한다 (방 상세 카운트다운과 같은 방식).
     private var activeCards: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: HomeMetric.activeCardSpacing) {
-                    ForEach(store.board.active) { card in
-                        Button {
-                            send(.roomTapped(card.id))
-                        } label: {
-                            CHALLAAsyncImage(url: card.coverImageURL) { image in
-                                cardItem(card, photo: image, now: context.date)
-                            } placeholder: {
-                                cardItem(card, photo: nil, now: context.date)
-                            }
-                        }
-                        .buttonStyle(.plain)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: HomeMetric.activeCardSpacing) {
+                ForEach(store.board.active) { card in
+                    Button {
+                        send(.roomTapped(card.id))
+                    } label: {
+                        activeCard(card)
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
         // 가로 스크롤이 화면 가장자리까지 닿도록 좌우 패딩을 상쇄했다가 안쪽에서 되돌린다.
         .padding(.horizontal, -HomeMetric.horizontalPadding)
         .contentMargins(.horizontal, HomeMetric.horizontalPadding, for: .scrollContent)
+    }
+
+    /// 카드 하나 — 인화 대기 카드만 뱃지가 초마다 줄어야 해서 TimelineView로 감싼다.
+    /// 남은 값은 State에 두지 않고 완료 예정 시각에서 그때그때 계산한다 (방 상세 카운트다운과 같은 방식).
+    /// 촬영 중·인화 완료 카드는 시간과 무관하므로 매초 재평가에서 빼 둔다 (TimelineView 밖).
+    @ViewBuilder
+    private func activeCard(_ card: RoomCard) -> some View {
+        if card.room.status == .printWaiting {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                cardImage(card, now: context.date)
+            }
+        } else {
+            // 이 카드들의 variant는 now를 쓰지 않는다 — 아무 시각이나 넘겨도 결과가 같다.
+            cardImage(card, now: .now)
+        }
+    }
+
+    /// 카드 커버 이미지 로드 슬롯. 성공·placeholder 양쪽에서 같은 카드 본문을 그린다.
+    private func cardImage(_ card: RoomCard, now: Date) -> some View {
+        CHALLAAsyncImage(url: card.coverImageURL) { image in
+            cardItem(card, photo: image, now: now)
+        } placeholder: {
+            cardItem(card, photo: nil, now: now)
+        }
     }
 
     /// 인화 완료 — 카드가 가로 폭을 채워 세로로 쌓는다.
