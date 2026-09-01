@@ -15,7 +15,7 @@ public struct RootFeature {
     @ObservableState
     public struct State: Equatable {
 
-        public var app: AppFeature.State = .launching
+        public var app: AppFeature.State = .launching(AppFeature.SplashScreen())
 
         /// 지금 떠 있는 참여 안내. nil이면 숨김.
         public var joinToast: RoomMemberJoined?
