@@ -2,7 +2,7 @@ import CHALLADesignSystem
 import SwiftUI
 
 /// Component > Profile Bar 검수 화면.
-/// 아바타(사진/placeholder) · 바(9명 이하/초과 +N/URL 로드) · 멤버 팝오버(열기/스크롤/복사)를 나열한다.
+/// 아바타(사진/placeholder) · 바(9명 이하/초과 +N/URL 로드) · 멤버 팝오버(열기/스크롤/복사/툴팁)를 나열한다.
 /// 사진은 picsum.photos에서 실사진을 받아 주입한다 — 인터넷이 없으면 placeholder만 보인다.
 struct ProfileBarGallery: View {
 
@@ -79,24 +79,25 @@ struct ProfileBarGallery: View {
 
     // MARK: - Popover 섹션
 
-    /// 바를 화면 중앙에 놓는 이유: 팝오버(폭 210)가 바 중앙 기준이라 왼쪽 배치 시 화면 밖으로 잘린다.
+    /// 바를 화면 중앙에 놓는 이유: 팝오버(폭 200)가 바 중앙 기준이라 왼쪽 배치 시 화면 밖으로 잘린다.
     private var popoverSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             galleryTitle("Popover")
             galleryCaption("바 탭 = 열기 · 바깥 탭 = 닫기 · 복사 콜백 \(copyCount)회")
-            galleryCaption("4명 — 내용 높이만큼")
+            galleryCaption("4명 — 내용 높이만큼 + 아래 툴팁 (popoverTooltip)")
             sampleImages(seeds: ["p1", "p2"]) { photos in
                 CHALLAProfileBar(
                     members: makeMembers(count: 4, photos: photos),
                     inviteCode: "1928121",
                     isPresented: $isFewPresented,
+                    popoverTooltip: "초대 코드로 친구를 초대해보세요",
                     onCopyInviteCode: { copyCount += 1 }
                 )
             }
             .frame(maxWidth: .infinity)
             // 열린 팝오버가 뒤(아래)에 선언된 형제 뷰에 가려지지 않게 띄운다.
             .zIndex(isFewPresented ? 1 : 0)
-            galleryCaption("13명 — 최대 450에서 잘리고 리스트 스크롤")
+            galleryCaption("13명 — 최대 420에서 잘리고 리스트 스크롤, 툴팁 없음")
             sampleImages(seeds: (1 ... 9).map { "m\($0)" }) { photos in
                 CHALLAProfileBar(
                     members: makeMembers(count: 13, photos: photos),
@@ -107,7 +108,7 @@ struct ProfileBarGallery: View {
             }
             .frame(maxWidth: .infinity)
             .zIndex(isManyPresented ? 1 : 0)
-            // 팝오버(최대 450 + 간격)가 화면 밖으로 잘리지 않도록 스크롤 공간 확보.
+            // 팝오버(최대 420 + 간격)가 화면 밖으로 잘리지 않도록 스크롤 공간 확보.
             Color.clear.frame(height: 500)
         }
         // 실제 화면엔 ProfileBar가 하나뿐이다 — 갤러리에서 두 팝오버가 동시에 열려

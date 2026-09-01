@@ -6,7 +6,9 @@ import SwiftUI
 /// 닫기는 바 재탭 또는 팝오버 바깥 탭.
 ///
 /// 열림 상태는 호출부가 소유한다(`isPresented`) — 드로어와 같은 방식이라 TCA Store로도 다룰 수 있다.
-/// 팝오버(폭 210)는 바 중앙 아래에 뜬다 — 바를 화면 가로 중앙에 둘 것(가장자리면 잘림).
+/// 팝오버(폭 200)는 바 중앙 아래에 뜬다 — 바를 화면 가로 중앙에 둘 것(가장자리면 잘림).
+/// `popoverTooltip`을 주면 팝오버 아래에 안내 말풍선이 붙는다 — 언제 띄울지는 호출부가 정한다
+/// (온보딩 기록 등은 이 컴포넌트가 모른다).
 /// 열린 팝오버가 화면의 다른 뷰에 덮여 보이면, 이 컴포넌트에 `.zIndex(1)`을 붙여 위로 올린다
 /// (SwiftUI는 나중에 선언된 뷰를 위에 그리기 때문 — ProfileBarGallery의 팝오버 섹션이 실제 예).
 ///
@@ -75,22 +77,27 @@ public struct CHALLAProfileBar: View {
     private let members: [Member]
     private let inviteCode: String
     @Binding private var isPresented: Bool
+    private let popoverTooltip: String?
     private let onCopyInviteCode: () -> Void
 
     /// - Parameters:
     ///   - members: 방 입장 순 전체 참여자. 바에는 앞 9명만, 팝오버에는 전부 그린다.
     ///   - inviteCode: 팝오버 상단에 표시할 초대 코드.
     ///   - isPresented: 팝오버 열림 상태. 바 탭이 토글하고, 호출부도 언제든 바꿀 수 있다.
+    ///   - popoverTooltip: 팝오버 아래에 붙일 안내 문구. nil이면 말풍선 없음 (기본).
+    ///     팝오버가 열려 있을 때만 그려진다 — 닫힌 바 아래에 말풍선만 남지 않는다.
     ///   - onCopyInviteCode: 복사 버튼 탭 콜백.
     public init(
         members: [Member],
         inviteCode: String,
         isPresented: Binding<Bool>,
+        popoverTooltip: String? = nil,
         onCopyInviteCode: @escaping () -> Void
     ) {
         self.members = members
         self.inviteCode = inviteCode
         self._isPresented = isPresented
+        self.popoverTooltip = popoverTooltip
         self.onCopyInviteCode = onCopyInviteCode
     }
 
@@ -117,9 +124,14 @@ public struct CHALLAProfileBar: View {
             }
             .overlay(alignment: .top) {
                 if isPresented {
-                    panel
-                        .offset(y: ProfileBarMetric.barHeight + ProfileBarMetric.panelGap)
-                        .transition(.opacity)
+                    VStack(spacing: ProfileBarMetric.tooltipGap) {
+                        panel
+                        if let popoverTooltip {
+                            CHALLATooltip(popoverTooltip, position: .bottom, arrowAlignment: .center)
+                        }
+                    }
+                    .offset(y: ProfileBarMetric.barHeight + ProfileBarMetric.panelGap)
+                    .transition(.opacity)
                 }
             }
             .animation(.easeInOut(duration: ProfileBarMetric.toggleDuration), value: isPresented)
@@ -256,9 +268,9 @@ public struct CHALLAProfileBar: View {
         }
     }
 
-    /// 팝오버 전체 높이 = 고정 요소 + 리스트 내용 높이, 상한 450 (Figma "maxheight: 450px").
+    /// 팝오버 전체 높이 = 고정 요소 + 리스트 내용 높이, 상한 420 (Figma "max-height: 420px").
     /// overlay가 제안하는 크기는 바(40pt) 기준이라 믿을 수 없어, 행 높이가 고정(30)인 점을 이용해
-    /// 직접 계산한다 — 인원이 적으면 내용만큼, 많으면 450에서 잘리고 리스트가 스크롤된다.
+    /// 직접 계산한다 — 인원이 적으면 내용만큼, 많으면 420에서 잘리고 리스트가 스크롤된다.
     private var panelHeight: CGFloat {
         let rowCount = CGFloat(members.count)
         let listHeight = rowCount * ProfileBarMetric.rowHeight
@@ -287,10 +299,12 @@ private enum ProfileBarMetric {
 
     // MARK: 팝오버 틀
 
-    static let panelGap: CGFloat = 14
-    /// 폭은 실측 근사 — 디자이너 검수로 확정. 최대 높이는 시안 주석 450.
-    static let panelWidth: CGFloat = 210
-    static let panelMaxHeight: CGFloat = 450
+    static let panelGap: CGFloat = 8
+    /// 2차 시안 실측 (7522:35546 · 6204:48497). 최대 높이는 프레임 max-height 420.
+    static let panelWidth: CGFloat = 200
+    static let panelMaxHeight: CGFloat = 420
+    /// 팝오버 하단에서 툴팁까지.
+    static let tooltipGap: CGFloat = 8
     static let panelPadding: CGFloat = 20
     static let panelSectionGap: CGFloat = 12
     static let dividerHeight: CGFloat = 1
