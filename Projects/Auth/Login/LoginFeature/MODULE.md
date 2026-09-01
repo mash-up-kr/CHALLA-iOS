@@ -14,15 +14,17 @@ Store별 `withDependencies`로.
 
 **프레임워크 타입**: `.staticFramework`로 선언한다. 동적 dylib으로 만들 경우 정적인 `AuthDomain`·`Dependencies`가
 이 framework과 앱 바이너리(AuthData 경유)에 각각 복제 링크되어, TCA `@TaskLocal` 기반 `@Dependency` 주입이
-리소스 간에 갈라질 수 있기 때문이다. 리소스(소셜 아이콘 · 브랜드 심볼)는 Tuist가 합성하는 리소스 번들 + `Bundle.module`로 동작한다.
+리소스 간에 갈라질 수 있기 때문이다. 리소스(소셜 아이콘 · 온보딩 이미지 5장)는 Tuist가 합성하는 리소스 번들 + `Bundle.module`로 동작한다.
 
 ## 공개 API
 
 ### `LoginFeature` (@Reducer)
 - `State` — `inFlightProvider: AuthProvider?` (진행 중 provider, `nil`=유휴) ·
+  `onboardingPage: Int` (온보딩 페이저 현재 페이지, 0~4) ·
   `alert: AlertState?`(@Presents) · `isLoading`(계산 — 두 버튼 비활성화 근거)
 - `Action` (taxonomy)
-  - `view(View)` — `kakaoLoginButtonTapped` · `appleLoginButtonTapped` (UI 전용, `@ViewAction`용)
+  - `view(View)` — `kakaoLoginButtonTapped` · `appleLoginButtonTapped` ·
+    `onboardingPageChanged(Int)` (UI 전용, `@ViewAction`용)
   - `delegate(Delegate)` — parent(App)와의 유일한 통신 채널
   - `loginResponse(Result<LoginResult, AuthError>)` — 내부 비동기 결과
   - `alert(PresentationAction<Alert>)` — 확인 버튼만 있는 얼럿 (`Alert`는 빈 enum)
@@ -38,13 +40,16 @@ Store별 `withDependencies`로.
 
 ### `LoginView` (SwiftUI, `@ViewAction(for: LoginFeature.self)`)
 - `init(store: StoreOf<LoginFeature>)` — App/Demo가 Store를 만들어 주입한다
-- 구성: 배경(`Background.surface`) → 중앙 `LoginBrandView`(브랜드 심볼 + `challa` 워드마크 + 태그라인)
-  → 하단 소셜 버튼 스택(카카오/애플) + 실패 얼럿 바인딩(`$store.scope(state: \.alert, ...)`)
+- 구성: 배경(`Background.surface`) → 상단 `LoginOnboardingPagerView`(온보딩 이미지+타이틀 5페이지
+  좌우 스와이프 + 인디케이터) → 하단 소셜 버튼 스택(카카오/애플) + 실패 얼럿 바인딩(`$store.scope(state: \.alert, ...)`)
+- 온보딩 페이저: 스와이프는 `$store.onboardingPage.sending(\.view.onboardingPageChanged)` 바인딩으로
+  리듀서에 전달된다. 이미지 에셋(onboarding1~5, 2x·3x)은 시안 contents 영역(390×442) 전체 export본으로,
+  기기 프레임·하단 페이드 포함·배경 투명이라 화면 폭에 맞춰 깔기만 한다
 - 로딩 UX: 탭한 버튼만 스피너(`inFlightProvider`), 두 버튼 모두 비활성(`isLoading`)
-- VoiceOver: 심볼·워드마크는 "challa" 하나로 읽고(`children: .ignore`), 태그라인은 그대로 읽는다.
+- VoiceOver: 인디케이터 점 5개는 숨기고(페이지 내용은 타이틀 텍스트로 전달),
   소셜 버튼은 아이콘·스피너를 합쳐 버튼 하나로 읽는다 (label=타이틀, value=진행 상태 "로그인 중")
 - 색·타이포는 DS 토큰만 사용 (`CHALLAColor.Social.*`, `CHALLAFont.*` — 원시 hex/Font.custom 없음)
-- 하위 컴포넌트 `LoginBrandView`·`SocialLoginButton`은 internal (모듈 밖 비공개)
+- 하위 컴포넌트 `LoginOnboardingPagerView`·`SocialLoginButton`은 internal (모듈 밖 비공개)
 
 ## 의존성
 
@@ -59,7 +64,8 @@ Store별 `withDependencies`로.
 mise exec -- tuist test LoginFeature
 ```
 
-TCA `TestStore` 기반 Swift Testing — `LoginFeatureTests` (7개):
+TCA `TestStore` 기반 Swift Testing — `LoginFeatureTests` (8개):
+- 온보딩 페이저 스와이프 → `onboardingPage` 갱신
 - 카카오/애플 탭 → 로딩 → 성공 → `delegate.loginSucceeded` 전달
 - 실패(`.server`) → "로그인 실패" 얼럿 세팅 → 확인으로 해제
 - 취소(`.cancelled`) → 얼럿 없이 `inFlightProvider`만 해제

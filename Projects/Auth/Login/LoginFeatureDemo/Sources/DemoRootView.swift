@@ -24,12 +24,27 @@ struct DemoRootView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                NavigationLink("실서버(AuthData) 로그인") { LoginView(store: liveStore) }
-                NavigationLink("Mock 로그인 (신규 유저)") { LoginView(store: mockStore) }
+        // 실행 인자 진입 규약 (--screen login) — 시뮬레이터를 탭 없이 UI 검증하기 위한 통로.
+        if Self.launchArgumentValue(for: "--screen") == "login" {
+            LoginView(store: mockStore)
+        } else {
+            NavigationStack {
+                List {
+                    NavigationLink("실서버(AuthData) 로그인") { LoginView(store: liveStore) }
+                    NavigationLink("Mock 로그인 (신규 유저)") { LoginView(store: mockStore) }
+                }
+                .navigationTitle("로그인 데모")
             }
-            .navigationTitle("로그인 데모")
         }
+    }
+
+    /// 실행 인자에서 플래그 바로 다음 값을 읽는다 (예: `--screen login` → "login").
+    /// 잘못된 인자는 무시하고 기본 화면으로 뜬다 (다른 데모앱들의 파싱 정책과 동일).
+    private static func launchArgumentValue(for flag: String) -> String? {
+        let arguments = CommandLine.arguments
+        guard let index = arguments.firstIndex(of: flag),
+              arguments.indices.contains(index + 1)
+        else { return nil }
+        return arguments[index + 1]
     }
 }
