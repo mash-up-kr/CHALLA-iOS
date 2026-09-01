@@ -2,6 +2,7 @@ import CameraFeature
 import CameraSession
 import ChatRoomFeature
 import ComposableArchitecture
+import Foundation
 import HomeFeature
 import PhotoDetailFeature
 import ProfileSetupFeature
@@ -17,6 +18,46 @@ import UserDomain
 // `AppFeature.State`가 enum이라 다음 화면으로 가면 이전 화면의 State는 사라진다.
 // 그래서 뒤로가기로 이전 화면을 다시 만들 때 필요한 값을 각 Screen이 미리 들고 다닌다.
 // 어느 delegate가 어느 Screen을 만들지는 `AppFeature.swift`의 "화면 전이" 부분이 정한다.
+
+// MARK: - SplashScreen
+
+public extension AppFeature {
+
+    /// 스플래시(`launching`) 화면 State — 최소 노출 시간을 지키기 위한 게이트.
+    ///
+    /// 노출이 끝나기 전에 다음 화면이 정해지면 목적지를 맡아 두고,
+    /// `splashMinimumHoldFinished`가 오는 순간 그 화면으로 전이한다.
+    @ObservableState
+    struct SplashScreen: Equatable {
+        /// 최소 노출이 이미 끝났는지. 로그인 직후 재진입처럼 다시 오래 보일 필요가 없으면 true로 시작한다.
+        public var isMinimumHoldElapsed: Bool
+        /// 최소 노출 중에 도착한 다음 화면.
+        public var pendingDestination: SplashDestination?
+
+        public init(
+            isMinimumHoldElapsed: Bool = false,
+            pendingDestination: SplashDestination? = nil
+        ) {
+            self.isMinimumHoldElapsed = isMinimumHoldElapsed
+            self.pendingDestination = pendingDestination
+        }
+    }
+
+    /// 스플래시가 끝난 뒤 이동할 화면. 화면 State는 실제로 전이하는 순간에 만든다.
+    enum SplashDestination: Equatable {
+        case forceUpdate(storeURL: URL?)
+        case login
+        case profileSetup
+        case home(UserProfile)
+
+        var isForceUpdate: Bool {
+            if case .forceUpdate = self {
+                return true
+            }
+            return false
+        }
+    }
+}
 
 // MARK: - HomeScreen
 

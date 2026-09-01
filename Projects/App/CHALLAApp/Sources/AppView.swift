@@ -139,7 +139,7 @@ public struct AppView: View {
         Group {
             switch store.state {
             case .launching:
-                LaunchingView()
+                SplashView()
                     .screenLayer(.launching, coordinator: transitionCoordinator)
 
             case .login:
@@ -206,7 +206,7 @@ public struct AppView: View {
 
             case .forceUpdate:
                 // 알럿 뒤 배경. 강제 업데이트는 실행 직후 판정이라 스플래시가 그대로 남는 게 자연스럽다.
-                LaunchingView()
+                SplashView()
             }
         }
     }

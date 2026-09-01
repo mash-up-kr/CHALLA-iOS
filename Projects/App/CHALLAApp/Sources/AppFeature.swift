@@ -24,7 +24,7 @@ public struct AppFeature {
     /// 앱의 큰 흐름 단계. 동시에 두 화면이 살아 있을 수 없으므로 enum으로 못 박는다.
     @ObservableState
     public enum State: Equatable {
-        case launching
+        case launching(SplashScreen)
         case login(LoginFeature.State)
         case profileSetup(ProfileSetupFeature.State)
         case home(HomeScreen)
@@ -84,6 +84,8 @@ public struct AppFeature {
 
         /// 버전 체크 결과. 실패는 여기 오기 전에 `.notRequired`로 접힌다 (fail-open).
         case updateCheckResponse(AppUpdateRequirement)
+        /// 스플래시 최소 노출 시간이 끝났다. 맡아둔 다음 화면이 있으면 그리로 전이한다.
+        case splashMinimumHoldFinished
         /// 강제 업데이트 알럿의 '확인'.
         case forceUpdateConfirmTapped
         /// 엣지 스와이프 pop 제스처 완료. 자식의 뒤로가기 delegate와 같은 곳으로 되돌린다.
@@ -170,7 +172,7 @@ extension AppFeature {
             case .task:
                 // 버전 체크는 실행 직후 1회다 — 뷰 재생성으로 task가 다시 와도 재검사하지 않는다.
                 guard case .launching = state else { return .none }
-                return checkAppUpdate()
+                return .merge(checkAppUpdate(), holdSplash())
 
             // 세션 복원은 버전 체크를 통과한 뒤에 시작한다 — 강제 업데이트 화면에서는 아무것도 조회하지 않는다.
             case .updateCheckResponse(.notRequired):
@@ -178,7 +180,17 @@ extension AppFeature {
 
             case let .updateCheckResponse(.forced(storeURL)):
                 // 여기서 나가는 전이는 없다. 업데이트해야만 앱을 쓸 수 있다.
-                state = .forceUpdate(storeURL: storeURL)
+                leaveSplash(for: .forceUpdate(storeURL: storeURL), &state)
+                return .none
+
+            case .splashMinimumHoldFinished:
+                guard case var .launching(splash) = state else { return .none }
+                if let destination = splash.pendingDestination {
+                    state = Self.resolvedState(for: destination)
+                } else {
+                    splash.isMinimumHoldElapsed = true
+                    state = .launching(splash)
+                }
                 return .none
 
             case .forceUpdateConfirmTapped:
@@ -189,30 +201,39 @@ extension AppFeature {
                 return fetchMyProfile()
 
             case .sessionRestored(.signedOut):
-                state = .login(LoginFeature.State())
+                leaveSplash(for: .login, &state)
                 return .none
 
             case .sessionExpired:
                 guard state.screenID != .login else { return .none }
-                state = .login(LoginFeature.State())
+                if case .launching = state {
+                    leaveSplash(for: .login, &state)
+                } else {
+                    state = .login(LoginFeature.State())
+                }
                 return .cancel(id: CancelID.profile)
 
+            // 늦게 도착한 프로필 응답이 이미 정해진 목적지를 덮지 못하게 하는 방어선 —
+            // 강제 업데이트 화면, 그리고 세션 만료가 스플래시에 맡아둔 login이 여기 걸린다.
             case let .profileResponse(.success(profile)):
-                // 늦게 도착한 프로필 응답이 강제 업데이트 화면을 덮지 못하게 하는 방어선.
-                guard case .launching = state else { return .none }
-                state = profile.isProfileCompleted
-                    ? .home(HomeScreen(profile: profile))
-                    : .profileSetup(ProfileSetupFeature.State())
+                guard case let .launching(splash) = state, splash.pendingDestination == nil
+                else { return .none }
+                leaveSplash(
+                    for: profile.isProfileCompleted ? .home(profile) : .profileSetup,
+                    &state
+                )
                 return .none
 
             case .profileResponse(.failure):
-                guard case .launching = state else { return .none }
+                guard case let .launching(splash) = state, splash.pendingDestination == nil
+                else { return .none }
                 // 미로그인(401)도 조회 실패도 결론은 같다 — 로그인부터 다시.
-                state = .login(LoginFeature.State())
+                leaveSplash(for: .login, &state)
                 return .none
 
             case .login(.delegate(.loginSucceeded)):
-                state = .launching
+                // 프로필 조회 동안만 잠깐 거치는 재진입이라 최소 노출을 다시 적용하지 않는다.
+                state = .launching(SplashScreen(isMinimumHoldElapsed: true))
                 // 여기서 한번 sync 처리.
                 return .merge(
                     fetchMyProfile(),
@@ -434,11 +455,54 @@ extension AppFeature {
     }
 }
 
+// MARK: - 스플래시 게이트
+
+extension AppFeature {
+
+    /// 스플래시 최소 노출 시간. 그 전에 준비가 끝나도 이 시간까지는 스플래시를 유지한다 (#98).
+    static let splashMinimumHold: Duration = .seconds(2)
+
+    /// 스플래시에서 다음 화면으로 나간다 — 최소 노출이 끝나기 전이면 목적지를 맡아 두고 화면은 유지한다.
+    /// 스플래시가 아닌 화면에서 부르면 아무것도 하지 않는다.
+    private func leaveSplash(for destination: SplashDestination, _ state: inout State) {
+        guard case var .launching(splash) = state else { return }
+        // 강제 업데이트가 먼저 잡혔으면 늦게 온 응답이 덮지 못한다.
+        guard splash.pendingDestination?.isForceUpdate != true else { return }
+        if splash.isMinimumHoldElapsed {
+            state = Self.resolvedState(for: destination)
+        } else {
+            splash.pendingDestination = destination
+            state = .launching(splash)
+        }
+    }
+
+    private static func resolvedState(for destination: SplashDestination) -> State {
+        switch destination {
+        case let .forceUpdate(storeURL):
+            return .forceUpdate(storeURL: storeURL)
+        case .login:
+            return .login(LoginFeature.State())
+        case .profileSetup:
+            return .profileSetup(ProfileSetupFeature.State())
+        case let .home(profile):
+            return .home(HomeScreen(profile: profile))
+        }
+    }
+
+    private func holdSplash() -> Effect<Action> {
+        .run { [clock] send in
+            try await clock.sleep(for: Self.splashMinimumHold)
+            await send(.splashMinimumHoldFinished)
+        }
+        .cancellable(id: CancelID.splashHold, cancelInFlight: true)
+    }
+}
+
 // MARK: - Effects
 
 extension AppFeature {
 
-    private enum CancelID { case profile, sessionExpiration, updateCheck }
+    private enum CancelID { case profile, sessionExpiration, updateCheck, splashHold }
 
     /// 실행 직후 1회 버전 체크.
     /// 실패는 `.notRequired`로 접는다 — 체크 서버가 죽었다고 전 사용자 앱을 스플래시에 가둘 수는 없다.

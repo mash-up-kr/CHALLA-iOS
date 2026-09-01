@@ -34,7 +34,7 @@ struct CHALLAApp: App {
                 clearImageCache: { await loader?.removeAll() }
             )
         }
-        store = Store(initialState: .launching) {
+        store = Store(initialState: .launching(AppFeature.SplashScreen())) {
             AppFeature()
         }
     }
