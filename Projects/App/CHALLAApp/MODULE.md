@@ -15,7 +15,7 @@
 
 | 단계 | 다음 |
 | :-- | :-- |
-| `launching` | 버전 체크 → 강제 업데이트 필요 시 `forceUpdate` / 불필요 시 저장 세션 없음 → `login`, 있으면 프로필 조회 → 성공 시 `home`·`profileSetup`, 실패 시 `login` |
+| `launching` | 버전 체크 → 강제 업데이트 필요 시 `forceUpdate` / 불필요 시 저장 세션 없음 → `login`, 있으면 프로필 조회 → 성공 시 `home`·`profileSetup`, 실패 시 `login`. 어느 목적지든 **스플래시 최소 노출 2초**(`splashMinimumHold`)를 지킨다 — 먼저 준비되면 `SplashScreen.pendingDestination`에 맡아 뒀다가 노출이 끝나는 순간 전이한다 (#98) |
 | (모든 화면) | 세션 만료 알림 → `login` (이미 `login`이면 무시) |
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `home` |
