@@ -34,6 +34,8 @@
     스토리지 PUT(서명 URL·5분 만료·Authorization 금지) → `POST /photos`(완료 통보) →
     응답의 `remainedPhotoCount` 반환. PUT 실패 시 완료 통보 없이 던진다 — 재시도는 발급부터
     (`DefaultProfileImageUploader`와 같은 구조)
+  - 촬영본이 서버 상한(5MB)을 넘으면 발급 전에 `CHALLAImageKit.ImageCompressor`로 상한 이하로
+    압축한다 — 필터가 이미 픽셀에 구워진 JPEG을 재인코딩하므로 필터는 보존된다. 이하면 무손실 통과
 - `struct InMemoryCameraFilterRepository: CameraFilterRepository` —
   `init(filters:lutDataByName:latency:failure:)`. 넘겨준 목록·LUT를 그대로 돌려준다
 - `actor InMemoryPhotoUploader: PhotoUploader` — `init(remainedPhotoCounts:latency:failure:)`.
@@ -73,7 +75,8 @@
 
 ## 의존성
 
-- **이 모듈이 의존**: `PhotoDomain`(인터페이스·엔티티·오류) · `CHALLANetwork`(HTTPClient·Endpoint)
+- **이 모듈이 의존**: `PhotoDomain`(인터페이스·엔티티·오류) · `CHALLANetwork`(HTTPClient·Endpoint) ·
+  `CHALLAImageKit`(업로드 압축)
 - **이 모듈에 의존**: `CHALLAApp` · `CameraFeatureDemo` — 합성 루트만 import한다
   (아키텍처 규칙 2: Feature는 Data를 import하지 않는다)
 
@@ -92,7 +95,7 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `DefaultCameraFilterRepositoryTests` — 목록 경로·bearer 확인, `success:false` 언랩,
   LUT 무토큰 다운로드와 캐시(재호출 시 요청 1회), transport→`.network` 정규화
 - `DefaultPhotoUploaderTests` — 발급→PUT→완료 3단계 순서와 각 단계의 인증·본문 계약,
-  PUT 실패 시 완료 통보 생략, 409→`.photoExhausted` 잠정 매핑
+  5MB 초과 촬영본의 압축 업로드, PUT 실패 시 완료 통보 생략, 409→`.photoExhausted` 잠정 매핑
 - `InMemoryPhotoUploaderTests` — 차감·소진·주입 실패
 - `DefaultCameraOnboardingRepositoryTests` — 기록 없음 = 미열람, 기록 후 유지, 앱 재실행 시 유지
   (`Tests/Support/InMemoryCameraOnboardingStorage`로 실제 `UserDefaults`를 건드리지 않는다)

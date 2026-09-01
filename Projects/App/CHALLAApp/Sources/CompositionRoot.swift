@@ -1,3 +1,5 @@
+import AppData
+import AppDomain
 import AuthData
 import AuthDomain
 import CameraFeature // CameraFilterCatalog — 진입 전에 LUT를 등록해 둔다
@@ -59,6 +61,7 @@ enum CompositionRoot {
         )
         values.pushTokenSynchronizer = pushSynchronizer
 
+        registerAppUpdate(into: &values)
         // 로그아웃은 계정 관리 어댑터도 쓴다. 값을 돌려받아 넘기는 이유는 registerAuth 주석 참고.
         let logout = registerAuth(
             into: &values,
@@ -81,6 +84,13 @@ enum CompositionRoot {
                 clearImageCache: clearImageCache
             )
         )
+
+        #if DEBUG
+            // 서버는 현재 버전에 강제 업데이트를 내리지 않으므로, 화면을 눈으로 확인하는 수단은 여전히 이 인자뿐이다.
+            if ProcessInfo.processInfo.arguments.contains("--force-update") {
+                values.checkAppUpdateUseCase.run = { .forced(storeURL: nil) }
+            }
+        #endif
     }
 
     /// 갱신 전용 클라이언트에 얹는다 — 인증 헤더도 재시도도 붙이지 않는다.
@@ -117,6 +127,22 @@ enum CompositionRoot {
                 LoggingInterceptor(level: Self.loggingLevel)
             ],
             retrier: TokenRefreshRetrier(refresher: refresher)
+        )
+    }
+
+    /// 버전 체크는 로그인 전(스플래시)이라 토큰이 필요 없어 공용 client를 쓰지 않고,
+    /// 응답이 늦으면 스플래시가 그만큼 멈추므로 타임아웃을 짧게 잡은 전용 세션을 쓴다.
+    private static func registerAppUpdate(into values: inout DependencyValues) {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 3
+        let client = DefaultHTTPClient(
+            session: URLSession(configuration: configuration),
+            interceptors: [LoggingInterceptor(level: .basic)]
+        )
+        values.checkAppUpdateUseCase = .live(
+            repository: DefaultAppVersionRepository(client: client),
+            // 값이 없으면 빈 문자열로 보낸다 — 서버가 거절해도 fail-open이라 앱은 진행된다.
+            currentVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         )
     }
 

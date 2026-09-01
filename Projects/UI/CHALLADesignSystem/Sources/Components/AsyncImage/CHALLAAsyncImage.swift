@@ -120,6 +120,10 @@ public struct CHALLAAsyncImage<Content: View, Placeholder: View>: View {
         } catch {
             // 취소가 아닌 실제 실패(HTTP 오류·재시도 소진·손상 이미지 등)만 기록한다.
             // 실패 시 표시는 placeholder 유지 — 별도 실패 UI를 두지 않는 것이 #25 결정.
+            // 실패는 placeholder로만 보여 화면에서 구분이 안 된다 — 개발 중에는 로그로 드러낸다.
+            #if DEBUG
+                print("[CHALLAAsyncImage] 로드 실패:", url.absoluteString.suffix(24), "-", error)
+            #endif
             phase = .failure(error)
         }
     }

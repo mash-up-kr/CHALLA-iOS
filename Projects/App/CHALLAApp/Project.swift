@@ -36,6 +36,7 @@ let project = Project.makeAppProject(
     ),
     usesAPIEnvironment: true,
     dependencies: [
+        .appData, .appDomain,
         .loginFeature, .authData, .authDomain,
         .profileSetupFeature, .userData, .userDomain,
         .settingFeature, .settingData, .settingDomain,
