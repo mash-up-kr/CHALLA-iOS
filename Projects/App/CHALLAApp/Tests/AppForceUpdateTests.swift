@@ -35,9 +35,11 @@ struct AppForceUpdateTests {
     @Test("버전 체크를 통과하면 프로필 조회로 이어진다")
     func proceedsToProfileAfterUpdateCheckPasses() async {
         let channel = SessionExpirationChannel()
-        let store = TestStore(initialState: AppFeature.State.launching) {
+        let clock = TestClock()
+        let store = TestStore(initialState: AppFeature.State.launching(.init())) {
             AppFeature()
         } withDependencies: {
+            $0.continuousClock = clock
             $0.checkAppUpdateUseCase.run = { .notRequired }
             $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .restored })
             $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: { Fixture.profile })
@@ -48,6 +50,11 @@ struct AppForceUpdateTests {
         await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .restored)
         await store.receive(\.profileResponse.success, Fixture.profile) {
+            $0 = .launching(.init(pendingDestination: .home(Fixture.profile)))
+        }
+
+        await clock.advance(by: AppFeature.splashMinimumHold)
+        await store.receive(\.splashMinimumHoldFinished) {
             $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
         }
 
@@ -58,14 +65,22 @@ struct AppForceUpdateTests {
     @Test("강제 업데이트면 스토어 주소를 들고 화면이 막히고 프로필 조회를 시작하지 않는다")
     func blocksOnForcedUpdateWithoutFetchingProfile() async {
         // fetchMyProfileUseCase는 일부러 주입하지 않는다 — 호출되면 unimplemented로 실패한다.
-        let store = TestStore(initialState: AppFeature.State.launching) {
+        let clock = TestClock()
+        let store = TestStore(initialState: AppFeature.State.launching(.init())) {
             AppFeature()
         } withDependencies: {
+            $0.continuousClock = clock
             $0.checkAppUpdateUseCase.run = { .forced(storeURL: Fixture.appStore) }
         }
 
         await store.send(.task)
+        // 강제 업데이트도 스플래시 최소 노출은 지킨다 — 목적지만 맡아 둔다.
         await store.receive(\.updateCheckResponse, .forced(storeURL: Fixture.appStore)) {
+            $0 = .launching(.init(pendingDestination: .forceUpdate(storeURL: Fixture.appStore)))
+        }
+
+        await clock.advance(by: AppFeature.splashMinimumHold)
+        await store.receive(\.splashMinimumHoldFinished) {
             $0 = .forceUpdate(storeURL: Fixture.appStore)
         }
         await store.finish()
@@ -84,9 +99,11 @@ struct AppForceUpdateTests {
     func failsOpenWhenUpdateCheckThrows() async {
         struct VersionCheckError: Error {}
         let channel = SessionExpirationChannel()
-        let store = TestStore(initialState: AppFeature.State.launching) {
+        let clock = TestClock()
+        let store = TestStore(initialState: AppFeature.State.launching(.init())) {
             AppFeature()
         } withDependencies: {
+            $0.continuousClock = clock
             $0.checkAppUpdateUseCase.run = { throw VersionCheckError() }
             $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .restored })
             $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: { Fixture.profile })
@@ -97,6 +114,11 @@ struct AppForceUpdateTests {
         await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .restored)
         await store.receive(\.profileResponse.success, Fixture.profile) {
+            $0 = .launching(.init(pendingDestination: .home(Fixture.profile)))
+        }
+
+        await clock.advance(by: AppFeature.splashMinimumHold)
+        await store.receive(\.splashMinimumHoldFinished) {
             $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
         }
 
@@ -148,5 +170,16 @@ struct AppForceUpdateTests {
         await store.send(.profileResponse(.failure(.network)))
 
         #expect(store.state.screenID == .forceUpdate)
+    }
+
+    @Test("스플래시가 강제 업데이트를 맡아둔 뒤에는 늦게 온 프로필 응답이 목적지를 덮지 못한다")
+    func keepsPendingForceUpdateOverLateProfileResponse() async {
+        let store = Self.store(
+            initialState: .launching(
+                .init(pendingDestination: .forceUpdate(storeURL: Fixture.appStore))
+            )
+        )
+
+        await store.send(.profileResponse(.success(Fixture.profile)))
     }
 }
