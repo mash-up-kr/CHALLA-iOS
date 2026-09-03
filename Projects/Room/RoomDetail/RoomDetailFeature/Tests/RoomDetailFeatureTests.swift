@@ -48,6 +48,8 @@ struct RoomDetailFeatureTests {
             $0.fetchRoomDetailUseCase = fetchDetail
             $0.fetchRoomPhotosUseCase = fetchPhotos
             $0.copyToPasteboard = copy
+            // 진입(.task)이 첫 진입 안내를 확인한다 — 이 스위트는 안내를 다루지 않으므로 항상 "이미 봄".
+            $0.shouldShowInviteGuideUseCase.run = { false }
             $0.continuousClock = clock
             // 인화 완료 응답이 확인 기록(check)을 보낸다 — 여기 테스트들은 기록 자체를 검증하지 않아 무시 스텁.
             $0.checkPrintCompletionUseCase = CheckPrintCompletionUseCase(run: { _ in })
@@ -242,11 +244,18 @@ struct RoomDetailFeatureTests {
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = RoomDetail(room: Self.waitingRoom, invitationCode: "1928121", members: [])
-            $0.room = Self.waitingRoom // 이 응답이 100초 뒤에 울릴 알람을 건다
+            $0.room = Self.waitingRoom // 이 응답이 100초 뒤에 울릴 알람을 걸고, 대기 토스트를 띄운다
+            $0.hasShownPrintWaitingToast = true
+            $0.toast = "인화 대기 중이에요! 조금만 기다려주세요"
         }
         await store.receive(\.photosResponse.success)
 
-        await clock.advance(by: .seconds(100)) // 완료 예정 시각 도달
+        await clock.advance(by: .seconds(2)) // 토스트 노출 시간
+        await store.receive(\.toastDismissed) {
+            $0.toast = nil
+        }
+
+        await clock.advance(by: .seconds(98)) // 완료 예정 시각 도달
         await store.receive(\.printCompletionReached)
         await store.receive(\.detailResponse.success) {
             $0.detail = RoomDetail(room: Self.printedRoom, invitationCode: "1928121", members: [])

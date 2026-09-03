@@ -34,6 +34,8 @@ struct RoomDetailPrintCompletionCheckTests {
             $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in detail })
             $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in [] })
             $0.checkPrintCompletionUseCase = check
+            // 진입(.task)이 첫 진입 안내를 확인한다 — 이 스위트는 안내를 다루지 않으므로 항상 "이미 봄".
+            $0.shouldShowInviteGuideUseCase.run = { false }
             $0.continuousClock = TestClock()
             // 인화 완료 알람의 남은 시간 계산이 쓴다 — 고정해야 테스트가 결정적이다.
             $0.date = .constant(Date(timeIntervalSince1970: 0))
