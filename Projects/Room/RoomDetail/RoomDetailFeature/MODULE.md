@@ -3,7 +3,8 @@
 ## 레이어와 책임
 
 **Feature 레이어**. 방 상세 화면 — 제목·슬롯 그리드, 참여자 아바타와 초대 코드 팝오버,
-인화 카운트다운을 그린다 (이슈 #57, 시안 4장 기준).
+인화 카운트다운을 그린다. 처음 들어온 기기면 팝오버를 열어 초대 안내 툴팁을 붙이고,
+인화 대기 방이면 토스트로 알린다 (이슈 #57 · #99).
 
 `RoomDomain`·`PhotoDomain`의 UseCase만 주입받고(규칙 2), 화면 전환(뒤로가기·촬영·채팅)은
 전부 `delegate`로 App에 알린다(규칙 3).
@@ -28,7 +29,7 @@
 | 영역 | 기준 | 규칙 |
 | :-- | :-- | :-- |
 | 슬롯 그리드 | **사진 개수** | 찍힌 자리는 사진, 남은 자리는 빈 칸. 사진은 인화 완료면 선명하게, 그 전이면 블러 |
-| 하단 동작 | **방 상태** | 촬영 중은 사진 찍기, 인화 대기는 카운트다운, 인화 완료는 없음 |
+| 하단 동작 | **방 상태** | 촬영 중은 채팅+사진 찍기, 인화 대기는 채팅+카운트다운, 인화 완료는 채팅 버튼 가운데. 셋 다 뒤에 투명→검정 그라데이션 |
 
 촬영 중에 찍은 사진도 블러로 보인다(기획 확인) — 그래서 그리드는 상태가 아니라 사진 유무로 갈린다.
 
@@ -38,7 +39,8 @@
 
 - `State(room:)` — 홈에서 받은 `Room`을 품고 시작한다. 첫 프레임부터 제목·슬롯 그리드가 그려지고,
   초대 코드·참여자·사진은 진입 후 조회로 채운다
-  - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` · `toast` · `alert`
+  - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` ·
+    `isInviteGuidePresented`(첫 진입 툴팁) · `toast` · `hasShownPrintWaitingToast` · `alert`
 - `Action.delegate` — `closeTapped` · `settingsTapped`(설정 화면 요청 — App이 조립) ·
   `cameraRequested(CameraEntry)`(촬영 준비 완료) · `chatTapped` ·
   `photoTapped(Photo.ID)`(사진 슬롯 탭 → 사진 상세)
@@ -55,6 +57,11 @@
     취소돼 요청이 유실됐다. 도착한 화면이 부르면 수명이 요청과 같이 간다
   - 실패해도 알리지 않는다 — 다음 진입에서 다시 기록된다. 같은 상세에서 두 번 보내지 않게
     `hasReportedPrintCompletionCheck`로 1회 제한
+- 진입(.task)이 첫 진입 여부를 확인해 처음일 때만 팝오버를 열고 툴팁을 붙인다
+  (`ShouldShowInviteGuideUseCase`). 팝오버가 어떤 경로로든 닫히면 툴팁을 내리고 본 것으로
+  기록한다(`MarkInviteGuideSeenUseCase`) — 기록은 기기에만 남는다. 재시도는 조회만 다시 한다
+- 인화 대기 방은 상세 응답 시점에 토스트("인화 대기 중이에요!…")를 띄운다. 화면당 한 번 —
+  알람 재조회가 같은 대기 응답을 줘도 다시 띄우지 않는다
 
 ### RoomDetailView
 
@@ -92,8 +99,6 @@
 
 ## 알려진 미구현
 
-- **툴팁** — 시안(5604:19130)의 "초대 코드로 친구를 초대해보세요"가 빠져 있다.
-  디자인 시스템에 Tooltip 컴포넌트가 없어 담당자 확인 후 추가한다
 - **카운트다운 0초 도달 뒤 서버 전환 지연** — 0초에 도달하면 상세·사진을 재조회한다
   (완료 예정 시각에 한 번 깨어나는 알람 이펙트). 재조회 결과가 여전히 인화 대기면
   `0:00:00`을 유지하고 알람은 다시 걸지 않는다 — 그 공백의 처리(재시도 간격 등)는 기획 확인 필요
@@ -106,14 +111,15 @@ mise exec -- tuist test RoomDetailFeature
 
 TCA `TestStore`로 리듀서를 검증한다 — 진입 조회(상세+사진), 실패 얼럿과 재시도,
 클립보드 복사와 토스트 타이머(`TestClock`), delegate 위임, 카운트다운 표기 규칙.
-`RoomDetailShootEntryTests`는 촬영 진입만 따로 본다 — 준비 중 표시와 재탭 무시, 성공 시 delegate,
+`RoomDetailInviteGuideTests`는 첫 진입 안내와 인화 대기 토스트를 본다 — 팝오버 자동 열림,
+닫으면 기록, 이미 봤으면 없음, 토스트 1회 제한. `RoomDetailShootEntryTests`는 촬영 진입만 따로 본다 — 준비 중 표시와 재탭 무시, 성공 시 delegate,
 실패 얼럿과 설정 열기. 준비 자체(권한 순서·실패 판단)는 `ShootEntry` 테스트가 본다.
 
 화면 확인은 데모앱으로 한다. 상태별로 실행 인자를 받는다:
 
 ```bash
 xcrun simctl launch booted com.challa.roomdetailfeature.demo \
-  --screen detail --state <shooting|shootingPartial|printWaiting|printed|invite|error>
+  --screen detail --state <shooting|shootingPartial|printWaiting|printed|invite|inviteGuide|error>
 ```
 
 데모앱에는 카메라 화면이 없어 사진 찍기는 진입 요청(delegate)까지가 끝이다 —

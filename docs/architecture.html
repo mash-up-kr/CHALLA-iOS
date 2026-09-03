@@ -315,7 +315,7 @@
     <div class="row">
       <div class="box">AuthData<small>소셜SDK · 토큰저장(Keychain)</small></div>
       <div class="box">UserData</div>
-      <div class="box">RoomData<small>방 CRUD · 인화상태 · 서버시간</small></div>
+      <div class="box">RoomData<small>방 CRUD · 인화상태 · 서버시간 · 초대 안내 기록</small></div>
       <div class="box">PhotoData<small>사진 조회/업로드/리액션</small></div>
       <div class="box">SettingData</div>
     </div>
@@ -447,9 +447,9 @@ Projects/
 │  ├─ RoomDomain                     <span class="k-mod">(모듈)</span> ★ 방 도메인 공용 — Feature 5개가 공유
 │  │   ├─ Entities/                        <span class="cm">Room · Participant · InviteCode · RoomID</span>
 │  │   │   └─ FilmStatus                   <span class="cm">촬영중 · 인화대기 · 완료  ← Film 도메인 흡수</span>
-│  │   ├─ RoomRepository                   <span class="cm">인터페이스 1개</span>
+│  │   ├─ Repository 인터페이스             <span class="cm">RoomRepository · InviteGuideRepository(초대 안내 기록)</span>
 │  │   └─ UseCases/                        <span class="cm">FetchRooms · Create · Join · Invite · Detail · DevelopFilm · Setting</span>
-│  ├─ RoomData                       <span class="k-mod">(모듈)</span> RoomRepository 구현 1개 + DTO 매핑
+│  ├─ RoomData                       <span class="k-mod">(모듈)</span> RoomRepository 구현 + DTO 매핑 · 초대 안내 기록(UserDefaults)
 │  ├─ RoomCreateFeature              <span class="k-mod">(모듈)</span> 방 이름 · 색상 · 필름 장수 설정
 │  ├─ RoomJoinFeature                <span class="k-mod">(모듈)</span> 초대코드 입력 · 입장
 │  ├─ RoomInviteFeature              <span class="k-mod">(모듈)</span> 초대코드 표시 · 공유
