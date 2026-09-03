@@ -205,16 +205,21 @@ struct AppFeatureTests {
     }
 
     /// 방에서 사진을 찍고 나왔을 수 있어 홈 State를 새로 만든다 — 목록이 다시 조회된다.
-    @Test("방 상세에서 뒤로가면 홈을 새로 만들어 돌아간다")
+    /// 직전 목록은 시딩된다 — 재조회가 끝날 때까지 전환 중 홈이 비어 보이면 안 된다.
+    @Test("방 상세에서 뒤로가면 직전 목록을 시딩한 홈을 새로 만들어 돌아간다")
     func returnsHomeFromRoomDetail() async {
         let store = Self.store(
             initialState: .roomDetail(
-                AppFeature.RoomDetailScreen(profile: Fixture.profile, room: Fixture.card.room)
+                AppFeature.RoomDetailScreen(
+                    profile: Fixture.profile,
+                    room: Fixture.card.room,
+                    homeCards: [Fixture.card]
+                )
             )
         )
 
         await store.send(.roomDetail(.delegate(.closeTapped))) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile, cards: [Fixture.card]))
         }
     }
 
