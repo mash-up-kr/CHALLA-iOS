@@ -9,7 +9,8 @@ import SwiftUI
 /// 화면이 갈리는 기준이 두 가지로 나뉜다.
 /// - 그리드는 사진 개수를 본다 — 찍힌 자리는 사진, 남은 자리는 빈 칸.
 ///   사진은 인화 완료면 선명하게, 그 전이면 블러로 그린다.
-/// - 하단은 방 상태를 본다 — 촬영 중은 사진 찍기, 인화 대기는 카운트다운, 인화 완료는 없음.
+/// - 하단은 방 상태를 본다 — 촬영 중은 사진 찍기, 인화 대기는 카운트다운,
+///   인화 완료는 채팅 버튼 하나가 가운데.
 @ViewAction(for: RoomDetailFeature.self)
 public struct RoomDetailView: View {
 
@@ -114,6 +115,8 @@ public struct RoomDetailView: View {
                 },
                 inviteCode: detail.invitationCode,
                 isPresented: $store.isInvitePopoverPresented,
+                // 문구는 뷰 소유 — 리듀서는 띄울지(Bool)만 안다.
+                popoverTooltip: store.isInviteGuidePresented ? "초대 코드로 친구를 초대해보세요" : nil,
                 onCopyInviteCode: { send(.copyInviteCodeTapped) }
             )
         }
@@ -133,12 +136,13 @@ public struct RoomDetailView: View {
     // MARK: - 하단 동작 (방 상태 기준)
 
     /// 촬영 중: 채팅 + 사진 찍기 / 인화 대기: 채팅 + 카운트다운 /
-    /// 인화 완료: 아무것도 없음 (시안 5604:19636 — 채팅 버튼도 없다).
+    /// 인화 완료: 채팅 버튼 하나가 가운데 (시안 7539:91265).
     @ViewBuilder
     private var bottomActions: some View {
         switch store.room.status {
         case .shooting:
-            actionRow {
+            actionBar {
+                chatButton
                 CHALLATextButton(
                     "사진 찍기",
                     variant: .theme,
@@ -152,7 +156,8 @@ public struct RoomDetailView: View {
                 }
             }
         case .printWaiting:
-            actionRow {
+            actionBar {
+                chatButton
                 if let completedAt = store.room.photoPrintCompletedAt {
                     countdownBar(until: completedAt)
                 } else {
@@ -160,24 +165,43 @@ public struct RoomDetailView: View {
                 }
             }
         case .printed:
-            EmptyView()
+            actionBar {
+                Spacer(minLength: 0)
+                chatButton
+                Spacer(minLength: 0)
+            }
         }
     }
 
-    private func actionRow(@ViewBuilder trailing: () -> some View) -> some View {
+    /// 하단 동작 줄의 공통 틀 — 내용물 배치와 배경 그라데이션만 담당한다.
+    /// 그라데이션은 위 여백(8)부터 홈 인디케이터 영역까지 투명 → 검정으로 깔린다 (시안 7486:80245).
+    private func actionBar(@ViewBuilder content: () -> some View) -> some View {
         HStack(spacing: RoomDetailMetric.actionSpacing) {
-            CHALLAIconButton(
-                .chatTeardropDots,
-                accessibilityLabel: "채팅",
-                variant: .primary,
-                size: .large
-            ) {
-                send(.chatButtonTapped)
-            }
-            trailing()
+            content()
         }
         .padding(.horizontal, RoomDetailMetric.horizontalPadding)
         .padding(.top, RoomDetailMetric.actionTopPadding)
+        .frame(maxWidth: .infinity)
+        .background {
+            LinearGradient(
+                colors: [.clear, CHALLAColor.Static.black],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .bottom)
+        }
+    }
+
+    /// 채팅 진입 버튼. 세 상태가 같은 버튼을 쓰고 자리만 다르다.
+    private var chatButton: some View {
+        CHALLAIconButton(
+            .chatTeardropDots,
+            accessibilityLabel: "채팅",
+            variant: .primary,
+            size: .large
+        ) {
+            send(.chatButtonTapped)
+        }
     }
 
     /// 인화 완료까지 남은 시간. 초마다 다시 그린다 — 남은 값은 State에 두지 않고
@@ -299,7 +323,18 @@ private func previewPhotos(count: Int) -> [Photo] {
     )
 }
 
-#Preview("인화 완료 (하단 동작 없음)") {
+#Preview("첫 진입 (팝오버 + 툴팁)") {
+    RoomDetailView(
+        store: Store(initialState: RoomDetailFeature.State(room: .previewShooting)) {
+            RoomDetailFeature()
+        } withDependencies: {
+            $0.fetchRoomDetailUseCase = .previewValue
+            $0.shouldShowInviteGuideUseCase.run = { true }
+        }
+    )
+}
+
+#Preview("인화 완료 (채팅 버튼 가운데)") {
     RoomDetailView(
         store: Store(initialState: RoomDetailFeature.State(room: .previewPrinted)) {
             RoomDetailFeature()

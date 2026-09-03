@@ -26,7 +26,9 @@ extension ShouldShowInviteGuideUseCase: TestDependencyKey {
 
     public static let testValue = ShouldShowInviteGuideUseCase()
 
-    public static let previewValue = ShouldShowInviteGuideUseCase(run: { true })
+    /// 프리뷰 기본은 띄우지 않는다 — 방 상세의 다른 프리뷰에 안내가 겹치지 않게,
+    /// 안내 컷은 프리뷰·데모가 직접 true를 꽂는다.
+    public static let previewValue = ShouldShowInviteGuideUseCase()
 }
 
 public extension DependencyValues {
