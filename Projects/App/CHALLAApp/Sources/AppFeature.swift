@@ -86,6 +86,8 @@ public struct AppFeature {
         case updateCheckResponse(AppUpdateRequirement)
         /// 강제 업데이트 알럿의 '확인'.
         case forceUpdateConfirmTapped
+        /// 엣지 스와이프 pop 제스처 완료. 자식의 뒤로가기 delegate와 같은 곳으로 되돌린다.
+        case popGestureCompleted
     }
 
     // MARK: - Init
@@ -226,7 +228,7 @@ extension AppFeature {
             // 홈이 알리는 화면 전환 요청 — Feature끼리는 서로를 모르므로 조립은 App이 한다 (규칙 3).
             case .home(.delegate(.settingsTapped)):
                 guard case let .home(screen) = state else { return .none }
-                state = .setting(SettingScreen(profile: screen.profile))
+                state = .setting(SettingScreen(profile: screen.profile, homeCards: screen.home.cards))
                 return .none
 
             // 목록에서 고른 방, 방금 만든 방, 초대 코드로 들어간 방 모두 상세로 들어간다.
@@ -234,14 +236,21 @@ extension AppFeature {
                  let .home(.delegate(.roomCreated(card))),
                  let .home(.delegate(.roomJoined(card))):
                 guard case let .home(screen) = state else { return .none }
-                state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: card.room))
+                state = .roomDetail(
+                    RoomDetailScreen(profile: screen.profile, room: card.room, homeCards: screen.home.cards)
+                )
                 return .none
 
             // 진입 버튼이 방·필터·권한을 모두 갖춘 뒤에만 오는 요청이라 여기서 바로 띄운다.
             case let .home(.delegate(.cameraRequested(entry))):
                 guard case let .home(screen) = state else { return .none }
                 state = .camera(
-                    CameraScreen(profile: screen.profile, entry: entry, origin: .home)
+                    CameraScreen(
+                        profile: screen.profile,
+                        entry: entry,
+                        origin: .home,
+                        homeCards: screen.home.cards
+                    )
                 )
                 return .none
 
@@ -250,18 +259,31 @@ extension AppFeature {
             case .roomDetail(.delegate(.closeTapped)):
                 guard case let .roomDetail(screen) = state else { return .none }
                 // 홈 State를 새로 만들어 목록을 다시 조회한다 — 방에서 사진을 찍고 나왔을 수 있다.
-                state = .home(HomeScreen(profile: screen.profile))
+                // 직전 목록을 시딩해 재조회가 끝나기 전에도 전환 중 홈이 비어 보이지 않게 한다.
+                state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
                 return .none
 
             case .roomDetail(.delegate(.settingsTapped)):
                 guard case let .roomDetail(screen) = state else { return .none }
-                state = .roomSettings(RoomSettingsScreen(profile: screen.profile, room: screen.roomDetail.room))
+                state = .roomSettings(
+                    RoomSettingsScreen(
+                        profile: screen.profile,
+                        room: screen.roomDetail.room,
+                        homeCards: screen.homeCards
+                    )
+                )
                 return .none
 
             // 방 상세에서 채팅 버튼 — 방 채팅 화면으로 들어간다.
             case .roomDetail(.delegate(.chatTapped)):
                 guard case let .roomDetail(screen) = state else { return .none }
-                state = .chat(ChatScreen(profile: screen.profile, room: screen.roomDetail.room))
+                state = .chat(
+                    ChatScreen(
+                        profile: screen.profile,
+                        room: screen.roomDetail.room,
+                        homeCards: screen.homeCards
+                    )
+                )
                 return .none
 
             case let .roomDetail(.delegate(.cameraRequested(entry))):
@@ -270,7 +292,8 @@ extension AppFeature {
                     CameraScreen(
                         profile: screen.profile,
                         entry: entry,
-                        origin: .roomDetail(screen.roomDetail.room)
+                        origin: .roomDetail(screen.roomDetail.room),
+                        homeCards: screen.homeCards
                     )
                 )
                 return .none
@@ -282,7 +305,8 @@ extension AppFeature {
                     PhotoDetailScreen(
                         profile: screen.profile,
                         room: screen.roomDetail.room,
-                        initialPhotoID: photoID
+                        initialPhotoID: photoID,
+                        homeCards: screen.homeCards
                     )
                 )
                 return .none
@@ -292,7 +316,9 @@ extension AppFeature {
             case .photoDetail(.delegate(.closeRequested)):
                 guard case let .photoDetail(screen) = state else { return .none }
                 // 방 상세를 다시 만든다 — 상세로 돌아가면 사진·리액션을 새로 조회해 최신 상태를 그린다.
-                state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: screen.room))
+                state = .roomDetail(
+                    RoomDetailScreen(profile: screen.profile, room: screen.room, homeCards: screen.homeCards)
+                )
                 return .none
 
             // MARK: - 채팅 delegate
@@ -300,7 +326,9 @@ extension AppFeature {
             case .chat(.delegate(.closeRequested)):
                 guard case let .chat(screen) = state else { return .none }
                 // 방 상세를 다시 만든다 — 돌아가면 사진·리액션을 새로 조회해 최신 상태를 그린다.
-                state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: screen.room))
+                state = .roomDetail(
+                    RoomDetailScreen(profile: screen.profile, room: screen.room, homeCards: screen.homeCards)
+                )
                 return .none
 
             // MARK: - 카메라 delegate
@@ -310,9 +338,11 @@ extension AppFeature {
                 guard case let .camera(screen) = state else { return .none }
                 switch screen.origin {
                 case .home:
-                    state = .home(HomeScreen(profile: screen.profile))
+                    state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
                 case let .roomDetail(room):
-                    state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: room))
+                    state = .roomDetail(
+                        RoomDetailScreen(profile: screen.profile, room: room, homeCards: screen.homeCards)
+                    )
                 }
                 return .none
 
@@ -324,7 +354,8 @@ extension AppFeature {
                 // 상세 첫 프레임부터 새 이름이 보이고, 재조회가 실패해도 옛 이름으로 되돌아가지 않는다.
                 state = .roomDetail(RoomDetailScreen(
                     profile: screen.profile,
-                    room: screen.room.renamed(to: screen.settings.title)
+                    room: screen.room.renamed(to: screen.settings.title),
+                    homeCards: screen.homeCards
                 ))
                 return .none
 
@@ -336,12 +367,14 @@ extension AppFeature {
 
             case .setting(.delegate(.backRequested)):
                 guard case let .setting(screen) = state else { return .none }
-                state = .home(HomeScreen(profile: screen.profile))
+                state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
                 return .none
 
             case .setting(.delegate(.editProfileRequested)):
                 guard case let .setting(screen) = state else { return .none }
-                state = .profileEdit(ProfileEditScreen(profile: screen.profile))
+                state = .profileEdit(
+                    ProfileEditScreen(profile: screen.profile, homeCards: screen.homeCards)
+                )
                 return .none
 
             case .setting(.delegate(.signedOut)), .setting(.delegate(.accountDeleted)):
@@ -353,12 +386,45 @@ extension AppFeature {
             case let .profileEdit(.delegate(.editCompleted(profile))):
                 // 설정 State를 새로 만들어 헤더가 바뀐 닉네임을 다시 읽게 한다
                 // (`onAppear`가 `profile == nil`일 때만 조회한다).
-                state = .setting(SettingScreen(profile: profile))
+                guard case let .profileEdit(screen) = state else { return .none }
+                state = .setting(SettingScreen(profile: profile, homeCards: screen.homeCards))
                 return .none
 
             case .profileEdit(.delegate(.cancelled)):
                 guard case let .profileEdit(screen) = state else { return .none }
-                state = .setting(SettingScreen(profile: screen.profile))
+                state = .setting(SettingScreen(profile: screen.profile, homeCards: screen.homeCards))
+                return .none
+
+            // MARK: - 인터랙티브 pop
+
+            // 제스처는 뷰가 직접 보내므로 자식 delegate를 거치지 않는다. 각 화면의 뒤로가기 case와
+            // 같은 전이를 유지해야 한다 (수정 시 위 delegate case들과 함께 고칠 것).
+            case .popGestureCompleted:
+                switch state {
+                case let .roomDetail(screen):
+                    state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
+                case let .photoDetail(screen):
+                    state = .roomDetail(
+                        RoomDetailScreen(profile: screen.profile, room: screen.room, homeCards: screen.homeCards)
+                    )
+                case let .chat(screen):
+                    state = .roomDetail(
+                        RoomDetailScreen(profile: screen.profile, room: screen.room, homeCards: screen.homeCards)
+                    )
+                case let .roomSettings(screen):
+                    state = .roomDetail(RoomDetailScreen(
+                        profile: screen.profile,
+                        room: screen.room.renamed(to: screen.settings.title),
+                        homeCards: screen.homeCards
+                    ))
+                case let .setting(screen):
+                    state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
+                case let .profileEdit(screen):
+                    // 뒤로가기(cancelled)와 같은 의미 — 편집 중 변경은 반영하지 않는다.
+                    state = .setting(SettingScreen(profile: screen.profile, homeCards: screen.homeCards))
+                default:
+                    break
+                }
                 return .none
 
             case .login, .profileSetup, .home, .roomDetail, .roomSettings, .photoDetail, .chat, .setting, .profileEdit, .camera:
