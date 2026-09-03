@@ -182,6 +182,9 @@ public struct RoomDetailFeature {
             case .binding(\.isInvitePopoverPresented):
                 guard !state.isInvitePopoverPresented, state.isInviteGuidePresented else { return .none }
                 state.isInviteGuidePresented = false
+                // 팝오버를 닫고 곧장 뒤로 나가도 기록은 안 날아간다 — 서버 요청처럼 응답을
+                // 기다리는 게 아니라 UserDefaults에 쓰는 순간 끝나서, 화면이 사라지며
+                // 이펙트가 취소되는 시점엔 이미 저장된 뒤다.
                 return .run { [markInviteGuideSeen] _ in
                     await markInviteGuideSeen.run()
                 }

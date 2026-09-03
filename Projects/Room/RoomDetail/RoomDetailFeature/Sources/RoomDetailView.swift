@@ -37,7 +37,15 @@ public struct RoomDetailView: View {
         .overlay(alignment: .bottom) { bottomActions }
         .alert($store.scope(state: \.alert, action: \.alert))
         .task { send(.task) }
+        // 자동으로 열린 안내는 사용자가 손댄 곳이 없어 VoiceOver가 모른다 — 열릴 때 직접 알린다.
+        .onChange(of: store.isInviteGuidePresented) { _, isPresented in
+            guard isPresented else { return }
+            AccessibilityNotification.Announcement(Self.inviteGuideMessage).post()
+        }
     }
+
+    /// 첫 진입 안내 문구 — 툴팁과 VoiceOver 알림이 같은 문장을 쓴다.
+    private static let inviteGuideMessage = "초대 코드로 친구를 초대해보세요"
 
     // MARK: - 슬롯 그리드 (사진 개수 기준)
 
@@ -116,7 +124,7 @@ public struct RoomDetailView: View {
                 inviteCode: detail.invitationCode,
                 isPresented: $store.isInvitePopoverPresented,
                 // 문구는 뷰 소유 — 리듀서는 띄울지(Bool)만 안다.
-                popoverTooltip: store.isInviteGuidePresented ? "초대 코드로 친구를 초대해보세요" : nil,
+                popoverTooltip: store.isInviteGuidePresented ? Self.inviteGuideMessage : nil,
                 onCopyInviteCode: { send(.copyInviteCodeTapped) }
             )
         }

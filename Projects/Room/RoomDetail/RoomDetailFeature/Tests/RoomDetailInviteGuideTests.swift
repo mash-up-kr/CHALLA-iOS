@@ -117,6 +117,37 @@ struct RoomDetailInviteGuideTests {
         }
     }
 
+    @Test("다시 시도는 조회만 다시 한다 — 초대 안내 팝오버를 또 열지 않는다")
+    func retryDoesNotRecheckGuide() async {
+        // 진입에서 안내가 이미 열렸고 상세만 실패한 상황 — 다시 시도가 안내 확인까지 반복하면
+        // inviteGuideNeeded가 또 와서 이 테스트가 실패한다.
+        var initial = RoomDetailFeature.State(room: .previewShooting)
+        initial.detailLoad = .failed
+        initial.alert = AlertState { TextState("방 정보를 불러오지 못했어요") }
+        initial.isInvitePopoverPresented = true
+        initial.isInviteGuidePresented = true
+
+        let store = TestStore(initialState: initial) {
+            RoomDetailFeature()
+        } withDependencies: {
+            $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in Self.detail })
+            $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in [] })
+            $0.shouldShowInviteGuideUseCase.run = { true } // 다시 확인하면 안내가 또 열린다
+            $0.continuousClock = TestClock()
+            $0.date = .constant(Date(timeIntervalSince1970: 0))
+        }
+
+        await store.send(.alert(.presented(.retryTapped))) {
+            $0.alert = nil
+            $0.detailLoad = .loading
+        }
+        await store.receive(\.detailResponse.success) {
+            $0.detailLoad = .loaded
+            $0.detail = Self.detail
+        }
+        await store.receive(\.photosResponse.success)
+    }
+
     @Test("인화 대기 방이면 토스트가 한 번만 뜬다")
     func printWaitingShowsToastOnce() async {
         let clock = TestClock()
