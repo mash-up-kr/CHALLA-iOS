@@ -15,7 +15,7 @@ enum DemoScreen: Hashable {
     /// 방 설정. 실제 앱에서는 상세 → 설정 전환을 App이 조립하지만 데모는 바로 띄운다.
     case settings(SettingsState)
 
-    /// 앞의 넷은 방이 어느 단계인지, 뒤의 둘은 겹쳐 뜨는 화면과 조회 실패다.
+    /// 앞의 넷은 방이 어느 단계인지, 뒤의 셋은 겹쳐 뜨는 화면과 조회 실패다.
     enum DetailState: String, CaseIterable {
         /// 촬영 중 · 아직 아무도 찍지 않아 슬롯이 전부 비어 있다.
         case shooting
@@ -27,6 +27,8 @@ enum DemoScreen: Hashable {
         case printed
         /// 초대 코드 팝오버가 열린 촬영 중 화면.
         case invite
+        /// 첫 진입 안내 — 팝오버가 저절로 열리고 아래에 툴팁이 붙는다.
+        case inviteGuide
         /// 상세 조회 실패 — 얼럿이 뜨고, 다시 시도해도 실패하면 다시 뜬다.
         case error
     }

@@ -194,6 +194,11 @@ enum CompositionRoot {
         values.checkPrintCompletionUseCase = .live(repository: repository)
         values.updateRoomTitleUseCase = .live(repository: repository)
 
+        // 초대 안내 기록만 서버가 아니라 기기에 남는다 (`InviteGuideRepository` 주석 참고).
+        let inviteGuide = DefaultInviteGuideRepository()
+        values.shouldShowInviteGuideUseCase = .live(repository: inviteGuide)
+        values.markInviteGuideSeenUseCase = .live(repository: inviteGuide)
+
         // 방 상세·사진 상세가 쓰는 fetchRoomPhotosUseCase는 Photo aggregate라 registerPhoto에서 등록한다.
     }
 

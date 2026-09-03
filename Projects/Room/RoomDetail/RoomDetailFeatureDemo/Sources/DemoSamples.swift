@@ -24,7 +24,7 @@ enum DemoSamples {
     /// 상태별로 보여줄 방. 슬롯 수(총 촬영 장수)와 남은 장수가 상태마다 다르다.
     static func room(for state: DemoScreen.DetailState) -> Room {
         switch state {
-        case .shooting, .invite, .error:
+        case .shooting, .invite, .inviteGuide, .error:
             return shootingRoom(remained: 24)
         case .shootingPartial:
             return shootingRoom(remained: 12)
@@ -57,7 +57,7 @@ enum DemoSamples {
     /// 상태별로 인화된 사진 장수. 그리드는 이 수만큼 채우고 나머지는 빈 슬롯으로 둔다.
     static func photoCount(for state: DemoScreen.DetailState) -> Int {
         switch state {
-        case .shooting, .invite, .error: return 0
+        case .shooting, .invite, .inviteGuide, .error: return 0
         case .shootingPartial: return 12
         case .printWaiting, .printed: return room(for: state).totalPhotoCount
         }
