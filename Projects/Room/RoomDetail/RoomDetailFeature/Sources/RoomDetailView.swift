@@ -125,7 +125,8 @@ public struct RoomDetailView: View {
                 isPresented: $store.isInvitePopoverPresented,
                 // 문구는 뷰 소유 — 리듀서는 띄울지(Bool)만 안다.
                 popoverTooltip: store.isInviteGuidePresented ? Self.inviteGuideMessage : nil,
-                onCopyInviteCode: { send(.copyInviteCodeTapped) }
+                // 공유 시트 연결 전까지 기존 복사 동작을 임시로 물린다 — 다음 커밋에서 교체.
+                onShareInviteCode: { send(.copyInviteCodeTapped) }
             )
         }
     }
