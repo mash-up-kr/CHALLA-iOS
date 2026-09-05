@@ -32,8 +32,7 @@ enum CompositionRoot {
         values.shouldShowInviteGuideUseCase.run = { state == .inviteGuide }
         values.markInviteGuideSeenUseCase.run = {}
         registerShootEntry(room: room, into: &values)
-        // copyToPasteboard는 등록하지 않는다 — liveValue(실제 클립보드)가 그대로 쓰여
-        // 데모에서 복사 후 붙여넣기까지 확인할 수 있다.
+        // 초대 링크 공유는 등록할 의존성이 없다 — 시스템 공유 시트를 뷰가 직접 띄운다.
     }
 
     /// 방 설정이 쓰는 의존성 — 이름 변경 하나뿐이다.

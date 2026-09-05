@@ -39,7 +39,6 @@ struct RoomDetailFeatureTests {
         initialState: RoomDetailFeature.State = .init(room: .previewShooting),
         fetchDetail: FetchRoomDetailUseCase = .testValue,
         fetchPhotos: FetchRoomPhotosUseCase = .testValue,
-        copy: CopyToPasteboard = .testValue,
         clock: any Clock<Duration> = TestClock()
     ) -> TestStoreOf<RoomDetailFeature> {
         TestStore(initialState: initialState) {
@@ -47,7 +46,6 @@ struct RoomDetailFeatureTests {
         } withDependencies: {
             $0.fetchRoomDetailUseCase = fetchDetail
             $0.fetchRoomPhotosUseCase = fetchPhotos
-            $0.copyToPasteboard = copy
             // 상세 성공은 초대 안내 확인까지 부른다 — 띄우지 않는 답을 고정해 팝오버가 끼어들지 않게 한다.
             $0.shouldShowInviteGuideUseCase.run = { false }
             $0.continuousClock = clock
@@ -168,37 +166,28 @@ struct RoomDetailFeatureTests {
         }
     }
 
-    // MARK: - 복사
+    // MARK: - 공유
 
-    @Test("복사 버튼은 초대 코드를 클립보드 의존성에 넘기고, 토스트를 띄웠다가 2초 뒤 거둔다")
-    func copySendsCode() async {
-        let copied = LockIsolated<String?>(nil)
-        let clock = TestClock()
+    @Test("공유 버튼은 초대 링크 공유 시트를 연다")
+    func shareOpensSheet() async {
         var state = RoomDetailFeature.State(room: .previewShooting)
         state.detail = Self.detail
         state.detailLoad = .loaded
-        let store = Self.makeStore(
-            initialState: state,
-            copy: CopyToPasteboard(run: { text in copied.setValue(text) }),
-            clock: clock
-        )
+        let store = Self.makeStore(initialState: state)
 
-        await store.send(.view(.copyInviteCodeTapped)) {
-            $0.toast = "초대 코드를 복사했어요"
-        }
-        await clock.advance(by: .seconds(2))
-        await store.receive(\.toastDismissed) {
-            $0.toast = nil
-        }
+        // 시트에 실리는 값은 InviteLink가 만든 링크다 (형식 자체는 RoomDomain 테스트가 본다).
+        #expect(store.state.inviteShareURL == InviteLink.url(code: "1928121"))
 
-        #expect(copied.value == "1928121")
+        await store.send(.view(.shareInviteCodeTapped)) {
+            $0.isSharePresented = true
+        }
     }
 
-    @Test("코드가 아직 없으면 복사는 무시된다")
-    func copyIgnoredWithoutDetail() async {
-        let store = Self.makeStore() // copy가 testValue — 호출되면 미구현 실패
+    @Test("코드가 아직 없으면 공유는 무시된다")
+    func shareIgnoredWithoutDetail() async {
+        let store = Self.makeStore()
 
-        await store.send(.view(.copyInviteCodeTapped))
+        await store.send(.view(.shareInviteCodeTapped))
     }
 
     // MARK: - 인화 완료 알람

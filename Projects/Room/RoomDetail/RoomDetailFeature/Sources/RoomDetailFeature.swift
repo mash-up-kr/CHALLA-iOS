@@ -28,8 +28,10 @@ public struct RoomDetailFeature {
         /// 예: 카운트다운 0초 후 상태 갱신, 상세 조회 실패 후 재시도.
         /// 초대 안내는 화면 진입당 한 번만 확인하기 위해 사용한다.
         public var hasCheckedInviteGuide = false
-        /// 복사 완료·인화 대기 안내 토스트 문구. nil이면 숨김 — 타이머가 일정 시간 뒤 거둔다.
+        /// 인화 대기 안내 토스트 문구. nil이면 숨김 — 타이머가 일정 시간 뒤 거둔다.
         public var toast: String?
+        /// 시스템 공유 시트 열림. 딤·닫기는 시스템이 관리하고 우리는 이 값만 소유한다.
+        public var isSharePresented = false
         /// 인화 대기 토스트를 이미 띄웠는지 — 알람 재조회가 같은 응답을 줘도 다시 띄우지 않는다.
         public var hasShownPrintWaitingToast = false
         /// 인화된 사진들 (찍힌 순). 그리드가 배열 순서를 슬롯 번호와 짝짓는다.
@@ -40,6 +42,11 @@ public struct RoomDetailFeature {
         @Presents public var alert: AlertState<Action.Alert>?
         /// 이 화면에서 인화 완료 확인 기록을 이미 보냈는지 — 재시도·알람 재조회마다 다시 보내지 않게 막는다.
         public var hasReportedPrintCompletionCheck = false
+
+        /// 공유 시트에 실을 초대 링크. 상세가 오기 전엔 nil — 공유 버튼도 그때만 동작한다.
+        public var inviteShareURL: URL? {
+            detail.flatMap { InviteLink.url(code: $0.invitationCode) }
+        }
 
         public init(room: Room) {
             self.room = room
@@ -81,7 +88,7 @@ public struct RoomDetailFeature {
             case task
             case backButtonTapped
             case settingsButtonTapped
-            case copyInviteCodeTapped
+            case shareInviteCodeTapped
             case shootButtonTapped
             case chatButtonTapped
             /// 사진이 있는 슬롯을 탭 — 그 사진을 펼친 채 사진 상세로 들어간다.
@@ -112,7 +119,6 @@ public struct RoomDetailFeature {
     @Dependency(\.markInviteGuideSeenUseCase) var markInviteGuideSeenUseCase
     @Dependency(\.fetchRoomDetailUseCase) var fetchRoomDetailUseCase
     @Dependency(\.fetchRoomPhotosUseCase) var fetchRoomPhotosUseCase
-    @Dependency(\.copyToPasteboard) var copyToPasteboard
     @Dependency(\.openCameraSettingsUseCase) var openCameraSettingsUseCase
     @Dependency(\.continuousClock) var clock
     /// 현재 시각. 인화 완료까지 남은 시간을 계산할 때 쓴다 — 테스트가 고정할 수 있게 주입받는다.
@@ -194,15 +200,10 @@ public struct RoomDetailFeature {
             case .binding:
                 return .none
 
-            case .view(.copyInviteCodeTapped):
-                guard let code = state.detail?.invitationCode else { return .none }
-                state.toast = Const.copyToastMessage
-                return .merge(
-                    .run { [copyToPasteboard] _ in
-                        await copyToPasteboard.run(code)
-                    },
-                    toastTimer()
-                )
+            case .view(.shareInviteCodeTapped):
+                guard state.inviteShareURL != nil else { return .none }
+                state.isSharePresented = true
+                return .none
 
             case .toastDismissed:
                 state.toast = nil
@@ -254,7 +255,6 @@ public struct RoomDetailFeature {
     private enum Const {
         // TODO: 노출 시간은 기획 미확정 — ProfileSetup과 같은 임시값. 확정 시 교체할 것.
         static let toastDuration: Duration = .seconds(2)
-        static let copyToastMessage = "초대 코드를 복사했어요"
         static let printWaitingToastMessage = "인화 대기 중이에요! 조금만 기다려주세요"
     }
 
