@@ -8,6 +8,7 @@ import Foundation
 ///
 ///     xcrun simctl launch booted <bundle-id> --screen detail --state printWaiting
 ///     xcrun simctl launch booted <bundle-id> --screen settings --state rename
+///     xcrun simctl launch booted <bundle-id> --screen detail --state printNotice --photos 48
 enum DemoScreen: Hashable {
 
     /// 방 상세.
@@ -15,7 +16,7 @@ enum DemoScreen: Hashable {
     /// 방 설정. 실제 앱에서는 상세 → 설정 전환을 App이 조립하지만 데모는 바로 띄운다.
     case settings(SettingsState)
 
-    /// 앞의 넷은 방이 어느 단계인지, 뒤의 둘은 겹쳐 뜨는 화면과 조회 실패다.
+    /// 앞쪽은 방이 어느 단계인지, 뒤의 둘은 겹쳐 뜨는 화면과 조회 실패다.
     enum DetailState: String, CaseIterable {
         /// 촬영 중 · 아직 아무도 찍지 않아 슬롯이 전부 비어 있다.
         case shooting
@@ -25,6 +26,9 @@ enum DemoScreen: Hashable {
         case printWaiting
         /// 인화 완료 · 전부 선명, 하단 버튼 없음.
         case printed
+        /// 인화 완료 후 첫 진입 · 그리드 대신 필름 안내가 먼저 뜬다.
+        /// 장수는 `--photos`로 바꾼다 — 장수가 필름 길이와 내려가는 시간을 정한다.
+        case printNotice
         /// 초대 코드 팝오버가 열린 촬영 중 화면.
         case invite
         /// 상세 조회 실패 — 얼럿이 뜨고, 다시 시도해도 실패하면 다시 뜬다.
@@ -57,6 +61,18 @@ extension DemoScreen {
             return .detail(.shooting)
         }
     }
+
+    /// `--photos <장수>` — 인화가 끝난 방의 사진 장수. 없거나 잘못된 값이면 기본값을 쓴다.
+    /// 장수가 필름 길이와 내려가는 시간을 정하므로, 이 값 하나로 24·48·72장을 모두 볼 수 있다.
+    static func photoCount(_ arguments: [String] = ProcessInfo.processInfo.arguments) -> Int {
+        guard let raw = value(of: "--photos", in: arguments),
+              let count = Int(raw), count > 0
+        else { return defaultPhotoCount }
+        return count
+    }
+
+    /// `--photos`를 주지 않았을 때의 장수. 방을 만들 때 고를 수 있는 가장 큰 값이다.
+    static let defaultPhotoCount = 72
 
     /// `--flag 값` 형태에서 값을 꺼낸다.
     private static func value(of flag: String, in arguments: [String]) -> String? {
