@@ -113,11 +113,12 @@ struct PrintNoticeView: View {
     ///
     /// 크기가 아니라 `offset`으로 움직인다. 크기를 애니메이션하면 매 프레임 배치를 다시 잡아 끊긴다.
     /// 잘리는 창은 출구 아랫변에 고정한다. 잘린 결과를 통째로 옮기면 출구와 필름 사이가 벌어진다.
-    /// `pulled`와 `hint.offset`을 함께 더하는 이유는 둘 다 필름을 슬롯 밖으로 밀어내는 움직임이라서다.
+    /// 당길 곳을 알리는 튕김은 여기에 더하지 않는다 — 툴팁만 튕긴다.
+    /// 필름까지 움직이면 출구에서 밀려 나왔다 들어가는 것처럼 보여 무겁다.
     private var film: some View {
         filmStrip
             .frame(width: PrintNoticeMetric.filmWidth, height: stripHeight)
-            .offset(y: pulled + hint.offset - PrintNoticeMetric.filmHiddenByBezel - stripHeight)
+            .offset(y: pulled - PrintNoticeMetric.filmHiddenByBezel - stripHeight)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .clipped()
             .padding(.top, PrintNoticeMetric.filmWindowTopPadding)
@@ -138,8 +139,8 @@ struct PrintNoticeView: View {
 
     // MARK: - 툴팁
 
-    /// 필름 끝을 가리키는 안내. 필름과 같은 값으로 움직인다 —
-    /// 여백으로 옮기면 보간 방식이 달라 움직이는 동안 어긋난다.
+    /// 필름 끝을 가리키는 안내. 필름을 따라 내려오고, 당길 곳을 알리는 튕김은 이쪽만 받는다.
+    /// 여백이 아니라 `offset`으로 옮긴다 — 여백은 보간 방식이 달라 움직이는 동안 필름과 어긋난다.
     private var tooltip: some View {
         CHALLATooltip(Const.message, position: .bottom, arrowAlignment: .center)
             .offset(y: pulled - PrintNoticeMetric.initialReveal + hint.offset)
@@ -287,7 +288,7 @@ struct PrintNoticeView: View {
         static let maxRunDuration: TimeInterval = 4.0
         static let tooltipFadeDuration: TimeInterval = 0.2
 
-        static let hintDelay: TimeInterval = 0.4
+        static let hintDelay: TimeInterval = 0.25
         /// 사진을 이만큼 기다려도 안 실리면 안내 움직임을 그냥 시작한다.
         static let hintLoadTimeout: TimeInterval = 4.0
     }

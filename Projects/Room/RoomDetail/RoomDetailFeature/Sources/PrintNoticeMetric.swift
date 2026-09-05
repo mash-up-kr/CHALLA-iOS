@@ -50,7 +50,7 @@ enum PrintNoticeMetric {
     /// 그중 실제로 보이는 길이 — 출구에 가려지는 만큼을 뺀 값.
     static let restReveal: CGFloat = initialReveal - filmHiddenByBezel
     /// 당길 곳을 알릴 때 필름이 조금 더 나왔다 들어가는 거리 (시안 없음 — 눈으로 잡은 값).
-    static let hintDistance: CGFloat = 14
+    static let hintDistance: CGFloat = 12
     /// 툴팁과 필름 끝 사이 — 시안 툴팁 top 374 − 필름 bottom 358.
     static let tooltipSpacing: CGFloat = 16
 }

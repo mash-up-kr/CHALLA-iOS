@@ -3,12 +3,13 @@ import SwiftUI
 
 /// 인화 완료 안내에서 "여기를 당기세요"를 알리는 움직임.
 ///
-/// 필름이 조금 더 나왔다 들어가기를 두 번 한다. 손이 닿으면 멈추고 다시 시작하지 않는다.
+/// 툴팁이 아래로 두 번 튕긴다. 필름은 움직이지 않는다 — 함께 움직이면
+/// 출구에서 밀려 나왔다 들어가는 것처럼 보여 무겁다. 손이 닿으면 멈추고 다시 시작하지 않는다.
 @MainActor
 @Observable
 final class PrintNoticeHint {
 
-    /// 지금 이동량. 화면이 이 값을 필름과 툴팁에 함께 더한다.
+    /// 지금 이동량. 화면이 이 값을 툴팁에 더한다.
     private(set) var offset: CGFloat = 0
 
     private var isStopped = false
@@ -37,11 +38,14 @@ final class PrintNoticeHint {
     private func bob(remaining: Int, delay: TimeInterval = 0) {
         guard remaining > 0, !isStopped else { return }
 
-        // 내려갈 때만 튕긴다. 올라올 때 제자리를 넘어서면 필름이 출구 안으로 들어가 보인다.
-        withAnimation(.spring(duration: Const.pullDuration, bounce: Const.bounce).delay(delay)) {
+        // 짧게 챈 뒤 감쇠가 낮은 스프링으로 놓는다. 놓을 때 제자리를 여러 번 넘나들며 잦아드는데,
+        // 그 오르내림이 "튕긴다"로 보인다. 감쇠를 높이면(bounce가 낮으면) 튕김이 아니라 밀림이 된다.
+        //
+        // 제자리를 넘어가도 툴팁이 살짝 올라갈 뿐이라 가려지는 것이 없다.
+        withAnimation(.spring(duration: Const.pullDuration, bounce: Const.pullBounce).delay(delay)) {
             offset = PrintNoticeMetric.hintDistance
         } completion: {
-            withAnimation(.spring(duration: Const.returnDuration, bounce: 0)) {
+            withAnimation(.spring(duration: Const.returnDuration, bounce: Const.returnBounce)) {
                 self.offset = 0
             } completion: {
                 self.bob(remaining: remaining - 1)
@@ -52,11 +56,12 @@ final class PrintNoticeHint {
     private enum Const {
         /// 내려갔다 올라오기를 두 번.
         static let count = 2
-        /// 내려갈 때. 튕김을 줘서 조금 더 당기고 싶게 만든다.
-        static let pullDuration: TimeInterval = 0.42
-        static let bounce: CGFloat = 0.45
-        /// 올라올 때. 제자리를 넘지 않도록 튕김 없이 돌아온다.
-        static let returnDuration: TimeInterval = 0.5
+        /// 챌 때 — 짧게. 튕김은 놓을 때 나오므로 여기서는 거의 주지 않는다.
+        static let pullDuration: TimeInterval = 0.14
+        static let pullBounce: CGFloat = 0.3
+        /// 놓을 때 — 감쇠가 낮아 제자리를 여러 번 넘나들며 잦아든다.
+        static let returnDuration: TimeInterval = 0.3
+        static let returnBounce: CGFloat = 0.7
         static let stopDuration: TimeInterval = 0.15
     }
 }
