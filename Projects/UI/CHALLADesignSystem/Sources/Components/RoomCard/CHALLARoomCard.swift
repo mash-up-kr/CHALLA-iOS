@@ -38,6 +38,11 @@ public struct CHALLARoomCard: View {
         case printed(onConfirm: (() -> Void)?)
     }
 
+    // MARK: - 표기 규칙
+
+    /// 촬영 중 뱃지 문구 — 뱃지 표시와 VoiceOver 라벨이 같은 문장을 쓴다.
+    private static let shootingBadgeTitle = "사진 찍기"
+
     // MARK: - 프로퍼티와 init
 
     @Environment(\.challaTheme) private var theme
@@ -203,7 +208,7 @@ public struct CHALLARoomCard: View {
             }
             .buttonStyle(.plain)
             .disabled(isPreparing)
-            .accessibilityLabel("사진 찍기")
+            .accessibilityLabel(Self.shootingBadgeTitle)
             .accessibilityHint("\(title)의 촬영 화면을 엽니다")
         } else {
             shootingBadgeSurface(isPreparing: isPreparing)
@@ -215,7 +220,7 @@ public struct CHALLARoomCard: View {
         ZStack {
             HStack(spacing: RoomCardMetric.badgeContentGap) {
                 CHALLAIcon.camera.image(size: .size22, color: CHALLAColor.Static.black)
-                Text("사진 찍기")
+                Text(Self.shootingBadgeTitle)
                     .challaFont(.body.medium.bold)
                     .foregroundStyle(CHALLAColor.Static.black)
             }
