@@ -46,6 +46,8 @@ struct RoomDetailPrintNoticeTests {
             $0.fetchRoomPhotosUseCase = fetchPhotos
             $0.shouldShowPrintNoticeUseCase = shouldShowPrintNotice
             $0.markPrintNoticeSeenUseCase = markPrintNoticeSeen
+            // 인화 완료 방에 들어오면 리듀서가 서버에 확인을 알린다 — 이 묶음의 관심사가 아니라 비워 둔다.
+            $0.checkPrintCompletionUseCase = CheckPrintCompletionUseCase(run: { _ in })
             $0.continuousClock = TestClock()
             $0.date = .constant(Date(timeIntervalSince1970: 0))
         }
