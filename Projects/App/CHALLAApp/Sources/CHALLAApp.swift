@@ -63,6 +63,11 @@ struct CHALLAApp: App {
                         _ = AuthController.handleOpenUrl(url: url)
                     }
                 }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    // 유니버설 링크(https 초대 링크)는 커스텀 스킴(.onOpenURL)과 다른 입구로 들어온다.
+                    guard let url = activity.webpageURL else { return }
+                    store.send(.inviteLinkOpened(url))
+                }
         }
     }
 

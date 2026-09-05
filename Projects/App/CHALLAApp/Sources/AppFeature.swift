@@ -58,6 +58,22 @@ public struct AppFeature {
             }
         }
 
+        /// 현재 화면이 들고 있는 내 프로필. 로그인 전 화면(스플래시·로그인·프로필 설정·강제 업데이트)에는
+        /// 없다 — 초대 링크가 왔을 때 "지금 입장할 수 있는 상태인가"의 판별값.
+        public var profile: UserProfile? {
+            switch self {
+            case .launching, .login, .profileSetup, .forceUpdate: return nil
+            case let .home(screen): return screen.profile
+            case let .roomDetail(screen): return screen.profile
+            case let .roomSettings(screen): return screen.profile
+            case let .photoDetail(screen): return screen.profile
+            case let .chat(screen): return screen.profile
+            case let .setting(screen): return screen.profile
+            case let .profileEdit(screen): return screen.profile
+            case let .camera(screen): return screen.profile
+            }
+        }
+
         public enum ScreenID: Equatable, Sendable {
             case launching, login, profileSetup, home, roomDetail, roomSettings, photoDetail, chat, setting, profileEdit, camera
             case forceUpdate
@@ -86,6 +102,8 @@ public struct AppFeature {
         case updateCheckResponse(AppUpdateRequirement)
         /// 강제 업데이트 알럿의 '확인'.
         case forceUpdateConfirmTapped
+        /// 유니버설 링크로 열렸다 — 초대 링크면 입장을 잇는다.
+        case inviteLinkOpened(URL)
     }
 
     // MARK: - Init
@@ -101,6 +119,7 @@ public struct AppFeature {
     @Dependency(\.pushTokenSynchronizer) var pushTokenSynchronizer
     @Dependency(\.checkAppUpdateUseCase) var checkAppUpdateUseCase
     @Dependency(\.openURL) var openURL
+    @Dependency(\.pendingInviteCode) var pendingInviteCode
 
     // MARK: - Body
 
@@ -183,6 +202,21 @@ extension AppFeature {
                 guard case let .forceUpdate(storeURL) = state, let url = storeURL else { return .none }
                 return .run { [openURL] _ in await openURL(url) }
 
+            // MARK: - 초대 링크
+
+            // 유니버설 링크로 열렸다 — 초대 링크면 입장을 잇고, 아니면 아무것도 하지 않는다.
+            case let .inviteLinkOpened(url):
+                guard let code = InviteLink.code(from: url) else { return .none }
+                // 로그인 전이면 보관한다 — 홈에 도달하는 시점(프로필 조회 성공·프로필 설정 완료)이 꺼내 쓴다.
+                guard let profile = state.profile else {
+                    return .run { [pendingInviteCode] _ in pendingInviteCode.store(code) }
+                }
+                // 어느 화면에 있었든 홈으로 돌아가 입장을 맡긴다 — 성공 반영도 실패 얼럿도 홈의 것을 쓴다.
+                if state.screenID != .home {
+                    state = .home(HomeScreen(profile: profile))
+                }
+                return .send(.home(.inviteCodeReceived(code)))
+
             case .sessionRestored(.restored):
                 return fetchMyProfile()
 
@@ -201,7 +235,8 @@ extension AppFeature {
                 state = profile.isProfileCompleted
                     ? .home(HomeScreen(profile: profile))
                     : .profileSetup(ProfileSetupFeature.State())
-                return .none
+                guard case .home = state else { return .none }
+                return deliverPendingInviteCode()
 
             case .profileResponse(.failure):
                 guard case .launching = state else { return .none }
@@ -219,7 +254,7 @@ extension AppFeature {
 
             case let .profileSetup(.delegate(.setupCompleted(profile))):
                 state = .home(HomeScreen(profile: profile))
-                return .none
+                return deliverPendingInviteCode()
 
             // MARK: - 홈 delegate
 
@@ -373,6 +408,14 @@ extension AppFeature {
 extension AppFeature {
 
     private enum CancelID { case profile, sessionExpiration, updateCheck }
+
+    /// 링크로 실행된 콜드 스타트의 마무리 — 보관해 둔 초대 코드가 있으면 홈에 넘겨 입장을 잇는다.
+    private func deliverPendingInviteCode() -> Effect<Action> {
+        .run { [pendingInviteCode] send in
+            guard let code = pendingInviteCode.take() else { return }
+            await send(.home(.inviteCodeReceived(code)))
+        }
+    }
 
     /// 실행 직후 1회 버전 체크.
     /// 실패는 `.notRequired`로 접는다 — 체크 서버가 죽었다고 전 사용자 앱을 스플래시에 가둘 수는 없다.
