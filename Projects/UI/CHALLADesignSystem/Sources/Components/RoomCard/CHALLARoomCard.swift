@@ -204,7 +204,7 @@ public struct CHALLARoomCard: View {
             .buttonStyle(.plain)
             .disabled(isPreparing)
             .accessibilityLabel("사진 찍기")
-            .accessibilityHint("\(title) 촬영 중")
+            .accessibilityHint("\(title)의 촬영 화면을 엽니다")
         } else {
             shootingBadgeSurface(isPreparing: isPreparing)
         }

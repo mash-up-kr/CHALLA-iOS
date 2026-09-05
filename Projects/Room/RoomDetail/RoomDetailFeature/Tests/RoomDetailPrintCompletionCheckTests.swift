@@ -34,7 +34,7 @@ struct RoomDetailPrintCompletionCheckTests {
             $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in detail })
             $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in [] })
             $0.checkPrintCompletionUseCase = check
-            // 진입(.task)이 첫 진입 안내를 확인한다 — 이 스위트는 안내를 다루지 않으므로 항상 "이미 봄".
+            // 상세 성공은 초대 안내 확인까지 부른다 — 띄우지 않는 답을 고정해 팝오버가 끼어들지 않게 한다.
             $0.shouldShowInviteGuideUseCase.run = { false }
             $0.continuousClock = TestClock()
             // 인화 완료 알람의 남은 시간 계산이 쓴다 — 고정해야 테스트가 결정적이다.
@@ -58,6 +58,7 @@ struct RoomDetailPrintCompletionCheckTests {
             $0.detailLoad = .loaded
             $0.detail = Self.printedDetail
             $0.hasReportedPrintCompletionCheck = true
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.success)
         await store.finish()
@@ -81,6 +82,7 @@ struct RoomDetailPrintCompletionCheckTests {
             $0.detailLoad = .loaded
             $0.detail = Self.printedDetail
             $0.hasReportedPrintCompletionCheck = true
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.success)
 
@@ -108,6 +110,7 @@ struct RoomDetailPrintCompletionCheckTests {
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.shootingDetail
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.success)
         await store.finish()
@@ -128,6 +131,7 @@ struct RoomDetailPrintCompletionCheckTests {
             $0.detailLoad = .loaded
             $0.detail = Self.printedDetail
             $0.hasReportedPrintCompletionCheck = true
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.success)
         // 실패 액션도 얼럿도 없어야 한다 — 남은 이펙트가 있으면 finish가 걸어낸다.

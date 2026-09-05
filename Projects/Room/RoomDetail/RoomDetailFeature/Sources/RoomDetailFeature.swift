@@ -24,6 +24,10 @@ public struct RoomDetailFeature {
         public var isInvitePopoverPresented = false
         /// 팝오버 아래 초대 안내 툴팁. 첫 진입에만 켜지고, 팝오버가 닫힐 때 함께 내려간다.
         public var isInviteGuidePresented = false
+        /// 상세 성공 응답은 화면 진입 후에도 다시 올 수 있다.
+        /// 예: 카운트다운 0초 후 상태 갱신, 상세 조회 실패 후 재시도.
+        /// 초대 안내는 화면 진입당 한 번만 확인하기 위해 사용한다.
+        public var hasCheckedInviteGuide = false
         /// 복사 완료·인화 대기 안내 토스트 문구. nil이면 숨김 — 타이머가 일정 시간 뒤 거둔다.
         public var toast: String?
         /// 인화 대기 토스트를 이미 띄웠는지 — 알람 재조회가 같은 응답을 줘도 다시 띄우지 않는다.
@@ -104,8 +108,8 @@ public struct RoomDetailFeature {
     // MARK: - Dependencies
 
     @Dependency(\.checkPrintCompletionUseCase) var checkPrintCompletionUseCase
-    @Dependency(\.shouldShowInviteGuideUseCase) var shouldShowInviteGuide
-    @Dependency(\.markInviteGuideSeenUseCase) var markInviteGuideSeen
+    @Dependency(\.shouldShowInviteGuideUseCase) var shouldShowInviteGuideUseCase
+    @Dependency(\.markInviteGuideSeenUseCase) var markInviteGuideSeenUseCase
     @Dependency(\.fetchRoomDetailUseCase) var fetchRoomDetailUseCase
     @Dependency(\.fetchRoomPhotosUseCase) var fetchRoomPhotosUseCase
     @Dependency(\.copyToPasteboard) var copyToPasteboard
@@ -121,12 +125,9 @@ public struct RoomDetailFeature {
 
         Reduce { state, action in
             switch action {
-            // 진입은 조회에 더해 첫 진입 안내 확인까지 한다. 재시도는 조회만 다시 한다 —
-            // 안내까지 다시 확인하면 얼럿을 거친 뒤 팝오버가 두 번 열린다.
-            case .view(.task):
-                return .merge(fetchAll(&state), checkInviteGuide())
-
-            case .alert(.presented(.retryTapped)):
+            // 진입과 재시도가 같은 일을 한다 — 상세와 사진을 다시 부른다.
+            // 첫 진입 안내 확인은 여기가 아니라 첫 상세 성공에서 한다 (checkInviteGuide 주석).
+            case .view(.task), .alert(.presented(.retryTapped)):
                 return fetchAll(&state)
 
             case let .detailResponse(.success(detail)):
@@ -137,7 +138,8 @@ public struct RoomDetailFeature {
                 return .merge(
                     refreshAtPrintCompletion(room: detail.room),
                     reportPrintCompletionCheck(&state, room: detail.room),
-                    showPrintWaitingToast(&state, room: detail.room)
+                    showPrintWaitingToast(&state, room: detail.room),
+                    checkInviteGuide(&state)
                 )
 
             case .printCompletionReached:
@@ -185,8 +187,8 @@ public struct RoomDetailFeature {
                 // 팝오버를 닫고 곧장 뒤로 나가도 기록은 안 날아간다 — 서버 요청처럼 응답을
                 // 기다리는 게 아니라 UserDefaults에 쓰는 순간 끝나서, 화면이 사라지며
                 // 이펙트가 취소되는 시점엔 이미 저장된 뒤다.
-                return .run { [markInviteGuideSeen] _ in
-                    await markInviteGuideSeen.run()
+                return .run { [markInviteGuideSeenUseCase] _ in
+                    await markInviteGuideSeenUseCase.run()
                 }
 
             case .binding:
@@ -267,10 +269,14 @@ public struct RoomDetailFeature {
         )
     }
 
-    /// 이 기기에서 처음 들어왔는지 확인하고, 처음일 때만 안내 액션을 보낸다.
-    private func checkInviteGuide() -> Effect<Action> {
-        .run { [shouldShowInviteGuide] send in
-            guard await shouldShowInviteGuide.run() else { return }
+    /// 첫 상세 성공에 한 번, 이 기기에서 처음 들어왔는지 확인하고 처음일 때만 안내 액션을 보낸다.
+    /// 진입(.task)이 아니라 상세 성공 뒤에 확인한다 — 참여자 바가 그려진 다음이라 팝오버가
+    /// 여는 모션과 함께 나타나고, 조회가 실패한 화면 뒤에 보이지 않는 열림 상태가 남지 않는다.
+    private func checkInviteGuide(_ state: inout State) -> Effect<Action> {
+        guard !state.hasCheckedInviteGuide else { return .none }
+        state.hasCheckedInviteGuide = true
+        return .run { [shouldShowInviteGuideUseCase] send in
+            guard await shouldShowInviteGuideUseCase.run() else { return }
             await send(.inviteGuideNeeded)
         }
         .cancellable(id: CancelID.inviteGuide, cancelInFlight: true)

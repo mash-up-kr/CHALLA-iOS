@@ -42,22 +42,24 @@ struct RoomDetailInviteGuideTests {
         }
     }
 
-    @Test("처음 들어온 기기면 팝오버가 열리고 툴팁이 붙는다")
+    @Test("처음 들어온 기기면 첫 상세 성공 뒤에 팝오버가 열리고 툴팁이 붙는다")
     func firstEntryOpensPopoverWithGuide() async {
         let store = Self.makeStore(shouldShow: { true })
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
         }
+        await store.receive(\.detailResponse.success) {
+            $0.detailLoad = .loaded
+            $0.detail = Self.detail
+            $0.hasCheckedInviteGuide = true
+        }
+        await store.receive(\.photosResponse.success)
+        // 참여자 바가 그려질 수 있는 시점(상세 성공) 뒤에야 안내가 열린다.
         await store.receive(\.inviteGuideNeeded) {
             $0.isInvitePopoverPresented = true
             $0.isInviteGuidePresented = true
         }
-        await store.receive(\.detailResponse.success) {
-            $0.detailLoad = .loaded
-            $0.detail = Self.detail
-        }
-        await store.receive(\.photosResponse.success)
     }
 
     @Test("이미 본 기기면 아무것도 열리지 않는다")
@@ -67,11 +69,12 @@ struct RoomDetailInviteGuideTests {
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
         }
-        // inviteGuideNeeded가 오지 않는다 — 팝오버·툴팁 그대로 닫힘.
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
+            $0.hasCheckedInviteGuide = true
         }
+        // inviteGuideNeeded가 오지 않는다 — 팝오버·툴팁 그대로 닫힘.
         await store.receive(\.photosResponse.success)
     }
 
@@ -86,15 +89,16 @@ struct RoomDetailInviteGuideTests {
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
         }
+        await store.receive(\.detailResponse.success) {
+            $0.detailLoad = .loaded
+            $0.detail = Self.detail
+            $0.hasCheckedInviteGuide = true
+        }
+        await store.receive(\.photosResponse.success)
         await store.receive(\.inviteGuideNeeded) {
             $0.isInvitePopoverPresented = true
             $0.isInviteGuidePresented = true
         }
-        await store.receive(\.detailResponse.success) {
-            $0.detailLoad = .loaded
-            $0.detail = Self.detail
-        }
-        await store.receive(\.photosResponse.success)
 
         // 바 재탭·바깥 탭 어느 쪽이든 뷰는 이 binding으로 닫는다.
         await store.send(.binding(.set(\.isInvitePopoverPresented, false))) {
@@ -117,25 +121,41 @@ struct RoomDetailInviteGuideTests {
         }
     }
 
-    @Test("다시 시도는 조회만 다시 한다 — 초대 안내 팝오버를 또 열지 않는다")
-    func retryDoesNotRecheckGuide() async {
-        // 진입에서 안내가 이미 열렸고 상세만 실패한 상황 — 다시 시도가 안내 확인까지 반복하면
-        // inviteGuideNeeded가 또 와서 이 테스트가 실패한다.
-        var initial = RoomDetailFeature.State(room: .previewShooting)
-        initial.detailLoad = .failed
-        initial.alert = AlertState { TextState("방 정보를 불러오지 못했어요") }
-        initial.isInvitePopoverPresented = true
-        initial.isInviteGuidePresented = true
-
-        let store = TestStore(initialState: initial) {
+    @Test("상세가 실패하면 안내를 미루고, 다시 시도로 성공했을 때 연다")
+    func opensGuideAfterRetrySucceeds() async {
+        // 첫 조회는 실패, 다시 시도는 성공 — 실패한 화면 뒤에 열림 상태가 남으면 안 된다.
+        let callCount = LockIsolated(0)
+        let store = TestStore(initialState: RoomDetailFeature.State(room: .previewShooting)) {
             RoomDetailFeature()
         } withDependencies: {
-            $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in Self.detail })
+            $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in
+                if callCount.withValue({ $0 += 1; return $0 }) == 1 {
+                    throw RoomError.network
+                }
+                return Self.detail
+            })
             $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in [] })
-            $0.shouldShowInviteGuideUseCase.run = { true } // 다시 확인하면 안내가 또 열린다
+            $0.shouldShowInviteGuideUseCase.run = { true }
             $0.continuousClock = TestClock()
             $0.date = .constant(Date(timeIntervalSince1970: 0))
         }
+
+        await store.send(.view(.task)) {
+            $0.detailLoad = .loading
+        }
+        // 실패 — 얼럿만 뜨고 안내는 확인조차 하지 않는다.
+        await store.receive(\.detailResponse.failure) {
+            $0.detailLoad = .failed
+            $0.alert = AlertState {
+                TextState("방 정보를 불러오지 못했어요")
+            } actions: {
+                ButtonState(action: .retryTapped) { TextState("다시 시도") }
+                ButtonState(role: .cancel) { TextState("확인") }
+            } message: {
+                TextState(RoomError.network.userMessage)
+            }
+        }
+        await store.receive(\.photosResponse.success)
 
         await store.send(.alert(.presented(.retryTapped))) {
             $0.alert = nil
@@ -144,7 +164,37 @@ struct RoomDetailInviteGuideTests {
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
+            $0.hasCheckedInviteGuide = true
         }
+        await store.receive(\.photosResponse.success)
+        await store.receive(\.inviteGuideNeeded) {
+            $0.isInvitePopoverPresented = true
+            $0.isInviteGuidePresented = true
+        }
+    }
+
+    @Test("안내 확인은 첫 상세 성공에 한 번뿐이다 — 재조회 성공에 또 확인하지 않는다")
+    func checksGuideOnlyOnFirstSuccess() async {
+        let store = Self.makeStore(shouldShow: { true })
+
+        await store.send(.view(.task)) {
+            $0.detailLoad = .loading
+        }
+        await store.receive(\.detailResponse.success) {
+            $0.detailLoad = .loaded
+            $0.detail = Self.detail
+            $0.hasCheckedInviteGuide = true
+        }
+        await store.receive(\.photosResponse.success)
+        await store.receive(\.inviteGuideNeeded) {
+            $0.isInvitePopoverPresented = true
+            $0.isInviteGuidePresented = true
+        }
+
+        // 카운트다운 알람의 재조회가 같은 상세를 다시 받은 상황 — 확인이 반복되면
+        // inviteGuideNeeded가 또 와서 이 테스트가 실패한다.
+        await store.send(.printCompletionReached)
+        await store.receive(\.detailResponse.success)
         await store.receive(\.photosResponse.success)
     }
 
@@ -171,6 +221,7 @@ struct RoomDetailInviteGuideTests {
             $0.room = Room.previewPrintWaiting
             $0.hasShownPrintWaitingToast = true
             $0.toast = "인화 대기 중이에요! 조금만 기다려주세요"
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.success)
 
