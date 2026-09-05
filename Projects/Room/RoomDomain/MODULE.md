@@ -66,6 +66,11 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   - 상세는 API 하나당 메서드 하나로 나뉜다 — 상세 API 하나로는 `RoomDetail`을 완성할 수 없어
     (참여자 없음) 반쪽짜리를 돌려주지 않기 위한 분리. 합치기는 UseCase 몫
   - 확인 기록·이름 변경은 반환이 없다 — 반영된 값은 다음 목록 조회가 내려준다
+- `protocol PrintNoticeRepository` — `hasSeenPrintNotice(roomID:) -> Bool` ·
+  `markPrintNoticeSeen(roomID:)`
+  - 인화 완료 안내(방 상세의 필름 화면)를 방마다 한 번만 띄우기 위한 노출 기록
+  - 구현체 계약: 기록은 방 단위이고 실패 개념이 없다. 서버가 아니라 기기에 남긴다 —
+    안내 하나 때문에 서버 왕복을 기다리지 않기 위해서다
 
 ### Models (`Sources/Models/`)
 
@@ -123,12 +128,17 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
 - `UpdateRoomTitleUseCase` (`\.updateRoomTitleUseCase`) — `RoomNameRule` 적용 후 이름 변경
   (`(roomID, title) -> String`). 정제된 이름을 돌려줘 화면이 입력값 대신 서버 저장값으로 갱신한다
 
+- `ShouldShowPrintNoticeUseCase` (`\.shouldShowPrintNoticeUseCase`) — 이 방의 인화 완료 안내를
+  아직 안 봤는지 (`(Room.ID) -> Bool`). 던지지 않으며 확인이 안 되면 `false`(안 띄움)
+- `MarkPrintNoticeSeenUseCase` (`\.markPrintNoticeSeenUseCase`) — 이 방의 안내를 본 것으로 기록
+  (`(Room.ID) -> Void`)
+
 전부 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
 
 ## 의존성
 
 - **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (TCA 전이 의존, `Tuist/Package.swift` 경유)
-- **이 모듈에 의존**: `HomeFeature`·`CameraFeature`(UseCase를 `@Dependency`로 주입받음) ·
+- **이 모듈에 의존**: `HomeFeature`·`RoomDetailFeature`·`CameraFeature`(UseCase를 `@Dependency`로 주입받음) ·
   `RoomData`(인터페이스 구현) · 합성 루트(`CHALLAApp`·`HomeFeatureDemo`·`CameraFeatureDemo` —
   `.live(repository:)` 조립)
 
@@ -153,3 +163,4 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `JoinRoomUseCaseLiveTests` — 코드 정규화 후 전달, 빈 코드 가드, `.roomNotFound` 전파
 - `FetchRoomDetailUseCaseLiveTests` — 두 결과의 합치기(같은 id로 호출됐는지 캡처 검증),
   어느 쪽이 실패해도 부분 성공 없이 오류 하나 전파
+- `PrintNoticeUseCasesLiveTests` — 저장소 답을 뒤집어 전달하는지, 기록이 물어본 방에만 남는지
