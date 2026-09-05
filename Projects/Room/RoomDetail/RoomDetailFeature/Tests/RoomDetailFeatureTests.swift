@@ -40,7 +40,10 @@ struct RoomDetailFeatureTests {
         fetchDetail: FetchRoomDetailUseCase = .testValue,
         fetchPhotos: FetchRoomPhotosUseCase = .testValue,
         copy: CopyToPasteboard = .testValue,
-        clock: any Clock<Duration> = TestClock()
+        clock: any Clock<Duration> = TestClock(),
+        // 대부분의 테스트는 안내와 무관하다 — 이미 본 것으로 두면 안내가 끼어들지 않는다.
+        shouldShowPrintNotice: ShouldShowPrintNoticeUseCase = .init(run: { _ in false }),
+        markPrintNoticeSeen: MarkPrintNoticeSeenUseCase = .init(run: { _ in })
     ) -> TestStoreOf<RoomDetailFeature> {
         TestStore(initialState: initialState) {
             RoomDetailFeature()
@@ -48,6 +51,8 @@ struct RoomDetailFeatureTests {
             $0.fetchRoomDetailUseCase = fetchDetail
             $0.fetchRoomPhotosUseCase = fetchPhotos
             $0.copyToPasteboard = copy
+            $0.shouldShowPrintNoticeUseCase = shouldShowPrintNotice
+            $0.markPrintNoticeSeenUseCase = markPrintNoticeSeen
             $0.continuousClock = clock
             // 인화 완료 응답이 확인 기록(check)을 보낸다 — 여기 테스트들은 기록 자체를 검증하지 않아 무시 스텁.
             $0.checkPrintCompletionUseCase = CheckPrintCompletionUseCase(run: { _ in })

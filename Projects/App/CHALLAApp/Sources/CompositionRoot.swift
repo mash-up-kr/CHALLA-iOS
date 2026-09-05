@@ -185,6 +185,8 @@ enum CompositionRoot {
     /// client 공유 조건은 registerUser와 같다. 데모앱은 이 자리에 `InMemoryRoomRepository`를 꽂는다.
     private static func registerRoom(into values: inout DependencyValues, client: any HTTPClient) {
         let repository = DefaultRoomRepository(client: client)
+        // 인화 완료 안내 노출 기록만 서버가 아니라 기기에 남는다 (`PrintNoticeRepository` 주석 참고).
+        let printNotice = DefaultPrintNoticeRepository()
 
         values.fetchRoomsUseCase = .live(repository: repository)
         values.createRoomUseCase = .live(repository: repository)
@@ -193,6 +195,8 @@ enum CompositionRoot {
         values.fetchShootableRoomsUseCase = .live(repository: repository)
         values.checkPrintCompletionUseCase = .live(repository: repository)
         values.updateRoomTitleUseCase = .live(repository: repository)
+        values.shouldShowPrintNoticeUseCase = .live(repository: printNotice)
+        values.markPrintNoticeSeenUseCase = .live(repository: printNotice)
 
         // 방 상세·사진 상세가 쓰는 fetchRoomPhotosUseCase는 Photo aggregate라 registerPhoto에서 등록한다.
     }

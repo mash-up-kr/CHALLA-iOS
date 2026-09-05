@@ -26,10 +26,16 @@ public struct RoomDetailView: View {
                 leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") { send(.backButtonTapped) },
                 trailing: .icon(.setting, accessibilityLabel: "방 설정") { send(.settingsButtonTapped) }
             )
-            slotGrid
-                .overlay(alignment: .top) { memberBar }
-                // 참여자 바보다 나중에 선언해 열린 팝오버 위에 그려지게 한다.
-                .overlay(alignment: .top) { toastLayer }
+            // 인화 완료 후 첫 진입이면 그리드 대신 필름부터 보여준다. 상단 바는 그대로 둔다 —
+            // 시안의 안내 화면에도 같은 제목과 뒤로 가기가 있다.
+            if store.isPrintNoticePresented {
+                PrintNoticeView(photos: store.photos) { send(.printNoticeDismissed) }
+            } else {
+                slotGrid
+                    .overlay(alignment: .top) { memberBar }
+                    // 참여자 바보다 나중에 선언해 열린 팝오버 위에 그려지게 한다.
+                    .overlay(alignment: .top) { toastLayer }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .challaMainBackground()
@@ -134,6 +140,8 @@ public struct RoomDetailView: View {
 
     /// 촬영 중: 채팅 + 사진 찍기 / 인화 대기: 채팅 + 카운트다운 /
     /// 인화 완료: 아무것도 없음 (시안 5604:19636 — 채팅 버튼도 없다).
+    ///
+    /// 인화 완료 안내는 인화 완료 방에서만 뜨므로 이 자리와 겹치지 않는다.
     @ViewBuilder
     private var bottomActions: some View {
         switch store.room.status {
@@ -222,20 +230,6 @@ private enum RoomDetailMetric {
 
 // MARK: - Preview
 
-/// 프리뷰용 가짜 사진. picsum 사진 6장을 돌려 쓴다 — 슬롯마다 다른 URL을 주면
-/// 수십 건이 한꺼번에 나가 picsum이 막고, 같은 URL은 로더가 캐시로 재사용해 6번만 받는다.
-private func previewPhotos(count: Int) -> [Photo] {
-    (0 ..< count).compactMap { index in
-        guard let url = URL(string: "https://picsum.photos/seed/challa-slot\(index % 6)/300/400") else { return nil }
-        return Photo(
-            id: "\(index)",
-            imageURL: url,
-            author: PhotoAuthor(id: "author", nickname: "찰나둥이"),
-            capturedAt: .now
-        )
-    }
-}
-
 #Preview("촬영 중") {
     RoomDetailView(
         store: Store(initialState: RoomDetailFeature.State(room: .previewShooting)) {
@@ -253,7 +247,7 @@ private func previewPhotos(count: Int) -> [Photo] {
         } withDependencies: {
             $0.fetchRoomDetailUseCase = .previewValue
             // 24칸 중 12장 찍힌 상태 — 찍은 자리는 블러, 남은 자리는 빈 칸으로 섞여 보인다.
-            $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in previewPhotos(count: 12) })
+            $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in PreviewSamples.photos(count: 12) })
         }
     )
 }
@@ -293,7 +287,7 @@ private func previewPhotos(count: Int) -> [Photo] {
             })
             // 인화 대기는 다 찍었을 때만 들어오는 상태라 빈 슬롯이 없다 (남은 장수 0).
             $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
-                previewPhotos(count: room.totalPhotoCount)
+                PreviewSamples.photos(count: room.totalPhotoCount)
             })
         }
     )
@@ -308,7 +302,7 @@ private func previewPhotos(count: Int) -> [Photo] {
                 RoomDetail(room: .previewPrinted, invitationCode: "1928121", members: RoomDetail.preview.members)
             })
             $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
-                previewPhotos(count: Room.previewPrinted.totalPhotoCount)
+                PreviewSamples.photos(count: Room.previewPrinted.totalPhotoCount)
             })
         }
     )

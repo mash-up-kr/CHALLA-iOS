@@ -45,6 +45,21 @@
 있다 — 모든 메서드가 기다리는 일을 `waitAndCheckFailure()`로 앞에 모으고 그 뒤로는 `await` 없이
 상태를 읽고 쓴다.
 
+- `struct DefaultPrintNoticeRepository: PrintNoticeRepository` — `init(storage:)`
+  - 인화 완료 안내를 봤는지 방마다 기기에 저장한다 (`challa.room.printNotice.seen.<roomID>`).
+    서버가 아니라 기기에 남기는 이유는 `RoomDomain.PrintNoticeRepository` 주석 참고
+  - 방마다 키를 하나씩 쓴다 — 한 키에 방 목록을 모으면 읽고 쓸 때마다 목록을 갈아 끼워야 해
+    Bool 하나짜리 기록에는 과하다. 방이 지워져도 기록은 남지만 키 하나가 Bool 하나라 무시할 수 있다
+- `actor InMemoryPrintNoticeRepository: PrintNoticeRepository` — `init(seenRoomIDs:)`
+  - 데모·테스트용. 앱을 끄면 사라져 매번 안내부터 다시 볼 수 있다
+
+### Storage (`Sources/Storage/`)
+
+- `protocol PrintNoticeStorage` — `bool(forKey:)` · `setBool(_:forKey:)`
+- `struct UserDefaultsPrintNoticeStorage: PrintNoticeStorage` — `init(defaults:)`
+  - `UserDefaults`를 한 겹 감싼다. 실제 `UserDefaults`를 테스트가 직접 쓰면 상태가 새고
+    실행 순서에 결과가 흔들린다 (`PhotoData.CameraOnboardingStorage`와 같은 판단)
+
 ### Sample (`Sources/Sample/`)
 
 - `enum RoomSamples` — `inviteCode`(시안의 `1928121`) · `inviteCodes` ·
@@ -74,7 +89,7 @@
 ## 의존성
 
 - **이 모듈이 의존**: `RoomDomain`(인터페이스·엔티티·오류) · `CHALLANetwork`(HTTPClient·Endpoint)
-- **이 모듈에 의존**: `CHALLAApp` · `HomeFeatureDemo` · `CameraFeatureDemo` — 합성 루트만 import한다
+- **이 모듈에 의존**: `CHALLAApp` · `HomeFeatureDemo` · `RoomDetailFeatureDemo` · `CameraFeatureDemo` — 합성 루트만 import한다
   (아키텍처 규칙 2: Feature는 Data를 import하지 않는다)
 
 ## 테스트 실행 방법
@@ -99,5 +114,7 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
   (id 음수 표식 포함), 만든 방이 목록에 남고 최근 방이 맨 앞, 입장 인원 증가 반영,
   없는 코드의 `.roomNotFound`, 상세의 초대 코드 두 경로(역방향 조회·id로 생성),
   참여자 주입 반환, `failure` 주입 시 모든 메서드 전파
+- `DefaultPrintNoticeRepositoryTests` — 기록 없을 때 기본값, 기록 후 유지, 방별 분리,
+  저장소를 물려받은 새 인스턴스가 기록을 읽는지 (앱 재실행 상황)
 
 `RoomSamples`는 값 선언뿐이라 테스트하지 않는다.
