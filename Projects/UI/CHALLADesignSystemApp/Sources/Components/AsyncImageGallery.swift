@@ -63,14 +63,14 @@ struct AsyncImageGallery: View {
                     title: "찰나 모임",
                     memberCount: 4,
                     photo: image,
-                    variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: false, onShoot: nil)
+                    variant: .shooting(isPreparing: false, onShoot: nil)
                 )
             } placeholder: {
                 CHALLARoomCard(
                     title: "찰나 모임",
                     memberCount: 4,
                     photo: nil,
-                    variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: false, onShoot: nil)
+                    variant: .shooting(isPreparing: false, onShoot: nil)
                 )
             }
         }

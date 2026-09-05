@@ -66,6 +66,9 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   - 상세는 API 하나당 메서드 하나로 나뉜다 — 상세 API 하나로는 `RoomDetail`을 완성할 수 없어
     (참여자 없음) 반쪽짜리를 돌려주지 않기 위한 분리. 합치기는 UseCase 몫
   - 확인 기록·이름 변경은 반환이 없다 — 반영된 값은 다음 목록 조회가 내려준다
+- `protocol InviteGuideRepository` — `hasSeenInviteGuide()` · `markInviteGuideSeen()`.
+  방 상세 첫 진입 안내를 봤는지의 기록. 기기에만 남고 서버에 올리지 않는다 —
+  기기를 바꾸면 안내가 한 번 더 뜬다
 
 ### Models (`Sources/Models/`)
 
@@ -122,6 +125,10 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
   (`(roomID) -> Void`). 규칙 없는 단순 통과지만 Feature는 UseCase만 보는 관례를 유지한다
 - `UpdateRoomTitleUseCase` (`\.updateRoomTitleUseCase`) — `RoomNameRule` 적용 후 이름 변경
   (`(roomID, title) -> String`). 정제된 이름을 돌려줘 화면이 입력값 대신 서버 저장값으로 갱신한다
+- `ShouldShowInviteGuideUseCase` (`\.shouldShowInviteGuideUseCase`) — 방 상세에 처음
+  들어왔는지 (`-> Bool`, 던지지 않음). previewValue는 false — 프리뷰마다 안내가 겹치지 않게,
+  안내 컷은 직접 true를 꽂는다
+- `MarkInviteGuideSeenUseCase` (`\.markInviteGuideSeenUseCase`) — 안내를 본 것으로 기록 (`-> Void`)
 
 전부 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
 
@@ -153,3 +160,4 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `JoinRoomUseCaseLiveTests` — 코드 정규화 후 전달, 빈 코드 가드, `.roomNotFound` 전파
 - `FetchRoomDetailUseCaseLiveTests` — 두 결과의 합치기(같은 id로 호출됐는지 캡처 검증),
   어느 쪽이 실패해도 부분 성공 없이 오류 하나 전파
+- `InviteGuideUseCasesLiveTests` — 기록이 없을 때만 띄우라고 답하는지, 기록이 이후 조회에 반영되는지

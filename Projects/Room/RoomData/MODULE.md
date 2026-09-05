@@ -39,6 +39,11 @@
   - 확인 기록·이름 변경은 들고 있는 카드를 새 값으로 바꿔 재현한다 — 실서버가 다음 목록
     조회에 반영해 주는 것과 같은 모습이다
 
+- `struct DefaultInviteGuideRepository: InviteGuideRepository` — `init(storage:)`
+  - 초대 안내 노출 여부를 기기에 저장한다 (키 `challa.room.inviteGuide.seen`)
+  - `InviteGuideStorage`(`Sources/Storage/`)가 저장을 추상한다 — 실행 앱은 `UserDefaults`
+    구현, 테스트는 메모리 구현. 방 목록·상세와 달리 서버가 없는 유일한 저장소다
+
 **`actor`인 이유** (InMemory): 방 목록이 계속 바뀌는데 `RoomRepository`는 `Sendable`이라 동시 접근이
 안전해야 한다. 락으로 묶는 방법도 있으나 `await`로 기다리는 구간이 있어 쓸 수 없다(락은 스레드를 붙잡고
 `await`는 놓는다). 대신 actor는 재진입을 허용하므로 — `await`에서 멈춘 사이 다른 호출이 상태를 바꿀 수
@@ -74,7 +79,7 @@
 ## 의존성
 
 - **이 모듈이 의존**: `RoomDomain`(인터페이스·엔티티·오류) · `CHALLANetwork`(HTTPClient·Endpoint)
-- **이 모듈에 의존**: `CHALLAApp` · `HomeFeatureDemo` · `CameraFeatureDemo` — 합성 루트만 import한다
+- **이 모듈에 의존**: `CHALLAApp` · `HomeFeatureDemo` · `RoomDetailFeatureDemo` · `CameraFeatureDemo` — 합성 루트만 import한다
   (아키텍처 규칙 2: Feature는 Data를 import하지 않는다)
 
 ## 테스트 실행 방법
@@ -99,5 +104,8 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
   (id 음수 표식 포함), 만든 방이 목록에 남고 최근 방이 맨 앞, 입장 인원 증가 반영,
   없는 코드의 `.roomNotFound`, 상세의 초대 코드 두 경로(역방향 조회·id로 생성),
   참여자 주입 반환, `failure` 주입 시 모든 메서드 전파
+
+- `DefaultInviteGuideRepositoryTests` — 기록 없음 기본값, 기록 후 조회, 같은 저장소로
+  다시 만들어도 유지(앱 재시작)
 
 `RoomSamples`는 값 선언뿐이라 테스트하지 않는다.

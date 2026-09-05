@@ -48,7 +48,7 @@ struct MainBackgroundGallery: View {
                 title: "친구들과 강릉 여행",
                 memberCount: 11,
                 photo: nil,
-                variant: .shooting(shotCount: 24, totalCount: 24, isPreparing: false, onShoot: nil)
+                variant: .shooting(isPreparing: false, onShoot: nil)
             )
             .padding(.top, 20)
             Spacer()

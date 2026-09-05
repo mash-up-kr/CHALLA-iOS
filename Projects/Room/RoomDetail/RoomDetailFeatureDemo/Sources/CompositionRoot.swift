@@ -28,6 +28,9 @@ enum CompositionRoot {
         values.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
             DemoSamples.photos(count: DemoSamples.photoCount(for: state))
         })
+        // 첫 진입 안내는 이 상태에서만 뜬다. 기록은 no-op — 데모를 다시 열어도 같은 컷이 나온다.
+        values.shouldShowInviteGuideUseCase.run = { state == .inviteGuide }
+        values.markInviteGuideSeenUseCase.run = {}
         registerShootEntry(room: room, into: &values)
         // copyToPasteboard는 등록하지 않는다 — liveValue(실제 클립보드)가 그대로 쓰여
         // 데모에서 복사 후 붙여넣기까지 확인할 수 있다.

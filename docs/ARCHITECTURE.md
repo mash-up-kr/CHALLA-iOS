@@ -66,9 +66,9 @@ Projects/
 │  ├─ RoomDomain                     (모듈) ★ 방 도메인 공용 — Feature 5개가 공유
 │  │   ├─ Entities/                        Room · Participant · InviteCode · RoomID
 │  │   │   └─ FilmStatus                   촬영중 · 인화대기 · 완료  ← Film 도메인 흡수
-│  │   ├─ RoomRepository                   인터페이스 1개
+│  │   ├─ Repository 인터페이스             RoomRepository · InviteGuideRepository(초대 안내 기록)
 │  │   └─ UseCases/                        FetchRooms · Create · Join · Invite · Detail · DevelopFilm · Setting
-│  ├─ RoomData                       (모듈) RoomRepository 구현 1개 + DTO 매핑
+│  ├─ RoomData                       (모듈) RoomRepository 구현 + DTO 매핑 · 초대 안내 기록(UserDefaults)
 │  ├─ RoomCreateFeature              (모듈) 방 이름 · 색상 · 필름 장수 설정
 │  ├─ RoomJoinFeature                (모듈) 초대코드 입력 · 입장
 │  ├─ RoomInviteFeature              (모듈) 초대코드 표시 · 공유
