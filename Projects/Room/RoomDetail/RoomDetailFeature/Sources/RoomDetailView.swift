@@ -38,8 +38,10 @@ public struct RoomDetailView: View {
         .alert($store.scope(state: \.alert, action: \.alert))
         .sheet(isPresented: $store.isSharePresented) {
             if let url = store.inviteShareURL {
-                ActivityShareSheet(items: [url])
-                    .presentationDetents([.medium, .large]) // 시안의 반 시트 — 위로 끌면 전체
+                ActivityShareSheet(items: [url]) {
+                    store.isSharePresented = false // @Bindable 바인딩 쓰기 — 리듀서를 거친다
+                }
+                .presentationDetents([.medium, .large]) // 시안의 반 시트 — 위로 끌면 전체
             }
         }
         .task { send(.task) }

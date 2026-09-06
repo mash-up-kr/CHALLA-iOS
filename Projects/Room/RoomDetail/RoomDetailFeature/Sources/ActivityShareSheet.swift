@@ -7,9 +7,15 @@ import UIKit
 struct ActivityShareSheet: UIViewControllerRepresentable {
 
     let items: [Any]
+    /// 공유를 마치거나 취소했을 때 — 호출부가 시트 열림 상태를 내린다.
+    /// 컨트롤러는 자기 자신을 닫으려 하는데 실제로 떠 있는 것은 SwiftUI 시트라,
+    /// 여기서 알려주지 않으면 기기에 따라 빈 시트가 남는다.
+    let onComplete: () -> Void
 
     func makeUIViewController(context _: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, _, _, _ in onComplete() }
+        return controller
     }
 
     func updateUIViewController(_: UIActivityViewController, context _: Context) {}
