@@ -5,12 +5,16 @@
 ## 공개 API
 
 - `ChatRoomFeature` (`@Reducer`)
-  - `State` — `roomID` · `roomTitle` · `currentUserNickname`(내 메시지 판별) · `messages: [ChatMessage]` · `draft` · `isLoading` · `isSending` · `alert`.
-    `init(roomID:roomTitle:currentUserNickname:)`
+  - `State` — `roomID` · `roomTitle` · `currentUserNickname`(내 메시지 판별) · `isPrinted`(인화 완료 여부) ·
+    `messages: [ChatMessage]` · `draft` · `isLoading` · `isSending` · `alert`.
+    `init(roomID:roomTitle:currentUserNickname:isPrinted:)`
   - `Action` — `view(onAppear · backButtonTapped · draftChanged · sendTapped)` · `chatsResponse` · `sendResponse` · `delegate(closeRequested)` · `alert`
 - `ChatRoomView` — `init(store:)`
 
 ## 동작 규칙
+
+- **인화 전에는 채팅에 붙은 사진도 blur로 가린다** (`isPrinted == false`). 방 상세 필름카드와 같은 연출·같은 강도(13.5)라
+  같은 사진이 화면마다 다르게 보이지 않는다. 방 상태는 App이 조립할 때 넘긴다
 
 - 진입 시 첫 페이지(size 30)를 조회하고, 위로 스크롤해 맨 위에 닿으면 이전 페이지를 더 불러와 목록 위에 붙인다.
   서버 응답에 `hasNext`가 없어 "받은 개수 == size"로 더 있는지 가늠한다. 붙이기 전 맨 위 메시지로 스크롤을 되돌려 위치를 유지한다
