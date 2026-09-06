@@ -33,6 +33,9 @@ public struct ChatRoomFeature {
         public var nextPage = 0
         /// 소켓이 붙어 있는지. 지금은 화면에 그리지 않고 상태로만 둔다.
         public var isRealtimeConnected = false
+        /// 남이 보낸 새 메시지가 도착했다 — 맨 아래로 내려가는 버튼을 띄운다.
+        /// 새 메시지가 왔다고 화면을 따라 내리지 않는다. 이전 대화를 읽는 중이면 방해가 된다.
+        public var hasNewMessageBelow = false
         /// 진입 준비를 이미 했는지 — `.task`가 다시 불려도 구독이 둘이 되지 않게 막는다.
         public var didStart = false
         @Presents public var alert: AlertState<Action.Alert>?
@@ -63,6 +66,8 @@ public struct ChatRoomFeature {
             case sendTapped
             /// 목록 맨 위에 닿음 — 이전 메시지를 더 불러온다.
             case reachedTop
+            /// 새 메시지 버튼을 눌렀다 — 맨 아래로 내려간다.
+            case scrollToBottomTapped
         }
 
         case view(ViewAction)
@@ -127,6 +132,10 @@ public struct ChatRoomFeature {
             case .view(.reachedTop):
                 return loadMore(&state)
 
+            case .view(.scrollToBottomTapped):
+                state.hasNewMessageBelow = false
+                return .none
+
             case .subscribed:
                 state.isRealtimeConnected = true
                 // 재연결이면 끊겨 있던 구간을 이 조회가 메운다.
@@ -138,6 +147,10 @@ public struct ChatRoomFeature {
 
             case let .received(message):
                 state.messages = ChatMessage.merged(state.messages, with: [message])
+                // 내 메시지가 되돌아온 것이면 이미 화면이 맨 아래에 있다.
+                if !message.isMine(currentUserID: state.currentUserID) {
+                    state.hasNewMessageBelow = true
+                }
                 return .none
 
             case let .chatsResponse(.success(page)):
@@ -281,6 +294,8 @@ public struct ChatRoomFeature {
         state.isSending = true
         state.draft = ""
         state.messages = ChatMessage.merged(state.messages, with: [message])
+        // 내가 보낸 것은 화면이 따라 내려가므로 버튼을 남길 이유가 없다.
+        state.hasNewMessageBelow = false
         let roomID = state.roomID
 
         return .run { [sendChatUseCase] send in

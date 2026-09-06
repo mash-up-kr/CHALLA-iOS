@@ -107,7 +107,15 @@ public struct ChatRoomView: View {
                     ProgressView().tint(CHALLAColor.Label.neutral)
                 }
             }
+            .overlay(alignment: .bottom) {
+                if store.hasNewMessageBelow {
+                    newMessageButton(proxy)
+                }
+            }
+            // 남이 보낸 메시지에는 따라 내려가지 않는다 — 이전 대화를 읽는 중에 화면이 끌려 내려간다.
+            // 대신 아래의 새 메시지 버튼을 띄우고, 내려갈지는 사용자가 정한다.
             .onChange(of: store.messages.last?.id) {
+                guard store.messages.last?.isMine(currentUserID: store.currentUserID) == true else { return }
                 scrollToBottom(proxy)
             }
             // 이전 메시지를 위에 붙인 뒤, 붙이기 전 맨 위 메시지로 스크롤을 되돌려 위치를 유지한다.
@@ -117,6 +125,24 @@ public struct ChatRoomView: View {
                 anchorMessageID = nil
             }
         }
+    }
+
+    /// 새 메시지가 왔을 때만 뜨는 "맨 아래로" 버튼.
+    /// TODO: 시안 미확정 — 지름·아이콘은 임시값이다. 아이콘 자산에 아래 방향 캐럿이 없어 caretRight를 돌려 쓴다.
+    private func newMessageButton(_ proxy: ScrollViewProxy) -> some View {
+        Button {
+            scrollToBottom(proxy)
+            send(.scrollToBottomTapped)
+        } label: {
+            CHALLAIcon.caretRight.image(size: .size20, color: CHALLAColor.Label.normal)
+                .rotationEffect(.degrees(90))
+                .frame(width: Metric.newMessageButtonSize, height: Metric.newMessageButtonSize)
+                .background(CHALLAColor.Background.level4, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, Metric.newMessageButtonBottomPadding)
+        .accessibilityLabel("새 메시지 보기")
+        .transition(.scale.combined(with: .opacity))
     }
 
     private func dateDivider(_ date: Date) -> some View {
@@ -180,6 +206,10 @@ public struct ChatRoomView: View {
 }
 
 private enum Metric {
+    // TODO: 시안 미확정 — 새 메시지 버튼의 임시 실측값.
+    static let newMessageButtonSize: CGFloat = 36
+    static let newMessageButtonBottomPadding: CGFloat = 12
+
     static let rowSpacing: CGFloat = 16
     static let loadMoreSpacing: CGFloat = 8
     static let listHorizontalPadding: CGFloat = 16

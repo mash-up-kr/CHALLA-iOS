@@ -76,6 +76,66 @@ struct ChatRoomRealtimeTests {
         await store.finish()
     }
 
+    @Test("남이 보낸 메시지가 오면 화면을 내리지 않고 '맨 아래로' 버튼만 띄운다")
+    func showsNewMessageButtonForOthers() async {
+        let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
+        let store = makeChatStore(observe: { _ in stream })
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        continuation.yield(.message(Fixture.message(chatID: 9, content: "왔다")))
+        await store.receive(\.received)
+
+        #expect(store.state.hasNewMessageBelow)
+
+        await store.send(.view(.scrollToBottomTapped))
+        #expect(store.state.hasNewMessageBelow == false)
+
+        continuation.finish()
+        await store.finish()
+    }
+
+    @Test("내가 보낸 메시지가 소켓으로 되돌아온 것에는 버튼을 띄우지 않는다")
+    func doesNotShowButtonForOwnEcho() async {
+        let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
+        let store = makeChatStore(observe: { _ in stream })
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        continuation.yield(.message(Fixture.message(
+            chatID: 9,
+            content: "내 것",
+            authorID: Fixture.currentUserID,
+            author: Fixture.currentUserNickname
+        )))
+        await store.receive(\.received)
+
+        #expect(store.state.hasNewMessageBelow == false)
+
+        continuation.finish()
+        await store.finish()
+    }
+
+    @Test("메시지를 보내면 버튼이 사라진다 (화면이 맨 아래로 따라간다)")
+    func sendingClearsNewMessageButton() async {
+        let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
+        let store = makeChatStore(send: { _, _, _ in 42 }, observe: { _ in stream })
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        continuation.yield(.message(Fixture.message(chatID: 9, content: "왔다")))
+        await store.receive(\.received)
+        #expect(store.state.hasNewMessageBelow)
+
+        await store.send(.view(.draftChanged("보냄")))
+        await store.send(.view(.sendTapped))
+        #expect(store.state.hasNewMessageBelow == false)
+
+        await store.receive(\.sendResponse)
+        continuation.finish()
+        await store.finish()
+    }
+
     @Test("재연결되면 과거 목록을 다시 불러 끊겨 있던 구간을 메운다")
     func refetchesHistoryOnResume() async {
         let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
