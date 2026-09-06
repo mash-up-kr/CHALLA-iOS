@@ -11,9 +11,11 @@ enum Fixture {
     static let roomTitle = "해피하우스 강릉 여행"
     /// 화면을 보는 사람 = 리액션을 남기는 사람.
     static let currentUserID = "user-me"
+    /// 리액션 생성·삭제에 사용하는 서버 ID.
+    static let chatID: Int64 = 77
 
     static func photo(id: String, reactions: [PhotoReaction] = []) -> Photo {
-        // 스티커(reactions)에서 띠(reactedKindsByUser)를 유도해 일관되게 만든다 — 실제 서버 매핑과 같은 관계.
+        // 스티커와 사용자별 선택 상태를 일치시킨다.
         let kinds = reactions.reduce(into: [String: Set<ReactionKind>]()) {
             $0[$1.userID, default: []].insert($1.kind)
         }
@@ -28,8 +30,9 @@ enum Fixture {
         )
     }
 
-    static func reaction(_ kind: ReactionKind, by userID: String) -> PhotoReaction {
-        PhotoReaction(kind: kind, userID: userID)
+    /// 서버에서 조회한 리액션.
+    static func reaction(_ kind: ReactionKind, by userID: String, chatID: Int64 = chatID) -> PhotoReaction {
+        PhotoReaction(chatID: chatID, kind: kind, userID: userID)
     }
 }
 
@@ -39,8 +42,11 @@ enum Fixture {
 func makeTestStore(
     initialPhotoID: Photo.ID? = nil,
     photos: @escaping @Sendable (Int64) async throws -> [Photo] = { _ in [] },
-    reactions: @escaping @Sendable (String) async throws -> PhotoReactions = { _ in PhotoReactions() },
-    setReaction: @escaping @Sendable (Int64, String, ReactionKind, Bool) async throws -> Void = { _, _, _, _ in
+    reactions: @escaping @Sendable (Int64, String) async throws -> PhotoReactions = { _, _ in PhotoReactions() },
+    setReaction: @escaping @Sendable (Int64, String, ReactionKind) async throws -> Int64? = { _, _, _ in
+        throw PhotoError.unknown
+    },
+    deleteReaction: @escaping @Sendable (Int64) async throws -> Void = { _ in
         throw PhotoError.unknown
     },
     sendChat: @escaping @Sendable (Int64, Int64?, String) async throws -> Void = { _, _, _ in
@@ -53,6 +59,7 @@ func makeTestStore(
             roomID: Fixture.roomID,
             roomTitle: Fixture.roomTitle,
             currentUserID: Fixture.currentUserID,
+            isPrinted: true,
             initialPhotoID: initialPhotoID
         )
     ) {
@@ -61,9 +68,11 @@ func makeTestStore(
         $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { room in try await photos(room) })
         $0.fetchPhotoReactionsUseCase = FetchPhotoReactionsUseCase(run: reactions)
         $0.setPhotoReactionUseCase = SetPhotoReactionUseCase(run: setReaction)
+        $0.deletePhotoReactionUseCase = DeletePhotoReactionUseCase(run: deleteReaction)
         $0.sendChatUseCase = SendChatUseCase(run: sendChat)
         $0.savePhotoUseCase = SavePhotoUseCase(run: save)
         $0.uuid = .incrementing // 리액션 애니메이션(reactionBurst) id를 결정적으로
+        $0.continuousClock = ImmediateClock() // 토스트 노출 시간을 기다리지 않는다
     }
 }
 
@@ -71,7 +80,11 @@ func makeTestStore(
 @MainActor
 func openedTestStore(
     photos loaded: [Photo],
-    setReaction: @escaping @Sendable (Int64, String, ReactionKind, Bool) async throws -> Void = { _, _, _, _ in
+    reactions: (@Sendable (Int64, String) async throws -> PhotoReactions)? = nil,
+    setReaction: @escaping @Sendable (Int64, String, ReactionKind) async throws -> Int64? = { _, _, _ in
+        throw PhotoError.unknown
+    },
+    deleteReaction: @escaping @Sendable (Int64) async throws -> Void = { _ in
         throw PhotoError.unknown
     },
     sendChat: @escaping @Sendable (Int64, Int64?, String) async throws -> Void = { _, _, _ in
@@ -85,8 +98,9 @@ func openedTestStore(
     })
     let store = makeTestStore(
         photos: { _ in loaded },
-        reactions: { reactionsByID[$0] ?? PhotoReactions() },
+        reactions: reactions ?? { _, photoID in reactionsByID[photoID] ?? PhotoReactions() },
         setReaction: setReaction,
+        deleteReaction: deleteReaction,
         sendChat: sendChat,
         save: save
     )

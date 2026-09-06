@@ -1,19 +1,20 @@
+import CHALLAImageKit
 import CHALLANetwork
 import Foundation
 import PhotoDomain
 
-/// `PhotoRepository`의 실서버 구현.
-/// 실패는 전부 `PhotoError`로 정규화해 던진다 (`DefaultPhotoUploader`와 같은 규약).
+/// 사진 조회·리액션 API와 원본 다운로드를 제공한다.
 public struct DefaultPhotoRepository: PhotoRepository {
 
     private let client: any HTTPClient
+    private let imageDownloader: ImageDataBatchDownloader
 
-    public init(client: any HTTPClient) {
+    public init(client: any HTTPClient, imageDownloader: ImageDataBatchDownloader = ImageDataBatchDownloader()) {
         self.client = client
+        self.imageDownloader = imageDownloader
     }
 
-    /// 방의 사진을 찍힌 순서대로 돌려준다(목록만). `hasNext`가 없을 때까지 페이지를 이어 받는다.
-    /// 리액션(스티커·칩 띠)은 목록 응답에 없으므로 담지 않는다 — 사진을 펼칠 때 `reactions(forPhotoID:)`로 따로 받는다.
+    /// 모든 페이지를 조회해 촬영 순으로 반환한다. 리액션은 상세 조회에서 별도로 받는다.
     public func photos(inRoom roomID: Int64) async throws -> [Photo] {
         do {
             var items: [ListPhotosResponseDTO] = []
@@ -24,25 +25,26 @@ public struct DefaultPhotoRepository: PhotoRepository {
                     as: BaseResponseDTO<ListPhotosSliceResponseDTO>.self
                 ).unwrap()
                 items.append(contentsOf: slice.photos)
-                // 빈 페이지거나 다음이 없으면 종료 — 서버가 hasNext를 계속 true로 줘도 무한 루프에 빠지지 않게.
                 guard slice.hasNext, !slice.photos.isEmpty else { break }
                 page += 1
             }
 
-            // 표시 불가능한 장(이미지 URL 없음)은 건너뛴다 — 한 장 때문에 목록이 통째로 실패하지 않게.
+            // 촬영 시각이 같으면 숫자 ID로 정렬한다. 문자열 비교는 10을 9보다 앞에 둔다.
             return items.compactMap { $0.toDomain() }
+                .sorted {
+                    ($0.capturedAt, Int64($0.id) ?? 0) < ($1.capturedAt, Int64($1.id) ?? 0)
+                }
         } catch {
             throw PhotoError.normalized(error)
         }
     }
 
-    /// 사진 한 장의 리액션을 상세(`chats`)에서 받아 온다.
-    /// 목록엔 리액션이 없어, 사진을 펼칠 때만 그 한 장을 부른다(안 본 사진은 요청하지 않아 1+N을 피한다).
-    public func reactions(forPhotoID photoID: String) async throws -> PhotoReactions {
+    /// 사진 상세의 채팅 목록에서 이모지 리액션을 조회한다.
+    public func reactions(inRoom roomID: Int64, photoID: String) async throws -> PhotoReactions {
         guard let id = Int64(photoID) else { throw PhotoError.unknown }
         do {
             let detail = try await client.request(
-                PhotoEndpoint.detail(photoID: id),
+                PhotoEndpoint.detail(roomID: roomID, photoID: id),
                 as: BaseResponseDTO<GetPhotoDetailEnvelopeDTO>.self
             ).unwrap()
             let data = detail.photo.reactionData()
@@ -52,17 +54,13 @@ public struct DefaultPhotoRepository: PhotoRepository {
         }
     }
 
-    /// 사진에 이모지 리액션을 남긴다.
-    ///
-    /// 서버에 해제(삭제) API가 없어 `isOn == false`(해제)는 처리하지 않는다 — 호출부가 UI에서 이미 막는다.
-    /// 서버 응답은 갱신 사진을 주지 않으므로 성공 여부만 확인하고, 화면 갱신은 호출부의 낙관적 반영에 맡긴다.
-    public func setReaction(roomID: Int64, photoID: String, kind: ReactionKind, isOn: Bool) async throws {
-        guard isOn else { return }
+    /// 이모지 리액션을 등록하고 삭제에 사용할 채팅 ID를 반환한다.
+    @discardableResult
+    public func setReaction(roomID: Int64, photoID: String, kind: ReactionKind) async throws -> Int64? {
         guard let photoIDValue = Int64(photoID) else { throw PhotoError.unknown }
 
         do {
-            // 리액션은 응답 본문(data)을 쓰지 않는다 — 서버가 data를 비워 줘도 성공으로 본다(성공 플래그만 확인).
-            // `unwrap()`은 data가 nil이면 실패로 던져서, 낙관적으로 붙인 스티커가 되돌려지는 문제가 있었다.
+            // 성공 응답의 data가 없어도 등록은 성공으로 처리한다.
             let response = try await client.request(
                 ChatEndpoint.reaction(
                     CreateReactionRequestDTO(roomID: roomID, photoID: photoIDValue, content: kind.rawValue)
@@ -70,28 +68,57 @@ public struct DefaultPhotoRepository: PhotoRepository {
                 as: BaseResponseDTO<CreateReactionResponseDTO>.self
             )
             guard response.success else { throw PhotoError.server(message: response.message) }
+            return response.data?.chat?.chatId
         } catch {
             throw PhotoError.normalized(error)
         }
     }
 
-    /// 원본 이미지 바이트. 사진첩 저장에 쓴다 — 표시용이 아니라 원본이므로 다운샘플하지 않고 그대로 받는다.
-    public func imageData(for photo: Photo) async throws -> Data {
+    /// 채팅 ID로 이모지 리액션을 삭제한다.
+    public func deleteReaction(chatID: Int64) async throws {
         do {
-            let (data, _) = try await URLSession.shared.data(from: photo.imageURL)
-            return data
-        } catch let error as URLError where error.code == .cancelled {
-            // 취소를 network 오류로 바꾸면 "네트워크 확인" 얼럿이 잘못 뜬다 — 취소는 취소로 올린다.
-            throw CancellationError()
+            let response = try await client.request(
+                ChatEndpoint.deleteReaction(chatID: chatID),
+                as: BaseResponseDTO<DeleteReactionResponseDTO>.self
+            )
+            guard response.success else { throw PhotoError.server(message: response.message) }
         } catch {
-            throw PhotoError.network
+            throw PhotoError.normalized(error)
         }
     }
 
+    /// 사진첩 저장용 원본 데이터를 반환한다.
+    public func imageData(for photo: Photo) async throws -> Data {
+        for await result in imageDownloader.stream(urls: [photo.imageURL]) {
+            switch result {
+            case let .success(data):
+                return data
+            case let .failure(error):
+                if error == .cancelled {
+                    throw CancellationError()
+                }
+                throw PhotoError.network
+            }
+        }
+        try Task.checkCancellation()
+        throw PhotoError.unknown
+    }
+
+    /// 원본을 병렬로 다운로드하고 입력 순서대로 반환한다.
+    public func imageDataStream(for photos: [Photo]) -> AsyncStream<Result<Data, PhotoError>> {
+        // 다운로더가 주는 스트림을 그대로 돌려준다. 다른 AsyncStream에 옮겨 담으면
+        // 기본 버퍼가 무제한이라 저장 속도와 무관하게 원본이 쌓인다.
+        imageDownloader.stream(urls: photos.map(\.imageURL), mapError: Self.photoError(from:))
+    }
+
+    /// 다운로드 오류를 도메인 오류로 변환한다.
+    private static func photoError(from error: ImageLoadingError) -> PhotoError {
+        error == .cancelled ? .unknown : .network
+    }
+
     private enum Const {
-        /// 한 방 최대 장수(72)를 한두 번에 받도록 크게 잡는다.
         static let pageSize = 50
-        /// 페이지 순회 상한 — 서버가 hasNext를 계속 true로 줘도 무한 요청에 빠지지 않게 (50 × 20 = 1000장).
+        /// 잘못된 hasNext 응답으로 인한 무한 요청을 막는다.
         static let maxPages = 20
     }
 }
