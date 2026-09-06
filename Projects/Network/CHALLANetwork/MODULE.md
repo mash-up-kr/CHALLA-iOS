@@ -2,7 +2,7 @@
 
 ## 레이어와 책임
 
-**Network 레이어** (서버 접점 · **Data 전용**). 서버와의 HTTP 통신을 담당하는 순수 네트워킹 모듈이다.
+**Network 레이어** (서버 접점 · **Data 전용**). 서버와의 통신을 담당하는 순수 네트워킹 모듈이다 — 요청·응답(HTTP)과 상시 연결(STOMP over WebSocket) 둘 다 여기 있다.
 Moya 라이브러리의 설계 형태를 본떠 `URLSession` 위에 얹은 얇은 추상화 레이어로, 외부 네트워킹 의존성이 없다.
 
 Data 레이어(Repository 구현)가 API 요청을 **선언적으로** 기술(`Endpoint`)하면, 이 모듈이 그것을
@@ -164,3 +164,38 @@ Swift Testing 기반 테스트 (7 suite) — Swift 6 언어 모드에서 통과:
 - `HTTPClientTests` — `URLProtocol` 스텁으로 전체 파이프라인 (성공·404·전송실패·취소·인터셉터 반영·응답 헤더 노출,
   401 재시도 시 갱신된 토큰이 실리는지 · 갱신 실패 시 재시도 없음 · 재시도 1회 상한 · retrier 없을 때 기존 동작)
 - `CHALLAAPIEnvironmentTests` — Info.plist 값으로 baseURL 조립 (port 생략·비숫자 무시·scheme 형식 검사)
+
+## 실시간 통신 (STOMP over WebSocket) — `Sources/Socket/`
+
+앱 전체가 STOMP 연결 **하나**를 공유한다. 조립은 `CHALLAApp/CompositionRoot`가 `STOMPClient`를 한 번만 만들어
+두 구독자(`ChatEventSubscriber`·`RoomEventSubscriber`)에 넘기는 방식이다.
+
+### 공개 API
+
+- `protocol STOMPClienting` — Data가 보는 유일한 접점
+  - `subscribe(to:) async throws -> AsyncThrowingStream<STOMPEvent, any Error>`
+    구독이 확정된(RECEIPT를 받은) 뒤에 리턴한다. 그래서 "구독 → REST 조회" 순서가 타입으로 강제된다.
+  - `applicationDidEnterBackground()` / `applicationWillEnterForeground()` — 앱이 생명주기를 알려 준다
+- `enum STOMPEvent` — `.message(Data)` · `.resumed`(재연결로 구독이 다시 걸림)
+- `enum STOMPError`
+- `actor STOMPClient` — 위 프로토콜의 실제 구현
+- `CHALLAAPIEnvironment.webSocketURL` — REST와 같은 호스트, scheme만 `ws`/`wss`로 바꾼 주소
+
+### 동작 규칙 (구현이 지키는 것)
+
+- 연결은 **첫 구독이 열고 마지막 구독이 사라지면 20초 뒤 닫는다.** 방 상세↔채팅을 오갈 때마다
+  핸드셰이크를 다시 하지 않으려는 것이다.
+- 끊기면 1·2·4·8·30초 백오프로 다시 붙고 살아 있던 구독을 모두 다시 건 뒤 `.resumed`를 흘린다.
+  **스트림은 끊지 않는다** — 화면 쪽에 재연결 코드가 생기지 않게 하려는 것.
+- 토큰은 업그레이드 요청 헤더와 CONNECT 프레임 양쪽에 싣는다. 401이면 `TokenRefreshing`으로 한 번 갱신하고,
+  갱신도 실패하면 `onSessionExpired()`를 부른 뒤 **재연결을 멈춘다**.
+- 연결마다 세대 번호를 달아, 옛 연결의 끊김 통지가 새 연결을 무너뜨리지 못하게 한다.
+- 프레임 하나가 깨져도 그 메시지만 버리고 연결은 유지한다.
+
+### 테스트
+
+`FakeWebSocketChannel`로 서버 없이 전부 검증한다 (`STOMPCodecTests`·`STOMPClientTests`).
+
+```bash
+xcodebuild -workspace CHALLA.xcworkspace -scheme CHALLANetwork -destination '<시뮬레이터>' test
+```

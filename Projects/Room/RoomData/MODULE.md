@@ -126,3 +126,9 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). 공용 `
   다시 만들어도 유지(앱 재시작)
 
 `RoomSamples`는 값 선언뿐이라 테스트하지 않는다.
+
+## 방 참여 실시간 알림 (추가)
+
+- `RoomEventSubscriber: RoomEventStreaming` — `/topic/room/{roomId}/member-joined` 구독.
+
+**미확인**: 소켓 프레임 본문의 실제 형태(봉투 유무)를 아직 캡처하지 못해, 봉투·비봉투 둘 다 받아 준다.

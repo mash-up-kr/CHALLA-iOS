@@ -205,3 +205,11 @@ xcrun simctl launch booted com.challa.roomdetailfeature.demo \
 
 데모앱에는 카메라 화면이 없어 사진 찍기는 진입 요청(delegate)까지가 끝이다 —
 버튼이 로딩으로 바뀌었다 풀리는 것까지만 보인다. 권한도 값으로 갈아끼워 시스템 팝업이 뜨지 않는다.
+
+## 방 참여 실시간 반영 (추가)
+
+참여 이벤트를 **신호로만** 쓰고 참여자 목록은 `fetchRoomDetailUseCase`로 다시 조회한다 —
+이벤트 페이로드에 참여자의 user id가 없어서 그것만으로 `RoomMember`를 만들면 재입장·중복 참여에서 어긋난다.
+
+재조회는 `detailLoad`를 건드리지 않고, 실패해도 얼럿을 띄우지 않는다(배경 조회라 사용자가 부른 적이 없다).
+토스트는 이 화면이 아니라 앱 루트(`RootFeature`)가 띄운다 — 어느 화면에 있든 보여야 하기 때문이다.

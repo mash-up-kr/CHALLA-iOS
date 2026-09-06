@@ -167,3 +167,17 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme CHALLAApp \
   제한이 없으면 그 키로 다른 Google API를 호출할 수 있다.
 - 실기기 푸시 확인에는 Apple Developer App ID의 Push Notifications 활성화와
   APNs Auth Key(.p8) Firebase 콘솔 업로드가 필요하다
+
+## RootFeature · RootView (추가)
+
+`AppFeature`(화면 전환) 위에 화면과 무관한 것을 얹는 루트다. 지금 얹는 것은 **방 참여 토스트** 하나다 —
+"방 참여 시 어떤 화면에 있든 상단 토스트" 정책이라 방 상세 화면이 아니라 여기가 주인이어야 한다.
+
+- 구독 대상은 **홈이 이미 받아 둔 방 목록**이다. 이 값을 쓰려고 목록을 따로 조회하지 않는다.
+  홈이 목록을 새로 받을 때마다(진입·방 생성·참여) 새로 생긴 방만 구독을 더하고 사라진 방은 끊는다.
+- 토스트를 누르면 그 방으로 이동한다(`AppFeature.Action.openRoomRequested`).
+  촬영 중에는 무시한다 — 찍고 있던 것이 사라진다.
+- 재연결(`.resumed`)에는 토스트를 띄우지 않는다. 그동안 누가 들어왔는지 알 수 없기 때문이다.
+
+**한계**: destination이 방 단위(`/topic/room/{roomId}/member-joined`)라 방 개수만큼 구독을 건다.
+서버에 사용자 단위 주소(`/user/queue/room-events`)가 생기면 구독 하나로 줄어든다 — 요청해 둔 상태다.

@@ -170,3 +170,11 @@ AppView(store: store)
   - `CHALLATooltipTests` — 툴팁 패스 기하 (방향별 화살표 돌출·정렬 좌표, union 겹침 구멍, rect 경계)
   - `CHALLATooltipLayoutTests` — 툴팁을 실제로 레이아웃해서 최소 폭 64 유지 · 여러 줄 문구의
     측정 높이와 배치 높이 일치(배경 밖 글자 넘침 회귀) · 폭 상한 줄바꿈을 잰다
+
+## CHALLAToastSurface (추가)
+
+토스트의 표면(배경·여백·최대 너비)만 담당하고 내용은 담는 쪽이 정한다.
+문구 일부만 말줄임해야 하거나(방 이름) 앞에 프로필 사진을 두어야 해서 단일 `String`으로 표현할 수 없는
+토스트가 이 표면을 쓴다. 글자만 있는 흔한 경우인 `CHALLAToast`도 이 표면을 감싼 것이다.
+
+실측값은 `CHALLAToastMetric`에 모여 있다.

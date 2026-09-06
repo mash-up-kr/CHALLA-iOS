@@ -178,3 +178,14 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `InviteGuideUseCasesLiveTests` — 기록이 없을 때만 띄우라고 답하는지, 기록이 이후 조회에 반영되는지
 - `InviteLinkTests` — 링크 모양·라운드트립, 우리 링크가 아닌 URL 거부(https 5종·커스텀 스킴 4종), 끝 슬래시·대문자·쿼리 허용
 - `PrintNoticeUseCasesLiveTests` — 저장소 답을 뒤집어 전달하는지, 기록이 물어본 방에만 남는지
+
+## 방 참여 실시간 알림 (추가)
+
+- `struct RoomMemberJoined` — `roomID`·`roomTitle`·`userID`·`nickname`·`profileImageURL`.
+  **참여자 목록은 이 값으로 만들지 않는다** — 이 알림을 신호 삼아 다시 조회한다.
+- `enum RoomMemberJoinedEvent` — `.joined(RoomMemberJoined)` · `.resumed`
+- `protocol RoomEventStreaming` — `memberJoinedEvents(inRooms:)`. 방 목록을 받아 한 스트림으로 돌려준다
+  (방마다 구독을 거는 것은 Data 레이어 사정이라 이 계약에는 드러나지 않는다).
+- `ObserveRoomMemberJoinedUseCase`
+- `enum RoomJoinAnnouncement` — 참여 안내 문구 규칙 (닉네임 8자 말줄임, 주격 조사 '이/가')
+

@@ -37,3 +37,15 @@
 ## 테스트
 
 - `ChatRoomFeatureTests` — onAppear 로드, 조회 실패 얼럿, 전송 후 입력창 비우고 덧붙이기, 공백 메시지 무시, 뒤로가기 delegate
+
+## 실시간 수신 (추가)
+
+진입(`.view(.task)`)이 **구독 확정 → 과거 목록 조회 → 병합** 순서로 돈다. 백엔드가 정한 채팅 누락 방지 순서다.
+`ObserveChatsUseCase`가 구독이 확정된 뒤에야 리턴하므로 순서가 타입으로 강제된다.
+
+- `.subscribed` — 구독 확정(첫 연결·재연결 공통) → 첫 페이지 재조회
+- `.received(ChatMessage)` — 소켓 메시지를 목록에 병합
+- `.streamEnded` — 소켓 포기. 얼럿 없이 REST만으로 계속 돈다
+- `chatsResponse`가 목록을 **교체하지 않고 병합**한다. 조회 중 온 소켓 메시지를 덮지 않기 위해서다
+- `State.currentUserID` 추가 — `isMine` 판정이 닉네임에서 userId로 바뀌었다
+- 뷰의 진입 훅이 `.onAppear`에서 `.task`로 바뀌었다 (장수 이펙트를 화면 이탈 시 정리해야 한다)

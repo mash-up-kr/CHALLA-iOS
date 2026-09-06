@@ -43,3 +43,12 @@
 ## 테스트
 
 - `DefaultChatRepositoryTests` — 목록 경로·쿼리, 사진/텍스트 매핑, 이름 없는 항목 건너뛰기, POST 본문(`{chat:{roomId,photoId,type,content}}`), nil photoID → 0, 오류 정규화(network·401)
+
+## 실시간 수신 (추가)
+
+- `ChatEventSubscriber: ChatEventStreaming` — `/topic/room/{roomId}/chat` 구독.
+  프레임 본문을 `ChatMessage`로 바꿔 흘린다. 한 건이 깨져도 건너뛰고 스트림은 유지한다.
+- `ChatMessageDTO`가 `chatId`·`userId`를 디코딩한다 (둘 중 하나라도 없으면 그 항목을 버린다).
+- `SendChatResponseDTO`가 `chatId`를 읽어 `DefaultChatRepository.send`가 돌려준다.
+
+**미확인**: 소켓 프레임 본문의 실제 형태(봉투 유무)를 아직 캡처하지 못해, 봉투·비봉투 둘 다 받아 준다.
