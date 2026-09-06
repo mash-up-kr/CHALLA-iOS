@@ -39,10 +39,11 @@
 방 상세에서 나올 때도 `HomeFeature.State`를 **새로 만든다.** 그 방에서 사진을 찍고 나왔을 수 있어
 목록을 다시 조회해야 한다.
 
-## 초대 링크 진입 (`onContinueUserActivity` · `PendingInviteCode`)
+## 초대 링크 진입 (`onOpenURL` · `PendingInviteCode`)
 
 유니버설 링크(`https://challa.stellaris.co.kr/invite/{코드}`)로 앱이 열리면 `CHALLAApp`의
-`.onContinueUserActivity`가 URL을 `AppFeature.inviteLinkOpened`로 넘긴다. 파싱은
+`.onOpenURL`이 URL을 `AppFeature.inviteLinkOpened`로 넘긴다 (SwiftUI 수명주기 앱은 유니버설
+링크를 이 입구로 전달한다 — #100 실기기에서 확인. 카카오 로그인 복귀 URL만 SDK로 먼저 돌려보낸다). 파싱은
 `RoomDomain.InviteLink`가 한다 — 초대 링크 모양이 아니면 조용히 무시한다.
 
 - **로그인 후** — 어느 화면에 있든 `home`을 새로 만들어 `inviteCodeReceived(code)`를 넘긴다.
