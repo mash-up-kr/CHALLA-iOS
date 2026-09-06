@@ -36,6 +36,14 @@ public struct RoomDetailView: View {
         .challaMainBackground()
         .overlay(alignment: .bottom) { bottomActions }
         .alert($store.scope(state: \.alert, action: \.alert))
+        .sheet(isPresented: $store.isSharePresented) {
+            if let url = store.inviteShareURL {
+                ActivityShareSheet(items: [url]) {
+                    store.isSharePresented = false // @Bindable 바인딩 쓰기 — 리듀서를 거친다
+                }
+                .presentationDetents([.medium, .large]) // 시안의 반 시트 — 위로 끌면 전체
+            }
+        }
         .task { send(.task) }
         // 자동으로 열린 안내는 사용자가 손댄 곳이 없어 VoiceOver가 모른다 — 열릴 때 직접 알린다.
         .onChange(of: store.isInviteGuidePresented) { _, isPresented in
@@ -125,14 +133,14 @@ public struct RoomDetailView: View {
                 isPresented: $store.isInvitePopoverPresented,
                 // 문구는 뷰 소유 — 리듀서는 띄울지(Bool)만 안다.
                 popoverTooltip: store.isInviteGuidePresented ? Self.inviteGuideMessage : nil,
-                onCopyInviteCode: { send(.copyInviteCodeTapped) }
+                onShareInviteCode: { send(.shareInviteCodeTapped) }
             )
         }
     }
 
     // MARK: - 토스트
 
-    /// 복사 완료 안내. 표시 시간은 리듀서의 타이머가 정하고, 여기는 문구가 있는 동안만 그린다.
+    /// 인화 대기 안내. 표시 시간은 리듀서의 타이머가 정하고, 여기는 문구가 있는 동안만 그린다.
     @ViewBuilder
     private var toastLayer: some View {
         if let toast = store.toast {

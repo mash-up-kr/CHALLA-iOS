@@ -125,6 +125,9 @@ public struct HomeFeature {
         case shootPreparationResponse(Result<CameraEntry, ShootPreparationError>)
         /// 인화 완료 예정 시각의 알람이 깨어났다 — 목록을 다시 받아 상태 전이를 반영한다.
         case printCompletionReached
+        /// 초대 링크를 받은 App이 보낸다 — 드로어 입장과 같은 일을 사용자 입력 없이 한다.
+        case inviteCodeReceived(String)
+        case inviteJoinResponse(Result<RoomCard, RoomError>)
 
         public enum Alert: Equatable, Sendable {
             case retryTapped
@@ -142,6 +145,7 @@ public struct HomeFeature {
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date) var date
     @Dependency(\.fetchRoomsUseCase) var fetchRoomsUseCase
+    @Dependency(\.joinRoomUseCase) var joinRoomUseCase
     @Dependency(\.openCameraSettingsUseCase) var openCameraSettingsUseCase
 
     // MARK: - Body
@@ -240,12 +244,36 @@ public struct HomeFeature {
                 return .send(.delegate(.roomCreated(card)))
 
             // 초대 코드는 방에 계속 붙어 있어 이미 들어간 방에 다시 입장할 수 있다.
-            // insert면 같은 id가 두 번 들어가므로 updateOrInsert를 쓴다 — at: 0은 새 방에만 적용된다.
-            // TODO: 서버가 중복 입장에 성공을 주는지 에러를 주는지 미확정 — 에러면 이 처리는 얼럿으로 옮긴다.
+            // 서버는 중복 입장을 성공(그 방 id)으로 준다 (2026-09-05 실서버 확인) —
+            // insert면 같은 id가 두 번 들어가므로 updateOrInsert를 쓴다. at: 0은 새 방에만 적용된다.
             case let .destination(.presented(.joinRoom(.delegate(.joined(card))))):
                 state.destination = nil
                 state.cards.updateOrInsert(card, at: 0)
                 return .send(.delegate(.roomJoined(card)))
+
+            // MARK: 초대 링크 입장
+
+            case let .inviteCodeReceived(code):
+                return joinRoom(code: code)
+
+            // 드로어 입장과 같은 반영 — 이미 들어간 방의 링크면 updateOrInsert가 값만 갱신한다.
+            case let .inviteJoinResponse(.success(card)):
+                state.cards.updateOrInsert(card, at: 0)
+                return .send(.delegate(.roomJoined(card)))
+
+            case let .inviteJoinResponse(.failure(error)):
+                // 드로어가 떠 있으면 얼럿으로 덮지 않는다 — 목록 조회 실패와 같은 이유.
+                guard state.destination == nil else { return .none }
+                // 다시 시도가 없는 이유: 코드를 State에 남기지 않는다 — 링크를 다시 누르면 처음부터 다시 돈다.
+                // TODO: 얼럿 제목 문구는 임의 작성본 — 기획 정책 확정 시 교체할 것.
+                state.destination = .alert(AlertState {
+                    TextState("초대 링크로 입장하지 못했어요")
+                } actions: {
+                    ButtonState(role: .cancel) { TextState("확인") }
+                } message: {
+                    TextState(error.userMessage)
+                })
+                return .none
 
             // delegate는 부모가 받고, 나머지 destination 액션은 ifLet이 자식에게 넘긴다.
             case .delegate, .destination:
@@ -261,6 +289,7 @@ public struct HomeFeature {
         case fetchRooms
         case prepareShoot
         case printRefresh
+        case inviteJoin
     }
 
     /// 가장 이른 인화 완료 예정 시각에 한 번 깨어나 목록을 재조회하는 알람 (방 상세와 같은 방식).
@@ -283,6 +312,22 @@ public struct HomeFeature {
             await send(.printCompletionReached)
         }
         .cancellable(id: CancelID.printRefresh, cancelInFlight: true)
+    }
+
+    /// 초대 링크의 코드로 입장한다 — 드로어와 같은 UseCase라 정규화·검증도 같은 규칙을 탄다.
+    private func joinRoom(code: String) -> Effect<Action> {
+        .run { [joinRoomUseCase] send in
+            do {
+                let card = try await joinRoomUseCase.run(code)
+                await send(.inviteJoinResponse(.success(card)))
+            } catch let error as RoomError {
+                await send(.inviteJoinResponse(.failure(error)))
+            } catch is CancellationError {
+            } catch {
+                await send(.inviteJoinResponse(.failure(.unknown)))
+            }
+        }
+        .cancellable(id: CancelID.inviteJoin, cancelInFlight: true)
     }
 
     /// 촬영에 필요한 것(목록·LUT·권한)은 `ShootEntry`가 받아 온다 — 방 상세의 촬영 버튼과 같은 준비다.

@@ -20,7 +20,7 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 | `CHALLATypography` + `challaFont(_:)` | 타이포 토큰. Figma 줄 높이까지 재현 (`.heading` / `.body` / `.caption`). `lineBoxInset`은 `challaFont`가 글자 상자 위아래에 더하는 여백 — 시안 간격을 옮길 때 이 값을 빼서 보정한다 |
 | `CHALLATheme` + `EnvironmentValues.challaTheme` | 사용자가 고른 테마의 강조 색. 앱 루트가 `\.challaTheme`에 한 번 주입하면 하위 전체가 따른다. 주입이 없으면 `lemonade`라 프리뷰·검수앱·데모앱은 배선 없이 그려진다 |
 | `CHALLARadius` | 모서리 둥글기 토큰 (small 8 / medium 10 / large 12 / xlarge 16 / xxlarge 44.5) |
-| `CHALLAIcon` | 아이콘 토큰 28종 + `Size`(14~32pt — 14는 방 카드 person 실측 예외) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
+| `CHALLAIcon` | 아이콘 토큰 29종 + `Size`(14~32pt — 14는 방 카드 person 실측 예외) + `image(size:color:)`. **VoiceOver에는 읽히지 않는 장식용** — 아이콘이 뜻을 가지는 자리는 호출부가 `.accessibilityLabel(_:)`을 붙인다 |
 | `CHALLAHitTarget` | HIG 최소 터치 타깃(44pt) 정책 — `minimum` + `inset(for:)` + 도형 확장 헬퍼 `expandedToHitTarget(from:)`. DS 컴포넌트로 담기 애매한 Feature의 일회성 탭 요소에도 사용 |
 | `CHALLAFontRegister` | 커스텀 폰트 등록. 앱 진입점(@main) init에서 1회 호출 |
 
@@ -51,7 +51,7 @@ Core에 있고, 이 모듈의 뷰는 로더를 주입받아 소비만 한다.
 | `CHALLARoomCard` | 방 카드 (시안 고정 200×266). 대표 사진 + 커버 스티커 슬롯 + 딤 2겹(검정 스크림·흰 하이라이트) + 테두리 위에 제목·인원을 얹고, 하단 요소가 상태(`Variant`)로 갈린다 — 촬영 중(카메라 "사진 찍기" 뱃지 — 장수 미표기, `onShoot`을 주면 버튼·`isPreparing`이면 스피너), 인화 대기(시계+남은 시간 그림 뱃지, 시간 문자열은 호출부 주입), 인화 완료(확인하기 버튼+테마색 글로우). 사진·스티커는 로드된 `Image?` — nil이면 각각 바닥색·미표시. 카드 전체 탭은 호출부가 Button으로 감싸고, 하단 뱃지·버튼만 자기 액션을 갖는다 (카드 탭과 다른 곳으로 가기 때문) |
 | `CHALLAPrintCard` | 인화 완료 카드 (홈 하단 목록). 제목·인원 줄 아래 낱장 스택 — 실측 좌표·회전각 4슬롯에 `CHALLAFilmCard(width: 90)` 재사용, 낱장은 항상 선명하고 전체 장수가 4를 넘으면 마지막 슬롯만 `+N`(blur). 인화 대기 표현(칩·blur)은 2차 시안에서 상단 `CHALLARoomCard`로 이동해 `Status` 없이 완료 전용이다. 생성자 2종 — `photoURLs:`(화면용, 낱장마다 `CHALLAAsyncImage`가 로드하고 로드 전에는 빈 낱장) / `photos: [Image]`(갤러리·Preview·테스트용) |
 | `CHALLAAvatar` | 원형 아바타. `photo: Image?`(nil이면 person placeholder) + `size` 지름 (실측: 프로필 바 30 / 상세·채팅 22 / 팝오버 행 20) |
-| `CHALLAProfileBar` | 프로필 바. 아바타 입장 순 최대 9명 + `+N` 칩, 탭 시 멤버 팝오버(초대 코드 + 복사 콜백 + 전체 리스트, 폭 200 · maxHeight 420 초과 시 스크롤). `popoverTooltip`을 주면 팝오버 아래 8pt에 안내 말풍선 — 띄울지는 호출부가 정한다. 열림 상태는 `isPresented` 바인딩(호출부 소유 — 드로어와 동일), 여닫이는 위쪽 기준 확대+스프링, 바 배경 흰(닫힘)↔검정(열림), 바깥 탭 닫기. 바를 화면 가로 중앙에 두는 배치 전제. `Member` 생성자 2종 — `avatarURL:`(화면용, 바가 `CHALLAAsyncImage`로 로드) / `avatar: Image?`(갤러리·Preview용) — PrintCard와 같은 구분 |
+| `CHALLAProfileBar` | 프로필 바. 아바타 입장 순 최대 9명 + `+N` 칩, 탭 시 멤버 팝오버(초대 코드 + 공유 콜백(`onShareInviteCode`) + 전체 리스트, 폭 200 · maxHeight 420 초과 시 스크롤). `popoverTooltip`을 주면 팝오버 아래 8pt에 안내 말풍선 — 띄울지는 호출부가 정한다. 열림 상태는 `isPresented` 바인딩(호출부 소유 — 드로어와 동일), 여닫이는 위쪽 기준 확대+스프링, 바 배경 흰(닫힘)↔검정(열림), 바깥 탭 닫기. 바를 화면 가로 중앙에 두는 배치 전제. `Member` 생성자 2종 — `avatarURL:`(화면용, 바가 `CHALLAAsyncImage`로 로드) / `avatar: Image?`(갤러리·Preview용) — PrintCard와 같은 구분 |
 | `CHALLAAsyncImage` | 원격 이미지 뷰. 자기 크기·배율을 측정해 `ImageLoader`로 로드(다운샘플+2단 캐시), 성공 시 페이드인. 로드는 한 장당 한 번 — URL이 바뀌거나 크기가 처음 정해질 때만 건다. 측정값은 정수 pt로 올리고(`ImageLoadSize`), 이미 실린 뒤에는 커질 때만 다시 받는다(재다운로드·캐시 분산 방지) |
 | `EnvironmentValues.challaImageLoader` | 로더 주입 통로. 기본값은 `.default` 설정의 공유 로더 — 주입 없이 동작 |
 

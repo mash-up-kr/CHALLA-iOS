@@ -2,13 +2,13 @@ import CHALLADesignSystem
 import SwiftUI
 
 /// Component > Profile Bar 검수 화면.
-/// 아바타(사진/placeholder) · 바(9명 이하/초과 +N/URL 로드) · 멤버 팝오버(열기/스크롤/복사/툴팁)를 나열한다.
+/// 아바타(사진/placeholder) · 바(9명 이하/초과 +N/URL 로드) · 멤버 팝오버(열기/스크롤/공유/툴팁)를 나열한다.
 /// 사진은 picsum.photos에서 실사진을 받아 주입한다 — 인터넷이 없으면 placeholder만 보인다.
 struct ProfileBarGallery: View {
 
     @State private var isFewPresented = false
     @State private var isManyPresented = false
-    @State private var copyCount = 0
+    @State private var shareCount = 0
 
     var body: some View {
         ScrollView {
@@ -55,7 +55,7 @@ struct ProfileBarGallery: View {
                     members: makeMembers(count: 3, photos: photos),
                     inviteCode: "1928121",
                     isPresented: .constant(false),
-                    onCopyInviteCode: {}
+                    onShareInviteCode: {}
                 )
             }
             galleryCaption("13명 — 9명 + '+4' 칩")
@@ -64,7 +64,7 @@ struct ProfileBarGallery: View {
                     members: makeMembers(count: 13, photos: photos),
                     inviteCode: "1928121",
                     isPresented: .constant(false),
-                    onCopyInviteCode: {}
+                    onShareInviteCode: {}
                 )
             }
             galleryCaption("3명 — Member(avatarURL:), 로드를 바가 직접")
@@ -72,7 +72,7 @@ struct ProfileBarGallery: View {
                 members: makeURLMembers(count: 3),
                 inviteCode: "1928121",
                 isPresented: .constant(false),
-                onCopyInviteCode: {}
+                onShareInviteCode: {}
             )
         }
     }
@@ -83,7 +83,7 @@ struct ProfileBarGallery: View {
     private var popoverSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             galleryTitle("Popover")
-            galleryCaption("바 탭 = 열기 · 바깥 탭 = 닫기 · 복사 콜백 \(copyCount)회")
+            galleryCaption("바 탭 = 열기 · 바깥 탭 = 닫기 · 공유 콜백 \(shareCount)회")
             galleryCaption("4명 — 내용 높이만큼 + 아래 툴팁 (popoverTooltip)")
             sampleImages(seeds: ["p1", "p2"]) { photos in
                 CHALLAProfileBar(
@@ -91,7 +91,7 @@ struct ProfileBarGallery: View {
                     inviteCode: "1928121",
                     isPresented: $isFewPresented,
                     popoverTooltip: "초대 코드로 친구를 초대해보세요",
-                    onCopyInviteCode: { copyCount += 1 }
+                    onShareInviteCode: { shareCount += 1 }
                 )
             }
             .frame(maxWidth: .infinity)
@@ -103,7 +103,7 @@ struct ProfileBarGallery: View {
                     members: makeMembers(count: 13, photos: photos),
                     inviteCode: "1928121",
                     isPresented: $isManyPresented,
-                    onCopyInviteCode: { copyCount += 1 }
+                    onShareInviteCode: { shareCount += 1 }
                 )
             }
             .frame(maxWidth: .infinity)

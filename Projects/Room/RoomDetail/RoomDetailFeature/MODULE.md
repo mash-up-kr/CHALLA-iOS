@@ -40,7 +40,8 @@
 - `State(room:)` — 홈에서 받은 `Room`을 품고 시작한다. 첫 프레임부터 제목·슬롯 그리드가 그려지고,
   초대 코드·참여자·사진은 진입 후 조회로 채운다
   - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` ·
-    `isInviteGuidePresented`(첫 진입 툴팁) · `toast` · `hasShownPrintWaitingToast` · `alert`
+    `isInviteGuidePresented`(첫 진입 툴팁) · `isSharePresented`(공유 시트) · `toast` ·
+    `hasShownPrintWaitingToast` · `alert`
 - `Action.delegate` — `closeTapped` · `settingsTapped`(설정 화면 요청 — App이 조립) ·
   `cameraRequested(CameraEntry)`(촬영 준비 완료) · `chatTapped` ·
   `photoTapped(Photo.ID)`(사진 슬롯 탭 → 사진 상세)
@@ -63,6 +64,8 @@
   본 것으로 기록한다(`MarkInviteGuideSeenUseCase`) — 기록은 기기에만 남는다
 - 인화 대기 방은 상세 응답 시점에 토스트("인화 대기 중이에요!…")를 띄운다. 화면당 한 번 —
   알람 재조회가 같은 대기 응답을 줘도 다시 띄우지 않는다
+- 공유 아이콘을 누르면 시스템 공유 시트를 연다 — 시트에는 초대 링크(`InviteLink.url`)가 실리고,
+  딤·닫기는 시스템이 관리해 리듀서는 열림 Bool(`isSharePresented`)만 소유한다
 
 ### RoomDetailView
 
@@ -86,11 +89,12 @@
   방 만들기와 같은 규칙(`RoomNameRule`) 하나를 쓴다
 - 성공하면 `delegate(.renamed(정제된 이름))`만 보낸다 — 행 값 갱신과 드로어 닫기는 부모(방 설정)가 한다
 
-### CopyToPasteboard
+### ActivityShareSheet
 
-- 초대 코드 복사용 의존성. `UIPasteboard` 싱글턴 직접 접근을 막으려고 감쌌다(규칙: `@Dependency`로 주입)
-- `liveValue`만 채워져 있다 — Data 접근이 없는 OS 호출 한 줄이라 합성 루트 조립이 필요 없다.
-  `testValue`는 미구현이라 테스트가 갈아끼우지 않고 호출하면 실패로 드러난다
+- 시스템 공유 시트(`UIActivityViewController`)의 SwiftUI 래퍼 (internal).
+  `ShareLink`는 자기 버튼으로만 열 수 있어, 디자인 시스템 콜백 → 리듀서 → State로 여는
+  이 화면에서는 컨트롤러를 직접 감싼다. 다른 화면이 쓰게 되면 공용 모듈로 승격한다
+- 클립보드 복사(`CopyToPasteboard`)는 #100에서 삭제했다 — 공유 시트 안의 복사가 같은 일을 한다
 
 ## 의존성
 
@@ -111,7 +115,7 @@ mise exec -- tuist test RoomDetailFeature
 ```
 
 TCA `TestStore`로 리듀서를 검증한다 — 진입 조회(상세+사진), 실패 얼럿과 재시도,
-클립보드 복사와 토스트 타이머(`TestClock`), delegate 위임, 카운트다운 표기 규칙.
+공유 시트 열림, 인화 대기 토스트 타이머(`TestClock`), delegate 위임, 카운트다운 표기 규칙.
 `RoomDetailInviteGuideTests`는 첫 진입 안내와 인화 대기 토스트를 본다 — 팝오버 자동 열림,
 닫으면 기록, 이미 봤으면 없음, 토스트 1회 제한. `RoomDetailShootEntryTests`는 촬영 진입만 따로 본다 — 준비 중 표시와 재탭 무시, 성공 시 delegate,
 실패 얼럿과 설정 열기. 준비 자체(권한 순서·실패 판단)는 `ShootEntry` 테스트가 본다.

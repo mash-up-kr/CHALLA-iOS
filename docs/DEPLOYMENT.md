@@ -102,7 +102,7 @@ App Store 프로파일이 `development`를 포함하지 않아 안 갈라두면 
 ### 사전 준비 (최초 1회)
 
 - [ ] App Store Connect에 `com.challa.app` 앱 레코드 등록
-- [ ] Apple Developer 포털의 App ID `com.challa.app`에 **Push Notifications**·**Sign in with Apple** capability 활성화
+- [ ] Apple Developer 포털의 App ID `com.challa.app`에 **Push Notifications**·**Sign in with Apple**·**Associated Domains** capability 활성화
       (자동 서명이 프로파일을 만들 때 이게 없으면 엔타이틀먼트 불일치로 실패)
 - [ ] TestFlight Internal Testing 그룹 생성
 - [x] **앱 아이콘 1024pt** — `AppIcon-1024.png` 추가 완료.
