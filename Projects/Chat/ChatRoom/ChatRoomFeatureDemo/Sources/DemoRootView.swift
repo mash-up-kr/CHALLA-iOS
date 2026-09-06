@@ -34,6 +34,7 @@ struct DemoRootView: View {
     private func title(of state: DemoLaunchArguments.State) -> String {
         switch state {
         case .default: "기본 (메시지 있음)"
+        case .printWaiting: "인화 전 (사진 blur)"
         case .loading: "로딩"
         case .empty: "메시지 없음"
         case .error: "조회 실패"
@@ -87,7 +88,8 @@ private struct ChatRoomDemoScreen: View {
                     chat: ChatRoomFeature.State(
                         roomID: DemoFixture.roomID,
                         roomTitle: DemoFixture.roomTitle,
-                        currentUserNickname: DemoFixture.currentUserNickname
+                        currentUserNickname: DemoFixture.currentUserNickname,
+                        isPrinted: demoState != .printWaiting
                     )
                 )
             ) {

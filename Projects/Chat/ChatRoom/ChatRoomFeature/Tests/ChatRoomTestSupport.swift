@@ -39,7 +39,8 @@ func makeChatStore(
         initialState: ChatRoomFeature.State(
             roomID: Fixture.roomID,
             roomTitle: Fixture.roomTitle,
-            currentUserNickname: Fixture.currentUserNickname
+            currentUserNickname: Fixture.currentUserNickname,
+            isPrinted: true
         )
     ) {
         ChatRoomFeature()

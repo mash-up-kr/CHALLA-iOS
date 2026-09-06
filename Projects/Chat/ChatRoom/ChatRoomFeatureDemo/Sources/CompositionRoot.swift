@@ -17,7 +17,7 @@ enum CompositionRoot {
 
     private static func scenario(for demoState: DemoLaunchArguments.State) -> DemoChatRepository.Scenario {
         switch demoState {
-        case .default: .populated(DemoChatStore(messages: DemoFixture.messages()))
+        case .default, .printWaiting: .populated(DemoChatStore(messages: DemoFixture.messages()))
         case .loading: .neverFinishes
         case .empty: .empty
         case .error: .failure(.network)
