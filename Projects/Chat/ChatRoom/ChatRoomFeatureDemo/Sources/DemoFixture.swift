@@ -13,9 +13,12 @@ enum DemoFixture {
     static func messages() -> [ChatMessage] {
         [
             message(offset: -3600 * 3, kind: .photo, content: "", author: "그린그린엄성현",
-                    photo: "https://picsum.photos/seed/challa-chat-1/300/400"),
+                    photo: "https://picsum.photos/seed/challa-chat-4/300/400"),
             message(offset: -3600 * 2 - 1800, kind: .reaction(.heart), content: "heart", author: "아이스크림연준",
-                    photo: "https://picsum.photos/seed/challa-chat-1/300/400"),
+                    photo: "https://picsum.photos/seed/challa-chat-4/300/400"),
+            // 사진 상세에서 전송한 COMMENT 메시지.
+            message(offset: -3600 * 2 - 900, kind: .photo, content: "이 사진 진짜 잘 나왔다", author: currentUserNickname,
+                    photo: "https://picsum.photos/seed/challa-chat-4/300/400"),
             message(offset: -3600 * 2, kind: .text, content: "사진 진짜 잘 나왔다", author: "그린그린엄성현"),
             message(offset: -3600, kind: .text, content: "그러게 필름 감성 미쳤어", author: currentUserNickname),
             message(offset: -600, kind: .text, content: "다음에 또 가자!", author: "그린그린엄성현"),

@@ -16,6 +16,8 @@ public struct ChatRoomFeature {
         public let roomTitle: String
         /// 내 메시지(오른쪽 흰 버블) 판별용 — 응답의 userName과 비교한다.
         public let currentUserNickname: String
+        /// 인화 전에는 채팅 사진을 블러 처리한다.
+        public let isPrinted: Bool
 
         public var messages: [ChatMessage] = []
         public var draft: String = ""
@@ -29,10 +31,11 @@ public struct ChatRoomFeature {
         public var nextPage = 0
         @Presents public var alert: AlertState<Action.Alert>?
 
-        public init(roomID: Int64, roomTitle: String, currentUserNickname: String) {
+        public init(roomID: Int64, roomTitle: String, currentUserNickname: String, isPrinted: Bool) {
             self.roomID = roomID
             self.roomTitle = roomTitle
             self.currentUserNickname = currentUserNickname
+            self.isPrinted = isPrinted
         }
     }
 

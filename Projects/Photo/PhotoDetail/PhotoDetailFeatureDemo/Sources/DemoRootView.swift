@@ -36,6 +36,7 @@ struct DemoRootView: View {
     private func title(of state: DemoLaunchArguments.State) -> String {
         switch state {
         case .default: "기본 (사진 5장)"
+        case .printWaiting: "인화 전 (블러)"
         case .loading: "로딩"
         case .empty: "사진 없음"
         case .error: "조회 실패"
@@ -94,7 +95,8 @@ private struct PhotoDetailDemoScreen: View {
                     detail: PhotoDetailFeature.State(
                         roomID: DemoFixture.roomID,
                         roomTitle: DemoFixture.roomTitle,
-                        currentUserID: DemoFixture.currentUserID
+                        currentUserID: DemoFixture.currentUserID,
+                        isPrinted: demoState != .printWaiting
                     )
                 )
             ) {

@@ -5,8 +5,8 @@ enum PhotoEndpoint: Endpoint, AccessTokenAuthorizable {
 
     /// 방의 인화된 사진 목록 (페이지네이션).
     case list(roomID: Int64, page: Int, size: Int)
-    /// 사진 한 장의 상세 — 리액션(chats)을 받는다.
-    case detail(photoID: Int64)
+    /// 리액션을 포함한 사진 상세 조회. `roomId`는 필수 파라미터다.
+    case detail(roomID: Int64, photoID: Int64)
     /// 스토리지에 올린 사진을 방에 반영해 달라는 완료 통보.
     case complete(CompletePhotoRequestDTO)
 
@@ -17,7 +17,7 @@ enum PhotoEndpoint: Endpoint, AccessTokenAuthorizable {
     var path: String {
         switch self {
         case .list, .complete: return "/api/v1/photos"
-        case let .detail(photoID): return "/api/v1/photos/\(photoID)"
+        case let .detail(_, photoID): return "/api/v1/photos/\(photoID)"
         }
     }
 
@@ -36,8 +36,8 @@ enum PhotoEndpoint: Endpoint, AccessTokenAuthorizable {
                 URLQueryItem(name: "page", value: String(page)),
                 URLQueryItem(name: "size", value: String(size))
             ])
-        case .detail:
-            return .requestPlain
+        case let .detail(roomID, _):
+            return .requestQueryItems([URLQueryItem(name: "roomId", value: String(roomID))])
         case let .complete(dto):
             return .requestJSONEncodable(dto)
         }

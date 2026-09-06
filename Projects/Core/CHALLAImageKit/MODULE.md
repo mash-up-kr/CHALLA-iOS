@@ -51,6 +51,21 @@ CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetw
 | `ImageLoader` | `actor`. 메모리→디스크→네트워크 조회 오케스트레이터. 같은 키 중복 제거(coalescing), 캐시 승격 |
 | `ImageDataFetching` | 네트워크 페치 추상화(주입 지점). 기본 구현 `URLSessionImageDataFetcher`(URLCache 끈 세션) |
 | `ImageLoadingError` | `invalidResponse` / `httpStatus` / `emptyData` / `downsampling` / `encodingFailed` / `networkFailed` / `cancelled` |
+| `ImageDataBatchDownloader` | 원본 바이트 여러 장을 병렬로 받는다(저장·공유용). 입력 순서 보장, 소비 속도에 맞춰 당겨 받아 메모리는 동시 개수만큼만 |
+| `NetworkCondition` | 셀룰러·저데이터·저전력 여부. 배치의 동시 개수를 정한다. 기본 구현 `SystemNetworkCondition` |
+
+### 배치 다운로드 (원본 저장용)
+
+`ImageLoader`가 화면용이라면 `ImageDataBatchDownloader`는 저장용이다 — 다운샘플도 캐시도 하지 않고 원본 바이트를 그대로 준다.
+
+- **순서 보장** — 넘긴 URL 순서대로 결과가 나온다. 사진첩에 들어가는 순서를 화면 순서와 맞추기 위해서다
+- **당겨 받기** — 소비자가 한 장 꺼낼 때 다음 한 장을 시작한다. 밀어 넣는 방식이면 저장보다 다운로드가 빨라
+  원본이 메모리에 쌓인다(72장 × 최대 5MB). 이 구조에서는 항상 동시 개수(기본 4장)만큼만 올라온다
+- **동시 개수** — 평소 4, 셀룰러·저데이터·저전력이면 2. 호스트당 동시 연결 기본값이 4라 더 늘려도 빨라지지 않는다.
+  시작 시점에 한 번만 정한다
+- **재시도** — 기본 1회(1초). 배치는 실패한 장을 건너뛰고 넘어가는 편이 전체적으로 빠르다
+- 전송·검증(`RemoteImageData`)은 `ImageLoader`와 공유한다 — HTTP 상태·빈 본문 검사가 한 벌이라
+  에러 응답 본문이 이미지로 저장되는 일이 없다
 
 ### 다운샘플링
 

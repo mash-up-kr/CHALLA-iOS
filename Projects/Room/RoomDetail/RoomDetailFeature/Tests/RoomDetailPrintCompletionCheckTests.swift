@@ -51,13 +51,14 @@ struct RoomDetailPrintCompletionCheckTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.printedDetail
             $0.hasReportedPrintCompletionCheck = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         await store.finish()
 
         #expect(checkedIDs.value == [Room.previewPrinted.id])
@@ -74,22 +75,24 @@ struct RoomDetailPrintCompletionCheckTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.printedDetail
             $0.hasReportedPrintCompletionCheck = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
 
         // 재시도·재진입과 같은 경로 — 조회는 다시 돌지만 기록 플래그가 남아 있다.
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         await store.finish()
 
         #expect(checkedIDs.value == [Room.previewPrinted.id])
@@ -102,12 +105,13 @@ struct RoomDetailPrintCompletionCheckTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.shootingDetail
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         await store.finish()
     }
 
@@ -121,13 +125,14 @@ struct RoomDetailPrintCompletionCheckTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.printedDetail
             $0.hasReportedPrintCompletionCheck = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         // 실패 액션도 얼럿도 없어야 한다 — 남은 이펙트가 있으면 finish가 걸어낸다.
         await store.finish()
     }

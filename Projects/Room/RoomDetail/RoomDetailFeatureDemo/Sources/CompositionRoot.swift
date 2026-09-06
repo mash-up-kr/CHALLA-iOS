@@ -28,10 +28,28 @@ enum CompositionRoot {
         values.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
             DemoSamples.photos(count: DemoSamples.photoCount(for: state))
         })
+        values.saveAllPhotosUseCase = Self.stubSaveAllPhotos
         registerShootEntry(room: room, into: &values)
         // copyToPasteboard는 등록하지 않는다 — liveValue(실제 클립보드)가 그대로 쓰여
         // 데모에서 복사 후 붙여넣기까지 확인할 수 있다.
     }
+
+    /// 사진첩 저장 없이 진행·완료 이벤트를 반환하는 데모 스텁.
+    private static let stubSaveAllPhotos = SaveAllPhotosUseCase(run: { photos in
+        AsyncStream { continuation in
+            let task = Task {
+                for index in photos.indices {
+                    try? await Task.sleep(for: .milliseconds(120))
+                    continuation.yield(
+                        .progress(completed: index + 1, saved: index + 1, total: photos.count)
+                    )
+                }
+                continuation.yield(.finished(saved: photos.count, failed: 0, total: photos.count))
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    })
 
     /// 방 설정이 쓰는 의존성 — 이름 변경 하나뿐이다.
     /// InMemory 저장소에 방을 넣어 두어 "변경" 제출이 실서버처럼 성공한다.

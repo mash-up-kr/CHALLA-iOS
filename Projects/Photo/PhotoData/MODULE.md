@@ -15,6 +15,17 @@
 
 ### Repository (`Sources/Repository/`)
 
+`DefaultPhotoRepository`가 이번에 추가로 맡는 것:
+
+- `deleteReaction(chatID:)` — `DELETE /api/v1/chats/reaction/{chatId}`. 리액션은 EMOJI 채팅이라 채팅 id로 지운다
+- `setReaction(...)`이 생성된 채팅 id를 돌려준다 — 방금 남긴 이모지도 재조회 없이 지울 수 있다.
+  서버가 `data`를 비워 주는 경우가 있어 id는 옵셔널이고, 성공 판정은 `success` 플래그로만 한다
+- `imageDataStream(for:)` — 여러 장의 원본을 `CHALLAImageKit`의 `ImageDataBatchDownloader`로 병렬로 받는다.
+  소비 속도에 맞춰 입력 순서대로 반환해 원본 데이터가 버퍼에 쌓이지 않게 한다. 단건 `imageData(for:)`도 같은 경로를 쓴다.
+- 사진 상세(`GET /photos/{photoId}`)는 **`roomId` 쿼리가 필수**다 — 빠지면 서버가 리액션을 빈 채로 돌려줘
+  사진 상세에 스티커가 하나도 안 보인다
+
+
 - `struct DefaultPhotoRepository: PhotoRepository` — `init(client:)`
   - `photos(inRoom:)` — `GET /photos?roomId=&page=&size=`를 `hasNext` 없을 때까지 이어 받는다(목록만).
     이미지 URL 없는 장은 건너뛴다(한 장 때문에 목록 전체가 실패하지 않게). 리액션은 목록에 없어 담지 않는다

@@ -11,10 +11,10 @@ struct PhotoCard: View {
     // MARK: - 프로퍼티
 
     let photo: Photo
-    /// 스티커 자리
-    let slots: [String: Int]
     /// 인화 완료 전이면 blur로 가린다 (방 상세의 인화 대기 연출과 동일).
     var isBlurred = false
+    /// 탭한 리액션 ID를 전달한다. 삭제 여부는 호출부에서 판단한다.
+    var onStickerTap: (String) -> Void = { _ in }
 
     // MARK: - Body
 
@@ -70,13 +70,18 @@ struct PhotoCard: View {
     /// 스티커 위치가 사진 크기 대비 비율이라, GeometryReader로 실제 크기를 받아 배치한다.
     private var stickers: some View {
         GeometryReader { proxy in
-            ForEach(StickerLayout.placements(for: photo, slots: slots), id: \.reaction.id) { reaction, placement in
-                ReactionSticker(kind: reaction.kind, size: Metric.stickerSize)
-                    .rotationEffect(.degrees(placement.angleDegrees))
-                    .position(
-                        x: proxy.size.width * placement.xRatio,
-                        y: proxy.size.height * placement.yRatio
-                    )
+            ForEach(StickerLayout.placements(for: photo), id: \.reaction.id) { reaction, placement in
+                Button {
+                    onStickerTap(reaction.id)
+                } label: {
+                    ReactionSticker(kind: reaction.kind, size: Metric.stickerSize)
+                }
+                .buttonStyle(.plain)
+                .rotationEffect(.degrees(placement.angleDegrees))
+                .position(
+                    x: proxy.size.width * placement.xRatio,
+                    y: proxy.size.height * placement.yRatio
+                )
             }
         }
     }

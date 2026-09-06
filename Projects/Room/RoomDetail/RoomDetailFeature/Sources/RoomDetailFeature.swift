@@ -18,30 +18,30 @@ public struct RoomDetailFeature {
         /// 상세 조회 결과 (초대 코드·참여자). 채워지기 전에는 아바타 자리만 비워 둔다.
         public var detail: RoomDetail?
         public var detailLoad: LoadState = .notRequested
+        /// 사진 목록 조회 상태. 아직 받는 중인 것과 실패한 것을 구분해야
+        /// 인화 완료 방 하단에 "불러오지 못했어요"가 잘못 뜨지 않는다.
+        public var photosLoad: LoadState = .notRequested
         /// 아바타 탭으로 여는 초대 코드 팝오버.
         public var isInvitePopoverPresented = false
-        /// 복사 완료 안내 토스트 문구. nil이면 숨김 — 타이머가 일정 시간 뒤 거둔다.
-        public var toast: String?
+        /// nil이면 토스트를 숨긴다.
+        public var toast: Toast?
         /// 인화된 사진들 (찍힌 순). 그리드가 배열 순서를 슬롯 번호와 짝짓는다.
         public var photos: [Photo] = []
         /// 촬영 화면에 들어갈 준비(목록 조회·권한 요청) 중. 사진 찍기 버튼이 로딩으로 바뀌고 다시 눌리지 않는다.
         public var isPreparingShoot = false
+        public var downloadAll: DownloadAllState = .idle
         /// 조회 실패 얼럿. 다시 시도해도 실패하면 다시 뜬다.
         @Presents public var alert: AlertState<Action.Alert>?
+        /// nil이면 확인 드로어를 닫는다.
+        public var drawer: Drawer?
         /// 이 화면에서 인화 완료 확인 기록을 이미 보냈는지 — 재시도·알람 재조회마다 다시 보내지 않게 막는다.
         public var hasReportedPrintCompletionCheck = false
+        /// 인화 대기 안내 토스트를 이 화면에서 이미 띄웠는지. 재조회 때마다 다시 뜨지 않게 막는다.
+        public var didShowPrintWaitingToast = false
 
         public init(room: Room) {
             self.room = room
         }
-    }
-
-    /// 조회가 안 끝난 것과 실패한 것을 구분한다.
-    public enum LoadState: Equatable, Sendable {
-        case notRequested
-        case loading
-        case loaded
-        case failed
     }
 
     // MARK: - Action
@@ -56,6 +56,7 @@ public struct RoomDetailFeature {
         /// 인화 완료 예정 시각에 도달 — 서버가 상태를 바꿨는지 확인할 차례.
         case printCompletionReached
         case toastDismissed
+        case saveAllEvent(SaveAllPhotosEvent)
         case alert(PresentationAction<Alert>)
         case delegate(Delegate)
 
@@ -72,6 +73,11 @@ public struct RoomDetailFeature {
             case copyInviteCodeTapped
             case shootButtonTapped
             case chatButtonTapped
+            case downloadAllTapped
+            /// 사진 조회에 실패했을 때 다시 받는다 — 사진만 실패하면 얼럿이 없어 이 자리가 유일한 재시도 수단이다.
+            case retryPhotosTapped
+            case leaveWhileDownloadingConfirmed
+            case drawerDismissed
             /// 사진이 있는 슬롯을 탭 — 그 사진을 펼친 채 사진 상세로 들어간다.
             case photoTapped(Photo.ID)
         }
@@ -98,6 +104,7 @@ public struct RoomDetailFeature {
     @Dependency(\.checkPrintCompletionUseCase) var checkPrintCompletionUseCase
     @Dependency(\.fetchRoomDetailUseCase) var fetchRoomDetailUseCase
     @Dependency(\.fetchRoomPhotosUseCase) var fetchRoomPhotosUseCase
+    @Dependency(\.saveAllPhotosUseCase) var saveAllPhotosUseCase
     @Dependency(\.copyToPasteboard) var copyToPasteboard
     @Dependency(\.openCameraSettingsUseCase) var openCameraSettingsUseCase
     @Dependency(\.continuousClock) var clock
@@ -114,11 +121,15 @@ public struct RoomDetailFeature {
             // 진입과 재시도가 같은 일을 한다 — 상세와 사진을 다시 부른다.
             case .view(.task), .alert(.presented(.retryTapped)):
                 state.detailLoad = .loading
+                state.photosLoad = .loading
                 // 사진은 방 상태를 따지지 않고 부른다 — 촬영 중이면 빈 배열이 오고 그리드도 빈 슬롯을 그린다.
                 // 상태로 걸러내면 홈에서 받은 상태가 낡은 경우(그 사이 인화 단계로 넘어간 방)를 따라잡아야 한다.
+                let roomID = state.room.id
+                let waitingToast = printWaitingToast(&state)
                 return .merge(
-                    fetchDetail(id: state.room.id),
-                    fetchPhotos(id: state.room.id)
+                    waitingToast,
+                    fetchDetail(id: roomID),
+                    fetchPhotos(id: roomID)
                 )
 
             case let .detailResponse(.success(detail)):
@@ -126,24 +137,29 @@ public struct RoomDetailFeature {
                 state.detail = detail
                 // 홈에서 받은 방은 목록 조회 시점의 값이라, 방금 조회한 상세 응답의 값으로 덮는다.
                 state.room = detail.room
+                let waitingToast = printWaitingToast(&state)
+                let completionCheck = reportPrintCompletionCheck(&state, room: detail.room)
                 return .merge(
+                    waitingToast,
                     refreshAtPrintCompletion(room: detail.room),
-                    reportPrintCompletionCheck(&state, room: detail.room)
+                    completionCheck
                 )
 
             case .printCompletionReached:
                 // 화면 카운트다운은 이미 0:00:00 — 서버가 인화 완료로 넘어갔는지 다시 묻는다.
+                state.photosLoad = .loading
                 return .merge(
                     fetchDetail(id: state.room.id),
                     fetchPhotos(id: state.room.id)
                 )
 
             case let .photosResponse(.success(photos)):
-                // 서버가 찍힌 순서대로 주므로 배열 순서를 그대로 슬롯 번호(1번 = 첫 장)로 쓴다.
+                state.photosLoad = .loaded
                 state.photos = photos
                 return .none
 
             case .photosResponse(.failure):
+                state.photosLoad = .failed
                 // 사진만 실패하면 얼럿을 띄우지 않는다 — 상세가 성공했으면 화면 대부분이 그려져 있고,
                 // 상세까지 실패했다면 그쪽 얼럿의 "다시 시도"가 사진도 함께 부른다.
                 return .none
@@ -162,14 +178,31 @@ public struct RoomDetailFeature {
                 return .none
 
             case .view(.backButtonTapped):
+                // 중단 후 재다운로드하면 사진이 중복 저장될 수 있어 확인을 받는다.
+                guard !state.downloadAll.isRunning else {
+                    state.drawer = .leaveWhileDownloading
+                    return .none
+                }
                 return .send(.delegate(.closeTapped))
+
+            case .view(.leaveWhileDownloadingConfirmed):
+                state.drawer = nil
+                state.downloadAll = .idle
+                return .merge(
+                    .cancel(id: CancelID.downloadAll),
+                    .send(.delegate(.closeTapped))
+                )
+
+            case .view(.drawerDismissed):
+                state.drawer = nil
+                return .none
 
             case .binding:
                 return .none
 
             case .view(.copyInviteCodeTapped):
                 guard let code = state.detail?.invitationCode else { return .none }
-                state.toast = Const.copyToastMessage
+                state.toast = Toast(Const.copyToastMessage, placement: .top)
                 return .merge(
                     .run { [copyToPasteboard] _ in
                         await copyToPasteboard.run(code)
@@ -209,6 +242,27 @@ public struct RoomDetailFeature {
             case .view(.chatButtonTapped):
                 return .send(.delegate(.chatTapped))
 
+            case .view(.retryPhotosTapped):
+                state.photosLoad = .loading
+                return fetchPhotos(id: state.room.id)
+
+            case .view(.downloadAllTapped):
+                return startDownloadAll(&state)
+
+            case let .saveAllEvent(.progress(completed, _, total)):
+                state.downloadAll = .running(completed: completed, total: total)
+                return .none
+
+            case let .saveAllEvent(.finished(saved, _, total)):
+                state.downloadAll = .idle
+                state.toast = Toast(Const.saveAllToast(saved: saved, total: total), placement: .bottom)
+                return toastTimer()
+
+            case let .saveAllEvent(.aborted(error)):
+                state.downloadAll = .idle
+                state.alert = Self.photoLibraryAlert(error: error)
+                return .none
+
             case let .view(.photoTapped(id)):
                 return .send(.delegate(.photoTapped(id)))
 
@@ -222,17 +276,27 @@ public struct RoomDetailFeature {
         .ifLet(\.$alert, action: \.alert)
     }
 
-    private enum CancelID { case detail, photos, toast, printRefresh, prepareShoot }
+    enum CancelID { case detail, photos, toast, printRefresh, prepareShoot, downloadAll }
+}
 
-    private enum Const {
+// MARK: - 내부 상수 · 이펙트
+
+/// 리듀서 본문 길이 제한(250줄)에 걸려 빼냈다. 같은 파일이라 접근 범위(private)는 그대로다.
+private extension RoomDetailFeature {
+    enum Const {
         // TODO: 노출 시간은 기획 미확정 — ProfileSetup과 같은 임시값. 확정 시 교체할 것.
         static let toastDuration: Duration = .seconds(2)
         static let copyToastMessage = "초대 코드를 복사했어요"
+        static let printWaitingToastMessage = "인화 대기 중이에요! 조금만 기다려주세요"
+
+        static func saveAllToast(saved: Int, total: Int) -> String {
+            saved == total ? "사진 \(total)장을 저장했어요" : "\(total)장 중 \(saved)장을 저장했어요"
+        }
     }
 
     /// 촬영에 필요한 것(목록·LUT·권한)은 `ShootEntry`가 받아 온다 — 홈의 촬영 뱃지와 같은 준비다.
     /// 의존성 해석은 이펙트 바깥에서 끝낸다 (`ShootPreparation()`).
-    private func prepareShoot(roomID: Room.ID) -> Effect<Action> {
+    func prepareShoot(roomID: Room.ID) -> Effect<Action> {
         let preparation = ShootPreparation()
 
         return .run { send in
@@ -242,7 +306,7 @@ public struct RoomDetailFeature {
         .cancellable(id: CancelID.prepareShoot, cancelInFlight: true)
     }
 
-    private func fetchDetail(id: Room.ID) -> Effect<Action> {
+    func fetchDetail(id: Room.ID) -> Effect<Action> {
         .run { [fetchRoomDetailUseCase] send in
             do {
                 let detail = try await fetchRoomDetailUseCase.run(id)
@@ -257,28 +321,11 @@ public struct RoomDetailFeature {
         .cancellable(id: CancelID.detail, cancelInFlight: true)
     }
 
-    /// 사진 목록은 PhotoDomain 소관이라 방 조회와 별개로 실패할 수 있다 — 에러도 PhotoError로 온다.
-    private func fetchPhotos(id: Room.ID) -> Effect<Action> {
-        .run { [fetchRoomPhotosUseCase] send in
-            do {
-                // 그리드는 리액션을 그리지 않으므로 목록만 받는다 (리액션은 사진 상세에서 지연 조회).
-                let photos = try await fetchRoomPhotosUseCase.run(id)
-                await send(.photosResponse(.success(photos)))
-            } catch let error as PhotoError {
-                await send(.photosResponse(.failure(error)))
-            } catch is CancellationError {
-            } catch {
-                await send(.photosResponse(.failure(.unknown)))
-            }
-        }
-        .cancellable(id: CancelID.photos, cancelInFlight: true)
-    }
-
     /// 인화 완료 예정 시각에 한 번 깨어나 상세·사진을 재조회하는 알람.
     ///
     /// 인화 대기 + 예정 시각이 미래일 때만 건다. 시각이 지났는데 상태가 그대로면(서버 전환 지연)
     /// 다시 걸지 않는다 — 걸면 0초짜리 알람이 반복돼 무한 재조회가 된다.
-    private func refreshAtPrintCompletion(room: Room) -> Effect<Action> {
+    func refreshAtPrintCompletion(room: Room) -> Effect<Action> {
         guard room.status == .printWaiting,
               let completedAt = room.photoPrintCompletedAt,
               completedAt > date.now
@@ -298,7 +345,7 @@ public struct RoomDetailFeature {
     /// 홈 State가 사라지고, 홈이 보내던 요청도 함께 취소돼 기록이 유실됐다.
     /// 상세는 사용자가 보는 동안 화면에 남아 있어 요청이 끝까지 나간다.
     /// 실패는 무시한다 — 확인하기 카드가 남아 다음 진입 때 다시 시도된다.
-    private func reportPrintCompletionCheck(_ state: inout State, room: Room) -> Effect<Action> {
+    func reportPrintCompletionCheck(_ state: inout State, room: Room) -> Effect<Action> {
         guard room.status == .printed, !state.hasReportedPrintCompletionCheck else { return .none }
         state.hasReportedPrintCompletionCheck = true
         return .run { [checkPrintCompletionUseCase] _ in
@@ -306,8 +353,21 @@ public struct RoomDetailFeature {
         }
     }
 
+    /// 인화 대기 방에 들어왔을 때 한 번 띄우는 안내. 남은 시간은 하단 카운트다운이 계속 보여준다.
+    ///
+    /// 진입과 상세 응답 두 곳에서 부른다 — 홈에서 받은 상태가 낡아 진입 시점엔 촬영 중으로 보여도
+    /// 상세 응답에서 따라잡는다. 플래그로 화면당 한 번만 뜨게 막는다(인화 완료 알람의 재조회 포함).
+    func printWaitingToast(_ state: inout State) -> Effect<Action> {
+        guard state.room.status == .printWaiting, !state.didShowPrintWaitingToast else {
+            return .none
+        }
+        state.didShowPrintWaitingToast = true
+        state.toast = Toast(Const.printWaitingToastMessage, placement: .top)
+        return toastTimer()
+    }
+
     /// 일정 시간 뒤 토스트를 거둔다. 복사를 연타하면 이전 타이머를 취소해 노출 시간이 처음부터 다시 센다.
-    private func toastTimer() -> Effect<Action> {
+    func toastTimer() -> Effect<Action> {
         .run { [clock] send in
             try await clock.sleep(for: Const.toastDuration)
             await send(.toastDismissed)

@@ -22,7 +22,7 @@ struct SettingProfileHeader: View {
         // 아바타 68 → 오프셋 8, 편집 버튼 54 → 8+7=15(시안 y129).
         // 닉네임은 한 줄이라 68 안에서 세로 중앙에 놓인다 (이메일 줄이 있던 시안과 다른 지점).
         HStack(spacing: 0) {
-            ProfileAvatar()
+            ProfileAvatar(url: profile?.avatarURL)
             nickname
                 .padding(.leading, Metric.avatarToTextSpacing)
             Spacer(minLength: 0)

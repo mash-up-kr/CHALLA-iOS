@@ -13,7 +13,8 @@ struct StubProfileProvider: SettingProfileProvider {
     /// 데모가 `AccountFeature.State.profile`에 직접 넣어야 한다. 같은 값을 두 번 적지 않는다.
     static let profile = SettingProfile(
         nickname: "나는야멋쟁이토마토",
-        avatarURL: nil
+        // 프로필 이미지 표시를 확인하기 위한 샘플.
+        avatarURL: URL(string: "https://picsum.photos/seed/challa-profile/200")
     )
 
     func fetchProfile() async throws -> SettingProfile {
