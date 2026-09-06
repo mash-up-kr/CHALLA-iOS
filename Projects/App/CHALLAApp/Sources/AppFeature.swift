@@ -104,6 +104,9 @@ public struct AppFeature {
         case forceUpdateConfirmTapped
         /// 유니버설 링크로 열렸다 — 초대 링크면 입장을 잇는다.
         case inviteLinkOpened(URL)
+
+        /// 화면 밖에서 방을 열어 달라는 요청 (참여 토스트 탭).
+        case openRoomRequested(Room)
     }
 
     // MARK: - Init
@@ -270,6 +273,13 @@ extension AppFeature {
                  let .home(.delegate(.roomJoined(card))):
                 guard case let .home(screen) = state else { return .none }
                 state = .roomDetail(RoomDetailScreen(profile: screen.profile, room: card.room))
+                return .none
+
+            case let .openRoomRequested(room):
+                // 촬영 중에는 화면을 뺏지 않는다 — 찍고 있던 것이 사라진다.
+                // 로그인 전 화면에는 프로필이 없어 만들 화면도 없다.
+                guard state.screenID != .camera, let profile = state.currentProfile else { return .none }
+                state = .roomDetail(RoomDetailScreen(profile: profile, room: room))
                 return .none
 
             // 진입 버튼이 방·필터·권한을 모두 갖춘 뒤에만 오는 요청이라 여기서 바로 띄운다.

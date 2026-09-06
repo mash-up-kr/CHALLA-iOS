@@ -18,7 +18,7 @@ struct CHALLAApp: App {
     /// 델리게이트 콜백은 이 `init`이 끝난 뒤 불리므로 그때는 의존성이 이미 등록돼 있다.
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
-    private let store: StoreOf<AppFeature>
+    private let store: StoreOf<RootFeature>
 
     /// 앱 전역에서 공유하는 단일 이미지 로더.
     /// 인스턴스가 분리되면 메모리 캐시와 중복 요청 관리도 함께 분리된다.
@@ -34,14 +34,14 @@ struct CHALLAApp: App {
                 clearImageCache: { await loader?.removeAll() }
             )
         }
-        store = Store(initialState: .launching) {
-            AppFeature()
+        store = Store(initialState: RootFeature.State()) {
+            RootFeature()
         }
     }
 
     var body: some Scene {
         WindowGroup {
-            AppView(store: store)
+            RootView(store: store)
                 .environment(\.challaImageLoader, imageLoader)
                 .task {
                     // 앱 루트 진입 시 보관 기간이 지난 디스크 캐시를 정리한다.
