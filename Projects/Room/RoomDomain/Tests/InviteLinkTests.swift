@@ -36,6 +36,19 @@ struct InviteLinkTests {
         #expect(InviteLink.code(from: url) == nil)
     }
 
+    @Test("주소를 대문자로 적어도(HTTPS://CHALLA.…) 초대 코드를 꺼낸다")
+    func toleratesUppercase() throws {
+        let url = try #require(URL(string: "HTTPS://CHALLA.stellaris.co.kr/invite/1928121"))
+        #expect(InviteLink.code(from: url) == "1928121")
+    }
+
+    @Test("링크 뒤에 ?utm_source= 같은 쿼리가 붙어도 초대 코드를 꺼낸다")
+    func toleratesQueryParameters() throws {
+        // 카톡 같은 공유 플랫폼이 링크를 유통하며 추적용 쿼리를 임의로 붙일 수 있다 — 그 경우에 대비한다.
+        let url = try #require(URL(string: "https://challa.stellaris.co.kr/invite/1928121?utm_source=kakao"))
+        #expect(InviteLink.code(from: url) == "1928121")
+    }
+
     @Test("끝 슬래시는 무시하고 코드를 꺼낸다")
     func toleratesTrailingSlash() throws {
         let url = try #require(URL(string: "https://challa.stellaris.co.kr/invite/1928121/"))

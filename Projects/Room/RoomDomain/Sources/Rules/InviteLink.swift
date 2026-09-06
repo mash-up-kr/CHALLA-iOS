@@ -28,7 +28,7 @@ public enum InviteLink {
     /// 우리 도메인의 `/invite/{코드}` 모양일 때만 돌려준다 — 같은 도메인에 다른 경로가
     /// 생겨도 그 URL의 조각을 초대 코드로 읽지 않는다.
     public static func code(from url: URL) -> String? {
-        guard url.scheme == "https",
+        guard url.scheme?.lowercased() == "https", // 스킴도 host처럼 대소문자 무관 (RFC)
               url.host()?.lowercased() == host,
               url.pathComponents.count == 3, // "/" · "invite" · 코드
               url.pathComponents[1] == pathPrefix
