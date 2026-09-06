@@ -20,8 +20,12 @@
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `home` |
 | `home` | 설정 버튼 → `setting` / 방 진입(목록에서 고름·방 만들기·초대 코드) → `roomDetail` |
-| `roomDetail` | `closeTapped` → `home`(새 State) / 사진 슬롯 탭(`photoTapped`) → `photoDetail` — 촬영·채팅은 붙일 화면이 아직 없어 TODO |
+| `roomDetail` | `closeTapped` → `home`(새 State) / 설정 → `roomSettings` / 채팅 → `chat` / 촬영 준비 완료 → `camera` / 사진 슬롯 탭 → `photoDetail` |
+| `roomSettings` | `closeTapped` → `roomDetail`(새 State — 설정이 들고 있는 최신 제목으로 조립) |
+| `chat` | `closeRequested` → `roomDetail`(새 State) |
+| `camera` | `closeRequested` → 들어온 화면(`home`/`roomDetail`)을 새로 만들어 복귀 |
 | `photoDetail` | `closeRequested` → `roomDetail`(새 State — 돌아가면 사진·리액션을 새로 조회) |
+| (로그인 후 모든 화면) | 초대 링크 수신 → `home`(새 State) 경유 입장 → 성공 시 `roomDetail` |
 | `setting` | `backRequested` → `home` / `editProfileRequested` → `profileEdit` / `signedOut`·`accountDeleted` → `login` |
 | `profileEdit` | `editCompleted` → `setting`(새 State) / `cancelled` → `setting` |
 | `forceUpdate` | **나가는 전이 없음** — 앱 업데이트만 가능 |
@@ -34,6 +38,22 @@
 
 방 상세에서 나올 때도 `HomeFeature.State`를 **새로 만든다.** 그 방에서 사진을 찍고 나왔을 수 있어
 목록을 다시 조회해야 한다.
+
+## 초대 링크 진입 (`onContinueUserActivity` · `PendingInviteCode`)
+
+유니버설 링크(`https://challa.stellaris.co.kr/invite/{코드}`)로 앱이 열리면 `CHALLAApp`의
+`.onContinueUserActivity`가 URL을 `AppFeature.inviteLinkOpened`로 넘긴다. 파싱은
+`RoomDomain.InviteLink`가 한다 — 초대 링크 모양이 아니면 조용히 무시한다.
+
+- **로그인 후** — 어느 화면에 있든 `home`을 새로 만들어 `inviteCodeReceived(code)`를 넘긴다.
+  입장(드로어와 같은 `JoinRoomUseCase`)·목록 반영·실패 얼럿까지 홈이 맡고, 성공하면 기존
+  `roomJoined` 전이로 `roomDetail`에 도달한다. 서버는 이미 참여한 방도 성공(그 방 id)으로 준다
+  (2026-09-05 실서버 확인) — 내 방 링크 = 그 방 열기다
+- **로그인 전(스플래시·로그인·프로필 설정)** — 아직 입장할 수 없어 코드를 `PendingInviteCode`
+  보관함에 넣어 두고, 홈에 도달하는 두 지점(프로필 조회 성공 · 프로필 설정 완료)이 꺼내 잇는다.
+  보관함이 State가 아니라 의존성인 이유: `AppFeature.State`가 화면 enum이라 화면과 무관한 값을
+  얹을 자리가 없다. 꺼내면 비워져 같은 코드로 두 번 입장하지 않고, 프로세스가 끝나면 사라진다
+  (`forceUpdate`처럼 홈에 도달하지 못하는 화면에서 받은 코드는 그대로 소멸한다)
 
 ## 자동 로그인 · 토큰 갱신
 
@@ -116,7 +136,8 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme CHALLAApp \
 ```
 
 기기 이름은 런타임마다 중복되므로 `xcrun simctl list devices available`로 UDID를 확인해 쓴다.
-`AppFeatureTests`가 위 전이표를 TestStore로 고정한다.
+`AppFeatureTests`가 위 전이표를 TestStore로 고정한다. `AppInviteLinkTests`는 초대 링크 분기
+(초대 링크 아님 무시 · 즉시 입장 · 타 화면 홈 경유 · 로그인 전 보관 → 홈 도달 후 전달)를 본다.
 
 ## 의존 관계
 
