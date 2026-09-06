@@ -9,7 +9,7 @@ import Foundation
 public enum InviteLink {
 
     /// 앱 링크 도메인 (백엔드 확정 2026-09-01, Associated Domains와 같은 값).
-    public static let host = "challa.stellaris.co.kr"
+    private static let host = "challa.stellaris.co.kr"
     private static let pathPrefix = "invite"
 
     /// 보낼 때 — 초대 코드로 공유용 링크를 만든다. 공백만 친 코드면 nil.
