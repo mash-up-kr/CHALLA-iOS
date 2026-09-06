@@ -85,9 +85,9 @@ push 하면 안 된다** — 중첩 `NavigationStack`은 SwiftUI에서 동작이
 ### 내부 구성 (`Sources/Components/`)
 
 - `SettingProfileHeader` — 아바타 + 닉네임 + 편집 버튼 (설정 메인, 가로 배치)
-- `ProfileAvatar` — 회색 원 + 실루엣. 설정 메인과 계정 관리가 공유한다.
-  크기(68)를 파라미터로 열지 않았다 — 쓰는 곳 둘 다 같은 값이고 실루엣 아이콘이 지름과 함께
-  움직여야 해서 지름만 바꾸게 열면 비율이 깨진다
+- `ProfileAvatar` — 프로필 사진(`CHALLAAsyncImage`). 사진이 없거나 로딩 중·실패면 회색 원 + 실루엣.
+  설정 메인과 계정 관리가 공유한다. 크기(68)를 파라미터로 열지 않았다 — 쓰는 곳 둘 다 같은 값이고
+  실루엣 아이콘이 지름과 함께 움직여야 해서 지름만 바꾸게 열면 비율이 깨진다
 - `AccountProfileSummary` (`Sources/Account/Components/`) — 아바타 + 닉네임 (계정 관리, 세로 중앙 배치).
   `SettingProfileHeader`와 값은 같지만 배치가 달라 합치지 않고 아바타만 공유한다
 - 셋 다 디자인 시스템에 올리지 않았다. 재사용처가 설정 안뿐인데 DS에 넣으면 검수앱 갤러리에
@@ -105,8 +105,6 @@ push 하면 안 된다** — 중첩 `NavigationStack`은 SwiftUI에서 동작이
   `CHALLAListRow`의 `iconColor` 오버라이드로 처리했다. **디자이너 확정 필요**
 - **탑 내비게이션에 타이틀이 없다** — `CHALLATopNavigation.sub(title: "")`로 처리했다.
   DS에 타이틀 없는 variant를 추가할지는 디자이너 확인 후 판단
-- **아바타 이미지를 아직 그리지 않는다** — `SettingProfile.avatarURL`을 받아두지만 화면은 항상
-  기본 아바타(회색 실루엣)를 그린다. 이미지 로딩 모듈(#25 `CHALLAImageKit`)이 들어온 뒤 연결한다
 - **토글 ON 색** — 시안(`ref_notification.png`)은 밝은 회색이지만 켜짐 배경은 `themeColor`로 그린다.
   테마 색이 맞다고 확정됐다 (2026-08-01).
 - **계정 관리 하단 `탈퇴하기` 버튼 색** — 시안은 흐린 회색인데 `CHALLATextButton(variant: .transparent)`의

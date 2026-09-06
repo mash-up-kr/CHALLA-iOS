@@ -13,7 +13,7 @@ struct AccountProfileSummary: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ProfileAvatar()
+            ProfileAvatar(url: profile?.avatarURL)
             nickname
                 .padding(.top, Metric.avatarToTextSpacing)
         }

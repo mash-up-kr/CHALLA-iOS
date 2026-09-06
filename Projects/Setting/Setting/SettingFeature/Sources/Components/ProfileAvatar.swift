@@ -1,18 +1,16 @@
 import CHALLADesignSystem
 import SwiftUI
 
-/// 프로필 기본 아바타 — 회색 원 + 실루엣.
+/// 원형 프로필 이미지. 사진이 없으면 기본 아바타를 표시한다.
 ///
 /// 설정 메인 헤더(`SettingProfileHeader`)와 계정 관리 요약(`AccountProfileSummary`)이
 /// 같은 그림을 쓴다. 시안에서도 두 화면의 아바타는 픽셀 단위로 동일하다.
 ///
-/// **프로필 사진은 아직 그리지 않는다.** `SettingProfile.avatarURL`이 있어도 항상 기본 아바타다 —
-/// 이미지 로딩 모듈(#25 `CHALLAImageKit`)이 들어온 뒤 여기에 연결한다.
-/// 그래서 지금은 받는 값이 없다.
-///
 /// 크기를 파라미터로 열지 않는다 — 쓰는 곳 둘 다 68이고, 실루엣 아이콘 크기가 원 지름과
 /// 함께 움직여야 해서 지름만 바꿀 수 있게 열면 비율이 깨진다.
 struct ProfileAvatar: View {
+
+    let url: URL?
 
     /// 아바타 지름. 호출부가 줄 높이를 맞출 때 참조한다.
     ///
@@ -21,17 +19,29 @@ struct ProfileAvatar: View {
     nonisolated static let size: CGFloat = 68
 
     var body: some View {
+        CHALLAAsyncImage(url: url) { image in
+            image
+                .resizable()
+                .scaledToFill()
+        } placeholder: {
+            // 미설정·로딩·실패 상태는 동일한 기본 아바타를 사용한다.
+            defaultAvatar
+        }
+        .frame(width: Self.size, height: Self.size)
+        .clipShape(Circle())
+        // 인접한 닉네임과 VoiceOver 낭독이 중복되지 않도록 제외한다.
+        .accessibilityHidden(true)
+    }
+
+    private var defaultAvatar: some View {
         Circle()
             .fill(Metric.background)
-            .frame(width: Self.size, height: Self.size)
             .overlay {
                 CHALLAIcon.profile.image(
                     size: Metric.silhouetteSize,
                     color: Metric.silhouette
                 )
             }
-            // 닉네임이 바로 옆(또는 아래)에서 읽히므로 중복 낭독을 막는다.
-            .accessibilityHidden(true)
     }
 }
 
@@ -47,7 +57,10 @@ private enum Metric {
 }
 
 #Preview {
-    ProfileAvatar()
-        .padding()
-        .background(CHALLAColor.Background.surface)
+    VStack(spacing: 16) {
+        ProfileAvatar(url: URL(string: "https://picsum.photos/seed/challa-profile/200"))
+        ProfileAvatar(url: nil)
+    }
+    .padding()
+    .background(CHALLAColor.Background.surface)
 }
