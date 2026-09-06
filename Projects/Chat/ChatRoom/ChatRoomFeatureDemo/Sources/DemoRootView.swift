@@ -88,6 +88,7 @@ private struct ChatRoomDemoScreen: View {
                     chat: ChatRoomFeature.State(
                         roomID: DemoFixture.roomID,
                         roomTitle: DemoFixture.roomTitle,
+                        currentUserID: DemoFixture.currentUserID,
                         currentUserNickname: DemoFixture.currentUserNickname,
                         isPrinted: demoState != .printWaiting
                     )

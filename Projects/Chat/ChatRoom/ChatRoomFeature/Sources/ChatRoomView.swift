@@ -14,7 +14,7 @@ public struct ChatRoomView: View {
     @Environment(\.challaTheme) private var theme
 
     /// 더보기로 이전 메시지를 위에 붙일 때, 스크롤 위치를 유지하려고 붙이기 직전의 맨 위 메시지 id를 기억한다.
-    @State private var anchorMessageID: UUID?
+    @State private var anchorMessageID: ChatMessage.ID?
 
     public init(store: StoreOf<ChatRoomFeature>) {
         self.store = store
@@ -31,7 +31,7 @@ public struct ChatRoomView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .alert($store.scope(state: \.alert, action: \.alert))
-        .onAppear { send(.onAppear) }
+        .task { send(.task) }
     }
 
     private var content: some View {
@@ -86,7 +86,7 @@ public struct ChatRoomView: View {
                         }
                         ChatMessageRow(
                             message: row.message,
-                            isMine: row.message.isMine(currentUserNickname: store.currentUserNickname),
+                            isMine: row.message.isMine(currentUserID: store.currentUserID),
                             isPhotoBlurred: !store.isPrinted
                         )
                         .id(row.message.id)
@@ -151,7 +151,7 @@ public struct ChatRoomView: View {
     // MARK: - 표시용 행 (날짜 구분선 삽입)
 
     private struct DisplayRow: Identifiable {
-        let id: UUID
+        let id: ChatMessage.ID
         let message: ChatMessage
         let showDateDivider: Bool
     }

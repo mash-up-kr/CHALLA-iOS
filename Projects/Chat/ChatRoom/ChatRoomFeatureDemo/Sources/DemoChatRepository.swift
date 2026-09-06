@@ -35,18 +35,22 @@ struct DemoChatRepository: ChatRepository {
         }
     }
 
-    func send(roomID _: Int64, photoID _: Int64?, content: String) async throws {
+    @discardableResult
+    func send(roomID _: Int64, photoID _: Int64?, content: String) async throws -> Int64? {
         guard case let .populated(store) = scenario else { throw ChatError.unknown }
         try await Task.sleep(for: latency)
 
         // 서버가 없으니 재진입(재조회) 시에도 남도록 저장소에 넣어 둔다. 화면은 낙관적 메시지를 따로 그린다.
+        let chatID = DemoFixture.makeChatID()
         let message = ChatMessage(
-            id: UUID(),
+            id: .server(chatID),
             kind: .text,
             content: content,
+            authorID: DemoFixture.currentUserID,
             authorName: DemoFixture.currentUserNickname,
             createdAt: Date()
         )
         await store.append(message)
+        return chatID
     }
 }

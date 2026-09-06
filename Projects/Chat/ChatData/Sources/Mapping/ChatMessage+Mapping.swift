@@ -9,9 +9,9 @@ extension ChatMessageDTO {
     /// - `COMMENT`: 사진과 메시지 본문을 함께 표시
     /// - `DEFAULT` + 사진 → 사진 메시지(+content 텍스트)
     /// - `DEFAULT` + 사진 없음 → 텍스트 메시지
-    /// 서버가 메시지 id를 주지 않아 호출부가 만든 `id`를 받는다. 보낸 사람 이름이 없거나 알 수 없는 이모지는 버린다.
-    func toDomain(id: UUID) -> ChatMessage? {
-        guard let userName, !userName.isEmpty else { return nil }
+    /// `chatId`·`userId`·보낸 사람 이름이 없거나 알 수 없는 이모지면 버린다.
+    func toDomain() -> ChatMessage? {
+        guard let chatId, let userId, let userName, !userName.isEmpty else { return nil }
         let photoURL = photoImageUrl.flatMap(URL.init(string:))
         let text = content ?? ""
 
@@ -26,10 +26,11 @@ extension ChatMessageDTO {
         }
 
         return ChatMessage(
-            id: id,
+            id: .server(chatId),
             kind: kind,
             content: text,
             photoImageURL: photoURL,
+            authorID: userId,
             authorName: userName,
             authorImageURL: userProfileImageUrl.flatMap(URL.init(string:)),
             // 파싱 실패 시 맨 앞으로 밀어 목록 순서를 흐트러뜨리지 않는다.

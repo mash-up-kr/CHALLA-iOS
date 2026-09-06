@@ -14,7 +14,9 @@ public struct ChatRoomFeature {
         public let roomID: Int64
         /// 탑 내비게이션 타이틀.
         public let roomTitle: String
-        /// 내 메시지(오른쪽 흰 버블) 판별용 — 응답의 userName과 비교한다.
+        /// 내 메시지(오른쪽 흰 버블) 판별용 — 응답의 userId와 비교한다.
+        public let currentUserID: Int64
+        /// 낙관적으로 덧붙이는 내 메시지의 표시 이름.
         public let currentUserNickname: String
         /// 인화 전에는 채팅 사진을 블러 처리한다.
         public let isPrinted: Bool
@@ -29,11 +31,22 @@ public struct ChatRoomFeature {
         public var hasMore = false
         /// 더보기로 다음에 불러올 페이지 번호(첫 페이지는 0).
         public var nextPage = 0
+        /// 소켓이 붙어 있는지. 지금은 화면에 그리지 않고 상태로만 둔다.
+        public var isRealtimeConnected = false
+        /// 진입 준비를 이미 했는지 — `.task`가 다시 불려도 구독이 둘이 되지 않게 막는다.
+        public var didStart = false
         @Presents public var alert: AlertState<Action.Alert>?
 
-        public init(roomID: Int64, roomTitle: String, currentUserNickname: String, isPrinted: Bool) {
+        public init(
+            roomID: Int64,
+            roomTitle: String,
+            currentUserID: Int64,
+            currentUserNickname: String,
+            isPrinted: Bool
+        ) {
             self.roomID = roomID
             self.roomTitle = roomTitle
+            self.currentUserID = currentUserID
             self.currentUserNickname = currentUserNickname
             self.isPrinted = isPrinted
         }
@@ -44,7 +57,7 @@ public struct ChatRoomFeature {
     public enum Action: ViewAction, Sendable {
 
         public enum ViewAction: Sendable {
-            case onAppear
+            case task
             case backButtonTapped
             case draftChanged(String)
             case sendTapped
@@ -62,11 +75,19 @@ public struct ChatRoomFeature {
 
         case delegate(Delegate)
 
+        /// 구독이 확정됐다(첫 연결·재연결 공통). 이 다음에야 과거 목록을 부른다 —
+        /// 순서가 뒤집히면 조회와 구독 사이에 온 메시지를 놓친다.
+        case subscribed
+        /// 소켓으로 받은 메시지 한 건.
+        case received(ChatMessage)
+        /// 소켓을 포기했다. 조회·전송은 REST로 계속되므로 얼럿은 띄우지 않는다.
+        case streamEnded
+
         case chatsResponse(Result<[ChatMessage], ChatError>)
         /// 이전 페이지(더보기) 조회 결과 — 목록 위에 붙인다.
         case moreChatsResponse(Result<[ChatMessage], ChatError>)
-        /// 전송 결과. `id`는 낙관적으로 덧붙인 메시지 — 실패하면 그 메시지를 되돌린다.
-        case sendResponse(id: UUID, Result<Void, ChatError>)
+        /// 전송 결과. 성공하면 서버가 준 chatId로 낙관적 메시지를 확정한다.
+        case sendResponse(id: ChatMessage.ID, Result<Int64?, ChatError>)
 
         public enum Alert: Equatable, Sendable {}
 
@@ -81,6 +102,7 @@ public struct ChatRoomFeature {
 
     @Dependency(\.fetchChatsUseCase) var fetchChatsUseCase
     @Dependency(\.sendChatUseCase) var sendChatUseCase
+    @Dependency(\.observeChatsUseCase) var observeChatsUseCase
     @Dependency(\.uuid) var uuid
     @Dependency(\.date) var date
 
@@ -89,8 +111,8 @@ public struct ChatRoomFeature {
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
-            case .view(.onAppear):
-                return load(&state)
+            case .view(.task):
+                return start(&state)
 
             case .view(.backButtonTapped):
                 return .send(.delegate(.closeRequested))
@@ -105,17 +127,34 @@ public struct ChatRoomFeature {
             case .view(.reachedTop):
                 return loadMore(&state)
 
-            case let .chatsResponse(.success(messages)):
+            case .subscribed:
+                state.isRealtimeConnected = true
+                // 재연결이면 끊겨 있던 구간을 이 조회가 메운다.
+                return loadHistory(&state)
+
+            case .streamEnded:
+                state.isRealtimeConnected = false
+                return loadHistory(&state)
+
+            case let .received(message):
+                state.messages = ChatMessage.merged(state.messages, with: [message])
+                return .none
+
+            case let .chatsResponse(.success(page)):
                 state.isLoading = false
-                // 최신 메시지가 맨 아래에 오도록 시간 오름차순으로 정렬한다(서버 정렬 순서에 의존하지 않는다).
-                state.messages = messages.sorted { $0.createdAt < $1.createdAt }
-                state.nextPage = 1
-                // 한 페이지를 꽉 채워 받았으면 이전 페이지가 더 있을 수 있다.
-                state.hasMore = messages.count >= Const.pageSize
+                // 교체가 아니라 병합이다 — 조회 중에 소켓으로 온 메시지를 덮어쓰면 안 된다.
+                state.messages = ChatMessage.merged(state.messages, with: page)
+                // 페이지 상태는 첫 조회에서만 정한다. 재연결 재조회가 이미 불러온 이전 페이지를 날리면 안 된다.
+                if state.nextPage == 0 {
+                    state.nextPage = 1
+                    state.hasMore = page.count >= Const.pageSize
+                }
                 return .none
 
             case let .chatsResponse(.failure(error)):
                 state.isLoading = false
+                // 이미 보여줄 목록이 있으면(재연결 뒤 재조회 실패 등) 조용히 넘긴다.
+                guard state.messages.isEmpty else { return .none }
                 state.alert = Self.errorAlert(title: "채팅을 불러오지 못했어요", error: error)
                 return .none
 
@@ -125,8 +164,7 @@ public struct ChatRoomFeature {
                     state.hasMore = false
                     return .none
                 }
-                // 이전 메시지를 위에 붙이고 전체를 시간순으로 정렬한다.
-                state.messages = (older + state.messages).sorted { $0.createdAt < $1.createdAt }
+                state.messages = ChatMessage.merged(state.messages, with: older)
                 state.nextPage += 1
                 state.hasMore = older.count >= Const.pageSize
                 return .none
@@ -136,10 +174,9 @@ public struct ChatRoomFeature {
                 state.isLoadingMore = false
                 return .none
 
-            case .sendResponse(_, .success):
-                // 낙관적으로 덧붙인 메시지를 그대로 확정한다(재조회 없음).
+            case let .sendResponse(id, .success(chatID)):
                 state.isSending = false
-                return .none
+                return confirmSent(&state, id: id, chatID: chatID)
 
             case let .sendResponse(id, .failure(error)):
                 state.isSending = false
@@ -156,8 +193,45 @@ public struct ChatRoomFeature {
 
     // MARK: - Effects
 
-    private func load(_ state: inout State) -> Effect<Action> {
-        guard !state.isLoading else { return .none }
+    /// 구독을 먼저 확정하고 그 다음에 과거 목록을 부른다 — 백엔드가 정한 채팅 누락 방지 순서다.
+    /// 구독 실패는 얼럿을 띄우지 않는다. 실시간만 없을 뿐 화면은 REST로 그대로 돈다.
+    private func start(_ state: inout State) -> Effect<Action> {
+        guard !state.didStart else { return .none }
+        state.didStart = true
+        state.isLoading = true
+        let roomID = state.roomID
+
+        return .run { [observeChatsUseCase] send in
+            let events: AsyncThrowingStream<ChatStreamEvent, any Error>
+            do {
+                events = try await observeChatsUseCase.run(roomID)
+            } catch {
+                await send(.streamEnded)
+                return
+            }
+            await send(.subscribed)
+
+            do {
+                for try await event in events {
+                    switch event {
+                    case let .message(message):
+                        await send(.received(message))
+                    case .resumed:
+                        await send(.subscribed)
+                    }
+                }
+                await send(.streamEnded)
+            } catch is CancellationError {
+                return
+            } catch {
+                await send(.streamEnded)
+            }
+        }
+        .cancellable(id: CancelID.stream, cancelInFlight: true)
+    }
+
+    /// 첫 페이지를 다시 부른다. `cancelInFlight`가 재연결이 몰아칠 때의 중복 조회를 합쳐 준다.
+    private func loadHistory(_ state: inout State) -> Effect<Action> {
         state.isLoading = true
         let roomID = state.roomID
 
@@ -170,6 +244,7 @@ public struct ChatRoomFeature {
                 await send(.chatsResponse(.failure(failure)))
             }
         }
+        .cancellable(id: CancelID.history, cancelInFlight: true)
     }
 
     /// 위로 스크롤해 맨 위에 닿으면 이전 페이지를 더 불러온다. 첫 로딩 중이거나 더 없으면 무시한다.
@@ -191,32 +266,46 @@ public struct ChatRoomFeature {
     }
 
     /// 빈 메시지·전송 중 재탭은 무시한다. 로컬에서 만든 메시지를 맨 아래에 낙관적으로 덧붙이고 입력창을 비운다.
-    /// 성공하면 그대로 두고, 실패하면 그 메시지를 되돌린 뒤 얼럿을 띄운다.
     private func send(_ state: inout State) -> Effect<Action> {
         let content = state.draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !content.isEmpty, !state.isSending else { return .none }
 
         let message = ChatMessage(
-            id: uuid(),
+            id: .local(uuid()),
             kind: .text,
             content: content,
+            authorID: state.currentUserID,
             authorName: state.currentUserNickname,
             createdAt: date.now
         )
         state.isSending = true
         state.draft = ""
-        state.messages.append(message)
+        state.messages = ChatMessage.merged(state.messages, with: [message])
         let roomID = state.roomID
 
         return .run { [sendChatUseCase] send in
             do {
-                try await sendChatUseCase.run(roomID, nil, content)
-                await send(.sendResponse(id: message.id, .success(())))
+                let chatID = try await sendChatUseCase.run(roomID, nil, content)
+                await send(.sendResponse(id: message.id, .success(chatID)))
             } catch {
                 guard let failure = Self.failure(error) else { return }
                 await send(.sendResponse(id: message.id, .failure(failure)))
             }
         }
+    }
+
+    /// 서버가 준 chatId로 낙관적 메시지를 확정한다.
+    /// 확정해 두면 소켓으로 되돌아온 같은 메시지가 id로 합쳐져 목록에 두 번 뜨지 않는다.
+    /// chatId가 없으면(서버가 안 준 경우) 로컬 id인 채로 두고, 소켓 메시지는 별개 항목으로 들어온다.
+    private func confirmSent(_ state: inout State, id: ChatMessage.ID, chatID: Int64?) -> Effect<Action> {
+        guard
+            let chatID,
+            let index = state.messages.firstIndex(where: { $0.id == id })
+        else { return .none }
+
+        let confirmed = state.messages.remove(at: index).promoted(toServerID: chatID)
+        state.messages = ChatMessage.merged(state.messages, with: [confirmed])
+        return .none
     }
 
     /// 화면을 벗어나 취소된 경우 nil을 반환한다(알릴 대상이 없다). 나머지는 ChatError로 바꾼다.
@@ -235,6 +324,11 @@ public struct ChatRoomFeature {
         } message: {
             TextState(error.userMessage)
         }
+    }
+
+    private enum CancelID: Hashable {
+        case stream
+        case history
     }
 
     private enum Const {

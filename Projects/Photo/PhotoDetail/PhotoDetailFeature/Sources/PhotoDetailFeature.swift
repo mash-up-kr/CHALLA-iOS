@@ -398,7 +398,8 @@ extension PhotoDetailFeature {
 
         return .run { [sendChatUseCase] send in
             do {
-                try await sendChatUseCase.run(roomID, photoID, content)
+                // 사진 상세는 낙관적 목록을 갖지 않아 생성된 chatId를 쓸 일이 없다.
+                _ = try await sendChatUseCase.run(roomID, photoID, content)
                 await send(.messageSent(.success(())))
             } catch is CancellationError {
                 return
