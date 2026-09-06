@@ -50,6 +50,29 @@ struct HomeInviteJoinTests {
         await store.receive(\.delegate.roomJoined, updated)
     }
 
+    @Test("링크를 연달아 누르면 마지막 링크의 방으로 간다")
+    func lastLinkWins() async {
+        // 첫 입장을 붙잡아 두고 두 번째를 보낸다 — cancelInFlight가 첫 이펙트를 끊는다.
+        let gate = AsyncStream<Void>.makeStream()
+        let store = Self.makeStore(
+            join: JoinRoomUseCase(run: { code in
+                if code == "1111111" {
+                    for await _ in gate.stream {} // 취소되면 빠져나온다
+                    throw CancellationError()
+                }
+                return .previewShooting
+            })
+        )
+
+        await store.send(.inviteCodeReceived("1111111"))
+        await store.send(.inviteCodeReceived("1928121"))
+        // 첫 링크의 응답은 오지 않고, 두 번째 방만 반영된다.
+        await store.receive(\.inviteJoinResponse.success) {
+            $0.cards = [.previewShooting]
+        }
+        await store.receive(\.delegate.roomJoined, .previewShooting)
+    }
+
     @Test("입장에 실패하면 얼럿으로 알린다")
     func failureShowsAlert() async {
         let store = Self.makeStore(

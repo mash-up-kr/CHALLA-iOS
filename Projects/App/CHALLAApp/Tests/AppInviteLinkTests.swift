@@ -2,6 +2,7 @@
 import ComposableArchitecture
 import Foundation
 import HomeFeature
+import ProfileSetupFeature
 import RoomDomain
 import Testing
 import UserDomain
@@ -71,6 +72,35 @@ struct AppInviteLinkTests {
         }
         // 보고 있던 인화 완료 방이 아니라 링크의 방으로 옮겨 갔다.
         #expect(screen.roomDetail.room.id == Self.card.id)
+    }
+
+    @Test("프로필 설정을 마친 신규 사용자도 보관된 링크로 입장한다")
+    func deliversAfterProfileSetup() async {
+        // 링크가 먼저 도착해 보관된 상태에서, 신규 사용자가 프로필 설정을 끝내는 상황.
+        let box = LockIsolated<String?>("1928121")
+        let store = TestStore(initialState: AppFeature.State.profileSetup(ProfileSetupFeature.State())) {
+            AppFeature()
+        } withDependencies: {
+            $0.pendingInviteCode = PendingInviteCode(
+                store: { code in box.setValue(code) },
+                take: { box.withValue { code in
+                    defer { code = nil }
+                    return code
+                } }
+            )
+            $0.joinRoomUseCase = JoinRoomUseCase(run: { _ in Self.card })
+        }
+        store.exhaustivity = .off
+
+        await store.send(.profileSetup(.delegate(.setupCompleted(Self.profile))))
+        await store.receive(\.home.delegate.roomJoined)
+
+        guard case let .roomDetail(screen) = store.state else {
+            Issue.record("방 상세가 아니다: \(store.state.screenID)")
+            return
+        }
+        #expect(screen.roomDetail.room.id == Self.card.id)
+        #expect(box.value == nil)
     }
 
     @Test("로그인 전에 받은 링크는 보관했다가 홈 도달 후 입장한다")
