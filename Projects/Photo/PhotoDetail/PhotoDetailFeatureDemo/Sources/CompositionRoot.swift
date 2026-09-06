@@ -16,12 +16,13 @@ enum CompositionRoot {
 
         values.fetchRoomPhotosUseCase = .live(repository: repository)
         values.setPhotoReactionUseCase = .live(repository: repository)
+        values.deletePhotoReactionUseCase = .live(repository: repository)
         values.savePhotoUseCase = .live(repository: repository, photoLibrary: PhotoLibraryAdapter())
     }
 
     private static func scenario(for demoState: DemoLaunchArguments.State) -> DemoPhotoRepository.Scenario {
         switch demoState {
-        case .default: .populated(DemoPhotoStore(photos: DemoFixture.photos()))
+        case .default, .printWaiting: .populated(DemoPhotoStore(photos: DemoFixture.photos()))
         case .loading: .neverFinishes
         case .empty: .empty
         case .error: .failure(.network)

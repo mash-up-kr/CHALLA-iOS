@@ -23,11 +23,11 @@
 
 | 타입 | 내용 |
 | :-- | :-- |
-| `Photo` | `id` · `imageURL` · `author` · `capturedAt` · `reactions`(스티커 = 유저당 첫 이모지, 처음 남긴 순). `hasReacted(by:)`·`reaction(by:)`로 그 유저 스티커를 묻고, `addingReaction(_:by:)`(첫 이모지만 붙음)·`removingReaction(by:)`으로 낙관적 갱신·롤백용 사본을 만든다. `init`에서 유저당 첫 스티커만 남긴다 |
+| `Photo` | 사진 정보, 리액션 스티커, 사용자별 선택 종류. `addingReaction(_:)`, `removingReaction(id:)`으로 갱신하고 `applyingReactions(_:)`으로 서버 조회를 반영한다. 조회 시 채팅 ID로 기존 표시 ID를 유지하며, 아직 채팅 ID가 없는 스티커는 사용자·종류로 연결한다 |
 | `PhotoAuthor` | `id` · `nickname` · `avatarURL` — 사진에 박제된 시점의 촬영자 정보 |
 | `ReactionKind` | 리액션 10종(heart · sparkle · thumbsUp · poop · skull · medal · question · huh · loveEyes · fire). 시안의 리액션 바 순서 그대로이며 이모지 글리프는 화면이 정한다 |
-| `PhotoReaction` | `kind` · `userID` — 사진에 붙는 스티커 하나 = 그 유저가 **처음 남긴** 이모지. 유저당 하나라 `id`도 `userID`다(이모지 자체는 무제한이며 나머지는 채팅 히스토리로만 쌓인다, 정책 #71). 스티커 좌표는 갖지 않는다 |
-| `PhotoReactions` | 사진 한 장의 리액션 묶음 — `stickers`(유저당 첫 이모지) + `reactedKindsByUser`(유저별 종류 전부, 칩 띠용). 목록엔 리액션이 없어 펼칠 때 따로 받아 `Photo.applyingReactions(_:)`로 채운다 |
+| `PhotoReaction` | `id`(표시용) · `kind` · `userID` · `chatID`(삭제용, nullable). `attachingChatID(_:)`는 표시 ID를 유지한다. 스티커 좌표는 Feature가 계산한다 |
+| `PhotoReactions` | 사진 한 장의 리액션 묶음 — `stickers`(남긴 순서대로 전부) + `reactedKindsByUser`(유저별 종류 전부, 칩 띠용). 목록엔 리액션이 없어 펼칠 때 따로 받아 `Photo.applyingReactions(_:)`로 채운다 |
 | `CameraFilter` | 서버가 내려주는 카메라 필터 한 개 (`GET /shoots/camera-filters` 응답 한 줄). `name`(식별자 겸 표시 이름 — 사진 업로드 API도 이 값으로 필터를 가리킨다) · `fileURL`(LUT .cube 공개 URL). `previewFilters`는 화면 확인용 샘플 |
 
 ### Errors (`Sources/Errors/`)
@@ -38,10 +38,10 @@
 
 ### Interface (`Sources/Interface/` — 구현: PhotoData · Core)
 
-- `protocol PhotoRepository` — `photos(inRoom:)`(목록만) · `reactions(forPhotoID:)`(사진 한 장의 리액션 → `PhotoReactions`) · `setReaction(roomID:photoID:kind:isOn:)` · `imageData(for:)`.
-  리액션은 뒤집기가 아니라 **목표 상태를 지시하는 멱등 형태**(isOn)다 — 같은 요청이 두 번 나가도 결과가
-  같아야 재시도·취소가 안전하다. 서버가 갱신 사진을 주지 않아 **반환값은 없고**, 화면 갱신은 호출부의
-  낙관적 반영에 맡긴다. 해제 API가 아직 없어 `isOn == false`(해제)는 호출부가 UI에서 막는다 (#71)
+- `protocol PhotoRepository` — `photos(inRoom:)`(목록만) · `reactions(inRoom:photoID:)`(사진 한 장의 리액션 → `PhotoReactions`) · `setReaction(roomID:photoID:kind:)` · `deleteReaction(chatID:)` · `imageData(for:)` · `imageDataStream(for:)`.
+  리액션 생성은 채팅 ID를 반환한다. 성공 응답에 ID가 없을 수 있으므로 반환형은 `Int64?`이다.
+  삭제는 `deleteReaction(chatID:)`로 요청한다.
+  `imageDataStream(for:)`은 여러 장의 원본을 넘긴 순서대로 흘려 준다(전체 다운로드용)
 - `protocol PhotoLibraryWriting` — `save(imageData:)`. 권한 요청까지 구현체 안에서 끝낸다
 - `protocol CameraFilterRepository` — `filters() -> [CameraFilter]` · `lutData(for:) -> Data`
   - LUT 파싱·CoreImage 변환은 호출부(화면 조립) 몫 — Domain·Data는 색 변환 기술을 모른다.
@@ -65,8 +65,10 @@
 | :-- | :-- | :-- |
 | `\.fetchRoomPhotosUseCase` | `.live(repository:)` | 방의 사진을 찍힌 순서대로 가져온다(목록만 — 리액션 제외) |
 | `\.fetchPhotoReactionsUseCase` | `.live(repository:)` | 사진 한 장의 리액션(`PhotoReactions`)을 가져온다. 사진을 펼칠 때만 호출해 1+N 회피 |
-| `\.setPhotoReactionUseCase` | `.live(repository:)` | 사진에 리액션을 남긴다(반환 없음 — 화면은 호출부가 낙관적으로 갱신) |
+| `\.setPhotoReactionUseCase` | `.live(repository:)` | 사진에 리액션을 남기고 생성된 채팅 id를 돌려준다(화면은 호출부가 낙관적으로 갱신) |
+| `\.deletePhotoReactionUseCase` | `.live(repository:)` | 리액션(EMOJI 채팅) 한 건을 채팅 id로 지운다 |
 | `\.savePhotoUseCase` | `.live(repository:photoLibrary:)` | 원본을 내려받아 사진첩에 저장한다. 계약을 어긴 오류가 새어 나와도 `PhotoError.unknown`으로 막는다 |
+| `\.saveAllPhotosUseCase` | `.live(repository:photoLibrary:)` | 여러 장을 사진첩에 저장하며 진행 상황을 `SaveAllPhotosEvent`로 흘린다. 받기는 병렬, 저장은 순차 |
 
 촬영(필터·업로드·안내·권한):
 

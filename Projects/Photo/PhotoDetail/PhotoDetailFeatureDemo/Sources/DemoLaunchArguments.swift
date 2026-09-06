@@ -14,6 +14,8 @@ struct DemoLaunchArguments: Equatable {
     enum State: String, CaseIterable {
         /// 사진 5장.
         case `default`
+        /// 인화 전 블러·다운로드 버튼 숨김 상태.
+        case printWaiting = "print-waiting"
         /// 목록을 불러오는 중에서 멈춘 상태.
         case loading
         case empty

@@ -5,65 +5,74 @@ import Testing
 @Suite("리액션 스티커 배치 규칙")
 struct StickerLayoutTests {
 
+    @Test("생성 응답과 재조회 후에도 스티커 위치를 유지한다")
+    func keepsPlacementAfterServerConfirmation() {
+        let local = PhotoReaction(id: "local-1", kind: .heart, userID: "me")
+        let original = Fixture.photo(id: "photo-1", reactions: [local])
+        let confirmed = original.attachingChatID(1, to: local.id)
+        let server = PhotoReactions(stickers: [PhotoReaction(chatID: 1, kind: .heart, userID: "me")])
+
+        #expect(placements(of: original) == placements(of: confirmed))
+        #expect(placements(of: original) == placements(of: confirmed.applyingReactions(server)))
+        #expect(placements(of: original) == placements(of: original.applyingReactions(server)))
+    }
+
+    /// 서로 다른 리액션 `count`개가 붙은 사진.
     private func photo(id: String = "photo-1", count: Int) -> Photo {
-        let reactions = Array(ReactionKind.allCases.prefix(count)).enumerated().map { index, kind in
-            Fixture.reaction(kind, by: "user-\(index)")
+        let reactions = (0 ..< count).map { index in
+            Fixture.reaction(
+                ReactionKind.allCases[index % ReactionKind.allCases.count],
+                by: "user-\(index)",
+                chatID: Int64(index + 1)
+            )
         }
         return Fixture.photo(id: id, reactions: reactions)
     }
 
     private func placements(of photo: Photo) -> [StickerPlacement] {
-        let slots = StickerLayout.assignSlots(for: [photo], previous: [:])
-        return StickerLayout.placements(for: photo, slots: slots).map(\.placement)
+        StickerLayout.placements(for: photo).map(\.placement)
     }
 
-    @Test("최대 3개까지만 그린다")
-    func capsAtMaxCount() {
-        #expect(StickerLayout.maxCount == 3)
-        #expect(placements(of: photo(count: 10)).count == 3)
+    @Test("개수 제한 없이 붙은 만큼 다 그린다")
+    func drawsEverySticker() {
         #expect(placements(of: photo(count: 2)).count == 2)
+        #expect(placements(of: photo(count: 12)).count == 12)
     }
 
-    @Test("같은 사진이면 늘 같은 자리")
+    @Test("같은 사진·같은 리액션이면 늘 같은 자리")
     func isDeterministic() {
-        let subject = photo(count: 3)
+        let subject = photo(count: 5)
+
         #expect(placements(of: subject) == placements(of: subject))
     }
 
-    @Test("서로 다른 자리에 놓여 겹치지 않는다")
-    func doesNotOverlap() {
-        let spots = placements(of: photo(count: 3))
-        let unique = Set(spots.map { "\($0.xRatio)-\($0.yRatio)" })
-        #expect(unique.count == spots.count, "같은 자리에 둘 이상 놓였다")
+    @Test("리액션 하나를 떼도 남은 스티커 자리는 그대로다")
+    func keepsPlacementsAfterRemoval() {
+        let subject = photo(count: 4)
+        let removedID = subject.reactions[1].id
+        let before = StickerLayout.placements(for: subject)
+            .filter { $0.reaction.id != removedID }
+
+        let after = StickerLayout.placements(for: subject.removingReaction(id: removedID))
+
+        #expect(before.map(\.placement) == after.map(\.placement))
     }
 
-    @Test("리액션을 떼도 남은 스티커 자리는 그대로다")
-    func keepsPositionsWhenRemoved() {
-        let all = [
-            Fixture.reaction(.heart, by: "a"),
-            Fixture.reaction(.skull, by: "b"),
-            Fixture.reaction(.fire, by: "c")
-        ]
-        let full = Fixture.photo(id: "p", reactions: all)
-        let removed = Fixture.photo(id: "p", reactions: [all[0], all[2]])
+    @Test("사진이 다르면 같은 리액션도 다른 자리에 놓인다")
+    func variesByPhoto() {
+        let first = placements(of: photo(id: "photo-1", count: 3))
+        let second = placements(of: photo(id: "photo-2", count: 3))
 
-        let slotsFull = StickerLayout.assignSlots(for: [full], previous: [:])
-        let slotsRemoved = StickerLayout.assignSlots(for: [removed], previous: slotsFull)
-
-        let before = StickerLayout.placements(for: full, slots: slotsFull)
-        let after = StickerLayout.placements(for: removed, slots: slotsRemoved)
-
-        for (reaction, placement) in after {
-            let original = before.first { $0.reaction.id == reaction.id }?.placement
-            #expect(original == placement, "\(reaction.id) 자리가 바뀌었다")
-        }
+        #expect(first != second)
     }
 
-    @Test("가장자리에 놓고 정중앙은 비운다")
-    func usesEdgePositions() {
-        for spot in placements(of: photo(count: 3)) {
-            let onEdge = spot.xRatio <= 0.3 || spot.xRatio >= 0.75
-            #expect(onEdge, "x=\(spot.xRatio)가 가운데에 있다")
+    @Test("스티커가 잘리지 않도록 사진 안쪽에 놓는다")
+    func staysInsidePhoto() {
+        for placement in placements(of: photo(count: 20)) {
+            #expect(placement.xRatio >= 0.20 && placement.xRatio <= 0.80)
+            // 위쪽은 촬영자 표시를 피한다.
+            #expect(placement.yRatio >= 0.28 && placement.yRatio <= 0.80)
+            #expect(placement.angleDegrees >= -15 && placement.angleDegrees <= 15)
         }
     }
 }

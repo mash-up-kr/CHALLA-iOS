@@ -4,29 +4,39 @@ import Testing
 @Suite("Photo 리액션 규칙 (스티커 + 칩 띠)")
 struct PhotoReactionTests {
 
-    @Test("첫 이모지는 스티커로 붙고 띠에도 들어간다")
-    func addsFirstReaction() {
+    @Test("같은 종류의 서버 리액션도 채팅 ID별 표시 ID를 유지한다")
+    func preservesDistinctStickerIDsOnRefresh() {
+        let local = PhotoReaction(id: "local-1", kind: .heart, userID: "me", chatID: 2)
+        let first = PhotoReaction(chatID: 1, kind: .heart, userID: "me")
+        let photo = PhotoFixture.photo(reactions: [local, first])
+        let refreshed = photo.applyingReactions(PhotoReactions(stickers: [
+            first, PhotoReaction(chatID: 2, kind: .heart, userID: "me")
+        ]))
+
+        #expect(refreshed.reactions.map(\.id) == [first.id, local.id])
+        #expect(refreshed.reactions.map(\.chatID) == [1, 2])
+    }
+
+    @Test("리액션을 남기면 스티커로 붙고 띠에도 들어간다")
+    func addsReaction() {
         let photo = PhotoFixture.photo()
 
-        let updated = photo.addingReaction(.thumbsUp, by: "user-me")
+        let updated = photo.addingReaction(PhotoFixture.reaction(.thumbsUp, by: "user-me"))
 
         #expect(updated.reactions.count == 1)
-        #expect(updated.reaction(by: "user-me")?.kind == .thumbsUp)
-        #expect(updated.hasReacted(by: "user-me"))
         #expect(updated.reactedKinds(by: "user-me") == [.thumbsUp])
     }
 
-    @Test("두 번째 이모지는 스티커는 그대로지만 띠에는 쌓인다")
-    func secondReactionUpdatesBandNotSticker() {
-        let photo = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.heart, by: "user-me")])
+    @Test("개수 제한이 없어 남긴 만큼 다 붙는다")
+    func addsEveryReaction() {
+        let photo = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.heart, by: "user-me", chatID: 1)])
 
-        let updated = photo.addingReaction(.thumbsUp, by: "user-me")
+        let updated = photo
+            .addingReaction(PhotoFixture.reaction(.thumbsUp, by: "user-me", chatID: 2))
+            .addingReaction(PhotoFixture.reaction(.fire, by: "user-me", chatID: 3))
 
-        // 스티커는 첫 이모지(heart) 유지
-        #expect(updated.reactions.count == 1)
-        #expect(updated.reaction(by: "user-me")?.kind == .heart)
-        // 띠는 둘 다
-        #expect(updated.reactedKinds(by: "user-me") == [.heart, .thumbsUp])
+        #expect(updated.reactions.count == 3)
+        #expect(updated.reactedKinds(by: "user-me") == [.heart, .thumbsUp, .fire])
     }
 
     @Test("이미 그 종류로 남겼는지 확인한다")
@@ -37,68 +47,73 @@ struct PhotoReactionTests {
         #expect(!photo.hasReacted(.thumbsUp, by: "user-me"))
     }
 
-    @Test("스티커 종류를 떼면 스티커·띠 모두에서 빠진다")
-    func removingStickerKind() {
-        let photo = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.thumbsUp, by: "user-me")])
+    @Test("스티커를 떼면 그 종류가 남지 않았을 때만 띠에서도 빠진다")
+    func removingReaction() {
+        let first = PhotoFixture.reaction(.heart, by: "user-me", chatID: 1)
+        let second = PhotoFixture.reaction(.heart, by: "user-me", chatID: 2)
+        let photo = PhotoFixture.photo(reactions: [first, second])
 
-        let updated = photo.removingReaction(.thumbsUp, by: "user-me")
+        let removedOne = photo.removingReaction(id: first.id)
+        // heart가 하나 더 남아 있어 띠는 그대로다.
+        #expect(removedOne.reactions.count == 1)
+        #expect(removedOne.reactedKinds(by: "user-me") == [.heart])
 
-        #expect(updated.reactions.isEmpty)
-        #expect(updated.reactedKinds(by: "user-me").isEmpty)
+        let removedBoth = removedOne.removingReaction(id: second.id)
+        #expect(removedBoth.reactions.isEmpty)
+        #expect(removedBoth.reactedKinds(by: "user-me").isEmpty)
     }
 
-    @Test("스티커가 아닌 종류를 떼면 띠에서만 빠지고 스티커는 유지된다")
-    func removingNonStickerKind() {
-        let photo = PhotoFixture.photo(
-            reactions: [PhotoFixture.reaction(.heart, by: "user-me")],
-            reactedKindsByUser: ["user-me": [.heart, .thumbsUp]]
-        )
+    @Test("없는 리액션을 떼면 아무것도 바뀌지 않는다")
+    func removingUnknownReactionDoesNothing() {
+        let photo = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.heart, by: "user-me")])
 
-        let updated = photo.removingReaction(.thumbsUp, by: "user-me")
-
-        #expect(updated.reaction(by: "user-me")?.kind == .heart) // 스티커 유지
-        #expect(updated.reactedKinds(by: "user-me") == [.heart])
+        #expect(photo.removingReaction(id: "없는-id") == photo)
     }
 
     @Test("남의 리액션은 건드리지 않는다")
     func keepsOtherUsersReaction() {
-        let photo = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.thumbsUp, by: "user-other")])
+        let photo = PhotoFixture.photo(reactions: [PhotoFixture.reaction(.thumbsUp, by: "user-other", chatID: 1)])
 
-        let updated = photo.addingReaction(.heart, by: "user-me")
+        let updated = photo.addingReaction(PhotoFixture.reaction(.heart, by: "user-me", chatID: 2))
 
         #expect(updated.reactions.count == 2)
-        #expect(updated.reaction(by: "user-other")?.kind == .thumbsUp)
-        #expect(updated.reaction(by: "user-me")?.kind == .heart)
+        #expect(updated.reactedKinds(by: "user-other") == [.thumbsUp])
+        #expect(updated.reactedKinds(by: "user-me") == [.heart])
     }
 
-    @Test("스티커는 유저당 하나 — 서버가 같은 유저를 여럿 줘도 처음 것만 남는다")
-    func keepsFirstPerUserOnConstruction() {
-        let reactions = [
-            PhotoFixture.reaction(.heart, by: "user-me"),
-            PhotoFixture.reaction(.thumbsUp, by: "user-me")
-        ]
+    @Test("같은 리액션이 두 번 들어오면 하나만 남는다")
+    func dedupesSameReaction() {
+        let reaction = PhotoFixture.reaction(.heart, by: "user-me", chatID: 7)
 
-        let photo = PhotoFixture.photo(reactions: reactions)
+        let photo = PhotoFixture.photo(reactions: [reaction, reaction])
 
         #expect(photo.reactions.count == 1)
-        #expect(photo.reaction(by: "user-me")?.kind == .heart)
     }
 
-    @Test("스티커 신원은 유저다")
+    @Test("같은 사용자·종류라도 채팅 ID가 다르면 다른 스티커다")
     func reactionIdentity() {
-        let mine = PhotoFixture.reaction(.thumbsUp, by: "user-me")
-        let yours = PhotoFixture.reaction(.thumbsUp, by: "user-you")
-        let myHeart = PhotoFixture.reaction(.heart, by: "user-me")
+        let first = PhotoFixture.reaction(.thumbsUp, by: "user-me", chatID: 1)
+        let second = PhotoFixture.reaction(.thumbsUp, by: "user-me", chatID: 2)
 
-        #expect(mine.id != yours.id)
-        #expect(mine.id == myHeart.id) // 같은 유저면 종류가 달라도 같은 스티커 자리
+        #expect(first.id != second.id)
+    }
+
+    @Test("서버 채팅 ID를 받아도 스티커 표시 ID는 유지한다")
+    func attachesChatID() {
+        let local = PhotoReaction(id: "local-1", kind: .fire, userID: "user-me")
+        let photo = PhotoFixture.photo().addingReaction(local)
+
+        let updated = photo.attachingChatID(42, to: local.id)
+
+        #expect(updated.reactions.first?.chatID == 42)
+        #expect(updated.reactions.first?.id == local.id)
     }
 
     @Test("리액션을 바꿔도 사진의 나머지 값은 그대로다")
     func keepsPhotoIdentity() {
         let photo = PhotoFixture.photo()
 
-        let updated = photo.addingReaction(.skull, by: "user-me")
+        let updated = photo.addingReaction(PhotoFixture.reaction(.skull, by: "user-me"))
 
         #expect(updated.id == photo.id)
         #expect(updated.imageURL == photo.imageURL)

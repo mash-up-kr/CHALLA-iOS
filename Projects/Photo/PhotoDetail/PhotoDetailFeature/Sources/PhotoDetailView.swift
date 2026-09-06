@@ -51,10 +51,16 @@ public struct PhotoDetailView: View {
             if store.isSaving {
                 savingOverlay
             }
+
+            toastLayer
+                .animation(.easeInOut(duration: Metric.toastFadeDuration), value: store.toast)
         }
         // 탑 내비게이션을 직접 그리므로 시스템 바는 숨긴다.
         .toolbar(.hidden, for: .navigationBar)
         .alert($store.scope(state: \.alert, action: \.alert))
+        .challaDrawer(isPresented: isDrawerPresented) {
+            deleteReactionDrawer
+        }
         .onAppear { send(.onAppear) }
     }
 
@@ -65,21 +71,18 @@ public struct PhotoDetailView: View {
                 leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") {
                     send(.backButtonTapped)
                 },
-                trailing: .icon(.downloadSimple, accessibilityLabel: "사진 저장") {
-                    send(.downloadButtonTapped)
-                }
+                trailing: downloadItem
             )
 
+            photoAndReactions
+        }
+    }
+
+    private var photoAndReactions: some View {
+        VStack(spacing: 0) {
             photoArea
                 .padding(.top, Metric.photoTopPadding)
                 .padding(.horizontal, Metric.photoHorizontalPadding)
-                // 리액션을 남기면 이모지가 사진 위로 쏟아진다. id가 바뀔 때마다 처음부터 다시 튄다.
-                .overlay {
-                    if let burst = store.reactionBurst {
-                        ReactionBurstView(kind: burst.kind)
-                            .id(burst.id)
-                    }
-                }
                 // 화면이 작아도 Spacer보다 사진 크기를 먼저 지켜 리액션 바가 잘리지 않게 한다.
                 .layoutPriority(1)
                 // 사진을 탭하면 키보드를 내린다.
@@ -88,6 +91,54 @@ public struct PhotoDetailView: View {
             Spacer(minLength: Metric.reactionBarTopSpacing)
 
             reactionBar
+        }
+    }
+
+    private var downloadItem: CHALLATopNavigation.Item? {
+        guard store.isPrinted else { return nil }
+        return .icon(.downloadSimple, accessibilityLabel: "사진 저장") {
+            send(.downloadButtonTapped)
+        }
+    }
+
+    private var isDrawerPresented: Binding<Bool> {
+        Binding(
+            get: { store.drawer != nil },
+            set: { isPresented in
+                guard !isPresented else { return }
+                send(.drawerDismissed)
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var deleteReactionDrawer: some View {
+        if case .deleteReaction = store.drawer {
+            CHALLADrawer(
+                header: .handle,
+                actions: [
+                    CHALLADrawerAction("삭제", variant: .neutral, role: .destructive) {
+                        send(.deleteReactionConfirmed)
+                    }
+                ],
+                footerAction: CHALLADrawerAction("닫기") { send(.drawerDismissed) }
+            ) {
+                CHALLADrawerMessage(
+                    "이모지를 삭제할까요?",
+                    description: "사진에서 이 이모지가 사라져요"
+                )
+            }
+        }
+    }
+
+    /// 입력창·키보드와 겹치지 않도록 중앙에 표시한다.
+    @ViewBuilder
+    private var toastLayer: some View {
+        if let toast = store.toast {
+            CHALLAToast(toast)
+                .transition(.opacity)
+                .allowsHitTesting(false)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
         }
     }
 
@@ -110,9 +161,13 @@ public struct PhotoDetailView: View {
         GeometryReader { proxy in
             TabView(selection: selection) {
                 ForEach(store.photos) { photo in
-                    PhotoCard(photo: photo, slots: store.stickerSlots, isBlurred: !store.isPrinted)
-                        .frame(width: proxy.size.width, height: proxy.size.height)
-                        .tag(Optional(photo.id))
+                    PhotoCard(
+                        photo: photo,
+                        isBlurred: !store.isPrinted,
+                        onStickerTap: { send(.stickerTapped(reactionID: $0)) }
+                    )
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .tag(Optional(photo.id))
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -122,6 +177,14 @@ public struct PhotoDetailView: View {
             .accessibilityAction(named: Text("이전 사진")) { send(.adjacentPhotoRequested(offset: -1)) }
         }
         .aspectRatio(PhotoCard.aspectRatio, contentMode: .fit)
+        // 애니메이션 좌표를 사진 카드 영역에 맞춘다.
+        .overlay {
+            if let burst = store.reactionBurst {
+                ReactionBurstView(kind: burst.kind)
+                    .id(burst.id)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: CHALLARadius.xxlarge))
     }
 
     /// 사진이 없을 때의 빈 자리. 로딩 중이면 스피너, 끝났으면 안내 문구를 얹는다.
@@ -161,7 +224,6 @@ public struct PhotoDetailView: View {
             ReactionBar(selectedKinds: selectedKinds(of: photo)) { kind in
                 send(.reactionTapped(kind))
             }
-            .padding(.horizontal, Metric.reactionBarHorizontalPadding)
         }
     }
 
@@ -219,8 +281,8 @@ private enum Metric {
     static let messageFieldTopSpacing: CGFloat = 16
     static let messageFieldHorizontalPadding: CGFloat = 20
     static let messageFieldBottomSpacing: CGFloat = 12
-    static let reactionBarHorizontalPadding: CGFloat = 24
     static let cardBorderWidth: CGFloat = 1
+    static let toastFadeDuration: Double = 0.2
     /// 배경 그라데이션 390 × 244, 투명도 20%.
     static let glowHeight: CGFloat = 244
     static let glowOpacity: Double = 0.2
@@ -233,7 +295,8 @@ private enum Metric {
             initialState: PhotoDetailFeature.State(
                 roomID: -1,
                 roomTitle: "해피하우스 강릉 여행",
-                currentUserID: "user-1"
+                currentUserID: "user-1",
+                isPrinted: true
             )
         ) {
             PhotoDetailFeature()

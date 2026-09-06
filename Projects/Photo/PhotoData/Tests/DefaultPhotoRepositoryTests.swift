@@ -1,4 +1,5 @@
 @testable import PhotoData
+import CHALLAImageKit
 import CHALLANetwork
 import Foundation
 import PhotoDomain
@@ -6,6 +7,54 @@ import Testing
 
 @Suite("DefaultPhotoRepository")
 struct DefaultPhotoRepositoryTests {
+
+    private struct UnconstrainedNetwork: NetworkCondition {
+        let isConstrained = false
+    }
+
+    private actor RecordingImageFetcher: ImageDataFetching {
+        private(set) var callCount = 0
+
+        func fetch(_ url: URL) async throws -> (Data, URLResponse) {
+            callCount += 1
+            let response: URLResponse = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+                ?? URLResponse()
+            return (Data(url.lastPathComponent.utf8), response)
+        }
+    }
+
+    @Test("저장이 느려도 원본 전체를 미리 받지 않고 입력 순서를 유지한다")
+    func downloadsOnlyAsConsumed() async throws {
+        let fetcher = RecordingImageFetcher()
+        let repository = DefaultPhotoRepository(
+            client: MockHTTPClient.returning(json: "{}"),
+            imageDownloader: ImageDataBatchDownloader(
+                fetcher: fetcher,
+                condition: UnconstrainedNetwork(),
+                retryDelays: []
+            )
+        )
+        let photos = try (0 ..< 24).map { index in
+            try Photo(
+                id: String(index),
+                imageURL: #require(URL(string: "https://cdn.test/\(index).jpg")),
+                author: PhotoAuthor(id: "1", nickname: "A"),
+                capturedAt: Date(timeIntervalSince1970: Double(index))
+            )
+        }
+        var iterator = repository.imageDataStream(for: photos).makeAsyncIterator()
+        var bodies: [Data] = []
+        let first = try #require(await iterator.next())
+        try bodies.append(first.get())
+
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await fetcher.callCount <= ImageDataBatchDownloader.defaultConcurrency + 1)
+
+        while let result = await iterator.next() {
+            try bodies.append(result.get())
+        }
+        #expect(bodies == photos.map { Data($0.imageURL.lastPathComponent.utf8) })
+    }
 
     // MARK: - 목록 조회
 
@@ -94,30 +143,57 @@ struct DefaultPhotoRepositoryTests {
         #expect(listPages == ["0", "1"])
     }
 
+    @Test("서버가 최신순으로 줘도 찍힌 순서(오래된 것부터)로 돌려준다")
+    func sortsPhotosOldestFirst() async throws {
+        // 서버 명세: createdAt 기준 최신순.
+        let json = """
+        { "success": true, "message": "ok", "data": { "photos": [
+          { "id": 3, "imageUrl": "https://cdn.test/3.jpg", "userNickname": "나",
+            "createdAt": "2026-08-03T13:38:44" },
+          { "id": 2, "imageUrl": "https://cdn.test/2.jpg", "userNickname": "나",
+            "createdAt": "2026-08-03T13:38:42" },
+          { "id": 1, "imageUrl": "https://cdn.test/1.jpg", "userNickname": "나",
+            "createdAt": "2026-08-03T13:38:40" }
+        ], "hasNext": false } }
+        """
+        let client = MockHTTPClient.returning(json: json)
+        let repository = DefaultPhotoRepository(client: client)
+
+        let photos = try await repository.photos(inRoom: 42)
+
+        // 그리드 1번 슬롯이 첫 장이어야 한다 — 뒤집혀 오면 슬롯 번호가 어긋난다.
+        #expect(photos.map(\.id) == ["1", "2", "3"])
+    }
+
     // MARK: - 사진별 리액션(지연 조회)
 
-    @Test("사진 상세(chats)에서 유저별 첫 이모지는 스티커로, 종류 전체는 띠로 뽑는다")
+    @Test("사진 상세(chats)의 이모지는 전부 스티커가 되고, 종류는 띠로 뽑힌다")
     func mapsReactionsFromDetail() async throws {
         let detail = """
         { "success": true, "message": "ok", "data": { "photo": { "id": 7, "chats": [
-          { "type": "EMOJI", "content": "heart", "userId": 1, "createdAt": "2026-08-03T13:38:40" },
-          { "type": "EMOJI", "content": "fire", "userId": 1, "createdAt": "2026-08-03T13:38:45" },
-          { "type": "COMMENT", "content": "hi", "userId": 2, "createdAt": "2026-08-03T13:38:41" }
+          { "id": 11, "type": "EMOJI", "content": "heart", "userId": 1, "createdAt": "2026-08-03T13:38:40" },
+          { "id": 12, "type": "EMOJI", "content": "fire", "userId": 1, "createdAt": "2026-08-03T13:38:45" },
+          { "id": 13, "type": "COMMENT", "content": "hi", "userId": 2, "createdAt": "2026-08-03T13:38:41" }
         ] } } }
         """
         let client = MockHTTPClient.returning(json: detail)
         let repository = DefaultPhotoRepository(client: client)
 
-        let reactions = try await repository.reactions(forPhotoID: "7")
+        let reactions = try await repository.reactions(inRoom: 42, photoID: "7")
 
-        // 유저 1의 첫 이모지(heart)만 스티커. 두 번째(fire)·이모지 아닌 COMMENT는 스티커 아님.
-        #expect(reactions.stickers == [PhotoReaction(kind: .heart, userID: "1")])
+        // 개수 제한이 없어 이모지는 남긴 순서대로 다 스티커가 된다. 이모지가 아닌 COMMENT만 빠진다.
+        #expect(reactions.stickers == [
+            PhotoReaction(chatID: 11, kind: .heart, userID: "1"),
+            PhotoReaction(chatID: 12, kind: .fire, userID: "1")
+        ])
         // 띠에는 유저 1이 남긴 종류 전부.
         #expect(reactions.reactedKindsByUser == ["1": [.heart, .fire]])
 
         // 사진 하나만 상세로 부른다(목록 요청 없음) — 지연 조회의 핵심.
         let request = try #require(client.requests.first)
         #expect(client.requests.count == 1)
+        // roomId는 서버 필수 파라미터다 — 빠지면 리액션이 빈 채로 온다.
+        #expect(request.queryItems?.first { $0.name == "roomId" }?.value == "42")
         #expect(request.path == "/api/v1/photos/7")
         #expect(request.method == .get)
     }
@@ -130,7 +206,7 @@ struct DefaultPhotoRepositoryTests {
         let client = MockHTTPClient.returning(json: json)
         let repository = DefaultPhotoRepository(client: client)
 
-        try await repository.setReaction(roomID: 42, photoID: "7", kind: .heart, isOn: true)
+        try await repository.setReaction(roomID: 42, photoID: "7", kind: .heart)
 
         let request = try #require(client.requests.first)
         #expect(request.path == "/api/v1/chats/reaction")
@@ -146,14 +222,18 @@ struct DefaultPhotoRepositoryTests {
         #expect(chat["content"] as? String == "heart")
     }
 
-    @Test("해제(isOn == false)는 서버에 요청하지 않는다 (해제 API 미구현)")
-    func removalIsNoOp() async throws {
-        let client = MockHTTPClient.returning(json: #"{ "success": true, "message": "ok", "data": {} }"#)
+    @Test("리액션 삭제는 채팅 id로 DELETE를 보낸다")
+    func deletesReaction() async throws {
+        let client = MockHTTPClient.returning(
+            json: #"{ "success": true, "message": "ok", "data": { "chat": { "chatId": 77 } } }"#
+        )
         let repository = DefaultPhotoRepository(client: client)
 
-        try await repository.setReaction(roomID: 42, photoID: "7", kind: .heart, isOn: false)
+        try await repository.deleteReaction(chatID: 77)
 
-        #expect(client.requests.isEmpty)
+        let request = try #require(client.requests.first)
+        #expect(request.path == "/api/v1/chats/reaction/77")
+        #expect(request.method == .delete)
     }
 
     // MARK: - 오류 정규화
@@ -175,7 +255,7 @@ struct DefaultPhotoRepositoryTests {
         let repository = DefaultPhotoRepository(client: client)
 
         await #expect(throws: PhotoError.unauthorized) {
-            try await repository.setReaction(roomID: 1, photoID: "7", kind: .fire, isOn: true)
+            try await repository.setReaction(roomID: 1, photoID: "7", kind: .fire)
         }
     }
 }
