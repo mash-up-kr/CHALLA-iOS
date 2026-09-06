@@ -39,6 +39,7 @@
 - `State(room:)` — 홈에서 받은 `Room`을 품고 시작한다. 첫 프레임부터 제목·슬롯 그리드가 그려지고,
   초대 코드·참여자·사진은 진입 후 조회로 채운다
   - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` · `toast` · `alert`
+    · `didShowPrintWaitingToast`(인화 대기 안내를 이 화면에서 띄웠는지)
 - `Action.delegate` — `closeTapped` · `settingsTapped`(설정 화면 요청 — App이 조립) ·
   `cameraRequested(CameraEntry)`(촬영 준비 완료) · `chatTapped` ·
   `photoTapped(Photo.ID)`(사진 슬롯 탭 → 사진 상세)
@@ -52,6 +53,8 @@
   되돌리기 어려운 동작은 드로어(`CHALLADrawer`), 얼럿은 조회·저장 실패 안내 전용이다
 - `toast` — 안내 문구와 뜨는 자리(`top`/`bottom`)를 함께 들고 다닌다.
   초대 코드 복사는 상단(시안), 전체 다운로드 완료는 방금 누른 버튼 가까이인 하단에 뜬다
+- 인화 대기 방에 들어오면 상단에 안내 토스트를 한 번 띄운다. 진입과 상세 응답 두 곳에서 확인하므로
+  홈에서 받은 상태가 낡아도 따라잡고, `didShowPrintWaitingToast`로 인화 완료 알람의 재조회 때 다시 뜨는 것을 막는다
 - 진입 시 상세와 사진을 병렬 조회한다. 방 상태로 거르지 않는다 — 촬영 중에도 찍은 사진이 필요하고,
   거르면 홈에서 받은 상태가 낡은 경우를 따라잡는 분기가 더 생긴다
 - 상세 조회가 실패하면 홈과 같은 방식으로 얼럿을 띄운다("다시 시도" / "확인").

@@ -36,6 +36,8 @@ public struct RoomDetailFeature {
         public var drawer: Drawer?
         /// 이 화면에서 인화 완료 확인 기록을 이미 보냈는지 — 재시도·알람 재조회마다 다시 보내지 않게 막는다.
         public var hasReportedPrintCompletionCheck = false
+        /// 인화 대기 안내 토스트를 이 화면에서 이미 띄웠는지. 재조회 때마다 다시 뜨지 않게 막는다.
+        public var didShowPrintWaitingToast = false
 
         public init(room: Room) {
             self.room = room
@@ -122,9 +124,12 @@ public struct RoomDetailFeature {
                 state.photosLoad = .loading
                 // 사진은 방 상태를 따지지 않고 부른다 — 촬영 중이면 빈 배열이 오고 그리드도 빈 슬롯을 그린다.
                 // 상태로 걸러내면 홈에서 받은 상태가 낡은 경우(그 사이 인화 단계로 넘어간 방)를 따라잡아야 한다.
+                let roomID = state.room.id
+                let waitingToast = printWaitingToast(&state)
                 return .merge(
-                    fetchDetail(id: state.room.id),
-                    fetchPhotos(id: state.room.id)
+                    waitingToast,
+                    fetchDetail(id: roomID),
+                    fetchPhotos(id: roomID)
                 )
 
             case let .detailResponse(.success(detail)):
@@ -132,9 +137,12 @@ public struct RoomDetailFeature {
                 state.detail = detail
                 // 홈에서 받은 방은 목록 조회 시점의 값이라, 방금 조회한 상세 응답의 값으로 덮는다.
                 state.room = detail.room
+                let waitingToast = printWaitingToast(&state)
+                let completionCheck = reportPrintCompletionCheck(&state, room: detail.room)
                 return .merge(
+                    waitingToast,
                     refreshAtPrintCompletion(room: detail.room),
-                    reportPrintCompletionCheck(&state, room: detail.room)
+                    completionCheck
                 )
 
             case .printCompletionReached:
@@ -269,11 +277,17 @@ public struct RoomDetailFeature {
     }
 
     enum CancelID { case detail, photos, toast, printRefresh, prepareShoot, downloadAll }
+}
 
-    private enum Const {
+// MARK: - 내부 상수 · 이펙트
+
+/// 리듀서 본문 길이 제한(250줄)에 걸려 빼냈다. 같은 파일이라 접근 범위(private)는 그대로다.
+private extension RoomDetailFeature {
+    enum Const {
         // TODO: 노출 시간은 기획 미확정 — ProfileSetup과 같은 임시값. 확정 시 교체할 것.
         static let toastDuration: Duration = .seconds(2)
         static let copyToastMessage = "초대 코드를 복사했어요"
+        static let printWaitingToastMessage = "인화 대기 중이에요! 조금만 기다려주세요"
 
         static func saveAllToast(saved: Int, total: Int) -> String {
             saved == total ? "사진 \(total)장을 저장했어요" : "\(total)장 중 \(saved)장을 저장했어요"
@@ -282,7 +296,7 @@ public struct RoomDetailFeature {
 
     /// 촬영에 필요한 것(목록·LUT·권한)은 `ShootEntry`가 받아 온다 — 홈의 촬영 뱃지와 같은 준비다.
     /// 의존성 해석은 이펙트 바깥에서 끝낸다 (`ShootPreparation()`).
-    private func prepareShoot(roomID: Room.ID) -> Effect<Action> {
+    func prepareShoot(roomID: Room.ID) -> Effect<Action> {
         let preparation = ShootPreparation()
 
         return .run { send in
@@ -292,7 +306,7 @@ public struct RoomDetailFeature {
         .cancellable(id: CancelID.prepareShoot, cancelInFlight: true)
     }
 
-    private func fetchDetail(id: Room.ID) -> Effect<Action> {
+    func fetchDetail(id: Room.ID) -> Effect<Action> {
         .run { [fetchRoomDetailUseCase] send in
             do {
                 let detail = try await fetchRoomDetailUseCase.run(id)
@@ -311,7 +325,7 @@ public struct RoomDetailFeature {
     ///
     /// 인화 대기 + 예정 시각이 미래일 때만 건다. 시각이 지났는데 상태가 그대로면(서버 전환 지연)
     /// 다시 걸지 않는다 — 걸면 0초짜리 알람이 반복돼 무한 재조회가 된다.
-    private func refreshAtPrintCompletion(room: Room) -> Effect<Action> {
+    func refreshAtPrintCompletion(room: Room) -> Effect<Action> {
         guard room.status == .printWaiting,
               let completedAt = room.photoPrintCompletedAt,
               completedAt > date.now
@@ -331,7 +345,7 @@ public struct RoomDetailFeature {
     /// 홈 State가 사라지고, 홈이 보내던 요청도 함께 취소돼 기록이 유실됐다.
     /// 상세는 사용자가 보는 동안 화면에 남아 있어 요청이 끝까지 나간다.
     /// 실패는 무시한다 — 확인하기 카드가 남아 다음 진입 때 다시 시도된다.
-    private func reportPrintCompletionCheck(_ state: inout State, room: Room) -> Effect<Action> {
+    func reportPrintCompletionCheck(_ state: inout State, room: Room) -> Effect<Action> {
         guard room.status == .printed, !state.hasReportedPrintCompletionCheck else { return .none }
         state.hasReportedPrintCompletionCheck = true
         return .run { [checkPrintCompletionUseCase] _ in
@@ -339,8 +353,21 @@ public struct RoomDetailFeature {
         }
     }
 
+    /// 인화 대기 방에 들어왔을 때 한 번 띄우는 안내. 남은 시간은 하단 카운트다운이 계속 보여준다.
+    ///
+    /// 진입과 상세 응답 두 곳에서 부른다 — 홈에서 받은 상태가 낡아 진입 시점엔 촬영 중으로 보여도
+    /// 상세 응답에서 따라잡는다. 플래그로 화면당 한 번만 뜨게 막는다(인화 완료 알람의 재조회 포함).
+    func printWaitingToast(_ state: inout State) -> Effect<Action> {
+        guard state.room.status == .printWaiting, !state.didShowPrintWaitingToast else {
+            return .none
+        }
+        state.didShowPrintWaitingToast = true
+        state.toast = Toast(Const.printWaitingToastMessage, placement: .top)
+        return toastTimer()
+    }
+
     /// 일정 시간 뒤 토스트를 거둔다. 복사를 연타하면 이전 타이머를 취소해 노출 시간이 처음부터 다시 센다.
-    private func toastTimer() -> Effect<Action> {
+    func toastTimer() -> Effect<Action> {
         .run { [clock] send in
             try await clock.sleep(for: Const.toastDuration)
             await send(.toastDismissed)

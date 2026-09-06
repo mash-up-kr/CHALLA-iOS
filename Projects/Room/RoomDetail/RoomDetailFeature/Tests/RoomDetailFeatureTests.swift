@@ -250,10 +250,16 @@ struct RoomDetailFeatureTests {
             $0.detailLoad = .loaded
             $0.detail = RoomDetail(room: Self.waitingRoom, invitationCode: "1928121", members: [])
             $0.room = Self.waitingRoom // 이 응답이 100초 뒤에 울릴 알람을 건다
+            // 홈에서 받은 상태는 촬영 중이었고, 이 응답에서 인화 대기로 따라잡아 안내가 뜬다.
+            $0.toast = RoomDetailFeature.Toast("인화 대기 중이에요! 조금만 기다려주세요", placement: .top)
+            $0.didShowPrintWaitingToast = true
         }
         await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
 
-        await clock.advance(by: .seconds(100)) // 완료 예정 시각 도달
+        await clock.advance(by: .seconds(2)) // 토스트 노출 시간
+        await store.receive(\.toastDismissed) { $0.toast = nil }
+
+        await clock.advance(by: .seconds(98)) // 완료 예정 시각 도달
         await store.receive(\.printCompletionReached) { $0.photosLoad = .loading }
         await store.receive(\.detailResponse.success) {
             $0.detail = RoomDetail(room: Self.printedRoom, invitationCode: "1928121", members: [])
