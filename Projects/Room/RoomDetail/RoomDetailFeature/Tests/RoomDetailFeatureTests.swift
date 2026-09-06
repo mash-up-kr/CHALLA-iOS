@@ -67,6 +67,7 @@ struct RoomDetailFeatureTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
@@ -74,6 +75,7 @@ struct RoomDetailFeatureTests {
             $0.room = Self.fresherRoom // 홈에서 받은 값(남은 12장)이 서버 값(5장)으로 덮인다
         }
         await store.receive(\.photosResponse.success) {
+            $0.photosLoad = .loaded
             $0.photos = Self.photos
         }
     }
@@ -87,6 +89,7 @@ struct RoomDetailFeatureTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.failure) {
             $0.detailLoad = .failed
@@ -99,7 +102,7 @@ struct RoomDetailFeatureTests {
                 TextState(RoomError.network.userMessage)
             }
         }
-        await store.receive(\.photosResponse.success) // 사진 0장 — 상태 변화 없음
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded } // 사진 0장
     }
 
     @Test("사진만 실패하면 얼럿 없이 빈 그리드로 둔다")
@@ -111,13 +114,14 @@ struct RoomDetailFeatureTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.room = Self.fresherRoom
         }
-        await store.receive(\.photosResponse.failure) // 상태 변화 없음 — 슬롯이 빈 모습 그대로
+        await store.receive(\.photosResponse.failure) { $0.photosLoad = .failed } // 슬롯은 빈 모습 그대로
     }
 
     // MARK: - 팝오버
@@ -152,6 +156,7 @@ struct RoomDetailFeatureTests {
         await store.send(.alert(.presented(.retryTapped))) {
             $0.alert = nil
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
@@ -159,6 +164,7 @@ struct RoomDetailFeatureTests {
             $0.room = Self.fresherRoom
         }
         await store.receive(\.photosResponse.success) {
+            $0.photosLoad = .loaded
             $0.photos = Self.photos
         }
     }
@@ -179,7 +185,7 @@ struct RoomDetailFeatureTests {
         )
 
         await store.send(.view(.copyInviteCodeTapped)) {
-            $0.toast = "초대 코드를 복사했어요"
+            $0.toast = RoomDetailFeature.Toast("초대 코드를 복사했어요", placement: .top)
         }
         await clock.advance(by: .seconds(2))
         await store.receive(\.toastDismissed) {
@@ -238,22 +244,23 @@ struct RoomDetailFeatureTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = RoomDetail(room: Self.waitingRoom, invitationCode: "1928121", members: [])
             $0.room = Self.waitingRoom // 이 응답이 100초 뒤에 울릴 알람을 건다
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
 
         await clock.advance(by: .seconds(100)) // 완료 예정 시각 도달
-        await store.receive(\.printCompletionReached)
+        await store.receive(\.printCompletionReached) { $0.photosLoad = .loading }
         await store.receive(\.detailResponse.success) {
             $0.detail = RoomDetail(room: Self.printedRoom, invitationCode: "1928121", members: [])
             $0.room = Self.printedRoom // 인화 완료 — 방 상태가 바뀌어 알람은 다시 걸리지 않는다
             $0.hasReportedPrintCompletionCheck = true // 인화 완료 응답이 확인 기록을 보낸다
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
     }
 
     // MARK: - 위임

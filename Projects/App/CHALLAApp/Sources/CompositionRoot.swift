@@ -211,7 +211,9 @@ enum CompositionRoot {
         // 리액션은 목록에 없어 사진을 펼칠 때 한 장씩 지연 조회한다(1+N 회피).
         values.fetchPhotoReactionsUseCase = .live(repository: photoRepository)
         values.setPhotoReactionUseCase = .live(repository: photoRepository)
+        values.deletePhotoReactionUseCase = .live(repository: photoRepository)
         values.savePhotoUseCase = .live(repository: photoRepository, photoLibrary: PhotoLibraryWritingAdapter())
+        values.saveAllPhotosUseCase = .live(repository: photoRepository, photoLibrary: PhotoLibraryWritingAdapter())
 
         values.fetchCameraFiltersUseCase = .live(repository: filterRepository)
         values.prepareCameraFiltersUseCase = .live(
@@ -302,6 +304,9 @@ private struct PhotoLibraryWritingAdapter: PhotoLibraryWriting {
             try await store.save(imageData: imageData)
         } catch PhotoLibraryError.permissionDenied {
             throw PhotoError.permissionDenied
+        } catch is CancellationError {
+            // 화면 이탈로 끊긴 것이라 실패로 세면 안 된다 — 호출부가 취소를 구분해 멈춘다.
+            throw CancellationError()
         } catch {
             throw PhotoError.saveFailed
         }
