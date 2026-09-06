@@ -26,12 +26,15 @@ public struct DefaultChatRepository: ChatRepository {
 
     public func send(roomID: Int64, photoID: Int64?, content: String) async throws {
         do {
-            // 응답 본문(생성된 chat)은 쓰지 않는다 — 서버가 안정적으로 주지 않아 성공 플래그만 확인한다.
-            // `unwrap()`은 data가 nil이면 실패로 던져, 저장은 됐는데 화면엔 에러가 뜨던 문제가 있었다(#71 리액션과 동형).
+            // 사진 메시지는 일반 채팅 API가 아닌 리액션 API로 전송한다.
+            let request = SendChatRequestDTO(roomID: roomID, photoID: photoID, content: content)
+            let endpoint: ChatEndpoint = photoID == nil ? .send(request) : .sendToPhoto(request)
+
             let response = try await client.request(
-                ChatEndpoint.send(SendChatRequestDTO(roomID: roomID, photoID: photoID, content: content)),
+                endpoint,
                 as: BaseResponseDTO<SendChatResponseDTO>.self
             )
+            // 성공 응답도 data가 없을 수 있어 success로 판정한다.
             guard response.success else { throw ChatError.server(message: response.message) }
         } catch {
             throw ChatError.normalized(error)
