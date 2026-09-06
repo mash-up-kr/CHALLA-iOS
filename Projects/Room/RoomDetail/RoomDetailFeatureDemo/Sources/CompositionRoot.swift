@@ -38,9 +38,27 @@ enum CompositionRoot {
         // 첫 진입 안내는 이 상태에서만 뜬다. 기록은 no-op — 데모를 다시 열어도 같은 컷이 나온다.
         values.shouldShowInviteGuideUseCase.run = { state == .inviteGuide }
         values.markInviteGuideSeenUseCase.run = {}
+        values.saveAllPhotosUseCase = Self.stubSaveAllPhotos
         registerShootEntry(room: room, into: &values)
         // 초대 링크 공유는 등록할 의존성이 없다 — 시스템 공유 시트를 뷰가 직접 띄운다.
     }
+
+    /// 사진첩 저장 없이 진행·완료 이벤트를 반환하는 데모 스텁.
+    private static let stubSaveAllPhotos = SaveAllPhotosUseCase(run: { photos in
+        AsyncStream { continuation in
+            let task = Task {
+                for index in photos.indices {
+                    try? await Task.sleep(for: .milliseconds(120))
+                    continuation.yield(
+                        .progress(completed: index + 1, saved: index + 1, total: photos.count)
+                    )
+                }
+                continuation.yield(.finished(saved: photos.count, failed: 0, total: photos.count))
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    })
 
     /// 방 설정이 쓰는 의존성 — 이름 변경 하나뿐이다.
     /// InMemory 저장소에 방을 넣어 두어 "변경" 제출이 실서버처럼 성공한다.

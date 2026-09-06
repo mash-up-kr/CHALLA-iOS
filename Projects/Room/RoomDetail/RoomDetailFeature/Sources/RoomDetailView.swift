@@ -16,6 +16,8 @@ public struct RoomDetailView: View {
 
     @Bindable public var store: StoreOf<RoomDetailFeature>
 
+    @State private var bottomActionsHeight: CGFloat = 0
+
     public init(store: StoreOf<RoomDetailFeature>) {
         self.store = store
     }
@@ -35,7 +37,7 @@ public struct RoomDetailView: View {
                 slotGrid
                     .overlay(alignment: .top) { memberBar }
                     // 참여자 바보다 나중에 선언해 열린 팝오버 위에 그려지게 한다.
-                    .overlay(alignment: .top) { toastLayer }
+                    .overlay(alignment: .top) { toastLayer(.top) }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -44,9 +46,24 @@ public struct RoomDetailView: View {
         .overlay(alignment: .bottom) {
             if !store.isPrintNoticePresented {
                 bottomActions
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.onChange(of: proxy.size.height, initial: true) { _, height in
+                                bottomActionsHeight = height
+                            }
+                        }
+                    )
             }
         }
+        // 버튼 높이가 바뀌어도 토스트와 겹치지 않도록 실측 높이를 사용한다.
+        .overlay(alignment: .bottom) {
+            toastLayer(.bottom)
+                .padding(.bottom, bottomActionsHeight + RoomDetailMetric.bottomToastSpacing)
+        }
         .alert($store.scope(state: \.alert, action: \.alert))
+        .challaDrawer(isPresented: isDrawerPresented) {
+            leaveWhileDownloadingDrawer
+        }
         .sheet(isPresented: $store.isSharePresented) {
             if let url = store.inviteShareURL {
                 ActivityShareSheet(items: [url]) {
@@ -151,22 +168,58 @@ public struct RoomDetailView: View {
 
     // MARK: - 토스트
 
+    private var isDrawerPresented: Binding<Bool> {
+        Binding(
+            get: { store.drawer != nil },
+            set: { isPresented in
+                guard !isPresented else { return }
+                send(.drawerDismissed)
+            }
+        )
+    }
+
     /// 인화 대기 안내. 표시 시간은 리듀서의 타이머가 정하고, 여기는 문구가 있는 동안만 그린다.
     @ViewBuilder
-    private var toastLayer: some View {
-        if let toast = store.toast {
-            CHALLAToast(toast)
-                .padding(.top, RoomDetailMetric.toastTopPadding)
+    private var leaveWhileDownloadingDrawer: some View {
+        if store.drawer == .leaveWhileDownloading {
+            CHALLADrawer(
+                header: .handle,
+                actions: [
+                    CHALLADrawerAction("멈추고 나가기", variant: .neutral, role: .destructive) {
+                        send(.leaveWhileDownloadingConfirmed)
+                    }
+                ],
+                footerAction: CHALLADrawerAction("계속 저장") { send(.drawerDismissed) }
+            ) {
+                CHALLADrawerMessage(
+                    "저장을 멈출까요?",
+                    description: "지금까지 저장된 사진은 사진첩에 남아요"
+                )
+            }
         }
     }
 
-    // MARK: - 하단 동작 (방 상태 기준)
+    @ViewBuilder
+    private func toastLayer(_ placement: RoomDetailFeature.Toast.Placement) -> some View {
+        if let toast = store.toast, toast.placement == placement {
+            CHALLAToast(toast.message)
+                .padding(.top, placement == .top ? RoomDetailMetric.toastTopPadding : 0)
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+// MARK: - 하단 동작 (방 상태 기준)
+
+/// 리듀서와 같은 이유로 뷰 본문에서 떼어 냈다 — 2차 시안 하단(#99)과 전체 다운로드(#103)가
+/// 합쳐지며 타입 본문이 린트 상한(250줄)을 넘었다. 같은 파일이라 private 멤버 접근은 그대로다.
+private extension RoomDetailView {
 
     /// 촬영 중: 채팅 + 사진 찍기 / 인화 대기: 채팅 + 카운트다운 /
-    /// 인화 완료: 채팅 버튼 하나가 가운데 (시안 7539:91265).
+    /// 인화 완료: 채팅 + 전체 다운로드.
     /// 인화 완료 안내 필름이 떠 있는 동안은 그리지 않는다 (body의 overlay 조건).
     @ViewBuilder
-    private var bottomActions: some View {
+    var bottomActions: some View {
         switch store.room.status {
         case .shooting:
             actionBar {
@@ -194,16 +247,47 @@ public struct RoomDetailView: View {
             }
         case .printed:
             actionBar {
-                Spacer(minLength: 0)
                 chatButton
-                Spacer(minLength: 0)
+                // 조회에 실패했을 때만 이유를 보여준다. 받는 중에는 버튼을 비활성으로 두는데,
+                // 로딩 중에 실패 문구를 띄우면 매번 진입할 때마다 잘못된 안내가 스쳐 지나간다.
+                if store.photosLoad == .failed {
+                    // 사진만 실패하면 얼럿이 뜨지 않아, 여기가 유일한 재시도 수단이다.
+                    CHALLATextButton(
+                        "사진을 불러오지 못했어요. 다시 시도",
+                        variant: .neutral,
+                        size: .large,
+                        isFullWidth: true
+                    ) {
+                        send(.retryPhotosTapped)
+                    }
+                } else {
+                    CHALLATextButton(
+                        downloadAllTitle,
+                        variant: .theme,
+                        size: .large,
+                        isFullWidth: true,
+                        isLoading: store.downloadAll.isRunning
+                    ) {
+                        send(.downloadAllTapped)
+                    }
+                    .disabled(store.photos.isEmpty)
+                }
             }
+        }
+    }
+
+    var downloadAllTitle: String {
+        switch store.downloadAll {
+        case .idle:
+            "전체 다운로드"
+        case let .running(completed, total):
+            "\(completed)/\(total) 저장 중"
         }
     }
 
     /// 하단 동작 줄의 공통 틀 — 내용물 배치와 배경 그라데이션만 담당한다.
     /// 그라데이션은 위 여백(8)부터 홈 인디케이터 영역까지 투명 → 검정으로 깔린다 (시안 7486:80245).
-    private func actionBar(@ViewBuilder content: () -> some View) -> some View {
+    func actionBar(@ViewBuilder content: () -> some View) -> some View {
         HStack(spacing: RoomDetailMetric.actionSpacing) {
             content()
         }
@@ -221,7 +305,7 @@ public struct RoomDetailView: View {
     }
 
     /// 채팅 진입 버튼. 세 상태가 같은 버튼을 쓰고 자리만 다르다.
-    private var chatButton: some View {
+    var chatButton: some View {
         CHALLAIconButton(
             .chatTeardropDots,
             accessibilityLabel: "채팅",
@@ -234,7 +318,7 @@ public struct RoomDetailView: View {
 
     /// 인화 완료까지 남은 시간. 초마다 다시 그린다 — 남은 값은 State에 두지 않고
     /// 완료 예정 시각(photoPrintCompletedAt)에서 그때그때 계산한다.
-    private func countdownBar(until completedAt: Date) -> some View {
+    func countdownBar(until completedAt: Date) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             Text("\(PrintCountdown.text(until: completedAt, now: context.date)) 후 인화 완료")
                 .challaFont(.body.large.bold)
@@ -264,6 +348,7 @@ private enum RoomDetailMetric {
     static let gridBottomPadding: CGFloat = 78
     /// 토스트 내림 — 시안 top 122 − 상단 바 하단 114.
     static let toastTopPadding: CGFloat = 8
+    static let bottomToastSpacing: CGFloat = 12
     /// 채팅 버튼과 사진 찍기 버튼 사이 (시안 8).
     static let actionSpacing: CGFloat = 8
     /// 버튼 위 여백 (시안 8).
