@@ -58,10 +58,15 @@ struct CHALLAApp: App {
                     }
                 }
                 .onOpenURL { url in
-                    // 카카오톡 앱 전환 로그인에서 돌아온 URL을 SDK로 되돌려준다.
+                    // 카카오 로그인 Callback URL은 카카오 SDK에서 처리하고 여기서 종료한다.
                     if AuthApi.isKakaoTalkLoginUrl(url) {
                         _ = AuthController.handleOpenUrl(url: url)
+                        return
                     }
+
+                    // 초대 Universal Link는 SwiftUI의 onOpenURL로 수신된다.
+                    // 실제 초대 링크 여부와 코드 검증은 Reducer에서 처리한다.
+                    store.send(.inviteLinkOpened(url))
                 }
         }
     }

@@ -113,6 +113,11 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
 - `enum PrintCountdown` — `text(until:now:)`. "2:59:58" 표기 — 시는 자릿수 제한 없이,
   분·초는 두 자리, 0 아래로 내려가지 않는다. 홈 카드의 대기 뱃지와 방 상세 카운트다운 바가
   같은 표기를 쓴다
+- `enum InviteLink` — 초대 링크 주소 형식을 아는 유일한 곳. 보낼 때는 `url(code:)`(방 상세
+  공유 시트)가 유니버설 링크(`https://challa.stellaris.co.kr/invite/{코드}`)를 만들고,
+  받을 때는 `code(from:)`(링크 진입 — CHALLAApp)가 두 모양을 읽는다 — 유니버설 링크와
+  커스텀 스킴(`challa://invite/{코드}`, 서버 폴백 페이지의 "앱에서 보기" 버튼이 쏜다).
+  두 모양이 아니면 코드를 돌려주지 않는다
 
 ### UseCases (`@DependencyClient` — `liveValue` 없음)
 
@@ -171,4 +176,5 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `FetchRoomDetailUseCaseLiveTests` — 두 결과의 합치기(같은 id로 호출됐는지 캡처 검증),
   어느 쪽이 실패해도 부분 성공 없이 오류 하나 전파
 - `InviteGuideUseCasesLiveTests` — 기록이 없을 때만 띄우라고 답하는지, 기록이 이후 조회에 반영되는지
+- `InviteLinkTests` — 링크 모양·라운드트립, 우리 링크가 아닌 URL 거부(https 5종·커스텀 스킴 4종), 끝 슬래시·대문자·쿼리 허용
 - `PrintNoticeUseCasesLiveTests` — 저장소 답을 뒤집어 전달하는지, 기록이 물어본 방에만 남는지

@@ -15,7 +15,7 @@ import SwiftUI
 /// ```swift
 /// CHALLAProfileBar(members: members, inviteCode: "1928121",
 ///                  isPresented: $isMemberListPresented,
-///                  onCopyInviteCode: { /* 클립보드 복사는 호출부 책임 */ })
+///                  onShareInviteCode: { /* 공유 시트 표시는 호출부 책임 */ })
 /// ```
 public struct CHALLAProfileBar: View {
 
@@ -78,7 +78,7 @@ public struct CHALLAProfileBar: View {
     private let inviteCode: String
     @Binding private var isPresented: Bool
     private let popoverTooltip: String?
-    private let onCopyInviteCode: () -> Void
+    private let onShareInviteCode: () -> Void
 
     /// - Parameters:
     ///   - members: 방 입장 순 전체 참여자. 바에는 앞 9명만, 팝오버에는 전부 그린다.
@@ -86,19 +86,19 @@ public struct CHALLAProfileBar: View {
     ///   - isPresented: 팝오버 열림 상태. 바 탭이 토글하고, 호출부도 언제든 바꿀 수 있다.
     ///   - popoverTooltip: 팝오버 아래에 붙일 안내 문구. nil이면 말풍선 없음 (기본).
     ///     팝오버가 열려 있을 때만 그려진다 — 닫힌 바 아래에 말풍선만 남지 않는다.
-    ///   - onCopyInviteCode: 복사 버튼 탭 콜백.
+    ///   - onShareInviteCode: 공유 버튼 탭 콜백.
     public init(
         members: [Member],
         inviteCode: String,
         isPresented: Binding<Bool>,
         popoverTooltip: String? = nil,
-        onCopyInviteCode: @escaping () -> Void
+        onShareInviteCode: @escaping () -> Void
     ) {
         self.members = members
         self.inviteCode = inviteCode
         self._isPresented = isPresented
         self.popoverTooltip = popoverTooltip
-        self.onCopyInviteCode = onCopyInviteCode
+        self.onShareInviteCode = onShareInviteCode
     }
 
     // MARK: - Body
@@ -227,10 +227,10 @@ public struct CHALLAProfileBar: View {
                 Text(inviteCode)
                     .challaFont(.heading.medium.bold)
                     .foregroundStyle(theme.accent)
-                Button(action: onCopyInviteCode) {
-                    CHALLAIcon.copy.image(size: .size20, color: CHALLAColor.Label.disabled)
+                Button(action: onShareInviteCode) {
+                    CHALLAIcon.shareNetwork.image(size: .size20, color: CHALLAColor.Label.disabled)
                 }
-                .accessibilityLabel("초대 코드 복사")
+                .accessibilityLabel("초대 링크 공유")
             }
         }
     }
@@ -351,7 +351,7 @@ private enum ProfileBarMetric {
                     },
                     inviteCode: "1928121",
                     isPresented: $isPresented,
-                    onCopyInviteCode: {}
+                    onShareInviteCode: {}
                 )
                 Spacer()
             }
