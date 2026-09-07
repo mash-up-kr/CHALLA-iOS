@@ -91,6 +91,13 @@ public struct ChatRoomView: View {
                         )
                         .id(row.message.id)
                     }
+
+                    // 목록 맨 아래 표식. LazyVStack 안에 있어 화면에 들어올 때만 나타난다.
+                    // iOS 17에는 스크롤 위치를 직접 읽는 API가 없어 이 방식으로 근사한다.
+                    Color.clear
+                        .frame(height: 1)
+                        .onAppear { send(.bottomVisibilityChanged(true)) }
+                        .onDisappear { send(.bottomVisibilityChanged(false)) }
                 }
                 .padding(.horizontal, Metric.listHorizontalPadding)
                 .padding(.vertical, Metric.listVerticalPadding)

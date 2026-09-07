@@ -27,14 +27,13 @@ struct ChatRoomRealtimeTests {
             $0.isLoading = false
             $0.messages = [Fixture.message(chatID: 1, content: "과거")]
             $0.nextPage = 1
+            $0.historyAnchorIDs = [.server(1)]
+            $0.hasLoadedHistory = true
         }
 
+        // 스트림이 정상적으로 끝나는 것은 화면이 사라질 때뿐이라 아무 액션도 내지 않는다.
         continuation.finish()
-        await store.receive(\.streamEnded) {
-            $0.isRealtimeConnected = false
-            $0.isLoading = true
-        }
-        await store.receive(\.chatsResponse.success) { $0.isLoading = false }
+        await store.finish()
     }
 
     @Test("소켓으로 온 메시지를 목록에 더한다")
@@ -83,6 +82,8 @@ struct ChatRoomRealtimeTests {
         store.exhaustivity = .off
 
         await store.send(.view(.task))
+        // 이전 대화를 읽는 중 — 맨 아래를 벗어나 있어야 버튼이 의미가 있다.
+        await store.send(.view(.bottomVisibilityChanged(false)))
         continuation.yield(.message(Fixture.message(chatID: 9, content: "왔다")))
         await store.receive(\.received)
 
@@ -123,6 +124,7 @@ struct ChatRoomRealtimeTests {
         store.exhaustivity = .off
 
         await store.send(.view(.task))
+        await store.send(.view(.bottomVisibilityChanged(false)))
         continuation.yield(.message(Fixture.message(chatID: 9, content: "왔다")))
         await store.receive(\.received)
         #expect(store.state.hasNewMessageBelow)
@@ -157,5 +159,221 @@ struct ChatRoomRealtimeTests {
 
         continuation.finish()
         await store.finish()
+    }
+
+    @Test("재연결 사이 30건을 초과해도 기존 목록과 겹칠 때까지 조회한다")
+    func refetchesUntilHistoryOverlapsAfterResume() async {
+        let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
+        let old = (1 ... 10).map { Fixture.message(chatID: Int64($0), content: "old-\($0)") }
+        let newest = (12 ... 41).map { Fixture.message(chatID: Int64($0), content: "new-\($0)") }
+        let remaining = [Fixture.message(chatID: 11, content: "new-11")] + old
+        let history = ReconnectHistoryStub(initial: old, recovery: [newest, remaining])
+        let store = makeChatStore(
+            messages: { _, page, _ in try await history.page(page) },
+            observe: { _ in stream }
+        )
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        await store.receive(\.subscribed)
+        await store.receive(\.chatsResponse.success)
+
+        continuation.yield(.resumed)
+        await store.receive(\.subscribed)
+        await store.receive(\.chatsResponse.success)
+
+        #expect(store.state.messages.count == 41)
+        #expect(await history.requests == [0, 0, 1])
+        #expect(store.state.hasMore == false)
+        #expect(store.state.nextPage == 2)
+
+        continuation.finish()
+        await store.finish()
+    }
+
+    @Test("비어 있던 방은 재연결 때 기준점이 없어도 서버 끝까지 복구한다")
+    func refetchesToEndAfterInitiallyEmptyHistory() async {
+        let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
+        let newest = (1 ... 30).map { Fixture.message(chatID: Int64($0), content: "new-\($0)") }
+        let oldest = [Fixture.message(chatID: 31, content: "new-31")]
+        let history = ReconnectPageStub(
+            initial: ChatPage(messages: [], nextPage: 1, hasMore: false),
+            recovery: [
+                ChatPage(messages: newest, nextPage: 1, hasMore: true),
+                ChatPage(messages: oldest, nextPage: 2, hasMore: false)
+            ]
+        )
+        let store = makeChatStore(pages: { _, page, _ in try await history.page(page) }, observe: { _ in stream })
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        await store.receive(\.subscribed)
+        await store.receive(\.chatsResponse.success)
+        continuation.yield(.resumed)
+        await store.receive(\.subscribed)
+        await store.receive(\.chatsResponse.success)
+
+        #expect(store.state.messages.count == 31)
+        #expect(await history.requests == [0, 0, 1])
+
+        continuation.finish()
+        await store.finish()
+    }
+
+    @Test("재연결 최신 페이지가 전부 매핑 탈락해도 기존 복구 기준을 보존한다")
+    func preservesAnchorWhenLatestMappedPageIsEmpty() async {
+        let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
+        let old = Fixture.message(chatID: 1, content: "기준")
+        let history = ReconnectPageStub(
+            initial: ChatPage(messages: [old], nextPage: 1, hasMore: false),
+            recovery: [
+                ChatPage(messages: [], nextPage: 1, hasMore: true),
+                ChatPage(messages: [old], nextPage: 2, hasMore: false)
+            ]
+        )
+        let store = makeChatStore(pages: { _, page, _ in try await history.page(page) }, observe: { _ in stream })
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        await store.receive(\.subscribed)
+        await store.receive(\.chatsResponse.success)
+        continuation.yield(.resumed)
+        await store.receive(\.subscribed)
+        await store.receive(\.chatsResponse.success)
+
+        #expect(store.state.historyAnchorIDs == [old.id])
+        #expect(await history.requests == [0, 0, 1])
+
+        continuation.finish()
+        await store.finish()
+    }
+
+    // MARK: - 구독 실패
+
+    @Test("구독이 안 되면 얼럿 없이 REST로만 채운다")
+    func fallsBackToRESTWhenSubscribeFails() async {
+        let store = makeChatStore(
+            messages: { _, _, _ in [Fixture.message(chatID: 1, content: "과거")] },
+            observe: { _ in throw ChatError.network }
+        )
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        await store.receive(\.subscribeFailed)
+        await store.receive(\.chatsResponse.success)
+
+        #expect(store.state.messages.count == 1)
+        #expect(store.state.alert == nil)
+        #expect(store.state.isRealtimeConnected == false)
+
+        await store.finish()
+    }
+
+    @Test("구독 실패는 정해진 횟수만큼 다시 시도한다")
+    func retriesSubscribeBoundedNumberOfTimes() async {
+        let attempts = AttemptCounter()
+        let store = makeChatStore(observe: { _ in
+            await attempts.record()
+            throw ChatError.network
+        })
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        await store.finish()
+
+        // 첫 시도 + 재시도 상한(3회).
+        #expect(await attempts.count == 4)
+    }
+
+    // MARK: - 새 메시지 버튼
+
+    @Test("맨 아래를 보고 있으면 새 메시지가 와도 버튼을 띄우지 않는다")
+    func noButtonWhileAtBottom() async {
+        let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
+        let store = makeChatStore(observe: { _ in stream })
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        await store.send(.view(.bottomVisibilityChanged(true)))
+        continuation.yield(.message(Fixture.message(chatID: 9, content: "왔다")))
+        await store.receive(\.received)
+
+        #expect(store.state.hasNewMessageBelow == false)
+
+        continuation.finish()
+        await store.finish()
+    }
+
+    @Test("맨 아래까지 내려오면 떠 있던 버튼이 사라진다")
+    func scrollingToBottomClearsButton() async {
+        let (stream, continuation) = AsyncThrowingStream<ChatStreamEvent, any Error>.makeStream()
+        let store = makeChatStore(observe: { _ in stream })
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        await store.send(.view(.bottomVisibilityChanged(false)))
+        continuation.yield(.message(Fixture.message(chatID: 9, content: "왔다")))
+        await store.receive(\.received)
+        #expect(store.state.hasNewMessageBelow)
+
+        await store.send(.view(.bottomVisibilityChanged(true)))
+        #expect(store.state.hasNewMessageBelow == false)
+
+        continuation.finish()
+        await store.finish()
+    }
+}
+
+/// 구독 시도 횟수를 센다.
+private actor AttemptCounter {
+    private(set) var count = 0
+    func record() {
+        count += 1
+    }
+}
+
+private actor ReconnectHistoryStub {
+    private let initial: [ChatMessage]
+    private let recovery: [[ChatMessage]]
+    private var didServeInitial = false
+    private(set) var requests: [Int] = []
+
+    init(initial: [ChatMessage], recovery: [[ChatMessage]]) {
+        self.initial = initial
+        self.recovery = recovery
+    }
+
+    func page(_ number: Int) throws -> [ChatMessage] {
+        requests.append(number)
+        if !didServeInitial {
+            didServeInitial = true
+            return initial
+        }
+        guard recovery.indices.contains(number) else { return [] }
+        return recovery[number]
+    }
+}
+
+private actor ReconnectPageStub {
+    private let initial: ChatPage
+    private let recovery: [ChatPage]
+    private var didServeInitial = false
+    private(set) var requests: [Int] = []
+
+    init(initial: ChatPage, recovery: [ChatPage]) {
+        self.initial = initial
+        self.recovery = recovery
+    }
+
+    func page(_ number: Int) throws -> ChatPage {
+        requests.append(number)
+        if !didServeInitial {
+            didServeInitial = true
+            return initial
+        }
+        guard recovery.indices.contains(number) else {
+            return ChatPage(messages: [], nextPage: number + 1, hasMore: false)
+        }
+        return recovery[number]
     }
 }

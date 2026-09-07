@@ -8,8 +8,9 @@
 
 | 타입 | 내용 |
 | :-- | :-- |
-| `ChatMessage` | `id: UUID`(서버가 id를 안 줘 매핑/전송 시 생성) · `kind`(`.text`/`.photo`) · `content` · `photoImageURL?` · `authorName`(응답 userName) · `authorImageURL?` · `createdAt`. `isMine(currentUserNickname:)`로 내 메시지(오른쪽 흰 버블)를 판별한다 — 서버가 userId를 주면 id 비교로 교체 예정 |
-| `ChatMessage.Kind` | `.text` · `.photo` (photoImageURL 유무로 결정) |
+| `ChatMessage` | `id: ChatMessageID` · `kind` · `content` · `photoImageURL?` · `authorID` · `authorName` · `authorImageURL?` · `createdAt`. `isMine(currentUserID:)`로 내 메시지를 판별한다 |
+| `ChatMessage.Kind` | `.text` · `.photo` · `.reaction(ReactionKind)` |
+| `ChatPage` | 매핑된 `messages`와 서버 원본 개수에서 계산한 `hasMore`, `nextPage`, 재연결 기준 `anchorIDs`를 담는 페이지 |
 
 ### Errors
 
@@ -17,7 +18,7 @@
 
 ### Interface
 
-- `protocol ChatRepository` — `messages(inRoom:page:size:)`(목록) · `send(roomID:photoID:content:)`(작성, 생성된 메시지 반환). 실패는 `ChatError`로 정규화
+- `protocol ChatRepository` — `messages(inRoom:page:size:) -> ChatPage` · `send(roomID:photoID:content:)`(작성, 생성된 chatId(`Int64?`) 반환). 실패는 `ChatError`로 정규화
 
 ### UseCases (`DependencyValues` 키 — `liveValue` 없음)
 

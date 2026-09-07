@@ -112,8 +112,10 @@ struct DefaultChatRepositoryTests {
         """
         let repository = DefaultChatRepository(client: MockHTTPClient.returning(json: json))
 
-        let messages = try await repository.messages(inRoom: 1, page: 0, size: 10)
+        let messages = try await repository.messages(inRoom: 1, page: 0, size: 2)
         #expect(messages.map(\.content) == ["y"])
+        // 원본 응답은 페이지 크기를 채웠으므로, 매핑에서 한 건이 빠져도 다음 페이지가 있다.
+        #expect(messages.hasMore)
     }
 
     @Test("chatId나 userId가 없는 항목은 건너뛴다 (중복 제거 키가 없으면 쓸 수 없다)")

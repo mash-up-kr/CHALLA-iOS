@@ -22,12 +22,13 @@ struct ChatRoomFeatureTests {
             $0.didStart = true
             $0.isLoading = true
         }
-        // 소켓이 붙지 않아도 화면은 REST만으로 돈다 — 얼럿은 띄우지 않는다.
-        await store.receive(\.streamEnded)
+        await store.receive(\.subscribed) { $0.isRealtimeConnected = true }
         await store.receive(\.chatsResponse.success) {
             $0.isLoading = false
             $0.messages = [older, newer]
             $0.nextPage = 1
+            $0.historyAnchorIDs = [older.id, newer.id]
+            $0.hasLoadedHistory = true
             // 2개(< pageSize)만 왔으니 더 없음.
         }
     }
@@ -55,12 +56,14 @@ struct ChatRoomFeatureTests {
             $0.didStart = true
             $0.isLoading = true
         }
-        await store.receive(\.streamEnded)
+        await store.receive(\.subscribed) { $0.isRealtimeConnected = true }
         await store.receive(\.chatsResponse.success) {
             $0.isLoading = false
             $0.messages = page0
             $0.nextPage = 1
             $0.hasMore = true
+            $0.historyAnchorIDs = Set(page0.map(\.id))
+            $0.hasLoadedHistory = true
         }
 
         await store.send(.view(.reachedTop)) { $0.isLoadingMore = true }
@@ -82,15 +85,40 @@ struct ChatRoomFeatureTests {
             $0.didStart = true
             $0.isLoading = true
         }
-        await store.receive(\.streamEnded)
+        await store.receive(\.subscribed) { $0.isRealtimeConnected = true }
         await store.receive(\.chatsResponse.success) {
             $0.isLoading = false
             $0.messages = [one]
             $0.nextPage = 1
+            $0.historyAnchorIDs = [one.id]
+            $0.hasLoadedHistory = true
         }
 
         // 1개(< pageSize)라 hasMore=false → 더보기 무시.
         await store.send(.view(.reachedTop))
+    }
+
+    @Test("매핑 결과가 빈 페이지여도 서버에 다음 페이지가 있으면 계속 더 볼 수 있다")
+    func advancesPastEmptyMappedPage() async {
+        let first = Fixture.message(chatID: 1, content: "최신")
+        let store = makeChatStore(pages: { _, page, _ in
+            switch page {
+            case 0: ChatPage(messages: [first], nextPage: 1, hasMore: true)
+            case 1: ChatPage(messages: [], nextPage: 2, hasMore: true)
+            default: ChatPage(messages: [], nextPage: page + 1, hasMore: false)
+            }
+        })
+        store.exhaustivity = .off
+
+        await store.send(.view(.task))
+        await store.receive(\.subscribed)
+        await store.receive(\.chatsResponse.success)
+        await store.send(.view(.reachedTop))
+        await store.receive(\.moreChatsResponse.success)
+
+        #expect(store.state.messages == [first])
+        #expect(store.state.nextPage == 2)
+        #expect(store.state.hasMore)
     }
 
     @Test("조회에 실패하면 얼럿을 띄운다")
@@ -101,7 +129,7 @@ struct ChatRoomFeatureTests {
             $0.didStart = true
             $0.isLoading = true
         }
-        await store.receive(\.streamEnded)
+        await store.receive(\.subscribed) { $0.isRealtimeConnected = true }
         await store.receive(\.chatsResponse.failure) {
             $0.isLoading = false
             $0.alert = AlertState {

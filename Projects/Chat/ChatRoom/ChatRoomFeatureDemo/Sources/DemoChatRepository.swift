@@ -15,19 +15,27 @@ struct DemoChatRepository: ChatRepository {
     /// 응답이 즉시 오면 로딩 표시를 볼 수 없어 일부러 늦춘다.
     private let latency: Duration = .milliseconds(500)
 
-    func messages(inRoom _: Int64, page _: Int, size _: Int) async throws -> [ChatMessage] {
+    func messages(inRoom _: Int64, page: Int, size: Int) async throws -> ChatPage {
         switch scenario {
         case let .populated(store):
             try await Task.sleep(for: latency)
-            return await store.all()
+            // 실서버처럼 최신 메시지가 page 0에 오도록 정렬한 뒤 자른다.
+            let messages = await store.all().sorted { $0.createdAt > $1.createdAt }
+            let start = min(page * size, messages.count)
+            let end = min(start + size, messages.count)
+            return ChatPage(
+                messages: Array(messages[start ..< end]),
+                nextPage: page + 1,
+                hasMore: end < messages.count
+            )
 
         case .neverFinishes:
             try await Task.sleep(for: .seconds(60 * 60))
-            return []
+            return ChatPage(messages: [], nextPage: page + 1, hasMore: false)
 
         case .empty:
             try await Task.sleep(for: latency)
-            return []
+            return ChatPage(messages: [], nextPage: page + 1, hasMore: false)
 
         case let .failure(error):
             try await Task.sleep(for: latency)

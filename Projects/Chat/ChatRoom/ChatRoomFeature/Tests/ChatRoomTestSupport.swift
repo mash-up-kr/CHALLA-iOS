@@ -47,13 +47,14 @@ enum Fixture {
 @MainActor
 func makeChatStore(
     messages: @escaping @Sendable (Int64, Int, Int) async throws -> [ChatMessage] = { _, _, _ in [] },
+    pages: (@Sendable (Int64, Int, Int) async throws -> ChatPage)? = nil,
     send: @escaping @Sendable (Int64, Int64?, String) async throws -> Int64? = { _, _, _ in
         throw ChatError.unknown
     },
-    // 기본은 "소켓 없음" — 대부분의 테스트는 REST 경로만 본다.
-    // 구독이 실패하면 화면은 얼럿 없이 REST로만 돌아야 하고, 그 경로가 여기서 함께 검증된다.
+    // 기본은 이벤트 없이 바로 끝나는 스트림 — 정상 종료는 아무 액션도 내지 않아 흐름이 단순하다.
+    // 구독 실패 경로는 observe를 던지게 넘겨 전용 테스트에서 본다.
     observe: @escaping @Sendable (Int64) async throws -> AsyncThrowingStream<ChatStreamEvent, any Error> = { _ in
-        throw ChatError.network
+        AsyncThrowingStream { $0.finish() }
     }
 ) -> TestStoreOf<ChatRoomFeature> {
     TestStore(
@@ -67,9 +68,13 @@ func makeChatStore(
     ) {
         ChatRoomFeature()
     } withDependencies: {
-        $0.fetchChatsUseCase = FetchChatsUseCase(run: messages)
+        $0.fetchChatsUseCase = FetchChatsUseCase(run: pages ?? { roomID, page, size in
+            let messages = try await messages(roomID, page, size)
+            return ChatPage(messages: messages, nextPage: page + 1, hasMore: messages.count >= size)
+        })
         $0.sendChatUseCase = SendChatUseCase(run: send)
         $0.observeChatsUseCase = ObserveChatsUseCase(run: observe)
+        $0.continuousClock = ImmediateClock()
         $0.uuid = .incrementing // 낙관적 메시지 id를 결정적으로
         $0.date = .constant(Fixture.sendDate)
     }

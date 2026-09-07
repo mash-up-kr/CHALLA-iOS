@@ -11,14 +11,19 @@ public struct DefaultChatRepository: ChatRepository {
         self.client = client
     }
 
-    public func messages(inRoom roomID: Int64, page: Int, size: Int) async throws -> [ChatMessage] {
+    public func messages(inRoom roomID: Int64, page: Int, size: Int) async throws -> ChatPage {
         do {
             let payload = try await client.request(
                 ChatEndpoint.list(roomID: roomID, page: page, size: size),
                 as: BaseResponseDTO<ListChatsResponseDTO>.self
             ).unwrap()
             // chatId·userId·보낸 사람 이름이 없는 항목은 건너뛴다.
-            return payload.chats.compactMap { $0.toDomain() }
+            return ChatPage(
+                messages: payload.chats.compactMap { $0.toDomain() },
+                nextPage: page + 1,
+                // 매핑에서 제외된 항목 때문에 페이지가 일찍 끝난 것으로 오판하지 않는다.
+                hasMore: payload.chats.count >= size
+            )
         } catch {
             throw ChatError.normalized(error)
         }

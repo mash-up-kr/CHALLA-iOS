@@ -83,3 +83,82 @@ struct ChatMessageMergeTests {
         #expect(merged.map(\.id) == [.server(9), .server(10), .server(11)])
     }
 }
+
+@Suite("ChatMessage.merged — chatId 없이 보낸 메시지")
+struct ChatMessageMergeWithoutServerIDTests {
+
+    private func local(_ index: Int, content: String) -> ChatMessage {
+        ChatMessage(
+            id: .local(UUID(index)),
+            kind: .text,
+            content: content,
+            authorID: 7,
+            authorName: "연준",
+            createdAt: Date(timeIntervalSince1970: TimeInterval(100 + index))
+        )
+    }
+
+    private func echo(_ chatID: Int64, content: String, authorID: Int64 = 7) -> ChatMessage {
+        ChatMessage(
+            id: .server(chatID),
+            kind: .text,
+            content: content,
+            authorID: authorID,
+            authorName: "연준",
+            createdAt: Date(timeIntervalSince1970: 500) // 서버 시계라 로컬과 어긋나 있다
+        )
+    }
+
+    @Test("전송 응답에 chatId가 없어도 소켓 에코가 로컬 메시지를 대신한다")
+    func echoReplacesUnconfirmedLocal() {
+        let merged = ChatMessage.merged([local(0, content: "보냄")], with: [echo(42, content: "보냄")], absorbingPendingSends: true)
+
+        #expect(merged.count == 1)
+        #expect(merged[0].id == .server(42))
+    }
+
+    @Test("같은 글을 두 번 보내면 에코도 두 건이라 수가 맞는다")
+    func twoSendsKeepTwoRows() {
+        let pending = [local(0, content: "ㅇㅇ"), local(1, content: "ㅇㅇ")]
+        let first = ChatMessage.merged(pending, with: [echo(1, content: "ㅇㅇ")], absorbingPendingSends: true)
+        let second = ChatMessage.merged(first, with: [echo(2, content: "ㅇㅇ")], absorbingPendingSends: true)
+
+        #expect(second.count == 2)
+        #expect(second.map(\.id) == [.server(1), .server(2)])
+    }
+
+    @Test("남이 보낸 같은 글은 내 로컬 메시지를 지우지 않는다")
+    func othersMessageKeepsMyPendingRow() {
+        let merged = ChatMessage.merged([local(0, content: "보냄")], with: [echo(9, content: "보냄", authorID: 8)], absorbingPendingSends: true)
+
+        #expect(merged.count == 2)
+    }
+
+    @Test("본문이 다르면 지우지 않는다")
+    func differentContentKeepsBoth() {
+        let merged = ChatMessage.merged([local(0, content: "보냄")], with: [echo(9, content: "다른 글")], absorbingPendingSends: true)
+
+        #expect(merged.count == 2)
+    }
+
+    @Test("과거 목록을 붙일 때는 전송 중인 메시지를 지우지 않는다")
+    func historyPageKeepsPendingSend() {
+        // 10분 전에 보낸 같은 글이 이전 페이지에 들어 있는 상황.
+        let old = echo(120, content: "ㅇㅇ")
+        let merged = ChatMessage.merged([local(0, content: "ㅇㅇ")], with: [old])
+
+        #expect(merged.count == 2)
+    }
+
+    @Test("먼저 보낸 같은 글의 늦은 에코가 아직 전송 중인 두 번째 글을 지우지 않는다")
+    func lateEchoDoesNotSwallowSecondPendingMessage() {
+        // 첫 번째는 전송 응답의 chatId로 이미 확정됐고, 두 번째는 아직 응답 전이다.
+        let existing = [echo(1, content: "ㅇㅇ"), local(1, content: "ㅇㅇ")]
+
+        // 소켓이 첫 번째 메시지를 뒤늦게 한 번 더 되돌려 준다.
+        let merged = ChatMessage.merged(existing, with: [echo(1, content: "ㅇㅇ")], absorbingPendingSends: true)
+
+        #expect(merged.count == 2)
+        #expect(merged.contains { $0.id == .local(UUID(1)) })
+    }
+}

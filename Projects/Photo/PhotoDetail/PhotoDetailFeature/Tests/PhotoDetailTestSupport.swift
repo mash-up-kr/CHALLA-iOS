@@ -49,7 +49,7 @@ func makeTestStore(
     deleteReaction: @escaping @Sendable (Int64) async throws -> Void = { _ in
         throw PhotoError.unknown
     },
-    sendChat: @escaping @Sendable (Int64, Int64?, String) async throws -> Void = { _, _, _ in
+    sendChat: @escaping @Sendable (Int64, Int64?, String) async throws -> Int64? = { _, _, _ in
         throw ChatError.unknown
     },
     save: @escaping @Sendable (Photo) async throws -> Void = { _ in }
@@ -87,7 +87,7 @@ func openedTestStore(
     deleteReaction: @escaping @Sendable (Int64) async throws -> Void = { _ in
         throw PhotoError.unknown
     },
-    sendChat: @escaping @Sendable (Int64, Int64?, String) async throws -> Void = { _, _, _ in
+    sendChat: @escaping @Sendable (Int64, Int64?, String) async throws -> Int64? = { _, _, _ in
         throw ChatError.unknown
     },
     save: @escaping @Sendable (Photo) async throws -> Void = { _ in }
