@@ -23,7 +23,7 @@ Domain이 `CHALLADesignSystem`을 import하면 도메인이 UI에 묶이기 때�
 
 ### Entities (`Sources/Entities/`)
 
-- `enum AppTheme` — 기획이 정한 6종(`lemonade` · `raspberry` · `orange` · `cider` · `blueberry` · `acaiBowl`)
+- `enum AppTheme` — 기획이 정한 7종(`lemonade` · `raspberry` · `orange` · `lime` · `cider` · `blueberry` · `acaiBowl`)
   - `displayName` — 설정 화면 테마 행에 값으로 표시되는 이름 (`레몬에이드` 등)
   - `AppTheme.default` — `.lemonade`. 고른 적 없는 사용자에게 적용
   - `CaseIterable` — 테마 선택 화면이 `allCases`로 목록을 그린다
@@ -133,7 +133,7 @@ Domain이 `CHALLADesignSystem`을 import하면 도메인이 UI에 묶이기 때�
 ## 의존 관계
 
 - **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (swift-dependencies, TCA 전이 의존)
-- **이 모듈에 의존**: `SettingData`(인터페이스 구현) · `SettingFeature`(UseCase 사용)
+- **이 모듈에 의존**: `SettingData`(인터페이스 구현) · `SettingFeature`(UseCase 사용) ·
 
 ## 테스트 실행
 

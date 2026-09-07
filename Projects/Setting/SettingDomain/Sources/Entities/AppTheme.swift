@@ -2,7 +2,7 @@ import Foundation
 
 /// 앱 전반의 포인트 색을 결정하는 테마.
 ///
-/// 여섯 종은 기획이 정한 고정 집합이다 — 사용자가 새로 만들 수 없다.
+/// 일곱 종은 기획이 정한 고정 집합이다 — 사용자가 새로 만들 수 없다.
 /// `displayName`은 제품에서 부르는 이름이라 여기에 둔다.
 ///
 /// 색은 여기 없다 — Domain은 UI를 import 하지 않는다.
@@ -11,6 +11,7 @@ public enum AppTheme: String, Sendable, Equatable, CaseIterable, Codable {
     case lemonade
     case raspberry
     case orange
+    case lime
     case cider
     case blueberry
     case acaiBowl
@@ -21,6 +22,7 @@ public enum AppTheme: String, Sendable, Equatable, CaseIterable, Codable {
         case .lemonade: "레몬에이드"
         case .raspberry: "라즈베리"
         case .orange: "오렌지"
+        case .lime: "라임"
         case .cider: "사이다"
         case .blueberry: "블루베리"
         case .acaiBowl: "아사이볼"

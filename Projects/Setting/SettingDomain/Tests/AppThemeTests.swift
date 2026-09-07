@@ -3,9 +3,9 @@ import Testing
 
 struct AppThemeTests {
 
-    @Test("테마는 기획이 정한 6종이다")
+    @Test("테마는 기획이 정한 7종이다")
     func themeCount() {
-        #expect(AppTheme.allCases.count == 6)
+        #expect(AppTheme.allCases.count == 7)
     }
 
     @Test("기본 테마는 레몬에이드다")
@@ -19,6 +19,7 @@ struct AppThemeTests {
             (AppTheme.lemonade, "레몬에이드"),
             (.raspberry, "라즈베리"),
             (.orange, "오렌지"),
+            (.lime, "라임"),
             (.cider, "사이다"),
             (.blueberry, "블루베리"),
             (.acaiBowl, "아사이볼")

@@ -9,6 +9,7 @@ public enum CHALLAColor {
         public static let pink = Color(hex: "FF1887")
         public static let orange = Color(hex: "FF4D01")
         public static let yellow = Color(hex: "D5F700")
+        public static let green = Color(hex: "22F662")
         public static let sky = Color(hex: "10E6D8")
         public static let blue = Color(hex: "508EFF")
         public static let purple = Color(hex: "C67AFF")
