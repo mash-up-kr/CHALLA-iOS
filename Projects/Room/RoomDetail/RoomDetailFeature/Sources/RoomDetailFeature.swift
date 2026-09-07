@@ -26,6 +26,10 @@ public struct RoomDetailFeature {
         public var photos: [Photo] = []
         /// 촬영 화면에 들어갈 준비(목록 조회·권한 요청) 중. 사진 찍기 버튼이 로딩으로 바뀌고 다시 눌리지 않는다.
         public var isPreparingShoot = false
+        /// 인화 완료 안내(필름)를 띄우고 있는지. 방마다 처음 한 번만 참이 된다.
+        public var isPrintNoticePresented = false
+        /// 안내를 띄울지 이미 물어봤는지. 상세·사진 두 응답에서 확인하므로 두 번 조회하지 않게 막는다.
+        public var didCheckPrintNotice = false
         /// 조회 실패 얼럿. 다시 시도해도 실패하면 다시 뜬다.
         @Presents public var alert: AlertState<Action.Alert>?
         /// 이 화면에서 인화 완료 확인 기록을 이미 보냈는지 — 재시도·알람 재조회마다 다시 보내지 않게 막는다.
@@ -55,6 +59,9 @@ public struct RoomDetailFeature {
         case shootPreparationResponse(Result<CameraEntry, ShootPreparationError>)
         /// 인화 완료 예정 시각에 도달 — 서버가 상태를 바꿨는지 확인할 차례.
         case printCompletionReached
+        /// 이 방의 인화 완료 안내를 아직 안 봤다 — 띄울 차례다.
+        /// 봤으면 아무 일도 일어나지 않아 액션도 오지 않는다.
+        case printNoticeReady
         case toastDismissed
         case alert(PresentationAction<Alert>)
         case delegate(Delegate)
@@ -74,6 +81,8 @@ public struct RoomDetailFeature {
             case chatButtonTapped
             /// 사진이 있는 슬롯을 탭 — 그 사진을 펼친 채 사진 상세로 들어간다.
             case photoTapped(Photo.ID)
+            /// 필름이 다 내려가 안내가 끝났다 — 이 시점에 봤다고 기록해 다음 진입부터는 뜨지 않는다.
+            case printNoticeDismissed
         }
 
         /// 부모(App)에게만 알린다. 화면 전환은 App이 조립한다.
@@ -99,6 +108,8 @@ public struct RoomDetailFeature {
     @Dependency(\.fetchRoomDetailUseCase) var fetchRoomDetailUseCase
     @Dependency(\.fetchRoomPhotosUseCase) var fetchRoomPhotosUseCase
     @Dependency(\.copyToPasteboard) var copyToPasteboard
+    @Dependency(\.shouldShowPrintNoticeUseCase) var shouldShowPrintNoticeUseCase
+    @Dependency(\.markPrintNoticeSeenUseCase) var markPrintNoticeSeenUseCase
     @Dependency(\.openCameraSettingsUseCase) var openCameraSettingsUseCase
     @Dependency(\.continuousClock) var clock
     /// 현재 시각. 인화 완료까지 남은 시간을 계산할 때 쓴다 — 테스트가 고정할 수 있게 주입받는다.
@@ -126,9 +137,12 @@ public struct RoomDetailFeature {
                 state.detail = detail
                 // 홈에서 받은 방은 목록 조회 시점의 값이라, 방금 조회한 상세 응답의 값으로 덮는다.
                 state.room = detail.room
+                // 사진이 먼저 도착해 있었다면 여기서 안내를 확인한다 (인화 대기로 들어왔다가 완료로 넘어간 경우 포함).
+                let printNotice = checkPrintNotice(state: &state)
                 return .merge(
                     refreshAtPrintCompletion(room: detail.room),
-                    reportPrintCompletionCheck(&state, room: detail.room)
+                    reportPrintCompletionCheck(&state, room: detail.room),
+                    printNotice
                 )
 
             case .printCompletionReached:
@@ -138,10 +152,22 @@ public struct RoomDetailFeature {
                     fetchPhotos(id: state.room.id)
                 )
 
+            case .printNoticeReady:
+                state.isPrintNoticePresented = true
+                return .none
+
+            // 닫는 시점에 기록한다 — 띄우자마자 기록하면 앱이 강제 종료된 사용자는 안내를 못 본 채 놓친다.
+            case .view(.printNoticeDismissed):
+                state.isPrintNoticePresented = false
+                return .run { [markPrintNoticeSeenUseCase, roomID = state.room.id] _ in
+                    await markPrintNoticeSeenUseCase.run(roomID)
+                }
+
             case let .photosResponse(.success(photos)):
                 // 서버가 찍힌 순서대로 주므로 배열 순서를 그대로 슬롯 번호(1번 = 첫 장)로 쓴다.
                 state.photos = photos
-                return .none
+                // 필름에 실을 사진이 생겼다 — 대개 여기서 안내 여부가 정해진다.
+                return checkPrintNotice(state: &state)
 
             case .photosResponse(.failure):
                 // 사진만 실패하면 얼럿을 띄우지 않는다 — 상세가 성공했으면 화면 대부분이 그려져 있고,
@@ -222,7 +248,7 @@ public struct RoomDetailFeature {
         .ifLet(\.$alert, action: \.alert)
     }
 
-    private enum CancelID { case detail, photos, toast, printRefresh, prepareShoot }
+    private enum CancelID { case detail, photos, toast, printRefresh, prepareShoot, printNotice }
 
     private enum Const {
         // TODO: 노출 시간은 기획 미확정 — ProfileSetup과 같은 임시값. 확정 시 교체할 것.
@@ -272,6 +298,25 @@ public struct RoomDetailFeature {
             }
         }
         .cancellable(id: CancelID.photos, cancelInFlight: true)
+    }
+
+    /// 인화 완료 방에 처음 들어왔는지 기기 기록에 묻는다.
+    ///
+    /// 사진까지 도착해야 묻는다 — 필름에 실을 것이 없는 채로 띄우면 빈 필름이 나온다.
+    /// 사진 조회가 끝내 실패하면 안내는 뜨지 않고 봤다는 기록도 남지 않아 다음 진입에 다시 뜬다.
+    ///
+    /// 상세·사진 두 응답에서 불리므로 한 번 물어본 뒤에는 다시 묻지 않는다 —
+    /// 두 번 물으면 안내를 닫은 직후 도착한 응답이 안내를 다시 띄운다.
+    private func checkPrintNotice(state: inout State) -> Effect<Action> {
+        guard state.room.status == .printed, !state.photos.isEmpty, !state.didCheckPrintNotice
+        else { return .none }
+        state.didCheckPrintNotice = true
+
+        return .run { [shouldShowPrintNoticeUseCase, roomID = state.room.id] send in
+            guard await shouldShowPrintNoticeUseCase.run(roomID) else { return }
+            await send(.printNoticeReady)
+        }
+        .cancellable(id: CancelID.printNotice, cancelInFlight: true)
     }
 
     /// 인화 완료 예정 시각에 한 번 깨어나 상세·사진을 재조회하는 알람.
