@@ -26,7 +26,7 @@ enum DemoSamples {
         switch state {
         case .shooting, .invite, .error:
             return shootingRoom(remained: 24)
-        case .shootingPartial:
+        case .shootingPartial, .justShot:
             return shootingRoom(remained: 12)
         case .printWaiting:
             return Room(
@@ -91,7 +91,7 @@ enum DemoSamples {
     static func photoCount(for state: DemoScreen.DetailState) -> Int {
         switch state {
         case .shooting, .invite, .error: return 0
-        case .shootingPartial: return 12
+        case .shootingPartial, .justShot: return 12
         case .printWaiting, .printed: return room(for: state).totalPhotoCount
         }
     }

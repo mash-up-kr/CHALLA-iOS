@@ -8,7 +8,10 @@ import RoomDetailFeature
 enum DemoStore {
 
     static func makeDetail(for state: DemoScreen.DetailState) -> StoreOf<RoomDetailFeature> {
-        var initial = RoomDetailFeature.State(room: DemoSamples.room(for: state))
+        var initial = RoomDetailFeature.State(
+            room: DemoSamples.room(for: state),
+            highlightsNewestPhoto: state == .justShot
+        )
         // 팝오버는 참여자 바를 탭해야 열린다 — 진입 조회가 참여자를 채우면 열린 채로 보인다.
         initial.isInvitePopoverPresented = state == .invite
         return Store(initialState: initial) {
