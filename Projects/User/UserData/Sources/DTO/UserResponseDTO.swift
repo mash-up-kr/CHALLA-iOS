@@ -11,5 +11,3 @@ struct UserProfileResponseDTO: Decodable, Sendable {
         let profileImageUrl: String?
     }
 }
-
-struct EmptyResponseDTO: Decodable, Sendable {}

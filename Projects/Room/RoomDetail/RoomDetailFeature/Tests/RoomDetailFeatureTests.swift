@@ -39,7 +39,10 @@ struct RoomDetailFeatureTests {
         initialState: RoomDetailFeature.State = .init(room: .previewShooting),
         fetchDetail: FetchRoomDetailUseCase = .testValue,
         fetchPhotos: FetchRoomPhotosUseCase = .testValue,
-        clock: any Clock<Duration> = TestClock()
+        clock: any Clock<Duration> = TestClock(),
+        // 대부분의 테스트는 안내와 무관하다 — 이미 본 것으로 두면 안내가 끼어들지 않는다.
+        shouldShowPrintNotice: ShouldShowPrintNoticeUseCase = .init(run: { _ in false }),
+        markPrintNoticeSeen: MarkPrintNoticeSeenUseCase = .init(run: { _ in })
     ) -> TestStoreOf<RoomDetailFeature> {
         TestStore(initialState: initialState) {
             RoomDetailFeature()
@@ -48,6 +51,8 @@ struct RoomDetailFeatureTests {
             $0.fetchRoomPhotosUseCase = fetchPhotos
             // 상세 성공은 초대 안내 확인까지 부른다 — 띄우지 않는 답을 고정해 팝오버가 끼어들지 않게 한다.
             $0.shouldShowInviteGuideUseCase.run = { false }
+            $0.shouldShowPrintNoticeUseCase = shouldShowPrintNotice
+            $0.markPrintNoticeSeenUseCase = markPrintNoticeSeen
             $0.continuousClock = clock
             // 인화 완료 응답이 확인 기록(check)을 보낸다 — 여기 테스트들은 기록 자체를 검증하지 않아 무시 스텁.
             $0.checkPrintCompletionUseCase = CheckPrintCompletionUseCase(run: { _ in })

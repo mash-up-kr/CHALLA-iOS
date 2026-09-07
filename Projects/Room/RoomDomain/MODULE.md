@@ -69,6 +69,11 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 - `protocol InviteGuideRepository` — `hasSeenInviteGuide()` · `markInviteGuideSeen()`.
   방 상세 첫 진입 안내를 봤는지의 기록. 기기에만 남고 서버에 올리지 않는다 —
   기기를 바꾸면 안내가 한 번 더 뜬다
+- `protocol PrintNoticeRepository` — `hasSeenPrintNotice(roomID:) -> Bool` ·
+  `markPrintNoticeSeen(roomID:)`
+  - 인화 완료 안내(방 상세의 필름 화면)를 방마다 한 번만 띄우기 위한 노출 기록
+  - 구현체 계약: 기록은 방 단위이고 실패 개념이 없다. 서버가 아니라 기기에 남긴다 —
+    안내 하나 때문에 서버 왕복을 기다리지 않기 위해서다
 
 ### Models (`Sources/Models/`)
 
@@ -135,12 +140,17 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
   안내 컷은 직접 true를 꽂는다
 - `MarkInviteGuideSeenUseCase` (`\.markInviteGuideSeenUseCase`) — 안내를 본 것으로 기록 (`-> Void`)
 
+- `ShouldShowPrintNoticeUseCase` (`\.shouldShowPrintNoticeUseCase`) — 이 방의 인화 완료 안내를
+  아직 안 봤는지 (`(Room.ID) -> Bool`). 던지지 않으며 확인이 안 되면 `false`(안 띄움)
+- `MarkPrintNoticeSeenUseCase` (`\.markPrintNoticeSeenUseCase`) — 이 방의 안내를 본 것으로 기록
+  (`(Room.ID) -> Void`)
+
 전부 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
 
 ## 의존성
 
 - **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (TCA 전이 의존, `Tuist/Package.swift` 경유)
-- **이 모듈에 의존**: `HomeFeature`·`CameraFeature`(UseCase를 `@Dependency`로 주입받음) ·
+- **이 모듈에 의존**: `HomeFeature`·`RoomDetailFeature`·`CameraFeature`(UseCase를 `@Dependency`로 주입받음) ·
   `RoomData`(인터페이스 구현) · 합성 루트(`CHALLAApp`·`HomeFeatureDemo`·`CameraFeatureDemo` —
   `.live(repository:)` 조립)
 
@@ -167,3 +177,4 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
   어느 쪽이 실패해도 부분 성공 없이 오류 하나 전파
 - `InviteGuideUseCasesLiveTests` — 기록이 없을 때만 띄우라고 답하는지, 기록이 이후 조회에 반영되는지
 - `InviteLinkTests` — 링크 모양·라운드트립, 우리 링크가 아닌 URL 거부(https 5종·커스텀 스킴 4종), 끝 슬래시·대문자·쿼리 허용
+- `PrintNoticeUseCasesLiveTests` — 저장소 답을 뒤집어 전달하는지, 기록이 물어본 방에만 남는지

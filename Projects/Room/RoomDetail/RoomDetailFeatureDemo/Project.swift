@@ -8,6 +8,10 @@ let project = Project.makeAppProject(
     bundleId: "\(Environment.bundleIdPrefix).roomdetailfeature.demo",
     marketingVersion: "1.0.0",
     buildNumber: "1",
+    signing: .manual(
+        debugProfile: "CHALLA_Dev_Wildcard",
+        releaseProfile: "CHALLA_Dev_Wildcard"
+    ),
     usesAPIEnvironment: false, // InMemory 저장소만 쓴다 — 서버 주소 불필요
     dependencies: [
         .roomDetailFeature, .roomDomain,

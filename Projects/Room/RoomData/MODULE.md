@@ -50,6 +50,21 @@
 있다 — 모든 메서드가 기다리는 일을 `waitAndCheckFailure()`로 앞에 모으고 그 뒤로는 `await` 없이
 상태를 읽고 쓴다.
 
+- `struct DefaultPrintNoticeRepository: PrintNoticeRepository` — `init(storage:)`
+  - 인화 완료 안내를 봤는지 방마다 기기에 저장한다 (`challa.room.printNotice.seen.<roomID>`).
+    서버가 아니라 기기에 남기는 이유는 `RoomDomain.PrintNoticeRepository` 주석 참고
+  - 방마다 키를 하나씩 쓴다 — 한 키에 방 목록을 모으면 읽고 쓸 때마다 목록을 갈아 끼워야 해
+    Bool 하나짜리 기록에는 과하다. 방이 지워져도 기록은 남지만 키 하나가 Bool 하나라 무시할 수 있다
+- `actor InMemoryPrintNoticeRepository: PrintNoticeRepository` — `init(seenRoomIDs:)`
+  - 데모·테스트용. 앱을 끄면 사라져 매번 안내부터 다시 볼 수 있다
+
+### Storage (`Sources/Storage/`)
+
+- `protocol PrintNoticeStorage` — `bool(forKey:)` · `setBool(_:forKey:)`
+- `struct UserDefaultsPrintNoticeStorage: PrintNoticeStorage` — `init(defaults:)`
+  - `UserDefaults`를 한 겹 감싼다. 실제 `UserDefaults`를 테스트가 직접 쓰면 상태가 새고
+    실행 순서에 결과가 흔들린다 (`PhotoData.CameraOnboardingStorage`와 같은 판단)
+
 ### Sample (`Sources/Sample/`)
 
 - `enum RoomSamples` — `inviteCode`(시안의 `1928121`) · `inviteCodes` ·
@@ -63,8 +78,8 @@
 
 ## 내부 구성 (internal — 서버 계약이 바뀌면 여기만 바뀐다)
 
-- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`(공통 껍데기 `{success, message, data}`,
-  UserData 복사본 — CHALLANetwork 공통화는 #51 진행 중), 요청·응답 DTO, `RoomStatusDTO`
+- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`는 #51에서 `CHALLANetwork`로 공용화됐고,
+  이 모듈은 `RoomError`를 묶은 무인자 `unwrap()` 확장만 둔다. 요청·응답 DTO, `RoomStatusDTO`
   (모르는 상태 값은 디코딩 실패를 택한다). 날짜는 `String`으로 받는다 — 공용 디코더에 날짜 규칙을
   설정하면 다른 도메인 API까지 영향을 받아 매핑에서만 파싱한다
 - `Endpoint/RoomEndpoint` — rooms(배열 쿼리) · shootable · create · join · detail · members ·
@@ -88,8 +103,8 @@
 mise exec -- tuist test RoomData
 ```
 
-Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockHTTPClient`
-(호출 캡처 + 준비된 JSON 응답, UserData 것에 `queryItems` 캡처 추가한 복사본)로 서버 없이 검증한다.
+Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). 공용 `MockHTTPClient`
+(`CHALLANetworkTesting` — 호출 캡처 + 준비된 JSON 응답, `queryItems`·`headers` 모두 캡처)로 서버 없이 검증한다.
 
 - `DefaultRoomRepositoryTests` — 상태 3개 배열 쿼리·bearer 확인, `success:false` 언랩(서버 메시지
   보존), transport→`.network` 정규화, 생성·입장의 본문 계약과 재조회 왕복(POST→GET 순서),
@@ -104,6 +119,8 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
   (id 음수 표식 포함), 만든 방이 목록에 남고 최근 방이 맨 앞, 입장 인원 증가 반영,
   없는 코드의 `.roomNotFound`, 상세의 초대 코드 두 경로(역방향 조회·id로 생성),
   참여자 주입 반환, `failure` 주입 시 모든 메서드 전파
+- `DefaultPrintNoticeRepositoryTests` — 기록 없을 때 기본값, 기록 후 유지, 방별 분리,
+  저장소를 물려받은 새 인스턴스가 기록을 읽는지 (앱 재실행 상황)
 
 - `DefaultInviteGuideRepositoryTests` — 기록 없음 기본값, 기록 후 조회, 같은 저장소로
   다시 만들어도 유지(앱 재시작)

@@ -15,7 +15,10 @@ let project = Project(
             name: "RoomDetailFeature",
             // .photoDomain: 사진 그리드가 인화된 사진 목록을 조회한다 (ARCHITECTURE.md — 결과 그리드는 방 상세가 흡수).
             // .shootEntry: 사진 찍기 버튼이 카메라 진입 준비(목록·LUT·권한)를 홈과 공유한다.
-            dependencies: [.roomDomain, .photoDomain, .shootEntry, .composableArchitecture, .designSystem]
+            // .imageKit: 인화 완료 안내가 필름에 실릴 사진을 나올 순서대로 미리 받아 캐시에 채운다.
+            dependencies: [
+                .roomDomain, .photoDomain, .shootEntry, .composableArchitecture, .designSystem, .imageKit
+            ]
         ),
         .target(
             name: "RoomDetailFeatureTests",
