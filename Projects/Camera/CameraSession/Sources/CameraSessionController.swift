@@ -130,7 +130,6 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
         guard currentInput?.device.position != position.avPosition else { return }
 
         session.beginConfiguration()
-        defer { session.commitConfiguration() }
 
         if let currentInput {
             session.removeInput(currentInput)
@@ -139,18 +138,29 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
             let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position.avPosition),
             let input = try? AVCaptureDeviceInput(device: device),
             session.canAddInput(input)
-        else { return }
+        else {
+            session.commitConfiguration()
+            return
+        }
 
         session.addInput(input)
         currentInput = input
+        session.commitConfiguration()
+
+        // 센서 방향 판별이 새 입력 기준으로 갱신된 뒤라야 해서 커밋 이후에 연결을 잡는다
         configureConnections(position: position)
     }
 
     /// 입력을 갈아끼우면 연결이 새로 생기므로 그때마다 다시 잡는다. 세션 큐에서만 호출한다.
     private func configureConnections(position: CameraPosition) {
         // 프리뷰 레이어 없이 직접 프레임을 다루므로 세로 회전도 직접 지정한다 (앱은 세로 고정)
-        for connection in [videoOutput.connection(with: .video), photoOutput.connection(with: .video)] {
-            guard let connection, connection.isVideoRotationAngleSupported(90) else { continue }
+        let previewAngle: CGFloat = isSensorMountedPortrait ? 0 : 90
+        if let connection = videoOutput.connection(with: .video),
+           connection.isVideoRotationAngleSupported(previewAngle) {
+            connection.videoRotationAngle = previewAngle
+        }
+        // photoOutput은 센서가 세로 장착이어도 스스로 이전 세대 방향(가로)으로 보정해 내보낸다
+        if let connection = photoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
             connection.videoRotationAngle = 90
         }
         // 전면 프리뷰만 거울상 — 시스템 카메라와 동일 (저장본은 photoOutput 기본값 유지)
@@ -158,6 +168,13 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
             preview.automaticallyAdjustsVideoMirroring = false
             preview.isVideoMirrored = position == .front
         }
+    }
+
+    /// 센서가 세로로 장착됐는지 — iPhone 17 계열 전면 카메라가 여기 해당한다.
+    /// 이 플래그는 "이전 세대와 센서 방향이 다른 구성"에서만 참이라 기종 하드코딩 없이 판별에 쓸 수 있다.
+    private var isSensorMountedPortrait: Bool {
+        guard #available(iOS 26.0, *) else { return false }
+        return photoOutput.isCameraSensorOrientationCompensationSupported
     }
 }
 
