@@ -1,7 +1,6 @@
 @testable import HomeFeature
 import ComposableArchitecture
 import PhotoDomain
-import PhotoLibrary
 import RoomDomain
 import ShootEntry
 import Testing
@@ -22,7 +21,6 @@ struct HomeShootEntryTests {
 
     private static func makeStore(
         isPermitted: Bool = true,
-        photoAuthorization: PhotoLibraryAuthorization = .authorized,
         rooms: @escaping @Sendable () async throws -> [ShootableRoom] = { shootableRooms }
     ) -> TestStoreOf<HomeFeature> {
         var state = HomeFeature.State(nickname: "찰나")
@@ -35,7 +33,6 @@ struct HomeShootEntryTests {
             $0.fetchCameraFiltersUseCase.run = { filters }
             $0.prepareCameraFiltersUseCase.run = { _ in }
             $0.requestCameraPermissionUseCase.run = { isPermitted }
-            $0.photoLibraryPermission.request = { _ in photoAuthorization }
         }
     }
 

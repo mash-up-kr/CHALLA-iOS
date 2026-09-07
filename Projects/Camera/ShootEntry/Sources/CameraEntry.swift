@@ -22,7 +22,6 @@ public struct CameraEntry: Equatable, Sendable {
 /// 권한은 설정 앱으로 가야 풀리고, 조회 실패는 다시 눌러 보면 된다.
 public enum ShootPreparationError: Error, Equatable, Sendable {
     case cameraPermissionDenied
-    case photoLibraryPermissionDenied
     case loadFailed(message: String)
 }
 
@@ -56,16 +55,6 @@ public extension ShootPreparationError {
             }
 
         // TODO: 임의 작성 문구 — 기획 확정 시 교체할 것.
-        case .photoLibraryPermissionDenied:
-            AlertState {
-                TextState("사진첩 접근이 필요해요")
-            } actions: {
-                ButtonState(action: openSettings) { TextState("설정 열기") }
-                ButtonState(role: .cancel) { TextState("나중에") }
-            } message: {
-                TextState("촬영한 사진을 저장하려면 설정에서 사진첩 접근을 허용해 주세요.")
-            }
-
         case let .loadFailed(message):
             AlertState {
                 TextState("촬영을 시작하지 못했어요")

@@ -31,7 +31,6 @@ struct RoomDetailShootEntryTests {
             $0.fetchCameraFiltersUseCase.run = { filters }
             $0.prepareCameraFiltersUseCase.run = { _ in }
             $0.requestCameraPermissionUseCase.run = { isPermitted }
-            $0.photoLibraryPermission.request = { _ in .authorized }
         }
     }
 

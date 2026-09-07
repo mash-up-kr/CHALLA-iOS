@@ -1,7 +1,6 @@
 @testable import ShootEntry
 import ComposableArchitecture
 import PhotoDomain
-import PhotoLibrary
 import RoomDomain
 import Testing
 
@@ -20,21 +19,15 @@ struct ShootPreparationTests {
     private static func run(
         roomID: Room.ID = 1,
         isCameraPermitted: Bool = true,
-        photoAuthorization: PhotoLibraryAuthorization = .authorized,
         fetchRooms: @escaping @Sendable () async throws -> [ShootableRoom] = { rooms },
         fetchFilters: @escaping @Sendable () async throws -> [CameraFilter] = { filters },
-        prepareLUTs: @escaping @Sendable ([CameraFilter]) async throws -> Void = { _ in },
-        didAskPhotoLibrary: LockIsolated<Bool> = LockIsolated(false)
+        prepareLUTs: @escaping @Sendable ([CameraFilter]) async throws -> Void = { _ in }
     ) async throws -> Result<CameraEntry, ShootPreparationError> {
         let preparation = withDependencies {
             $0.fetchShootableRoomsUseCase.run = fetchRooms
             $0.fetchCameraFiltersUseCase.run = fetchFilters
             $0.prepareCameraFiltersUseCase.run = prepareLUTs
             $0.requestCameraPermissionUseCase.run = { isCameraPermitted }
-            $0.photoLibraryPermission.request = { _ in
-                didAskPhotoLibrary.setValue(true)
-                return photoAuthorization
-            }
         } operation: {
             ShootPreparation()
         }
@@ -54,29 +47,6 @@ struct ShootPreparationTests {
         let result = try await Self.run(isCameraPermitted: false)
 
         #expect(result == .failure(.cameraPermissionDenied))
-    }
-
-    @Test("사진첩 권한을 거절하면 준비가 실패한다 — 저장 못 하면 셔터마다 실패한다")
-    func failsWhenPhotoLibraryDenied() async throws {
-        let result = try await Self.run(photoAuthorization: .denied)
-
-        #expect(result == .failure(.photoLibraryPermissionDenied))
-    }
-
-    @Test("사진첩이 제한 허용이어도 저장은 되므로 통과한다")
-    func allowsLimitedPhotoLibrary() async throws {
-        let result = try await Self.run(photoAuthorization: .limited)
-
-        #expect(result == .success(CameraEntry(roomID: 1, rooms: Self.rooms, filters: Self.filters)))
-    }
-
-    @Test("카메라 권한을 거절하면 사진첩은 묻지 않는다 — 팝업이 겹치지 않게 순서대로 묻는다")
-    func skipsPhotoLibraryWhenCameraDenied() async throws {
-        let didAsk = LockIsolated(false)
-
-        _ = try await Self.run(isCameraPermitted: false, didAskPhotoLibrary: didAsk)
-
-        #expect(didAsk.value == false)
     }
 
     @Test("목록 조회에 실패하면 그 도메인의 문구를 그대로 싣는다")
