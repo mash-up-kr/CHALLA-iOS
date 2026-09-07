@@ -4,7 +4,7 @@ import DependenciesMacros
 /// 방의 채팅을 페이지 단위로 가져온다.
 @DependencyClient
 public struct FetchChatsUseCase: Sendable {
-    public var run: @Sendable (_ roomID: Int64, _ page: Int, _ size: Int) async throws -> [ChatMessage]
+    public var run: @Sendable (_ roomID: Int64, _ page: Int, _ size: Int) async throws -> ChatPage
 }
 
 extension FetchChatsUseCase: TestDependencyKey {
@@ -17,7 +17,9 @@ extension FetchChatsUseCase: TestDependencyKey {
 
     public static let testValue = FetchChatsUseCase()
 
-    public static let previewValue = FetchChatsUseCase(run: { _, _, _ in [] })
+    public static let previewValue = FetchChatsUseCase(run: { _, page, _ in
+        ChatPage(messages: [], nextPage: page + 1, hasMore: false)
+    })
 }
 
 public extension DependencyValues {

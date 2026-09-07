@@ -6,8 +6,8 @@
 
 - `struct DefaultChatRepository: ChatRepository` — `init(client:)`
   - `messages(inRoom:page:size:)` — `GET /api/v1/chats/{roomId}?page=&size=` → 도메인 변환.
-    `photoImageUrl` 유무로 사진/텍스트를 가른다. 서버가 메시지 id를 안 줘 매핑에서 UUID를 생성하고,
-    보낸 사람 이름이 없는 항목은 건너뛴다
+    `photoImageUrl` 유무로 사진/텍스트를 가른다. 서버 ID나 보낸 사람 정보가 없는 항목은 건너뛴다.
+    반환하는 `ChatPage.hasMore`는 매핑 후 개수가 아니라 원본 DTO 개수로 계산해, 잘못된 항목 때문에 페이지가 조기 종료되지 않게 한다
   - `send(roomID:photoID:content:)` — 사진에 보낸 메시지는 `POST /chats/reaction`(`COMMENT`),
     방 단위 메시지는 `POST /chats`(`DEFAULT`) (아래 "채팅 종류"). 생성된 채팅을 도메인으로 돌려준다.
     방 단위 텍스트는 `photoID`가 nil → 서버 예시대로 `photoId: 0`으로 보낸다(백엔드 확인 필요)
@@ -42,4 +42,13 @@
 
 ## 테스트
 
-- `DefaultChatRepositoryTests` — 목록 경로·쿼리, 사진/텍스트 매핑, 이름 없는 항목 건너뛰기, POST 본문(`{chat:{roomId,photoId,type,content}}`), nil photoID → 0, 오류 정규화(network·401)
+- `DefaultChatRepositoryTests` — 목록 경로·쿼리, 사진/텍스트 매핑, 매핑 탈락과 페이지 메타데이터, POST 본문(`{chat:{roomId,photoId,type,content}}`), nil photoID → 0, 오류 정규화(network·401)
+
+## 실시간 수신 (추가)
+
+- `ChatEventSubscriber: ChatEventStreaming` — `/topic/room/{roomId}/chat` 구독.
+  프레임 본문을 `ChatMessage`로 바꿔 흘린다. 한 건이 깨져도 건너뛰고 스트림은 유지한다.
+- `ChatMessageDTO`가 `chatId`·`userId`를 디코딩한다 (둘 중 하나라도 없으면 그 항목을 버린다).
+- `SendChatResponseDTO`가 `chatId`를 읽어 `DefaultChatRepository.send`가 돌려준다.
+
+**미확인**: 소켓 프레임 본문의 실제 형태(봉투 유무)를 아직 캡처하지 못해, 봉투·비봉투 둘 다 받아 준다.

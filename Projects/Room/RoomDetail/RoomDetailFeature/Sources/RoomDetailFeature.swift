@@ -80,6 +80,10 @@ public struct RoomDetailFeature {
         /// 이 방의 인화 완료 안내를 아직 안 봤다 — 띄울 차례다.
         /// 봤으면 아무 일도 일어나지 않아 액션도 오지 않는다.
         case printNoticeReady
+
+        /// 방에 누가 새로 들어왔다(또는 소켓이 다시 붙었다) — 참여자를 다시 조회할 차례.
+        /// 이 화면은 소켓을 직접 구독하지 않는다. 앱 루트가 받아서 보내 준다.
+        case memberJoined
         case toastDismissed
         case saveAllEvent(SaveAllPhotosEvent)
         case alert(PresentationAction<Alert>)
@@ -167,6 +171,10 @@ public struct RoomDetailFeature {
                     checkInviteGuide(&state),
                     printNotice
                 )
+
+            case .memberJoined:
+                // 조용히 다시 부른다 — detailLoad를 건드리지 않아 아바타 바가 깜빡이지 않는다.
+                return refreshDetailQuietly(id: state.room.id)
 
             case .printCompletionReached:
                 // 화면 카운트다운은 이미 0:00:00 — 서버가 인화 완료로 넘어갔는지 다시 묻는다.
@@ -323,7 +331,8 @@ public struct RoomDetailFeature {
     }
 
     enum CancelID {
-        case detail, photos, toast, printRefresh, prepareShoot, inviteGuide, printNotice, downloadAll
+        case detail, quietDetailRefresh, photos, toast, printRefresh, prepareShoot, inviteGuide, printNotice,
+             downloadAll
     }
 
     private enum Const {
@@ -387,6 +396,18 @@ private extension RoomDetailFeature {
             await send(.shootPreparationResponse(result))
         }
         .cancellable(id: CancelID.prepareShoot, cancelInFlight: true)
+    }
+
+    /// 실패해도 얼럿을 띄우지 않는다 — 배경에서 도는 조회라 사용자가 부른 적이 없다.
+    ///
+    /// 취소 id를 `fetchDetail`과 따로 둔다. 같이 쓰면 진입 조회가 끝나기 전에 참여 이벤트가 왔을 때
+    /// 그 조회를 취소해 버리고, 이쪽은 실패를 삼키므로 `detailLoad`가 `.loading`에 영영 묶인다.
+    private func refreshDetailQuietly(id: Room.ID) -> Effect<Action> {
+        .run { [fetchRoomDetailUseCase] send in
+            guard let detail = try? await fetchRoomDetailUseCase.run(id) else { return }
+            await send(.detailResponse(.success(detail)))
+        }
+        .cancellable(id: CancelID.quietDetailRefresh, cancelInFlight: true)
     }
 
     func fetchDetail(id: Room.ID) -> Effect<Action> {

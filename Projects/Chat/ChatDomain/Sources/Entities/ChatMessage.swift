@@ -1,6 +1,18 @@
 import Foundation
 import PhotoDomain
 
+/// 채팅 메시지 식별자.
+///
+/// 서버가 주는 `chatId`를 쓴다. 아직 전송 응답을 못 받은 낙관적 메시지만 로컬 id를 갖고,
+/// 전송이 성공하면 서버 id로 바뀐다(`ChatMessage.promoted(toServerID:)`).
+/// 이 구분이 있어야 소켓으로 되돌아온 내 메시지가 목록에 두 번 뜨지 않는다.
+///
+/// `ChatMessage.ID`로도 쓸 수 있다 — `Identifiable`이 이 타입을 그 이름으로 이어 준다.
+public enum ChatMessageID: Hashable, Sendable {
+    case server(Int64)
+    case local(UUID)
+}
+
 /// 채팅 한 건. 텍스트 · 사진(+메시지) · 사진에 달린 이모지 리액션 중 하나다 — 반응/채팅 하나당 한 아이템.
 public struct ChatMessage: Identifiable, Sendable, Equatable {
 
@@ -13,23 +25,25 @@ public struct ChatMessage: Identifiable, Sendable, Equatable {
         case reaction(ReactionKind)
     }
 
-    /// 서버가 메시지 id를 주지 않아 매핑/전송 시점에 생성한다(목록 렌더용 안정 키).
-    public let id: UUID
+    public let id: ChatMessageID
     public let kind: Kind
     /// 텍스트 본문. 사진·이모지 메시지는 비어 있을 수 있다.
     public let content: String
     /// 사진 메시지·이모지 리액션이 가리키는 이미지 주소. 순수 텍스트는 nil.
     public let photoImageURL: URL?
-    /// 보낸 사람 표시 이름(응답의 `userName`). 서버가 userId를 주지 않아 화면이 이 값으로 내 메시지를 판별한다.
+    /// 보낸 사람(응답의 `userId`). 내 메시지 판별 기준이다.
+    public let authorID: Int64
+    /// 보낸 사람 표시 이름(응답의 `userName`).
     public let authorName: String
     public let authorImageURL: URL?
     public let createdAt: Date
 
     public init(
-        id: UUID,
+        id: ChatMessageID,
         kind: Kind,
         content: String = "",
         photoImageURL: URL? = nil,
+        authorID: Int64,
         authorName: String,
         authorImageURL: URL? = nil,
         createdAt: Date
@@ -38,14 +52,29 @@ public struct ChatMessage: Identifiable, Sendable, Equatable {
         self.kind = kind
         self.content = content
         self.photoImageURL = photoImageURL
+        self.authorID = authorID
         self.authorName = authorName
         self.authorImageURL = authorImageURL
         self.createdAt = createdAt
     }
 
-    /// 이 메시지가 주어진 사용자(닉네임)의 것인지 — 오른쪽 정렬·흰 버블 판별용.
-    /// TODO: 서버가 userId를 주기 시작하면 닉네임 비교를 id 비교로 바꾼다(동명이인 오판 방지).
-    public func isMine(currentUserNickname: String) -> Bool {
-        !authorName.isEmpty && authorName == currentUserNickname
+    /// 이 메시지가 내 것인지 — 오른쪽 정렬·흰 버블 판별용.
+    public func isMine(currentUserID: Int64) -> Bool {
+        authorID == currentUserID
+    }
+
+    /// 전송 응답으로 받은 서버 id를 붙여 확정한다.
+    /// 이후 소켓으로 같은 메시지가 되돌아와도 id가 같아 목록에서 한 건으로 합쳐진다.
+    public func promoted(toServerID chatID: Int64) -> ChatMessage {
+        ChatMessage(
+            id: .server(chatID),
+            kind: kind,
+            content: content,
+            photoImageURL: photoImageURL,
+            authorID: authorID,
+            authorName: authorName,
+            authorImageURL: authorImageURL,
+            createdAt: createdAt
+        )
     }
 }

@@ -14,7 +14,7 @@ struct DefaultChatRepositoryTests {
     func mapsListWithPathAndQuery() async throws {
         let json = """
         { "success": true, "message": "ok", "data": { "chats": [
-          { "type": "DEFAULT", "content": "안녕", "photoImageUrl": null,
+          { "chatId": 1, "userId": 101, "type": "DEFAULT", "content": "안녕", "photoImageUrl": null,
             "createdAt": "2026-08-03T13:38:42", "userName": "토마토",
             "userProfileImageUrl": "https://cdn.test/u.jpg" }
         ] } }
@@ -43,7 +43,7 @@ struct DefaultChatRepositoryTests {
     func mapsPhotoMessageWithText() async throws {
         let json = """
         { "success": true, "message": "ok", "data": { "chats": [
-          { "type": "DEFAULT", "content": "이 사진 좋다", "photoImageUrl": "https://cdn.test/7.jpg",
+          { "chatId": 2, "userId": 102, "type": "DEFAULT", "content": "이 사진 좋다", "photoImageUrl": "https://cdn.test/7.jpg",
             "createdAt": "2026-08-03T13:38:42", "userName": "토마토", "userProfileImageUrl": null }
         ] } }
         """
@@ -60,7 +60,7 @@ struct DefaultChatRepositoryTests {
     func emptyPhotoUrlIsText() async throws {
         let json = """
         { "success": true, "message": "ok", "data": { "chats": [
-          { "type": "DEFAULT", "content": "안녕", "photoImageUrl": "",
+          { "chatId": 3, "userId": 103, "type": "DEFAULT", "content": "안녕", "photoImageUrl": "",
             "createdAt": "2026-08-03T13:38:42", "userName": "토마토", "userProfileImageUrl": null }
         ] } }
         """
@@ -75,7 +75,7 @@ struct DefaultChatRepositoryTests {
     func mapsEmojiReaction() async throws {
         let json = """
         { "success": true, "message": "ok", "data": { "chats": [
-          { "type": "EMOJI", "content": "heart", "photoImageUrl": "https://cdn.test/7.jpg",
+          { "chatId": 4, "userId": 104, "type": "EMOJI", "content": "heart", "photoImageUrl": "https://cdn.test/7.jpg",
             "createdAt": "2026-08-03T13:38:42", "userName": "토마토", "userProfileImageUrl": null }
         ] } }
         """
@@ -90,7 +90,7 @@ struct DefaultChatRepositoryTests {
     func skipsUnknownEmoji() async throws {
         let json = """
         { "success": true, "message": "ok", "data": { "chats": [
-          { "type": "EMOJI", "content": "unknown_kind", "photoImageUrl": "https://cdn.test/7.jpg",
+          { "chatId": 5, "userId": 105, "type": "EMOJI", "content": "unknown_kind", "photoImageUrl": "https://cdn.test/7.jpg",
             "createdAt": "2026-08-03T13:38:42", "userName": "토마토", "userProfileImageUrl": null }
         ] } }
         """
@@ -104,16 +104,48 @@ struct DefaultChatRepositoryTests {
     func skipsMessagesWithoutAuthor() async throws {
         let json = """
         { "success": true, "message": "ok", "data": { "chats": [
-          { "type": "DEFAULT", "content": "x", "photoImageUrl": null,
+          { "chatId": 6, "userId": 106, "type": "DEFAULT", "content": "x", "photoImageUrl": null,
             "createdAt": "2026-08-03T13:38:42", "userName": null, "userProfileImageUrl": null },
-          { "type": "DEFAULT", "content": "y", "photoImageUrl": null,
+          { "chatId": 7, "userId": 107, "type": "DEFAULT", "content": "y", "photoImageUrl": null,
             "createdAt": "2026-08-03T13:38:42", "userName": "B", "userProfileImageUrl": null }
         ] } }
         """
         let repository = DefaultChatRepository(client: MockHTTPClient.returning(json: json))
 
-        let messages = try await repository.messages(inRoom: 1, page: 0, size: 10)
+        let messages = try await repository.messages(inRoom: 1, page: 0, size: 2)
         #expect(messages.map(\.content) == ["y"])
+        // 원본 응답은 페이지 크기를 채웠으므로, 매핑에서 한 건이 빠져도 다음 페이지가 있다.
+        #expect(messages.hasMore)
+    }
+
+    @Test("chatId나 userId가 없는 항목은 건너뛴다 (중복 제거 키가 없으면 쓸 수 없다)")
+    func skipsMessagesWithoutServerIDs() async throws {
+        let json = """
+        { "success": true, "message": "ok", "data": { "chats": [
+          { "userId": 1, "type": "DEFAULT", "content": "id없음", "photoImageUrl": null,
+            "createdAt": "2026-08-03T13:38:42", "userName": "A", "userProfileImageUrl": null },
+          { "chatId": 2, "type": "DEFAULT", "content": "user없음", "photoImageUrl": null,
+            "createdAt": "2026-08-03T13:38:42", "userName": "B", "userProfileImageUrl": null },
+          { "chatId": 3, "userId": 3, "type": "DEFAULT", "content": "정상", "photoImageUrl": null,
+            "createdAt": "2026-08-03T13:38:42", "userName": "C", "userProfileImageUrl": null }
+        ] } }
+        """
+        let repository = DefaultChatRepository(client: MockHTTPClient.returning(json: json))
+
+        let messages = try await repository.messages(inRoom: 1, page: 0, size: 10)
+        #expect(messages.map(\.content) == ["정상"])
+        #expect(messages.map(\.id) == [.server(3)])
+    }
+
+    @Test("전송 응답의 chatId를 돌려준다")
+    func returnsCreatedChatID() async throws {
+        let json = """
+        { "success": true, "message": "ok", "data": { "chatId": 157, "userId": 1,
+          "type": "DEFAULT", "content": "보냄", "createdAt": "2026-08-03T13:38:42" } }
+        """
+        let repository = DefaultChatRepository(client: MockHTTPClient.returning(json: json))
+
+        #expect(try await repository.send(roomID: 1, photoID: nil, content: "보냄") == 157)
     }
 
     // MARK: - 작성
@@ -122,14 +154,15 @@ struct DefaultChatRepositoryTests {
     func sendsMessage() async throws {
         let json = """
         { "success": true, "message": "ok", "data": { "chat":
-          { "type": "DEFAULT", "content": "보냄", "photoImageUrl": null,
+          { "chatId": 8, "userId": 108, "type": "DEFAULT", "content": "보냄", "photoImageUrl": null,
             "createdAt": "2026-08-03T13:38:42", "userName": "나", "userProfileImageUrl": null }
         } }
         """
         let client = MockHTTPClient.returning(json: json)
         let repository = DefaultChatRepository(client: client)
 
-        try await repository.send(roomID: 42, photoID: 7, content: "보냄")
+        let chatID = try await repository.send(roomID: 42, photoID: 7, content: "보냄")
+        #expect(chatID == nil) // 응답에 chatId가 없으면 nil이다 — 전송 자체는 성공으로 본다
 
         let request = try #require(client.requests.first)
         #expect(request.path == "/api/v1/chats/reaction")
@@ -149,13 +182,13 @@ struct DefaultChatRepositoryTests {
     func sendsZeroPhotoIDWhenNil() async throws {
         let json = """
         { "success": true, "message": "ok", "data": { "chat":
-          { "type": "DEFAULT", "content": "방메시지", "photoImageUrl": null,
+          { "chatId": 9, "userId": 109, "type": "DEFAULT", "content": "방메시지", "photoImageUrl": null,
             "createdAt": "2026-08-03T13:38:42", "userName": "나", "userProfileImageUrl": null } } }
         """
         let client = MockHTTPClient.returning(json: json)
         let repository = DefaultChatRepository(client: client)
 
-        try await repository.send(roomID: 1, photoID: nil, content: "방메시지")
+        _ = try await repository.send(roomID: 1, photoID: nil, content: "방메시지")
 
         let body = try #require(client.requests.first?.body)
         let payload = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -169,7 +202,8 @@ struct DefaultChatRepositoryTests {
     func mapsCommentAsPhotoMessage() async throws {
         let json = """
         { "success": true, "message": "ok", "data": { "chats": [
-          { "type": "COMMENT", "content": "이 사진 좋다", "photoImageUrl": "https://cdn.test/7.jpg",
+          { "chatId": 10, "userId": 110, "type": "COMMENT", "content": "이 사진 좋다",
+            "photoImageUrl": "https://cdn.test/7.jpg",
             "createdAt": "2026-08-03T13:38:42", "userName": "나", "userProfileImageUrl": null }
         ] } }
         """
@@ -203,7 +237,7 @@ struct DefaultChatRepositoryTests {
         let repository = DefaultChatRepository(client: client)
 
         await #expect(throws: ChatError.unauthorized) {
-            try await repository.send(roomID: 1, photoID: nil, content: "x")
+            _ = try await repository.send(roomID: 1, photoID: nil, content: "x")
         }
     }
 }

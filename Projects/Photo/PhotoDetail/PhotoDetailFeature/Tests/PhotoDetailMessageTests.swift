@@ -15,6 +15,7 @@ struct PhotoDetailMessageTests {
             #expect(roomID == Fixture.roomID)
             #expect(photoID == 1)
             #expect(content == "좋다")
+            return nil // 사진 상세는 생성된 chatId를 쓰지 않는다
         })
 
         await store.send(.view(.messageChanged("좋다"))) { $0.messageDraft = "좋다" }

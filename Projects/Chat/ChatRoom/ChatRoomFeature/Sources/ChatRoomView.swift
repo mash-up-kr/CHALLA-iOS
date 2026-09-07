@@ -14,7 +14,7 @@ public struct ChatRoomView: View {
     @Environment(\.challaTheme) private var theme
 
     /// 더보기로 이전 메시지를 위에 붙일 때, 스크롤 위치를 유지하려고 붙이기 직전의 맨 위 메시지 id를 기억한다.
-    @State private var anchorMessageID: UUID?
+    @State private var anchorMessageID: ChatMessage.ID?
 
     public init(store: StoreOf<ChatRoomFeature>) {
         self.store = store
@@ -31,7 +31,7 @@ public struct ChatRoomView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .alert($store.scope(state: \.alert, action: \.alert))
-        .onAppear { send(.onAppear) }
+        .task { send(.task) }
     }
 
     private var content: some View {
@@ -86,11 +86,18 @@ public struct ChatRoomView: View {
                         }
                         ChatMessageRow(
                             message: row.message,
-                            isMine: row.message.isMine(currentUserNickname: store.currentUserNickname),
+                            isMine: row.message.isMine(currentUserID: store.currentUserID),
                             isPhotoBlurred: !store.isPrinted
                         )
                         .id(row.message.id)
                     }
+
+                    // 목록 맨 아래 표식. LazyVStack 안에 있어 화면에 들어올 때만 나타난다.
+                    // iOS 17에는 스크롤 위치를 직접 읽는 API가 없어 이 방식으로 근사한다.
+                    Color.clear
+                        .frame(height: 1)
+                        .onAppear { send(.bottomVisibilityChanged(true)) }
+                        .onDisappear { send(.bottomVisibilityChanged(false)) }
                 }
                 .padding(.horizontal, Metric.listHorizontalPadding)
                 .padding(.vertical, Metric.listVerticalPadding)
@@ -107,7 +114,15 @@ public struct ChatRoomView: View {
                     ProgressView().tint(CHALLAColor.Label.neutral)
                 }
             }
+            .overlay(alignment: .bottom) {
+                if store.hasNewMessageBelow {
+                    newMessageButton(proxy)
+                }
+            }
+            // 남이 보낸 메시지에는 따라 내려가지 않는다 — 이전 대화를 읽는 중에 화면이 끌려 내려간다.
+            // 대신 아래의 새 메시지 버튼을 띄우고, 내려갈지는 사용자가 정한다.
             .onChange(of: store.messages.last?.id) {
+                guard store.messages.last?.isMine(currentUserID: store.currentUserID) == true else { return }
                 scrollToBottom(proxy)
             }
             // 이전 메시지를 위에 붙인 뒤, 붙이기 전 맨 위 메시지로 스크롤을 되돌려 위치를 유지한다.
@@ -117,6 +132,24 @@ public struct ChatRoomView: View {
                 anchorMessageID = nil
             }
         }
+    }
+
+    /// 새 메시지가 왔을 때만 뜨는 "맨 아래로" 버튼.
+    /// TODO: 시안 미확정 — 지름·아이콘은 임시값이다. 아이콘 자산에 아래 방향 캐럿이 없어 caretRight를 돌려 쓴다.
+    private func newMessageButton(_ proxy: ScrollViewProxy) -> some View {
+        Button {
+            scrollToBottom(proxy)
+            send(.scrollToBottomTapped)
+        } label: {
+            CHALLAIcon.caretRight.image(size: .size20, color: CHALLAColor.Label.normal)
+                .rotationEffect(.degrees(90))
+                .frame(width: Metric.newMessageButtonSize, height: Metric.newMessageButtonSize)
+                .background(CHALLAColor.Background.level4, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, Metric.newMessageButtonBottomPadding)
+        .accessibilityLabel("새 메시지 보기")
+        .transition(.scale.combined(with: .opacity))
     }
 
     private func dateDivider(_ date: Date) -> some View {
@@ -151,7 +184,7 @@ public struct ChatRoomView: View {
     // MARK: - 표시용 행 (날짜 구분선 삽입)
 
     private struct DisplayRow: Identifiable {
-        let id: UUID
+        let id: ChatMessage.ID
         let message: ChatMessage
         let showDateDivider: Bool
     }
@@ -180,6 +213,10 @@ public struct ChatRoomView: View {
 }
 
 private enum Metric {
+    // TODO: 시안 미확정 — 새 메시지 버튼의 임시 실측값.
+    static let newMessageButtonSize: CGFloat = 36
+    static let newMessageButtonBottomPadding: CGFloat = 12
+
     static let rowSpacing: CGFloat = 16
     static let loadMoreSpacing: CGFloat = 8
     static let listHorizontalPadding: CGFloat = 16

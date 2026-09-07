@@ -1,5 +1,6 @@
 import ChatDomain
 import Foundation
+import os
 import PhotoDomain
 
 /// 데모가 쓰는 고정 데이터.
@@ -8,7 +9,18 @@ enum DemoFixture {
     static let roomID: Int64 = -1
     static let roomTitle = "해피하우스 강릉 여행"
     /// 화면을 보는 사람 = 메시지를 보내는 사람(내 메시지 판별 기준).
+    static let currentUserID: Int64 = 1
     static let currentUserNickname = "아이스크림연준"
+
+    /// 데모 메시지에 붙일 서버 id를 순서대로 뽑는다.
+    private static let nextChatID = OSAllocatedUnfairLock(initialState: Int64(0))
+
+    static func makeChatID() -> Int64 {
+        nextChatID.withLock { value in
+            value += 1
+            return value
+        }
+    }
 
     static func messages() -> [ChatMessage] {
         [
@@ -34,10 +46,11 @@ enum DemoFixture {
         photo: String? = nil
     ) -> ChatMessage {
         ChatMessage(
-            id: UUID(),
+            id: .server(makeChatID()),
             kind: kind,
             content: content,
             photoImageURL: photo.flatMap(URL.init(string:)),
+            authorID: author == currentUserNickname ? currentUserID : Int64(abs(author.hashValue % 1000)) + 100,
             authorName: author,
             authorImageURL: URL(string: "https://picsum.photos/seed/challa-\(author.hashValue)/80/80"),
             createdAt: Date(timeIntervalSinceNow: offset)
