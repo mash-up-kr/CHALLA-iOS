@@ -11,8 +11,7 @@ let project = Project.makeAppProject(
     buildNumber: "1",
     additionalInfoPlist: [
         // TODO: 문구는 기획 미확정 — 확정 시 교체할 것 (App Store 심사 대상 문구).
-        "NSCameraUsageDescription": .string("카메라로 사진을 촬영하려면 카메라 접근이 필요해요."),
-        "NSPhotoLibraryAddUsageDescription": .string("촬영한 사진을 저장하려면 사진첩 접근이 필요해요.")
+        "NSCameraUsageDescription": .string("카메라로 사진을 촬영하려면 카메라 접근이 필요해요.")
     ],
     dependencies: [
         .cameraFeature, .cameraSession,

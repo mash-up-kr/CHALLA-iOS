@@ -10,9 +10,9 @@
 
 | 타입 | 설명 |
 | :-- | :-- |
-| `LiveCameraFeature` | `CameraFeature`를 감싼 리듀서. `delegate(.captureRequested)` → 촬영·사진첩 저장 → `captureCompleted`로 되돌림. 촬영 실패는 카메라 화면의 토스트로 3초 노출 |
+| `LiveCameraFeature` | `CameraFeature`를 감싼 리듀서. `delegate(.captureRequested)` → 촬영 → `captureCompleted`로 되돌림. 촬영 실패는 카메라 화면의 토스트로 3초 노출 |
 | `LiveCameraPreview` | `CameraView`의 `preview` 슬롯에 넣는 뷰. 세션 시작·정지를 뷰 생명주기에 맞추고 카메라 전환·줌·필터를 상태 변화대로 반영한다 |
-| `CameraSessionController` | `AVCaptureSession` 구성·프레임 공급·촬영·저장. `\.cameraSession` 의존성으로 주입되며 리듀서와 프리뷰가 같은 인스턴스를 본다 |
+| `CameraSessionController` | `AVCaptureSession` 구성·프레임 공급·촬영. `\.cameraSession` 의존성으로 주입되며 리듀서와 프리뷰가 같은 인스턴스를 본다 |
 | `CameraSessionError` | 촬영 데이터 생성 실패 |
 
 ## 권한
@@ -21,12 +21,10 @@
 이미 허용을 받아 뒀다는 뜻이라, `start(position:)`은 허용된 상태를 전제로 세션을 구성한다.
 권한 요청은 `PhotoDomain.CameraPermissionProvider`(구현: `PhotoData`)가 맡는다.
 
-사진첩 권한도 카메라와 같이 진입 버튼이 미리 받아 둔다. 저장은 `PhotoLibrary` 모듈의
-`PhotoLibraryStore`를 쓴다 (같은 일을 하는 타입을 두 벌 두지 않는다). 저장 직전에 한 번 더
-질의하는 것은 이 모듈만 단독으로 쓰는 경로(데모앱 등)를 위한 보루다 — 이미 결정된 상태면 팝업은 뜨지 않는다.
+촬영본은 **사용자 사진첩에 저장하지 않는다** — 찍은 사진은 업로드로만 이어지므로
+사진첩 권한도 필요 없다.
 
-실행 앱 Info.plist에 `NSCameraUsageDescription`·`NSPhotoLibraryAddUsageDescription`이 있어야 한다
-(없으면 접근하는 순간 크래시한다).
+실행 앱 Info.plist에 `NSCameraUsageDescription`이 있어야 한다 (없으면 접근하는 순간 크래시한다).
 
 ## 의존
 
@@ -35,5 +33,5 @@
 
 ## 테스트
 
-유닛테스트를 두지 않는다 — 실기기 카메라·사진첩이 있어야 의미가 있어 시뮬레이터에서 검증되지 않는다.
+유닛테스트를 두지 않는다 — 실기기 카메라가 있어야 의미가 있어 시뮬레이터에서 검증되지 않는다.
 리듀서 쪽 동작(촬영 요청 → 업로드)은 `CameraFeature`의 TestStore 테스트가 덮는다.
