@@ -9,7 +9,7 @@
 전부 `delegate`로 App에 알린다(규칙 3).
 
 방 설정 화면(이름 수정 드로어 포함)도 이 모듈이 갖는다 — 상세에서만 들어가는 화면이라
-별도 Feature로 쪼개지 않았다 (#82).
+별도 Feature로 쪼개지 않았다 (#82). 설정에서만 들어가는 커버 이미지 수정 화면도 같은 이유로 여기 둔다 (#107).
 
 **사진 찍기는 준비까지 마치고 넘긴다.** 카메라 화면은 아무것도 스스로 조회하지 않아서,
 버튼을 누르면 `ShootEntry`의 `ShootPreparation`이 촬영 가능 방 목록·필터(LUT 포함)·카메라/사진첩 권한을
@@ -66,7 +66,7 @@
 
 - `State(roomID:title:)` — 방 이름 행의 값과 이름 수정 드로어(`@Presents rename`)를 든다.
   이름 수정이 성공하면 행 값이 갱신된다
-- `Action.delegate` — `closeTapped`(뒤로) · `coverEditRequested`(커버 수정 화면 — #69에서 App이 연결)
+- `Action.delegate` — `closeTapped`(뒤로) · `coverEditRequested`(커버 수정 화면 요청 — App이 조립)
 - 상세 ↔ 설정 전환은 App이 한다. 돌아갈 때 App이 설정의 최신 제목으로 `Room`을 다시 조립해
   (`Room.renamed(to:)`) 재조회가 오기 전에도 새 이름이 보인다
 
@@ -78,6 +78,47 @@
   방 만들기와 같은 규칙(`RoomNameRule`) 하나를 쓴다
 - 성공하면 `delegate(.renamed(정제된 이름))`만 보낸다 — 행 값 갱신과 드로어 닫기는 부모(방 설정)가 한다
 
+### RoomCoverEditFeature / RoomCoverEditView (`Sources/CoverEdit/`)
+
+- `State(roomID:title:memberCount:cover:)` — 제목·인원은 미리보기 카드에 그리기만 하고, `cover`는 진입 시점의
+  `Room.cover`(서버 값)다
+  - `options`(색·스티커 목록, 진입 후 조회) · `cover`(화면이 그리는 값) · `savedCover`(진입 값, 저장 성공 시 갱신) ·
+    `localImageData`(방금 고른 사진 바이트) · `selectedColor`(칩 선택) · `isUploadingPhoto`(사진 업로드 중) ·
+    `isSaving`(뒤로가기 저장 진행 중) · `isPhotoPickerPresented` · `photoPickerItem` · `toast` · `alert`(저장 실패)
+  - `hasChanges`(computed) — `cover != savedCover`. App이 엣지 스와이프 pop을 막을 때 `isSaving`·`isUploadingPhoto`와 함께 본다
+- `Action.delegate` — `closeTapped`(뒤로). 설정 ↔ 커버 전환은 App이 하고, 돌아갈 때 `savedCover`를
+  `Room.withCover(_:)`로 방에 되돌려 넣는다
+- **뒤로가기 때 한 번 저장한다.** 완료 버튼이 없다 — 색·스티커·X 버튼·사진 선택은 `cover`만 바꾸고 저장하지 않는다.
+  `backButtonTapped`는 순서대로 판단한다:
+  1. `isUploadingPhoto`면 "사진을 올리는 중이에요. 잠시만 기다려 주세요" 토스트만 띄우고 나가지 않는다 —
+     화면이 사라지면 업로드 이펙트가 취소돼 URL이 유실된다
+  2. `isSaving`이면 무시한다 (뷰는 `isSaving` 동안 화면 전체를 `.disabled`로 잠그고 상단 바에 `CHALLALoadingDots`를 얹는다)
+  3. `hasChanges`가 아니면 바로 `delegate(.closeTapped)`
+  4. 변경이 있으면 그 시점의 `cover`로 `RoomCoverDraft`(사진 URL · 스티커 id · 색 id)를 만들어 `UpdateRoomCoverUseCase`를
+     부른다. 성공하면 `savedCover`를 갱신하고 `delegate(.closeTapped)`. 실패하면 얼럿 "커버를 저장하지 못했어요" —
+     "다시 시도"는 저장을 다시 부르고, "저장 안 함"은 `cover`를 `savedCover`로 되돌리고 `localImageData`를 버린 뒤 나간다
+  - 엣지 스와이프 pop 차단은 App 소관이라 여기서 다루지 않는다
+- 색은 스티커가 있을 때만 서버에 실린다. 스티커 없이 색을 탭하면 `selectedColor`만 바뀐다 —
+  다음에 붙이는 스티커가 그 색을 쓴다. 스티커가 있으면 그 스티커의 색을 바꾼다. 같은 색을 다시 탭하면 아무 일도 없다.
+  스티커는 같은 것을 다시 탭하면 빠지고, 다른 것을 탭하면 교체된다
+- 색·스티커 목록은 서버(`GET /rooms/cover-options`)가 준다 — `FetchRoomCoverOptionsUseCase`. 조회에 실패하면
+  "커버 옵션을 불러오지 못했어요" 토스트만 띄우고 재시도하지 않는다(뒤로 나갔다 들어오면 다시 조회).
+  옵션은 편집과 무관하므로 편집이 시작돼도 취소하지 않는다.
+  스티커 그림은 앱이 갖지 않는다 — 서버 `imageURL`(SVG)을 `RoomCoverUI`의 `RoomCoverStickerView`가 도형으로 받아 선택한 색으로 칠한다. 그림 주소가 없는 선택지는 셀을 그리지 않는다
+- 사진은 카메라 버튼 → 사진첩 권한(`PhotoLibrary`) → `PhotosPicker`. 고른 사진은 `CoverImageEncoder`가
+  카드 크기 여유분(400×532@3x)으로 줄여 JPEG로 인코딩한 뒤 `localImageData`에 넣고 화면에 바로 그린다.
+  **업로드는 고른 즉시 한다** — `UploadRoomCoverImageUseCase`로 URL을 받아(`isUploadingPhoto`) `cover.imageURL`에 싣는다.
+  뒤로가기 저장 한 번에 URL까지 실으려면 그때 이미 URL이 있어야 한다. `localImageData`는 저장 뒤에도 그대로 둔다 —
+  방금 올린 사진을 다시 내려받지 않는다
+  - 업로드 실패는 "사진을 올리지 못했어요"와 함께 `localImageData`를 버린다
+  - 권한이 거부되면 "설정에서 사진 접근을 허용해 주세요", 읽기·인코딩 실패는 "사진을 불러오지 못했어요"
+- X 버튼(`clearButtonTapped`)은 사진(로컬·서버)과 스티커를 함께 비운다 — 색은 다음 선택에 쓰이므로 남긴다.
+  둘 다 없으면 무시. 올리던 사진이 있으면 업로드를 취소한다 — 늦게 온 URL이 지운 사진을 되살리지 않게
+- `RoomCoverEditView(store:)` — 시안 '커버 이미지' 4장 + '스티커' 7장. 미리보기는 DS `CHALLARoomCard`의
+  `.plain` 변형을 그대로 쓴다(홈 카드와 같은 층 구조라 결과가 홈에서 그대로 재현된다).
+  사진은 `localImageData`가 있으면 `RoomCoverPhoto`로, 없으면 `cover.imageURL`을 `CHALLAAsyncImage`로 그린다.
+  스티커 셀의 접근성 라벨은 목록 순번("스티커 1"…)이다 — 서버가 도안 이름을 주지 않는다(TODO: 이름이 생기면 교체)
+
 ### CopyToPasteboard
 
 - 초대 코드 복사용 의존성. `UIPasteboard` 싱글턴 직접 접근을 막으려고 감쌌다(규칙: `@Dependency`로 주입)
@@ -86,7 +127,8 @@
 
 ## 의존성
 
-- **이 모듈이 의존**: `RoomDomain` · `PhotoDomain` · `ShootEntry`(촬영 진입 준비) ·
+- **이 모듈이 의존**: `RoomDomain` · `PhotoDomain` · `RoomCoverUI`(커버 색·스티커 매핑, 홈과 공유) · `ShootEntry`(촬영 진입 준비) ·
+  `PhotoLibrary`(사진첩 권한) · `CHALLAImageKit`(커버 사진 다운샘플) ·
   `ComposableArchitecture` · `CHALLADesignSystem`
 - **이 모듈에 의존**: `CHALLAApp`(조립) · `RoomDetailFeatureDemo`(데모)
 
@@ -108,13 +150,22 @@ TCA `TestStore`로 리듀서를 검증한다 — 진입 조회(상세+사진), �
 클립보드 복사와 토스트 타이머(`TestClock`), delegate 위임, 카운트다운 표기 규칙.
 `RoomDetailShootEntryTests`는 촬영 진입만 따로 본다 — 준비 중 표시와 재탭 무시, 성공 시 delegate,
 실패 얼럿과 설정 열기. 준비 자체(권한 순서·실패 판단)는 `ShootEntry` 테스트가 본다.
+커버 수정은 두 파일로 나뉜다 — `RoomCoverEditFeatureTests`가 편집(옵션 조회·색·스티커·사진 권한·X 버튼),
+`RoomCoverEditSaveTests`가 사진 업로드와 뒤로가기 저장(실패 얼럿·재시도·저장 안 함)을 본다.
 
 화면 확인은 데모앱으로 한다. 상태별로 실행 인자를 받는다:
 
 ```bash
 xcrun simctl launch booted com.challa.roomdetailfeature.demo \
   --screen detail --state <shooting|shootingPartial|printWaiting|printed|invite|error>
+xcrun simctl launch booted com.challa.roomdetailfeature.demo \
+  --screen coverEdit --state <empty|sticker|stickerImage|permissionDenied|saveError>
 ```
+
+커버 수정의 앞 셋은 시안 3장에 대응하고(`stickerImage`는 번들의 `DemoCoverPhoto.jpg`를 `localImageData`에 시드 —
+서버가 없어 URL 사진은 못 그린다), `permissionDenied`는 카메라를 눌렀을 때의 권한 토스트,
+`saveError`는 스티커를 고른 뒤 뒤로가기를 눌렀을 때의 저장 실패 얼럿(사진은 업로드 실패 토스트)을 재현한다. 옵션은 `RoomCoverOptions.preview`,
+저장소는 `InMemoryRoomRepository` + `InMemoryRoomCoverImageUploader`라 앱을 다시 켜면 초기 상태로 돌아간다.
 
 데모앱에는 카메라 화면이 없어 사진 찍기는 진입 요청(delegate)까지가 끝이다 —
 버튼이 로딩으로 바뀌었다 풀리는 것까지만 보인다. 권한도 값으로 갈아끼워 시스템 팝업이 뜨지 않는다.

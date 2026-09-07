@@ -19,6 +19,11 @@ struct DemoRootView: View {
                         NavigationLink("--state \(state.rawValue)", value: DemoScreen.settings(state))
                     }
                 }
+                Section("커버 이미지 (--screen coverEdit)") {
+                    ForEach(DemoScreen.CoverEditState.allCases, id: \.self) { state in
+                        NavigationLink("--state \(state.rawValue)", value: DemoScreen.coverEdit(state))
+                    }
+                }
             }
             .navigationTitle("방 상세 데모")
             .navigationDestination(for: DemoScreen.self) { screen in

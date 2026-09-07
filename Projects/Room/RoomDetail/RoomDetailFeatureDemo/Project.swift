@@ -8,6 +8,9 @@ let project = Project.makeAppProject(
     bundleId: "\(Environment.bundleIdPrefix).roomdetailfeature.demo",
     marketingVersion: "1.0.0",
     buildNumber: "1",
+    additionalInfoPlist: [
+        "NSPhotoLibraryUsageDescription": .string("커버 사진을 설정하려면 사진 접근이 필요해요.")
+    ],
     usesAPIEnvironment: false, // InMemory 저장소만 쓴다 — 서버 주소 불필요
     dependencies: [
         .roomDetailFeature, .roomDomain,
