@@ -14,6 +14,12 @@ protocol WebSocketChannel: Sendable {
     /// 메시지 한 개를 기다린다. 연결이 끊기면 오류를 던진다.
     func receive() async throws -> WebSocketFrame
 
+    /// 연결이 살아 있는지 확인한다. 끊겨 있으면 오류를 던진다.
+    ///
+    /// `receive()`만으로는 끊김을 알 수 없다 — 상대가 사라져도 `receive()`는 그대로 매달려 있다.
+    /// 양쪽 다 조용한 구간(서버가 STOMP 하트비트를 거절한 경우)에는 이것이 유일한 감지 수단이다.
+    func ping() async throws
+
     /// 실패한 업그레이드의 HTTP 상태 코드. delegate 없이 401을 판별하는 경로다.
     func handshakeStatusCode() async -> Int?
 
@@ -64,6 +70,19 @@ actor URLSessionWebSocketChannel: WebSocketChannel {
     func receive() async throws -> WebSocketFrame {
         guard let task else { throw STOMPError.notConnected }
         return try await WebSocketFrame(task.receive())
+    }
+
+    func ping() async throws {
+        guard let task else { throw STOMPError.notConnected }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            task.sendPing { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
     }
 
     func handshakeStatusCode() -> Int? {

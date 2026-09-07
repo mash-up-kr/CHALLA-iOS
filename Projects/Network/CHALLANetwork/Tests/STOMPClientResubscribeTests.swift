@@ -107,4 +107,39 @@ struct STOMPClientResubscribeTests {
 
         #expect(await reconnected.roomSubscribes.count > attemptsAfterFailure)
     }
+
+    // MARK: - 죽은 소켓 감지
+
+    @Test("서버가 하트비트를 거절해도 ping으로 살아 있는지 확인한다")
+    func pingsWhenServerDeclinesHeartbeat() async throws {
+        // 실서버가 heart-beat=0,0으로 답한다. 그러면 양쪽 다 아무것도 보내지 않아
+        // 연결이 끊겨도 receive()가 오류를 내지 않는다 — 확인할 수단이 ping뿐이다.
+        let factory = FakeChannelFactory()
+        let client = makeClient(factory: factory)
+
+        let stream = try await client.subscribe(to: "/topic/a")
+        let consumer = Task { for try await _ in stream {} }
+        defer { consumer.cancel() }
+        try await Task.sleep(for: .milliseconds(120))
+
+        #expect(await factory.channels[0].pingCount > 0)
+    }
+
+    @Test("ping이 실패하면 끊긴 것으로 보고 다시 붙는다")
+    func reconnectsWhenPingFails() async throws {
+        let factory = FakeChannelFactory()
+        let client = makeClient(factory: factory)
+
+        let stream = try await client.subscribe(to: "/topic/a")
+        let consumer = Task { for try await _ in stream {} }
+        defer { consumer.cancel() }
+        try await Task.sleep(for: .milliseconds(30))
+
+        // 소켓이 조용히 죽는다. receive()는 아무 일도 없다는 듯 매달려 있다.
+        await factory.channels[0].failPing()
+        try await Task.sleep(for: .milliseconds(200))
+
+        // 실패를 삼키면 죽은 소켓을 붙들고 영원히 기다린다 — 실기기에서 실제로 났다.
+        #expect(factory.channels.count >= 2)
+    }
 }

@@ -11,6 +11,8 @@ actor FakeWebSocketChannel: WebSocketChannel {
     private(set) var openedRequests: [URLRequest] = []
     private(set) var sentFrames: [WebSocketFrame] = []
     private(set) var closeCount = 0
+    private(set) var pingCount = 0
+    private var pingFails = false
 
     /// CONNECT에는 CONNECTED로, SUBSCRIBE에는 그 receipt-id를 단 RECEIPT로 자동 응답한다.
     /// 끄면 테스트가 응답 시점을 직접 잡을 수 있다.
@@ -62,6 +64,18 @@ actor FakeWebSocketChannel: WebSocketChannel {
         return try await withCheckedThrowingContinuation { continuation in
             waiter = continuation
         }
+    }
+
+    /// 살아 있는지 확인. `failPing()`을 켜면 끊긴 연결처럼 실패한다.
+    func ping() throws {
+        pingCount += 1
+        if pingFails {
+            throw STOMPError.notConnected
+        }
+    }
+
+    func failPing() {
+        pingFails = true
     }
 
     func handshakeStatusCode() -> Int? {

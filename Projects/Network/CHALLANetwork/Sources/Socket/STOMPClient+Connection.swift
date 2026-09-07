@@ -254,27 +254,43 @@ extension STOMPClient {
         wakeAllWaiters()
     }
 
-    // MARK: - 하트비트
+    // MARK: - 연결 확인
 
+    /// 연결이 살아 있는지 주기적으로 확인한다.
+    ///
+    /// 서버가 STOMP 하트비트를 거절하면(`heart-beat=0,0`, 실서버가 그렇다) 양쪽 다 아무것도
+    /// 보내지 않는다. 그 상태에서 연결이 끊기면 `receive()`는 오류를 내지 않고 그대로 매달려 있어,
+    /// 앱은 죽은 소켓을 붙들고 영원히 기다린다 — 실기기에서 실제로 났다.
+    /// 그래서 STOMP 하트비트를 못 보낼 때는 WebSocket ping으로 대신 확인한다.
     func startHeartbeat() {
         heartbeatTask?.cancel()
-        // 서버가 "받지 않겠다"고 답하면 보내지 않는다 (STOMP 1.2의 heart-beat 협상).
-        guard negotiatedHeartbeat > 0 else {
-            heartbeatTask = nil
-            return
-        }
-        let interval = Duration.milliseconds(negotiatedHeartbeat)
+        let generation = connectionGeneration
+        let interval = negotiatedHeartbeat > 0
+            ? Duration.milliseconds(negotiatedHeartbeat)
+            : Const.livenessInterval
+        let usesSTOMPHeartbeat = negotiatedHeartbeat > 0
         let sleep = self.sleep
         heartbeatTask = Task { [weak self] in
             while !Task.isCancelled {
                 do { try await sleep(interval) } catch { return }
-                await self?.sendHeartbeat()
+                await self?.checkLiveness(usingSTOMPHeartbeat: usesSTOMPHeartbeat, generation: generation)
             }
         }
     }
 
-    func sendHeartbeat() async {
-        try? await channel?.send(.text("\n"))
+    /// 한 번 확인한다. 실패는 끊김으로 다룬다 — 삼키면 재연결이 영영 걸리지 않는다.
+    func checkLiveness(usingSTOMPHeartbeat: Bool, generation: Int) async {
+        guard generation == connectionGeneration, let channel else { return }
+        do {
+            if usingSTOMPHeartbeat {
+                try await channel.send(.text("\n"))
+            } else {
+                try await channel.ping()
+            }
+        } catch {
+            log.note("연결 확인에 실패했다: \(error)")
+            await connectionDropped(error, generation: generation)
+        }
     }
 
     // MARK: - 대기 정리
@@ -295,4 +311,11 @@ extension STOMPClient {
             subscription.continuation.finish(throwing: error)
         }
     }
+}
+
+private enum Const {
+
+    /// STOMP 하트비트를 쓸 수 없을 때 연결이 살아 있는지 확인하는 주기.
+    /// 짧으면 배터리를 먹고, 길면 끊긴 것을 늦게 안다.
+    static let livenessInterval: Duration = .seconds(30)
 }

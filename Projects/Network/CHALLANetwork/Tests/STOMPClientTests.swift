@@ -40,7 +40,7 @@ struct STOMPClientTests {
         let client = makeClient(factory: factory)
 
         let first = Task { try await client.subscribe(to: "/topic/room/1/chat") }
-        let second = Task { try await client.subscribe(to: "/topic/room/1/member-joined") }
+        let second = Task { try await client.subscribe(to: "/user/queue/member-joined") }
         _ = try await first.value
         _ = try await second.value
 
@@ -111,7 +111,7 @@ struct STOMPClientTests {
         let client = makeClient(factory: factory)
 
         let chat = try await client.subscribe(to: "/topic/room/1/chat")
-        let joined = try await client.subscribe(to: "/topic/room/1/member-joined")
+        let joined = try await client.subscribe(to: "/user/queue/member-joined")
 
         let chatEvents = EventCollector()
         let joinedEvents = EventCollector()
