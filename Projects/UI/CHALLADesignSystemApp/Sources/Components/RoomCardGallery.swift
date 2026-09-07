@@ -14,6 +14,7 @@ struct RoomCardGallery: View {
                 shootSection
                 printWaitingSection
                 printedSection
+                plainSection
             }
             .padding(20)
             // 내용물이 전부 고정 폭(카드 200 등)이라 그대로 두면 ScrollView가 내용 폭만큼만
@@ -159,9 +160,44 @@ struct RoomCardGallery: View {
 
     /// picsum 실사진을 받아 카드에 주입한다. seed가 같으면 같은 사진이 온다.
     /// 로딩 중에도 카드와 같은 크기(200×266)로 자리를 잡아 레이아웃이 튀지 않게 한다.
+    private var plainSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            galleryTitle("Plain")
+            galleryCaption("하단 요소 없음 — 커버 수정 화면 미리보기용. 스티커 슬롯은 호출부가 채운다")
+            CHALLARoomCard(
+                title: "친구들과 유럽 여행",
+                memberCount: 12,
+                photo: nil,
+                variant: .plain
+            ) {
+                stickerSlotSample
+            }
+            galleryCaption("스티커 없음 — 바닥색만")
+            CHALLARoomCard(
+                title: "친구들과 유럽 여행",
+                memberCount: 12,
+                photo: nil,
+                variant: .plain
+            )
+        }
+    }
+
+    /// 슬롯이 카드 전체를 덮고 넘친 만큼 잘리는지 보려고 카드 밖까지 나가는 도형을 넣는다.
+    private var stickerSlotSample: some View {
+        ZStack {
+            Rectangle()
+                .fill(CHALLAColor.Primary.green.opacity(0.5))
+                .frame(height: 60)
+            Ellipse()
+                .fill(CHALLAColor.Primary.pink.opacity(0.5))
+                .frame(width: 260, height: 160)
+                .offset(y: 70)
+        }
+    }
+
     private func samplePhotoCard(
         seed: String,
-        @ViewBuilder makeCard: @escaping (Image) -> CHALLARoomCard
+        @ViewBuilder makeCard: @escaping (Image) -> CHALLARoomCard<EmptyView>
     ) -> some View {
         AsyncImage(url: URL(string: "https://picsum.photos/seed/\(seed)/400/532")) { photo in
             makeCard(photo)
