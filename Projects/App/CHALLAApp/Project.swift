@@ -11,7 +11,7 @@ let project = Project.makeAppProject(
         // 디자인 시스템이 다크 전용 팔레트라 시스템 라이트 모드에서도 다크로 고정한다
         "UIUserInterfaceStyle": .string("Dark"),
         // TODO: 임의 작성 문구 — 기획 확정 시 교체할 것. (없으면 권한 요청 시점에 앱이 크래시한다)
-        "NSPhotoLibraryUsageDescription": .string("프로필 사진을 설정하려면 사진 접근이 필요해요."),
+        "NSPhotoLibraryUsageDescription": .string("프로필·커버 사진을 설정하려면 사진 접근이 필요해요."),
         "NSCameraUsageDescription": .string("사진을 촬영하려면 카메라 접근이 필요해요."),
         "NSPhotoLibraryAddUsageDescription": .string("촬영한 사진을 저장하려면 사진첩 접근이 필요해요."),
         "KAKAO_NATIVE_APP_KEY": .string("$(KAKAO_NATIVE_APP_KEY)"),

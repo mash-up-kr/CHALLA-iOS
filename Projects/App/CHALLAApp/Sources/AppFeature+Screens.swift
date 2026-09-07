@@ -125,13 +125,54 @@ public extension AppFeature {
         public var room: Room
         /// 방 상세를 거쳐 홈까지 되돌아갈 때 이어 줄 직전 방 목록.
         public var homeCards: IdentifiedArrayOf<RoomCard>
+        /// 설정 화면은 쓰지 않는다 — 커버 수정 화면의 미리보기에 넘기려고 맡아 둔다.
+        public var memberCount: Int
         public var settings: RoomSettingsFeature.State
 
-        public init(profile: UserProfile, room: Room, homeCards: IdentifiedArrayOf<RoomCard> = []) {
+        public init(
+            profile: UserProfile,
+            room: Room,
+            homeCards: IdentifiedArrayOf<RoomCard> = [],
+            memberCount: Int = 0
+        ) {
             self.profile = profile
             self.room = room
             self.homeCards = homeCards
+            self.memberCount = memberCount
             self.settings = RoomSettingsFeature.State(roomID: room.id, title: room.title)
+        }
+    }
+}
+
+// MARK: - RoomCoverEditScreen
+
+public extension AppFeature {
+
+    /// 커버 수정 화면 State + 뒤로가기로 설정 화면을 다시 만들 때 돌려줄 값.
+    @ObservableState
+    struct RoomCoverEditScreen: Equatable {
+        public var profile: UserProfile
+        public var room: Room
+        public var homeCards: IdentifiedArrayOf<RoomCard>
+        public var memberCount: Int
+        public var coverEdit: RoomCoverEditFeature.State
+
+        public init(
+            profile: UserProfile,
+            room: Room,
+            homeCards: IdentifiedArrayOf<RoomCard> = [],
+            memberCount: Int
+        ) {
+            self.profile = profile
+            self.room = room
+            self.homeCards = homeCards
+            self.memberCount = memberCount
+            self.coverEdit = RoomCoverEditFeature.State(
+                roomID: room.id,
+                title: room.title,
+                memberCount: memberCount,
+                cover: room.cover
+            )
         }
     }
 }

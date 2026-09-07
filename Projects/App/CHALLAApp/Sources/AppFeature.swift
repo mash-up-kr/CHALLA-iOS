@@ -30,6 +30,7 @@ public struct AppFeature {
         case home(HomeScreen)
         case roomDetail(RoomDetailScreen)
         case roomSettings(RoomSettingsScreen)
+        case roomCoverEdit(RoomCoverEditScreen)
         case photoDetail(PhotoDetailScreen)
         case chat(ChatScreen)
         case setting(SettingScreen)
@@ -49,6 +50,7 @@ public struct AppFeature {
             case .home: return .home
             case .roomDetail: return .roomDetail
             case .roomSettings: return .roomSettings
+            case .roomCoverEdit: return .roomCoverEdit
             case .photoDetail: return .photoDetail
             case .chat: return .chat
             case .setting: return .setting
@@ -59,7 +61,8 @@ public struct AppFeature {
         }
 
         public enum ScreenID: Equatable, Sendable {
-            case launching, login, profileSetup, home, roomDetail, roomSettings, photoDetail, chat, setting, profileEdit, camera
+            case launching, login, profileSetup, home, roomDetail, roomSettings, roomCoverEdit
+            case photoDetail, chat, setting, profileEdit, camera
             case forceUpdate
         }
     }
@@ -76,6 +79,7 @@ public struct AppFeature {
         case home(HomeFeature.Action)
         case roomDetail(RoomDetailFeature.Action)
         case roomSettings(RoomSettingsFeature.Action)
+        case roomCoverEdit(RoomCoverEditFeature.Action)
         case photoDetail(PhotoDetailFeature.Action)
         case chat(ChatRoomFeature.Action)
         case setting(SettingFeature.Action)
@@ -88,6 +92,8 @@ public struct AppFeature {
         case splashMinimumHoldFinished
         /// 강제 업데이트 알럿의 '확인'.
         case forceUpdateConfirmTapped
+        /// 커버 화면을 스와이프로 닫으며 맡긴 저장이 실패했다 — 맡아 둔 방의 커버를 저장 전 값으로 되돌린다.
+        case roomCoverSaveFailed(roomID: Room.ID, previousCover: RoomCover)
         /// 엣지 스와이프 pop 제스처 완료. 자식의 뒤로가기 delegate와 같은 곳으로 되돌린다.
         case popGestureCompleted
     }
@@ -105,6 +111,7 @@ public struct AppFeature {
     @Dependency(\.pushTokenSynchronizer) var pushTokenSynchronizer
     @Dependency(\.checkAppUpdateUseCase) var checkAppUpdateUseCase
     @Dependency(\.openURL) var openURL
+    @Dependency(\.updateRoomCoverUseCase) var updateRoomCoverUseCase
 
     // MARK: - Body
 
@@ -130,6 +137,11 @@ public struct AppFeature {
             .ifCaseLet(\.roomSettings, action: \.roomSettings) {
                 Scope(state: \.settings, action: \.self) {
                     RoomSettingsFeature()
+                }
+            }
+            .ifCaseLet(\.roomCoverEdit, action: \.roomCoverEdit) {
+                Scope(state: \.coverEdit, action: \.self) {
+                    RoomCoverEditFeature()
                 }
             }
             .ifCaseLet(\.photoDetail, action: \.photoDetail) {
@@ -196,6 +208,10 @@ extension AppFeature {
             case .forceUpdateConfirmTapped:
                 guard case let .forceUpdate(storeURL) = state, let url = storeURL else { return .none }
                 return .run { [openURL] _ in await openURL(url) }
+
+            case let .roomCoverSaveFailed(roomID, previousCover):
+                revertRoomCover(roomID: roomID, to: previousCover, &state)
+                return .none
 
             case .sessionRestored(.restored):
                 return fetchMyProfile()
@@ -290,7 +306,11 @@ extension AppFeature {
                     RoomSettingsScreen(
                         profile: screen.profile,
                         room: screen.roomDetail.room,
-                        homeCards: screen.homeCards
+                        homeCards: screen.homeCards,
+                        // 커버 미리보기가 그릴 인원수. 상세 조회 전이면 홈 카드 값으로 메운다.
+                        memberCount: screen.roomDetail.detail?.members.count
+                            ?? screen.homeCards[id: screen.roomDetail.room.id]?.memberCount
+                            ?? 0
                     )
                 )
                 return .none
@@ -381,7 +401,13 @@ extension AppFeature {
                 return .none
 
             case .roomSettings(.delegate(.coverEditRequested)):
-                // TODO: #69 커버 수정 화면이 생기면 연결한다.
+                openCoverEdit(&state)
+                return .none
+
+            // MARK: - 커버 수정 delegate
+
+            case .roomCoverEdit(.delegate(.closeTapped)):
+                closeCoverEdit(&state)
                 return .none
 
             // MARK: - 설정 delegate
@@ -416,39 +442,11 @@ extension AppFeature {
                 state = .setting(SettingScreen(profile: screen.profile, homeCards: screen.homeCards))
                 return .none
 
-            // MARK: - 인터랙티브 pop
-
-            // 제스처는 뷰가 직접 보내므로 자식 delegate를 거치지 않는다. 각 화면의 뒤로가기 case와
-            // 같은 전이를 유지해야 한다 (수정 시 위 delegate case들과 함께 고칠 것).
             case .popGestureCompleted:
-                switch state {
-                case let .roomDetail(screen):
-                    state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
-                case let .photoDetail(screen):
-                    state = .roomDetail(
-                        RoomDetailScreen(profile: screen.profile, room: screen.room, homeCards: screen.homeCards)
-                    )
-                case let .chat(screen):
-                    state = .roomDetail(
-                        RoomDetailScreen(profile: screen.profile, room: screen.room, homeCards: screen.homeCards)
-                    )
-                case let .roomSettings(screen):
-                    state = .roomDetail(RoomDetailScreen(
-                        profile: screen.profile,
-                        room: screen.room.renamed(to: screen.settings.title),
-                        homeCards: screen.homeCards
-                    ))
-                case let .setting(screen):
-                    state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
-                case let .profileEdit(screen):
-                    // 뒤로가기(cancelled)와 같은 의미 — 편집 중 변경은 반영하지 않는다.
-                    state = .setting(SettingScreen(profile: screen.profile, homeCards: screen.homeCards))
-                default:
-                    break
-                }
-                return .none
+                return popCurrentScreen(&state)
 
-            case .login, .profileSetup, .home, .roomDetail, .roomSettings, .photoDetail, .chat, .setting, .profileEdit, .camera:
+            case .login, .profileSetup, .home, .roomDetail, .roomSettings, .roomCoverEdit,
+                 .photoDetail, .chat, .setting, .profileEdit, .camera:
                 return .none
             }
         }
