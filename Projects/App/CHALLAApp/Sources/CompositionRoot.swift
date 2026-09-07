@@ -54,11 +54,7 @@ enum CompositionRoot {
             onSessionExpired: { sessionExpiration.notify() }
         )
         let client = makeClient(refresher: refresher, tokenStore: tokenStore)
-        let stompClient = makeSTOMPClient(
-            tokenStore: tokenStore,
-            refresher: refresher,
-            sessionExpiration: sessionExpiration
-        )
+        let stompClient = makeSTOMPClient(tokenStore: tokenStore, refresher: refresher)
 
         let userRepository = DefaultUserRepository(client: client)
         let settings = DefaultSettingsRepository()
@@ -245,14 +241,12 @@ enum CompositionRoot {
     /// 경우가 있어, 알려 주지 않으면 복귀 후 실시간이 조용히 멎는다.
     private static func makeSTOMPClient(
         tokenStore: KeychainTokenStore,
-        refresher: AuthTokenRefresher,
-        sessionExpiration: SessionExpirationChannel
+        refresher: AuthTokenRefresher
     ) -> STOMPClient {
         let client = STOMPClient(
             url: CHALLAAPIEnvironment.webSocketURL,
             tokenProvider: tokenStore,
             tokenRefresher: refresher,
-            onSessionExpired: { sessionExpiration.notify() },
             // 릴리스에서는 끈다 — 프레임 본문에 채팅 내용이 실린다.
             logLevel: socketLogLevel
         )

@@ -17,12 +17,25 @@ actor FakeWebSocketChannel: WebSocketChannel {
     private let autoRespond: Bool
     private let stubbedStatusCode: Int?
 
+    /// 이 프레임의 전송을 실패시킬지 묻는다. 재구독 전송이 깨졌을 때의 동작을 볼 때 쓴다.
+    private let shouldFailSend: @Sendable (STOMPFrame) -> Bool
+
     private var queued: [Result<WebSocketFrame, any Error>] = []
     private var waiter: CheckedContinuation<WebSocketFrame, any Error>?
 
-    init(autoRespond: Bool = false, handshakeStatusCode: Int? = nil) {
+    init(
+        autoRespond: Bool = false,
+        handshakeStatusCode: Int? = nil,
+        initialFailure: (any Error)? = nil,
+        shouldFailSend: @escaping @Sendable (STOMPFrame) -> Bool = { _ in false }
+    ) {
         self.autoRespond = autoRespond
         stubbedStatusCode = handshakeStatusCode
+        self.shouldFailSend = shouldFailSend
+        // 업그레이드부터 실패하는 채널. 첫 receive()가 곧바로 이 오류로 깨진다.
+        if let initialFailure {
+            queued.append(.failure(initialFailure))
+        }
     }
 
     // MARK: - WebSocketChannel
@@ -31,8 +44,13 @@ actor FakeWebSocketChannel: WebSocketChannel {
         openedRequests.append(request)
     }
 
-    func send(_ frame: WebSocketFrame) {
+    func send(_ frame: WebSocketFrame) throws {
+        // 실패한 전송도 기록한다 — 몇 번 시도했는지가 검증 대상이다.
         sentFrames.append(frame)
+        let decoded = STOMPCodec.decode(frame.payload).frames
+        if decoded.contains(where: shouldFailSend) {
+            throw STOMPError.notConnected
+        }
         guard autoRespond else { return }
         respond(to: frame)
     }
@@ -78,7 +96,7 @@ actor FakeWebSocketChannel: WebSocketChannel {
 
     /// 보낸 프레임을 STOMP 프레임으로 되읽는다. 헤더까지 검증할 때 쓴다.
     var sentSTOMPFrames: [STOMPFrame] {
-        sentText.flatMap { (try? STOMPCodec.decode(Data($0.utf8)))?.frames ?? [] }
+        sentText.flatMap { STOMPCodec.decode(Data($0.utf8)).frames }
     }
 
     func sentCount(of command: STOMPCommand) -> Int {
@@ -89,11 +107,19 @@ actor FakeWebSocketChannel: WebSocketChannel {
         sentSTOMPFrames.first { $0.command == command.rawValue }
     }
 
+    /// 서버 공통 오류 채널을 뺀 구독. 그건 클라이언트가 연결할 때마다 스스로 거는 것이라
+    /// 대부분의 테스트에서는 관심사가 아니다.
+    var roomSubscribes: [STOMPFrame] {
+        sentSTOMPFrames.filter {
+            $0.command == STOMPCommand.subscribe.rawValue
+                && $0.headers[STOMPFrame.Header.destination] != STOMPClient.errorDestination
+        }
+    }
+
     // MARK: - 내부
 
     private func respond(to frame: WebSocketFrame) {
-        guard let decoded = try? STOMPCodec.decode(frame.payload) else { return }
-        for sent in decoded.frames {
+        for sent in STOMPCodec.decode(frame.payload).frames {
             switch sent.knownCommand {
             case .connect:
                 push("CONNECTED\nversion:1.2\n\n\u{0}")
@@ -121,12 +147,28 @@ actor FakeWebSocketChannel: WebSocketChannel {
 final class FakeChannelFactory: Sendable {
 
     private let created = OSAllocatedUnfairLock(initialState: [FakeWebSocketChannel]())
+    private let failingCommands = OSAllocatedUnfairLock(initialState: Set<String>())
     private let autoRespond: Bool
     private let handshakeStatusCode: Int?
+    private let initialFailure: (any Error)?
 
-    init(autoRespond: Bool = true, handshakeStatusCode: Int? = nil) {
+    init(
+        autoRespond: Bool = true,
+        handshakeStatusCode: Int? = nil,
+        initialFailure: (any Error)? = nil
+    ) {
         self.autoRespond = autoRespond
         self.handshakeStatusCode = handshakeStatusCode
+        self.initialFailure = initialFailure
+    }
+
+    /// 지금부터 만들어지는 채널이 이 명령의 전송을 실패시킨다. 이미 만들어진 채널에도 적용된다.
+    func failSends(of command: STOMPCommand) {
+        failingCommands.withLock { $0.insert(command.rawValue) }
+    }
+
+    func stopFailingSends() {
+        failingCommands.withLock { $0.removeAll() }
     }
 
     var channels: [FakeWebSocketChannel] {
@@ -134,7 +176,13 @@ final class FakeChannelFactory: Sendable {
     }
 
     func make() -> any WebSocketChannel {
-        let channel = FakeWebSocketChannel(autoRespond: autoRespond, handshakeStatusCode: handshakeStatusCode)
+        let failing = failingCommands
+        let channel = FakeWebSocketChannel(
+            autoRespond: autoRespond,
+            handshakeStatusCode: handshakeStatusCode,
+            initialFailure: initialFailure,
+            shouldFailSend: { frame in failing.withLock { $0.contains(frame.command) } }
+        )
         created.withLock { $0.append(channel) }
         return channel
     }

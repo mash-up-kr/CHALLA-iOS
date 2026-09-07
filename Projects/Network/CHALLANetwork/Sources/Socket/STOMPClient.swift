@@ -12,54 +12,66 @@ public actor STOMPClient: STOMPClienting {
 
     // MARK: - 주입값
 
-    private let url: URL
-    private let tokenProvider: any TokenProvider
-    private let tokenRefresher: (any TokenRefreshing)?
-    private let onSessionExpired: @Sendable () -> Void
-    private let makeChannel: @Sendable () -> any WebSocketChannel
-    private let sleep: @Sendable (Duration) async throws -> Void
-    private let connectTimeout: Duration
-    private let receiptTimeout: Duration
-    private let idleDisconnectDelay: Duration
-    private let heartbeatMilliseconds: Int
-    private let log: STOMPLogger
+    //
+    // 아래 값들에 `private`을 붙이지 않은 이유: 이 actor의 동작부가 파일 길이 때문에
+    // `STOMPClient+Connection.swift`로 갈라져 있고, `private`은 파일 단위라 그쪽에서 닿지 못한다.
+    // 모듈 밖으로는 여전히 보이지 않는다.
+
+    let url: URL
+    let tokenProvider: any TokenProvider
+    let tokenRefresher: (any TokenRefreshing)?
+    let makeChannel: @Sendable () -> any WebSocketChannel
+    let sleep: @Sendable (Duration) async throws -> Void
+    let connectTimeout: Duration
+    let receiptTimeout: Duration
+    let idleDisconnectDelay: Duration
+    let heartbeatMilliseconds: Int
+    let log: STOMPLogger
 
     // MARK: - 상태
 
-    private struct Subscription {
+    struct Subscription {
         let id: String
         let destination: String
         /// 재연결 때 그대로 재사용한다 — 진행 중이던 구독 대기가 고아가 되지 않게.
         let receiptID: String
+        /// 이 구독을 실제로 보낸 연결의 세대. 재연결이 이미 걸린 구독을 또 보내지 않게 하는 표식이다.
+        var sentOnGeneration: Int?
         let continuation: AsyncThrowingStream<STOMPEvent, any Error>.Continuation
     }
 
     /// 살아 있는 구독. 이 사전의 크기가 곧 참조 카운트다 (별도 정수를 두면 어긋난다).
-    private var subscriptions: [String: Subscription] = [:]
+    var subscriptions: [String: Subscription] = [:]
 
-    private var channel: (any WebSocketChannel)?
-    private var connectTask: Task<Void, any Error>?
-    private var readLoop: Task<Void, Never>?
-    private var heartbeatTask: Task<Void, Never>?
-    private var reconnectTask: Task<Void, Never>?
-    private var idleDisconnectTask: Task<Void, Never>?
+    var channel: (any WebSocketChannel)?
+    var connectTask: Task<Void, any Error>?
+    var readLoop: Task<Void, Never>?
+    var heartbeatTask: Task<Void, Never>?
+    var reconnectTask: Task<Void, Never>?
+    var idleDisconnectTask: Task<Void, Never>?
 
-    private var nextSubscriptionNumber = 0
-    private var reconnectAttempt = 0
+    var nextSubscriptionNumber = 0
+    var reconnectAttempt = 0
     /// 연결 세대. 옛 연결의 읽기 루프가 뒤늦게 보내는 통지로 새 연결이 무너지지 않게 하는 표식이다.
-    private var connectionGeneration = 0
-    private var consecutiveConnectFailures = 0
+    var connectionGeneration = 0
+    /// 이번 연결 주기에서 토큰 갱신을 이미 시도했는지. CONNECTED를 받으면 풀린다.
+    var didRefreshTokenThisCycle = false
 
-    private var connectedArrived = false
+    var connectedArrived = false
     /// CONNECTED로 협상된 송신 하트비트 간격(ms). 0이면 보내지 않는다.
-    private var negotiatedHeartbeat = 0
-    private var connectedWaiter: AsyncStream<Void>.Continuation?
-    private var receiptWaiters: [String: AsyncStream<Void>.Continuation] = [:]
+    var negotiatedHeartbeat = 0
+    /// 서버 공통 오류 채널의 구독 id. 참조 카운트(`subscriptions`)에는 넣지 않는다 —
+    /// 이 구독만으로 연결을 살려 둘 이유가 없다.
+    let errorSubscriptionID = "sub-errors"
+    var connectedWaiter: AsyncStream<Void>.Continuation?
+    var receiptWaiters: [String: AsyncStream<Void>.Continuation] = [:]
     /// 대기가 자리를 잡기 전에 도착한 RECEIPT.
-    private var arrivedReceipts: Set<String> = []
+    var arrivedReceipts: Set<String> = []
 
-    private var isBackgrounded = false
-    private var isUnauthorized = false
+    var isBackgrounded = false
+    /// 인증 갱신까지 실패해 재연결을 멈춘 상태. 새 구독이 들어오면 풀린다 —
+    /// 재로그인 뒤에도 앱을 껐다 켤 때까지 실시간이 죽어 있으면 안 된다.
+    var isReconnectSuspended = false
 
     // MARK: - 생성
 
@@ -68,7 +80,6 @@ public actor STOMPClient: STOMPClienting {
         url: URL,
         tokenProvider: any TokenProvider,
         tokenRefresher: (any TokenRefreshing)? = nil,
-        onSessionExpired: @escaping @Sendable () -> Void = {},
         logLevel: STOMPLogger.Level = .none
     ) {
         self.init(
@@ -76,7 +87,6 @@ public actor STOMPClient: STOMPClienting {
             url: url,
             tokenProvider: tokenProvider,
             tokenRefresher: tokenRefresher,
-            onSessionExpired: onSessionExpired,
             makeChannel: { URLSessionWebSocketChannel() }
         )
     }
@@ -87,7 +97,6 @@ public actor STOMPClient: STOMPClienting {
         url: URL,
         tokenProvider: any TokenProvider,
         tokenRefresher: (any TokenRefreshing)? = nil,
-        onSessionExpired: @escaping @Sendable () -> Void = {},
         makeChannel: @escaping @Sendable () -> any WebSocketChannel,
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         connectTimeout: Duration = .seconds(10),
@@ -98,7 +107,6 @@ public actor STOMPClient: STOMPClienting {
         self.url = url
         self.tokenProvider = tokenProvider
         self.tokenRefresher = tokenRefresher
-        self.onSessionExpired = onSessionExpired
         self.makeChannel = makeChannel
         self.sleep = sleep
         self.connectTimeout = connectTimeout
@@ -111,7 +119,8 @@ public actor STOMPClient: STOMPClienting {
     // MARK: - STOMPClienting
 
     public func subscribe(to destination: String) async throws -> AsyncThrowingStream<STOMPEvent, any Error> {
-        guard !isUnauthorized else { throw STOMPError.unauthorized }
+        // 새 구독은 다시 시도해 볼 기회다. 재로그인 직후가 이 경로로 들어온다.
+        isReconnectSuspended = false
 
         idleDisconnectTask?.cancel()
         idleDisconnectTask = nil
@@ -128,6 +137,7 @@ public actor STOMPClient: STOMPClienting {
             id: id,
             destination: destination,
             receiptID: "receipt-\(id)",
+            sentOnGeneration: nil,
             continuation: continuation
         )
         continuation.onTermination = { [weak self] _ in
@@ -135,6 +145,11 @@ public actor STOMPClient: STOMPClienting {
             guard let self else { return }
             Task { await self.release(id) }
         }
+
+        // 백그라운드에서는 소켓을 열지 않는다. 등록만 해 두면 포그라운드 복귀 때
+        // `reconnect()`가 이 구독까지 함께 건다 — 여기서 열면 OS가 곧 끊을 연결을
+        // 만들어 두고, 그 끊김이 재연결 루프를 깨운다.
+        guard !isBackgrounded else { return stream }
 
         do {
             try await ensureConnected()
@@ -156,7 +171,7 @@ public actor STOMPClient: STOMPClienting {
 
     public func applicationWillEnterForeground() async {
         isBackgrounded = false
-        guard !subscriptions.isEmpty, !isUnauthorized else { return }
+        guard !subscriptions.isEmpty, !isReconnectSuspended else { return }
         // 백그라운드 동안 놓친 구간은 각 스트림의 `.resumed`를 받은 쪽이 REST로 메운다.
         reconnectAttempt = 0
         await reconnect()
@@ -172,7 +187,7 @@ extension STOMPClient {
 
     /// 동시에 여러 구독이 들어와도 CONNECT는 한 번만 나간다.
     /// actor의 모든 await가 재진입 지점이라, memoize하지 않으면 연결이 두 개 열린다.
-    private func ensureConnected() async throws {
+    func ensureConnected() async throws {
         if let connectTask {
             return try await connectTask.value
         }
@@ -189,6 +204,9 @@ extension STOMPClient {
     }
 
     private func performConnect() async throws {
+        // 앞선 시도가 타임아웃으로 빠져나갔으면 그 채널이 아직 열려 있다. 닫지 않으면 소켓이 쌓인다.
+        await channel?.close()
+
         let channel = makeChannel()
         self.channel = channel
         connectedArrived = false
@@ -212,23 +230,71 @@ extension STOMPClient {
         log.sent(connect)
         try await channel.send(.text(connect.encoded()))
 
-        try await withSTOMPTimeout(connectTimeout, sleep: sleep) { await self.parkForConnected() }
-        guard connectedArrived else { throw STOMPError.connectTimeout }
+        do {
+            try await withSTOMPTimeout(connectTimeout, sleep: sleep) { await self.parkForConnected() }
+        } catch {
+            // 소켓은 열렸는데 CONNECTED가 오지 않은 경우다. 정리하지 않으면 읽기 루프와 함께
+            // 프로세스가 끝날 때까지 열린 채 남는다.
+            await teardownConnection()
+            throw error
+        }
+        guard connectedArrived else {
+            await teardownConnection()
+            throw STOMPError.connectTimeout
+        }
 
-        consecutiveConnectFailures = 0
+        didRefreshTokenThisCycle = false
+        await subscribeToErrorChannel(on: channel)
         startHeartbeat()
     }
 
-    private func sendSubscribe(_ id: String) async throws {
-        guard let subscription = subscriptions[id], let channel else { return }
+    /// 서버가 인증 오류와 잘못된 destination 구독을 알리는 공통 채널.
+    /// 여기로 오는 것은 화면에 전달하지 않고 로그로만 남긴다. 원인 추적용이다.
+    private func subscribeToErrorChannel(on channel: any WebSocketChannel) async {
+        let frame = STOMPFrame.subscribe(
+            id: errorSubscriptionID,
+            destination: Self.errorDestination,
+            receipt: "receipt-" + errorSubscriptionID
+        )
+        log.sent(frame)
+        try? await channel.send(.text(frame.encoded()))
+    }
+
+    func sendSubscribe(_ id: String) async throws {
+        guard var subscription = subscriptions[id], let channel else { return }
+        // 이미 이 연결에서 건 구독은 다시 보내지 않는다. 같은 연결에 같은 id를 두 번 보내면
+        // 브로커가 ERROR로 답하고 연결을 닫는다.
+        guard subscription.sentOnGeneration != connectionGeneration else { return }
+        let generation = connectionGeneration
+        // 보내기 "전에" 표시해 둔다 — 표시가 없으면 겹쳐 들어온 재구독이 같은 프레임을 두 번 보낸다.
+        // 대신 전송이 실패하면 되돌린다. 실패한 채로 표시를 남기면 이 연결에서 다시 걸 기회가
+        // 영영 사라지고, `reconnect()`가 보내지도 못한 구독에 `.resumed`를 알린다.
+        subscription.sentOnGeneration = generation
+        subscriptions[id] = subscription
         let frame = STOMPFrame.subscribe(
             id: id,
             destination: subscription.destination,
             receipt: subscription.receiptID
         )
         log.sent(frame)
-        try await channel.send(.text(frame.encoded()))
+        do {
+            try await channel.send(.text(frame.encoded()))
+        } catch {
+            clearSentGeneration(id, ifStillAt: generation)
+            throw error
+        }
         await awaitReceipt(subscription.receiptID)
+    }
+
+    /// 전송에 실패한 구독의 세대 표시를 되돌린다.
+    ///
+    /// 전송을 기다리는 동안 actor가 재진입해 구독이 해제되거나 다시 걸렸을 수 있다.
+    /// 그래서 "내가 표시한 그 세대 그대로일 때"만 지운다 — 아니면 남의 표시를 지운다.
+    func clearSentGeneration(_ id: String, ifStillAt generation: Int) {
+        guard var subscription = subscriptions[id],
+              subscription.sentOnGeneration == generation else { return }
+        subscription.sentOnGeneration = nil
+        subscriptions[id] = subscription
     }
 
     /// RECEIPT가 오지 않아도 실패로 보지 않는다 — SUBSCRIBE 프레임은 이미 소켓에 실렸고,
@@ -258,252 +324,6 @@ extension STOMPClient {
         connectedWaiter = continuation
         for await _ in stream {
             break
-        }
-    }
-
-    // MARK: - 읽기
-
-    private func startReadLoop(on channel: any WebSocketChannel, generation: Int) {
-        readLoop?.cancel()
-        readLoop = Task { [weak self] in
-            // 한 프레임이 WebSocket 메시지 여러 개에 걸쳐 오므로 남은 꼬리를 이어 붙인다.
-            var buffer = Data()
-            while !Task.isCancelled {
-                do {
-                    try await buffer.append(channel.receive().payload)
-                    let decoded = try STOMPCodec.decode(buffer)
-                    buffer = decoded.remainder
-                    for frame in decoded.frames {
-                        await self?.handle(frame, generation: generation)
-                    }
-                } catch let error as STOMPError where error.isMalformedFrame {
-                    buffer = Data() // 깨진 바이트만 버리고 계속 읽는다
-                } catch {
-                    await self?.connectionDropped(error, generation: generation)
-                    return
-                }
-            }
-        }
-    }
-
-    private func handle(_ frame: STOMPFrame, generation: Int) async {
-        log.received(frame)
-        guard generation == connectionGeneration else { return }
-        switch frame.knownCommand {
-        case .connected:
-            connectedArrived = true
-            negotiatedHeartbeat = stompOutgoingHeartbeat(
-                clientCanSend: heartbeatMilliseconds,
-                connectedHeader: frame.headers[STOMPFrame.Header.heartBeat]
-            )
-            connectedWaiter?.finish()
-            connectedWaiter = nil
-
-        case .message:
-            guard
-                let id = frame.headers[STOMPFrame.Header.subscription],
-                let subscription = subscriptions[id]
-            else { return }
-            subscription.continuation.yield(.message(frame.body))
-
-        case .receipt:
-            guard let receiptID = frame.headers[STOMPFrame.Header.receiptID] else { return }
-            if let waiter = receiptWaiters.removeValue(forKey: receiptID) {
-                waiter.finish()
-            } else {
-                arrivedReceipts.insert(receiptID)
-            }
-
-        case .error:
-            // 명세상 서버는 ERROR 뒤 연결을 닫는다. 끊김과 같은 경로로 처리한다.
-            let message = frame.headers[STOMPFrame.Header.message] ?? ""
-            await connectionDropped(STOMPError.server(message: message), generation: generation)
-
-        default:
-            return
-        }
-    }
-
-    // MARK: - 끊김과 재연결
-
-    private func connectionDropped(_ error: any Error, generation: Int) async {
-        // 이미 새 연결로 갈아탄 뒤 도착한 옛 연결의 끊김 통지는 버린다.
-        // (백그라운드에서 끊고 곧바로 포그라운드로 돌아올 때 실제로 겹친다.)
-        guard generation == connectionGeneration else { return }
-        heartbeatTask?.cancel(); heartbeatTask = nil
-        // 이 메서드는 읽기 루프 안에서만 불린다. 자기 자신을 취소하지 않고 참조만 놓는다.
-        readLoop = nil
-        connectTask = nil
-
-        let statusCode = await channel?.handshakeStatusCode()
-        if !connectedArrived {
-            consecutiveConnectFailures += 1
-        }
-        await channel?.close()
-        channel = nil
-        wakeAllWaiters()
-
-        let reason = String(describing: error)
-        let handshake = statusCode.map(String.init) ?? "-"
-        log.note("연결이 끊겼다 (handshake=\(handshake)): \(reason)")
-        guard !subscriptions.isEmpty, !isBackgrounded, !isUnauthorized else { return }
-
-        if isLikelyAuthFailure(statusCode: statusCode) {
-            await handleAuthFailure()
-        } else {
-            scheduleReconnect()
-        }
-    }
-
-    /// 401을 직접 볼 수 있으면 그걸 쓰고, 못 보면 "CONNECTED를 한 번도 못 받고 두 번 연속 실패"를 근거로 삼는다.
-    private func isLikelyAuthFailure(statusCode: Int?) -> Bool {
-        if statusCode == 401 {
-            return true
-        }
-        return !connectedArrived && consecutiveConnectFailures >= 2
-    }
-
-    private func handleAuthFailure() async {
-        let staleToken = await tokenProvider.accessToken()
-        let refreshed = await tokenRefresher?.refreshToken(replacing: staleToken) ?? false
-        guard refreshed else {
-            // 여기서 멈추지 않으면 401 핸드셰이크를 1초마다 영원히 두들긴다.
-            isUnauthorized = true
-            onSessionExpired()
-            finishAll(STOMPError.unauthorized)
-            return
-        }
-        consecutiveConnectFailures = 0
-        scheduleReconnect(immediately: true)
-    }
-
-    private func scheduleReconnect(immediately: Bool = false) {
-        reconnectTask?.cancel()
-        let delay = immediately ? .zero : Self.backoff(attempt: reconnectAttempt)
-        if !immediately {
-            reconnectAttempt += 1
-        }
-
-        let sleep = self.sleep
-        reconnectTask = Task { [weak self] in
-            if delay > .zero {
-                do { try await sleep(delay) } catch { return }
-            }
-            guard !Task.isCancelled else { return }
-            await self?.reconnect()
-        }
-    }
-
-    private func reconnect() async {
-        guard !subscriptions.isEmpty, !isBackgrounded, !isUnauthorized else { return }
-        do {
-            try await ensureConnected()
-            for id in Array(subscriptions.keys) {
-                try await sendSubscribe(id)
-            }
-            reconnectAttempt = 0
-            // 스트림은 끊지 않는다. 받는 쪽이 이 신호를 보고 놓친 구간을 REST로 메운다.
-            for subscription in subscriptions.values {
-                subscription.continuation.yield(.resumed)
-            }
-        } catch {
-            scheduleReconnect()
-        }
-    }
-
-    static func backoff(attempt: Int) -> Duration {
-        .seconds(backoffSeconds[min(attempt, backoffSeconds.count - 1)])
-    }
-
-    private static let backoffSeconds = [1, 2, 4, 8, 30]
-
-    // MARK: - 구독 해제와 유휴 종료
-
-    private func release(_ id: String) async {
-        // 제거를 먼저 해서 어떤 경로로 두 번 불려도 한 번만 동작하게 한다.
-        guard let subscription = subscriptions.removeValue(forKey: id) else { return }
-        receiptWaiters.removeValue(forKey: subscription.receiptID)?.finish()
-        arrivedReceipts.remove(subscription.receiptID)
-
-        if let channel {
-            try? await channel.send(.text(STOMPFrame.unsubscribe(id: id).encoded()))
-        }
-        scheduleIdleDisconnect()
-    }
-
-    /// 바로 끊지 않고 잠깐 둔다 — 방 상세와 채팅을 오갈 때마다 핸드셰이크를 다시 하지 않도록.
-    private func scheduleIdleDisconnect() {
-        guard subscriptions.isEmpty else { return }
-        idleDisconnectTask?.cancel()
-
-        let sleep = self.sleep
-        let delay = idleDisconnectDelay
-        idleDisconnectTask = Task { [weak self] in
-            do { try await sleep(delay) } catch { return }
-            guard !Task.isCancelled else { return }
-            await self?.disconnectIfIdle()
-        }
-    }
-
-    private func disconnectIfIdle() async {
-        guard subscriptions.isEmpty else { return }
-        if let channel {
-            try? await channel.send(.text(STOMPFrame.disconnect().encoded()))
-        }
-        await teardownConnection()
-    }
-
-    private func teardownConnection() async {
-        // 세대를 넘겨 옛 읽기 루프의 통지를 미리 무효화한다.
-        connectionGeneration += 1
-        heartbeatTask?.cancel(); heartbeatTask = nil
-        readLoop?.cancel(); readLoop = nil
-        connectTask = nil
-        await channel?.close()
-        channel = nil
-        connectedArrived = false
-        wakeAllWaiters()
-    }
-
-    // MARK: - 하트비트
-
-    private func startHeartbeat() {
-        heartbeatTask?.cancel()
-        // 서버가 "받지 않겠다"고 답하면 보내지 않는다 (STOMP 1.2의 heart-beat 협상).
-        guard negotiatedHeartbeat > 0 else {
-            heartbeatTask = nil
-            return
-        }
-        let interval = Duration.milliseconds(negotiatedHeartbeat)
-        let sleep = self.sleep
-        heartbeatTask = Task { [weak self] in
-            while !Task.isCancelled {
-                do { try await sleep(interval) } catch { return }
-                await self?.sendHeartbeat()
-            }
-        }
-    }
-
-    private func sendHeartbeat() async {
-        try? await channel?.send(.text("\n"))
-    }
-
-    // MARK: - 대기 정리
-
-    private func wakeAllWaiters() {
-        connectedWaiter?.finish()
-        connectedWaiter = nil
-        for waiter in receiptWaiters.values {
-            waiter.finish()
-        }
-        receiptWaiters.removeAll()
-    }
-
-    private func finishAll(_ error: any Error) {
-        let all = subscriptions
-        subscriptions.removeAll()
-        for subscription in all.values {
-            subscription.continuation.finish(throwing: error)
         }
     }
 }

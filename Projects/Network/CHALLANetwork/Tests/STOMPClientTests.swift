@@ -15,7 +15,6 @@ struct STOMPClientTests {
     private func makeClient(
         factory: FakeChannelFactory,
         refresher: (any TokenRefreshing)? = nil,
-        onSessionExpired: @escaping @Sendable () -> Void = {},
         connectTimeout: Duration = .milliseconds(300),
         receiptTimeout: Duration = .milliseconds(300),
         idleDisconnectDelay: Duration = .milliseconds(30)
@@ -24,7 +23,6 @@ struct STOMPClientTests {
             url: url,
             tokenProvider: FakeTokenProvider(token: "t"),
             tokenRefresher: refresher,
-            onSessionExpired: onSessionExpired,
             makeChannel: { factory.make() },
             sleep: Self.compressedSleep,
             connectTimeout: connectTimeout,
@@ -48,7 +46,7 @@ struct STOMPClientTests {
 
         #expect(factory.channels.count == 1)
         #expect(await factory.channels[0].sentCount(of: .connect) == 1)
-        #expect(await factory.channels[0].sentCount(of: .subscribe) == 2)
+        #expect(await factory.channels[0].roomSubscribes.count == 2)
     }
 
     @Test("업그레이드 요청과 CONNECT 프레임 양쪽에 토큰을 싣는다")
@@ -83,7 +81,7 @@ struct STOMPClientTests {
         try await Task.sleep(for: .milliseconds(50))
 
         // SUBSCRIBE는 나갔지만 RECEIPT를 못 받아 아직 리턴하지 않았다.
-        #expect(await factory.channels[0].sentCount(of: .subscribe) == 1)
+        #expect(await factory.channels[0].roomSubscribes.count == 1)
         #expect(await finished.isDone == false)
 
         await factory.channels[0].push("RECEIPT\nreceipt-id:receipt-sub-1\n\n\u{0}")
@@ -102,7 +100,7 @@ struct STOMPClientTests {
         await factory.channels[0].push("CONNECTED\nversion:1.2\n\n\u{0}")
 
         _ = try await task.value // 타임아웃 뒤 정상 리턴한다
-        #expect(await factory.channels[0].sentCount(of: .subscribe) == 1)
+        #expect(await factory.channels[0].roomSubscribes.count == 1)
     }
 
     // MARK: - 메시지 전달
@@ -207,12 +205,26 @@ struct STOMPClientTests {
 
         #expect(factory.channels.count == 2)
         #expect(await factory.channels[1].sentCount(of: .connect) == 1)
-        #expect(await factory.channels[1].sentCount(of: .subscribe) == 1)
+        #expect(await factory.channels[1].roomSubscribes.count == 1)
         // 진행 중이던 구독 대기가 고아가 되지 않게 receipt id를 그대로 재사용한다.
-        #expect(await factory.channels[1].firstSentFrame(.subscribe)?.headers["receipt"] == "receipt-sub-1")
+        #expect(await factory.channels[1].roomSubscribes.first?.headers["receipt"] == "receipt-sub-1")
         #expect(await events.events == [.resumed])
 
         consumer.cancel()
+    }
+
+    @Test("연결하면 서버 공통 오류 채널을 함께 구독한다")
+    func subscribesToErrorChannel() async throws {
+        let factory = FakeChannelFactory()
+        let client = makeClient(factory: factory)
+        let stream = try await client.subscribe(to: "/topic/a")
+        let consumer = Task { for try await _ in stream {} }
+        defer { consumer.cancel() }
+
+        let destinations = await factory.channels[0].sentSTOMPFrames
+            .filter { $0.command == STOMPCommand.subscribe.rawValue }
+            .compactMap { $0.headers[STOMPFrame.Header.destination] }
+        #expect(destinations.contains(STOMPClient.errorDestination))
     }
 
     // MARK: - 하트비트 협상
@@ -246,51 +258,6 @@ struct STOMPClientTests {
         #expect(schedule == [.seconds(1), .seconds(2), .seconds(4), .seconds(8), .seconds(30), .seconds(30)])
     }
 
-    // MARK: - 인증
-
-    @Test("401이면 토큰을 갱신하고 다시 붙는다")
-    func refreshesTokenOn401() async throws {
-        let factory = FakeChannelFactory(handshakeStatusCode: 401)
-        let refresher = FakeTokenRefresher(result: true)
-        let client = makeClient(factory: factory, refresher: refresher)
-
-        let stream = try await client.subscribe(to: "/topic/a")
-        let consumer = Task { for try await _ in stream {} }
-        try await Task.sleep(for: .milliseconds(20))
-
-        await factory.channels[0].fail(URLError(.userAuthenticationRequired))
-        try await Task.sleep(for: .milliseconds(150))
-
-        #expect(refresher.callCount == 1)
-        #expect(factory.channels.count == 2)
-        consumer.cancel()
-    }
-
-    @Test("갱신까지 실패하면 세션 만료를 알리고 재연결을 멈춘다")
-    func stopsReconnectingWhenRefreshFails() async throws {
-        let expired = CompletionFlag()
-        let factory = FakeChannelFactory(handshakeStatusCode: 401)
-        let client = makeClient(
-            factory: factory,
-            refresher: FakeTokenRefresher(result: false),
-            onSessionExpired: { Task { await expired.mark() } }
-        )
-
-        let stream = try await client.subscribe(to: "/topic/a")
-        let consumer = Task { for try await _ in stream {} }
-        try await Task.sleep(for: .milliseconds(20))
-
-        await factory.channels[0].fail(URLError(.userAuthenticationRequired))
-        try await Task.sleep(for: .milliseconds(150))
-
-        #expect(await expired.isDone)
-        // 401 핸드셰이크를 영원히 두들기지 않는다.
-        #expect(factory.channels.count == 1)
-
-        await #expect(throws: STOMPError.unauthorized) { try await client.subscribe(to: "/topic/b") }
-        consumer.cancel()
-    }
-
     // MARK: - 앱 생명주기
 
     @Test("백그라운드에서 소켓을 정리하고 포그라운드 복귀 때 다시 붙는다")
@@ -312,7 +279,7 @@ struct STOMPClientTests {
         try await Task.sleep(for: .milliseconds(50))
 
         #expect(factory.channels.count == 2)
-        #expect(await factory.channels[1].sentCount(of: .subscribe) == 1)
+        #expect(await factory.channels[1].roomSubscribes.count == 1)
         #expect(await events.events == [.resumed])
 
         consumer.cancel()

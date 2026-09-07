@@ -10,9 +10,25 @@ enum STOMPCodec {
     private static let carriageReturn: UInt8 = 0x0D
     private static let null: UInt8 = 0x00
 
-    /// - Returns: 완성된 프레임들과, 아직 끝나지 않은 마지막 프레임의 바이트(`remainder`).
+    /// 한 프레임 본문의 상한. 채팅·참여 이벤트는 수 KB를 넘지 않는다.
+    private static let maxBodyLength = 4 * 1024 * 1024
+
+    /// - Returns: 완성된 프레임들, 아직 끝나지 않은 마지막 프레임의 바이트(`remainder`),
+    ///   그리고 도중에 만난 오류(`error`).
+    ///
     ///   한 프레임이 WebSocket 메시지 여러 개에 걸쳐 오므로, 호출부는 remainder를 다음 메시지 앞에 이어 붙인다.
-    static func decode(_ buffer: Data) throws -> (frames: [STOMPFrame], remainder: Data) {
+    ///
+    ///   오류를 던지지 않고 돌려주는 이유: 한 덩어리에 정상 프레임 여러 개와 깨진 것 하나가 섞여 올 수 있다.
+    ///   던져 버리면 이미 읽어 둔 정상 프레임까지 함께 사라져 채팅이 조용히 유실된다.
+    struct Decoded {
+        let frames: [STOMPFrame]
+        /// 아직 끝나지 않은 마지막 프레임의 바이트. 다음 메시지 앞에 이어 붙인다.
+        let remainder: Data
+        /// 도중에 만난 오류. 앞서 읽은 `frames`는 그대로 쓸 수 있다.
+        let error: STOMPError?
+    }
+
+    static func decode(_ buffer: Data) -> Decoded {
         let bytes = [UInt8](buffer)
         var frames: [STOMPFrame] = []
         var index = 0
@@ -20,13 +36,21 @@ enum STOMPCodec {
         while true {
             // 프레임 사이에 오는 개행은 하트비트다.
             index = skippingEndOfLines(bytes, from: index)
-            guard index < bytes.count else { return (frames, Data()) }
+            guard index < bytes.count else { return Decoded(frames: frames, remainder: Data(), error: nil) }
 
-            guard let parsed = try parseFrame(bytes, from: index) else {
-                return (frames, Data(bytes[index...])) // 프레임이 아직 다 오지 않았다
+            do {
+                guard let parsed = try parseFrame(bytes, from: index) else {
+                    return Decoded(frames: frames, remainder: Data(bytes[index...]), error: nil)
+                }
+                frames.append(parsed.frame)
+                index = parsed.next
+            } catch let error as STOMPError {
+                // 깨진 지점부터는 어디가 프레임 경계인지 알 수 없어 남은 바이트를 버린다.
+                // 이미 읽어 둔 정상 프레임은 그대로 돌려준다.
+                return Decoded(frames: frames, remainder: Data(), error: error)
+            } catch {
+                return Decoded(frames: frames, remainder: Data(), error: .malformedFrame(reason: error.localizedDescription))
             }
-            frames.append(parsed.frame)
-            index = parsed.next
         }
     }
 
@@ -77,10 +101,15 @@ enum STOMPCodec {
         headers: [String: String]
     ) throws -> (frame: STOMPFrame, next: Int)? {
         if let raw = headers[STOMPFrame.Header.contentLength] {
-            guard let length = Int(raw), length >= 0 else {
-                throw STOMPError.malformedFrame(reason: "content-length가 숫자가 아닙니다: \(raw)")
+            guard let length = Int(raw), length >= 0, length <= maxBodyLength else {
+                // 상한을 두는 이유: 네트워크가 준 값을 그대로 더하면 Int가 넘쳐 프로세스가 죽고,
+                // 넘치지 않을 만큼 큰 값이면 영원히 "덜 왔다"로 판정돼 버퍼가 무한히 쌓인다.
+                throw STOMPError.malformedFrame(reason: "content-length가 올바르지 않습니다: \(raw)")
             }
-            let bodyEnd = index + length
+            let (bodyEnd, overflowed) = index.addingReportingOverflow(length)
+            guard !overflowed else {
+                throw STOMPError.malformedFrame(reason: "content-length가 범위를 넘습니다: \(raw)")
+            }
             guard bytes.count > bodyEnd else { return nil } // 본문과 NULL이 아직 다 오지 않았다
             guard bytes[bodyEnd] == null else {
                 throw STOMPError.malformedFrame(reason: "content-length 뒤에 NULL이 없습니다.")
