@@ -292,4 +292,66 @@ struct RootFeatureTests {
 
         #expect(store.state.joinToast == nil)
     }
+
+    @Test("재시도를 다 쓴 뒤에도 방 목록이 바뀌면 다시 시도할 수 있다")
+    func retryBudgetResetsWhenSubscribingAnew() async {
+        let spy = SpyRoomEventStream()
+        var initialState = RootFeature.State()
+        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        // 앞선 장애로 재시도를 다 쓴 상태.
+        initialState.roomEventRetryCount = 3
+
+        let cards = [Fixture.card(id: 11)]
+        let store = TestStore(initialState: initialState) {
+            RootFeature()
+        } withDependencies: {
+            $0.continuousClock = ImmediateClock()
+            $0.observeRoomMemberJoinedUseCase = spy.useCase
+            $0.fetchRoomsUseCase = FetchRoomsUseCase(run: { cards })
+        }
+        store.exhaustivity = .off
+
+        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.finish()
+
+        // 예산을 되돌리지 않으면 이후 어떤 장애에도 다시 걸지 않는다.
+        #expect(store.state.roomEventRetryCount == 0)
+    }
+
+    @Test("실시간이 다시 붙으면(.resumed) 재시도 예산을 되돌린다")
+    func retryBudgetResetsOnResume() async {
+        var initialState = RootFeature.State()
+        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.roomEventRetryCount = 3
+
+        let store = TestStore(initialState: initialState) {
+            RootFeature()
+        } withDependencies: {
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off
+
+        await store.send(.roomEvent(.resumed))
+
+        #expect(store.state.roomEventRetryCount == 0)
+    }
+
+    @Test("구독이 실패하면 정해진 횟수만 다시 걸고 멈춘다")
+    func retriesSubscriptionABoundedNumberOfTimes() async {
+        var initialState = RootFeature.State()
+        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.roomEventRetryCount = 3
+
+        let store = TestStore(initialState: initialState) {
+            RootFeature()
+        } withDependencies: {
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off
+
+        // 예산을 다 쓴 뒤의 실패는 더 시도하지 않는다 — 죽은 서버를 계속 두드리지 않는다.
+        await store.send(.roomEventsFailed)
+
+        #expect(store.state.roomEventRetryCount == 3)
+    }
 }

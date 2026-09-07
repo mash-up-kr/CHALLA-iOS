@@ -331,7 +331,8 @@ public struct RoomDetailFeature {
     }
 
     enum CancelID {
-        case detail, photos, toast, printRefresh, prepareShoot, inviteGuide, printNotice, downloadAll
+        case detail, quietDetailRefresh, photos, toast, printRefresh, prepareShoot, inviteGuide, printNotice,
+             downloadAll
     }
 
     private enum Const {
@@ -398,12 +399,15 @@ private extension RoomDetailFeature {
     }
 
     /// 실패해도 얼럿을 띄우지 않는다 — 배경에서 도는 조회라 사용자가 부른 적이 없다.
+    ///
+    /// 취소 id를 `fetchDetail`과 따로 둔다. 같이 쓰면 진입 조회가 끝나기 전에 참여 이벤트가 왔을 때
+    /// 그 조회를 취소해 버리고, 이쪽은 실패를 삼키므로 `detailLoad`가 `.loading`에 영영 묶인다.
     private func refreshDetailQuietly(id: Room.ID) -> Effect<Action> {
         .run { [fetchRoomDetailUseCase] send in
             guard let detail = try? await fetchRoomDetailUseCase.run(id) else { return }
             await send(.detailResponse(.success(detail)))
         }
-        .cancellable(id: CancelID.detail, cancelInFlight: true)
+        .cancellable(id: CancelID.quietDetailRefresh, cancelInFlight: true)
     }
 
     func fetchDetail(id: Room.ID) -> Effect<Action> {

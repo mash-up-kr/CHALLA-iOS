@@ -1,4 +1,5 @@
 @testable import RoomData
+import CHALLANetwork
 import Foundation
 import RoomDomain
 import Testing
@@ -50,5 +51,52 @@ struct RoomEventSubscriberTests {
     func returnsNilForGarbage() {
         #expect(subscriber.decode(Data("{}".utf8)) == nil)
         #expect(subscriber.decode(Data("깨진본문".utf8)) == nil)
+    }
+}
+
+@Suite("RoomEventSubscriber — 합친 스트림의 끝")
+struct RoomEventSubscriberTerminationTests {
+
+    private func collect(
+        _ outcome: @escaping @Sendable (String) -> ScriptedSTOMPClient.Outcome
+    ) async -> (any Error)? {
+        let subscriber = RoomEventSubscriber(client: ScriptedSTOMPClient(outcome: outcome))
+        do {
+            let events = try await subscriber.memberJoinedEvents(inRooms: [1, 2])
+            for try await _ in events {}
+            return nil
+        } catch {
+            return error
+        }
+    }
+
+    @Test("건 구독이 전부 오류로 끊기면 합친 스트림도 오류로 끝난다")
+    func propagatesFailureWhenEveryStreamBreaks() async {
+        // 정상 종료로 끝내면 받는 쪽이 "구독을 거뒀다"로 읽어 다시 걸지 않는다 —
+        // 잠깐의 장애로 참여 알림이 영영 죽은 채 남는다.
+        let error = await collect { _ in .failsWith(STOMPError.notConnected) }
+
+        #expect(error != nil)
+    }
+
+    @Test("하나만 끊겨도 오류로 알린다 — 그 방의 알림이 조용히 빠지는 것을 막는다")
+    func propagatesFailureWhenOneStreamBreaks() async {
+        let error = await collect { destination in
+            destination == RoomDestination.memberJoined(roomID: 1)
+                ? .failsWith(STOMPError.notConnected)
+                : .finishes
+        }
+
+        #expect(error != nil)
+    }
+
+    @Test("전부 정상 종료면 오류 없이 끝난다 — 구독을 거둔 것이라 다시 걸 일이 아니다")
+    func finishesQuietlyWhenEveryStreamEndsNormally() async {
+        #expect(await collect { _ in .finishes } == nil)
+    }
+
+    @Test("하나도 걸지 못하면 오류를 던진다")
+    func throwsWhenNothingSubscribed() async {
+        #expect(await collect { _ in .subscribeFails } != nil)
     }
 }

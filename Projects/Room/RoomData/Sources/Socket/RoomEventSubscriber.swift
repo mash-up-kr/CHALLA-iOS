@@ -44,14 +44,27 @@ public struct RoomEventSubscriber: RoomEventStreaming {
             return opened
         }
 
+        // 하나도 못 걸었으면 오류로 알린다.
+        // 빈 스트림을 돌려주면 받는 쪽이 "정상 종료"와 구별하지 못해, 다시 걸어야 할지 알 수 없다.
+        guard !streams.isEmpty else {
+            throw STOMPError.notConnected
+        }
+
         return AsyncThrowingStream { continuation in
             let remaining = ActiveStreamCount(streams.count)
             let tasks = streams.map { stream in
                 Task {
-                    await forward(stream, to: continuation)
+                    let failure = await forward(stream, to: continuation)
                     // 마지막 방의 구독까지 끝나야 합친 스트림도 끝난다.
-                    if await remaining.decrement() == 0 {
-                        continuation.finish()
+                    if await remaining.finish(failure: failure) == 0 {
+                        // 하나라도 오류로 끊겼으면 오류로 끝낸다. 정상 종료로 끝내면
+                        // 받는 쪽이 "구독을 거뒀다"로 읽어 다시 걸지 않고, 참여 알림이
+                        // 그대로 죽은 채 남는다.
+                        if let failure = await remaining.failure {
+                            continuation.finish(throwing: failure)
+                        } else {
+                            continuation.finish()
+                        }
                     }
                 }
             }
@@ -60,10 +73,14 @@ public struct RoomEventSubscriber: RoomEventStreaming {
         }
     }
 
+    /// 한 구독을 합친 스트림으로 흘린다. 끊긴 이유가 오류면 그 오류를 돌려준다.
+    ///
+    /// 여기서 바로 `finish(throwing:)`을 하지 않는 이유 — 방 하나가 끊겨도
+    /// 나머지 방의 알림은 계속 받아야 한다. 오류는 마지막 하나까지 끝난 뒤에 알린다.
     private func forward(
         _ events: AsyncThrowingStream<STOMPEvent, any Error>,
         to continuation: AsyncThrowingStream<RoomMemberJoinedEvent, any Error>.Continuation
-    ) async {
+    ) async -> (any Error)? {
         do {
             for try await event in events {
                 switch event {
@@ -75,8 +92,12 @@ public struct RoomEventSubscriber: RoomEventStreaming {
                     continuation.yield(.resumed)
                 }
             }
+            return nil
+        } catch is CancellationError {
+            // 소비가 끝나서 거둔 것이다. 다시 걸 일이 아니다.
+            return nil
         } catch {
-            // 방 하나가 끊겨도 다른 방의 알림은 계속 받는다.
+            return error
         }
     }
 
@@ -91,16 +112,22 @@ public struct RoomEventSubscriber: RoomEventStreaming {
     }
 }
 
-/// 합친 스트림 중 몇 개가 아직 살아 있는지 센다.
+/// 합친 스트림 중 몇 개가 아직 살아 있는지 세고, 끊긴 이유를 기억한다.
 private actor ActiveStreamCount {
 
     private var count: Int
+
+    /// 오류로 끊긴 구독이 있으면 그 중 처음 것. 전부 정상 종료면 nil이다.
+    private(set) var failure: (any Error)?
 
     init(_ count: Int) {
         self.count = count
     }
 
-    func decrement() -> Int {
+    func finish(failure: (any Error)?) -> Int {
+        if self.failure == nil {
+            self.failure = failure
+        }
         count -= 1
         return count
     }
