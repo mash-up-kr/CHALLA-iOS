@@ -118,7 +118,7 @@ struct DefaultChatRepositoryTests {
 
     // MARK: - 작성
 
-    @Test("작성은 roomId·photoId·DEFAULT·content를 담아 POST하고 응답을 도메인으로 돌려준다")
+    @Test("사진에 보낸 메시지는 /chats/reaction 으로 COMMENT를 POST한다")
     func sendsMessage() async throws {
         let json = """
         { "success": true, "message": "ok", "data": { "chat":
@@ -132,7 +132,7 @@ struct DefaultChatRepositoryTests {
         try await repository.send(roomID: 42, photoID: 7, content: "보냄")
 
         let request = try #require(client.requests.first)
-        #expect(request.path == "/api/v1/chats")
+        #expect(request.path == "/api/v1/chats/reaction")
         #expect(request.method == .post)
         #expect(request.usesBearerToken)
 
@@ -141,7 +141,7 @@ struct DefaultChatRepositoryTests {
         let chat = try #require(payload?["chat"] as? [String: Any])
         #expect(chat["roomId"] as? Int == 42)
         #expect(chat["photoId"] as? Int == 7)
-        #expect(chat["type"] as? String == "DEFAULT")
+        #expect(chat["type"] as? String == "COMMENT")
         #expect(chat["content"] as? String == "보냄")
     }
 
@@ -161,6 +161,27 @@ struct DefaultChatRepositoryTests {
         let payload = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         let chat = try #require(payload?["chat"] as? [String: Any])
         #expect(chat["photoId"] as? Int == 0)
+        #expect(chat["type"] as? String == "DEFAULT")
+        #expect(client.requests.first?.path == "/api/v1/chats")
+    }
+
+    @Test("COMMENT는 사진과 글을 함께 보여주는 사진 메시지로 매핑한다")
+    func mapsCommentAsPhotoMessage() async throws {
+        let json = """
+        { "success": true, "message": "ok", "data": { "chats": [
+          { "type": "COMMENT", "content": "이 사진 좋다", "photoImageUrl": "https://cdn.test/7.jpg",
+            "createdAt": "2026-08-03T13:38:42", "userName": "나", "userProfileImageUrl": null }
+        ] } }
+        """
+        let client = MockHTTPClient.returning(json: json)
+        let repository = DefaultChatRepository(client: client)
+
+        let messages = try await repository.messages(inRoom: 42, page: 0, size: 20)
+
+        let message = try #require(messages.first)
+        #expect(message.kind == .photo)
+        #expect(message.content == "이 사진 좋다")
+        #expect(message.photoImageURL?.absoluteString == "https://cdn.test/7.jpg")
     }
 
     // MARK: - 오류 정규화

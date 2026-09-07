@@ -25,7 +25,12 @@ enum PhotoFixture {
         )
     }
 
-    static func reaction(_ kind: ReactionKind = .thumbsUp, by userID: String = "user-me") -> PhotoReaction {
-        PhotoReaction(kind: kind, userID: userID)
+    /// 서버에서 온 리액션 한 건. 채팅 id가 곧 신원이라 값을 다르게 줘야 서로 다른 스티커가 된다.
+    static func reaction(
+        _ kind: ReactionKind = .thumbsUp,
+        by userID: String = "user-me",
+        chatID: Int64 = 1
+    ) -> PhotoReaction {
+        PhotoReaction(chatID: chatID, kind: kind, userID: userID)
     }
 }

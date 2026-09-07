@@ -135,7 +135,8 @@ public extension AppFeature {
                 roomID: room.id,
                 roomTitle: room.title,
                 // 내 메시지(오른쪽 흰 버블) 판별 기준. 서버가 userId를 주면 그때 교체한다.
-                currentUserNickname: profile.nickname ?? ""
+                currentUserNickname: profile.nickname ?? "",
+                isPrinted: room.status == .printed
             )
         }
     }

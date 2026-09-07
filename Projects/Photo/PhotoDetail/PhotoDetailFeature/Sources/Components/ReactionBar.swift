@@ -2,7 +2,7 @@ import CHALLADesignSystem
 import PhotoDomain
 import SwiftUI
 
-/// 사진 아래 리액션 버튼 줄. 10종이 5개씩 두 페이지로 나뉘어 좌우 스와이프된다.
+/// 가로 스크롤을 지원하는 이모지 선택 목록.
 /// 내가 이미 남긴 리액션 칩의 경우 테마색 적용
 struct ReactionBar: View {
 
@@ -13,39 +13,23 @@ struct ReactionBar: View {
     let selectedKinds: Set<ReactionKind>
     let onTap: (ReactionKind) -> Void
 
-    /// 5개씩 나눈 페이지.
-    private var pages: [[ReactionKind]] {
-        let all = ReactionKind.allCases
-        return stride(from: 0, to: all.count, by: Metric.perPage).map {
-            Array(all[$0 ..< min($0 + Metric.perPage, all.count)])
-        }
-    }
-
     // MARK: - Body
 
     var body: some View {
-        TabView {
-            ForEach(pages.indices, id: \.self) { page in
-                row(pages[page])
-            }
-        }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .frame(height: Metric.chipSize)
-    }
-
-    private func row(_ kinds: [ReactionKind]) -> some View {
-        HStack(spacing: 0) {
-            ForEach(Array(kinds.enumerated()), id: \.element) { index, kind in
-                Button { onTap(kind) } label: { chip(kind) }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(kind.accessibilityLabel) 리액션")
-                    .accessibilityAddTraits(selectedKinds.contains(kind) ? [.isSelected] : [])
-
-                if index < kinds.count - 1 {
-                    Spacer(minLength: 0)
+        ScrollView(.horizontal) {
+            HStack(spacing: Metric.chipSpacing) {
+                ForEach(ReactionKind.allCases, id: \.self) { kind in
+                    Button { onTap(kind) } label: { chip(kind) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(kind.accessibilityLabel) 리액션")
+                        .accessibilityAddTraits(selectedKinds.contains(kind) ? [.isSelected] : [])
                 }
             }
+            // 스크롤 영역이 좁아지지 않도록 콘텐츠에 여백을 적용한다.
+            .padding(.horizontal, Metric.horizontalPadding)
         }
+        .scrollIndicators(.hidden)
+        .frame(height: Metric.chipSize)
     }
 
     private func chip(_ kind: ReactionKind) -> some View {
@@ -69,7 +53,9 @@ struct ReactionBar: View {
 // MARK: - Figma 실측값
 
 private enum Metric {
-    static let perPage = 5
     static let chipSize: CGFloat = 58
+    /// 시안에서 6번째 칩이 화면 오른쪽에 일부 걸쳐 보이는 간격.
+    static let chipSpacing: CGFloat = 10
+    static let horizontalPadding: CGFloat = 24
     static let emojiSize: CGFloat = 32
 }

@@ -5,6 +5,8 @@ import PhotoDomain
 actor DemoPhotoStore {
 
     private var photos: [Photo]
+    /// 서버 응답을 대신할 채팅 ID.
+    private var nextChatID: Int64 = 1
 
     init(photos: [Photo]) {
         self.photos = photos
@@ -18,10 +20,22 @@ actor DemoPhotoStore {
         photos.first { $0.id == id }
     }
 
-    /// 첫 이모지면 스티커를 붙인다(정책 #71 — 유저당 첫 개만 스티커). 이후 이모지는 화면 변화 없음.
-    func addReaction(photoID: String, kind: ReactionKind, userID: String) -> Photo? {
+    /// 리액션을 저장하고 삭제에 사용할 채팅 ID를 반환한다.
+    func addReaction(photoID: String, kind: ReactionKind, userID: String) -> (photo: Photo, chatID: Int64)? {
         guard let index = photos.firstIndex(where: { $0.id == photoID }) else { return nil }
-        photos[index] = photos[index].addingReaction(kind, by: userID)
-        return photos[index]
+        let chatID = nextChatID
+        nextChatID += 1
+        photos[index] = photos[index].addingReaction(
+            PhotoReaction(chatID: chatID, kind: kind, userID: userID)
+        )
+        return (photos[index], chatID)
+    }
+
+    func removeReaction(chatID: Int64) {
+        for (index, photo) in photos.enumerated() {
+            guard photo.reactions.contains(where: { $0.chatID == chatID }) else { continue }
+            photos[index] = photo.removingReaction(id: PhotoReaction.id(forChatID: chatID))
+            return
+        }
     }
 }

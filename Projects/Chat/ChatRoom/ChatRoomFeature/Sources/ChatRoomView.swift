@@ -86,7 +86,8 @@ public struct ChatRoomView: View {
                         }
                         ChatMessageRow(
                             message: row.message,
-                            isMine: row.message.isMine(currentUserNickname: store.currentUserNickname)
+                            isMine: row.message.isMine(currentUserNickname: store.currentUserNickname),
+                            isPhotoBlurred: !store.isPrinted
                         )
                         .id(row.message.id)
                     }

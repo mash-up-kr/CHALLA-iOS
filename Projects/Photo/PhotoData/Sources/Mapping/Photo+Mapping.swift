@@ -35,10 +35,8 @@ extension ListPhotosResponseDTO {
 
 extension PhotoDetailDTO {
 
-    /// 상세의 `chats`(EMOJI)에서 두 가지를 함께 뽑는다:
-    /// - `stickers`: **유저당 첫 이모지 하나** (처음 남긴 순서대로) — 사진 위 스티커용 (정책 #71)
-    /// - `kindsByUser`: 유저별로 남긴 종류 **전부** — 리액션 바 칩의 띠용 (재진입 시 복원)
-    /// 이모지가 아닌 채팅(DEFAULT·COMMENT)과 알 수 없는 종류는 버린다.
+    /// EMOJI 채팅을 등록 순서의 스티커와 사용자별 이모지 종류로 변환한다.
+    /// 채팅 ID가 없으면 표시용 ID만 생성하며, 삭제는 지원하지 않는다.
     func reactionData() -> (stickers: [PhotoReaction], kindsByUser: [String: Set<ReactionKind>]) {
         let emojiChats = chats
             .filter { $0.messageType == .emoji }
@@ -48,15 +46,27 @@ extension PhotoDetailDTO {
             }
 
         var kindsByUser: [String: Set<ReactionKind>] = [:]
-        var seenUsers = Set<Int64>()
         var stickers: [PhotoReaction] = []
+        // 같은 유저가 같은 종류를 같은 시각에 두 번 남긴 경우를 갈라 준다.
+        var fallbackCounts: [String: Int] = [:]
+
         for chat in emojiChats {
             guard let kind = ReactionKind(rawValue: chat.content) else { continue }
             let userID = String(chat.userId)
             kindsByUser[userID, default: []].insert(kind)
-            if seenUsers.insert(chat.userId).inserted {
-                stickers.append(PhotoReaction(kind: kind, userID: userID))
+
+            if let chatID = chat.id {
+                stickers.append(PhotoReaction(chatID: chatID, kind: kind, userID: userID))
+                continue
             }
+
+            // 채팅 id가 없을 때의 대체 신원.
+            // 순번(0, 1, 2…)을 쓰면 앞의 채팅이 하나 지워질 때 남은 스티커의 id가 전부 밀려
+            // 화면 위 자리가 통째로 바뀐다. 내용으로 만든 키는 목록이 바뀌어도 그대로다.
+            let base = "chat-\(userID)-\(kind.rawValue)-\(chat.createdAt ?? "")"
+            let seen = fallbackCounts[base, default: 0]
+            fallbackCounts[base] = seen + 1
+            stickers.append(PhotoReaction(id: "\(base)-\(seen)", kind: kind, userID: userID))
         }
         return (stickers, kindsByUser)
     }

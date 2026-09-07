@@ -5,7 +5,7 @@ let project = Project.makeAppProject(
     name: "CHALLAApp",
     displayName: Environment.appName,
     bundleId: "\(Environment.bundleIdPrefix).app", // 실배포앱 = com.challa.app
-    marketingVersion: "1.0.0",
+    marketingVersion: "1.0.1",
     buildNumber: "1",
     additionalInfoPlist: [
         // TODO: 임의 작성 문구 — 기획 확정 시 교체할 것. (없으면 권한 요청 시점에 앱이 크래시한다)

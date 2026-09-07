@@ -48,13 +48,14 @@ struct RoomDetailInviteGuideTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         // 참여자 바가 그려질 수 있는 시점(상세 성공) 뒤에야 안내가 열린다.
         await store.receive(\.inviteGuideNeeded) {
             $0.isInvitePopoverPresented = true
@@ -68,6 +69,7 @@ struct RoomDetailInviteGuideTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
@@ -75,7 +77,7 @@ struct RoomDetailInviteGuideTests {
             $0.hasCheckedInviteGuide = true
         }
         // inviteGuideNeeded가 오지 않는다 — 팝오버·툴팁 그대로 닫힘.
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
     }
 
     @Test("팝오버를 닫으면 툴팁이 내려가고 본 것으로 기록한다")
@@ -88,13 +90,14 @@ struct RoomDetailInviteGuideTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         await store.receive(\.inviteGuideNeeded) {
             $0.isInvitePopoverPresented = true
             $0.isInviteGuidePresented = true
@@ -142,6 +145,7 @@ struct RoomDetailInviteGuideTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         // 실패 — 얼럿만 뜨고 안내는 확인조차 하지 않는다.
         await store.receive(\.detailResponse.failure) {
@@ -155,18 +159,19 @@ struct RoomDetailInviteGuideTests {
                 TextState(RoomError.network.userMessage)
             }
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
 
         await store.send(.alert(.presented(.retryTapped))) {
             $0.alert = nil
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         await store.receive(\.inviteGuideNeeded) {
             $0.isInvitePopoverPresented = true
             $0.isInviteGuidePresented = true
@@ -179,13 +184,14 @@ struct RoomDetailInviteGuideTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         await store.receive(\.inviteGuideNeeded) {
             $0.isInvitePopoverPresented = true
             $0.isInviteGuidePresented = true
@@ -193,9 +199,9 @@ struct RoomDetailInviteGuideTests {
 
         // 카운트다운 알람의 재조회가 같은 상세를 다시 받은 상황 — 확인이 반복되면
         // inviteGuideNeeded가 또 와서 이 테스트가 실패한다.
-        await store.send(.printCompletionReached)
+        await store.send(.printCompletionReached) { $0.photosLoad = .loading }
         await store.receive(\.detailResponse.success)
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
     }
 
     @Test("인화 대기 방이면 토스트가 한 번만 뜬다")
@@ -214,21 +220,22 @@ struct RoomDetailInviteGuideTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.printWaitingDetail
             $0.room = Room.previewPrintWaiting
             $0.hasShownPrintWaitingToast = true
-            $0.toast = "인화 대기 중이에요! 조금만 기다려주세요"
+            $0.toast = RoomDetailFeature.Toast("인화 대기 중이에요! 조금만 기다려주세요", placement: .top)
             $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
 
         // 알람 재조회가 같은 대기 응답을 다시 준 상황 — 토스트가 또 뜨지 않는다.
-        await store.send(.printCompletionReached)
+        await store.send(.printCompletionReached) { $0.photosLoad = .loading }
         await store.receive(\.detailResponse.success)
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
 
         await clock.advance(by: .seconds(2))
         await store.receive(\.toastDismissed) {

@@ -1,14 +1,15 @@
 import Foundation
 
-/// `POST /api/v1/chats` 요청 본문. 서버는 채팅을 chat-controller로 다루며 텍스트는 `type = "DEFAULT"`.
+/// 방 메시지와 사진 메시지의 공통 요청 본문.
 struct SendChatRequestDTO: Encodable, Sendable {
 
     let chat: Payload
 
-    /// 방 단위 텍스트 메시지는 붙일 사진이 없어 `photoID`가 nil — 서버 예시가 `photoId: 0`이라 0으로 보낸다.
+    /// API 명세에 따라 사진이 없으면 `photoId`를 0으로 전송한다.
     /// TODO: 백엔드 확인 — 방 단위 메시지의 photoId 처리(0/생략) 확정 시 교체.
     init(roomID: Int64, photoID: Int64?, content: String) {
-        chat = Payload(roomId: roomID, photoId: photoID ?? 0, type: ChatMessageType.text.rawValue, content: content)
+        let type: ChatMessageType = photoID == nil ? .text : .comment
+        chat = Payload(roomId: roomID, photoId: photoID ?? 0, type: type.rawValue, content: content)
     }
 
     struct Payload: Encodable, Sendable {
