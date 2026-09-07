@@ -30,12 +30,14 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 
 ### Entities (`Sources/Entities/`)
 
-- `struct Room` — 방 그 자체 (목록·상세 API의 교집합 8필드). `id: Int64`(서버 발급) · `title` ·
+- `struct Room` — 방 그 자체 (목록·상세 API의 교집합 9필드). `id: Int64`(서버 발급) · `title` ·
   `status` · `totalPhotoCount: Int` · `remainedPhotoCount` · `createdAt` · `expiresAt` ·
-  `photoPrintCompletedAt?`(인화 완료 예정 시각 = 촬영 완료 +24h — 촬영 중에만 nil, 카운트다운 기준값). 전 필드 `let`이라 갱신은 새 값을 만든다
+  `photoPrintCompletedAt?`(인화 완료 예정 시각 = 촬영 완료 +24h — 촬영 중에만 nil, 카운트다운 기준값) ·
+  `cover: RoomCover`(init 마지막 인자, 기본 `.none`). 전 필드 `let`이라 갱신은 새 값을 만든다
   - `shotPhotoCount` — 찍은 장수 계산 프로퍼티 (`total − remained`, 서버는 남은 장수를 준다)
-  - `renamed(to:)` — 제목만 바꾼 사본. 이름 변경이 서버에 저장된 직후, 재조회가 오기 전
+  - `renamed(to:)` — 제목만 바꾼 사본(커버 유지). 이름 변경이 서버에 저장된 직후, 재조회가 오기 전
     구간에 화면이 새 제목을 먼저 그리는 용도 (App의 화면 조립·InMemory 저장소가 쓴다)
+  - `withCover(_:)` — 커버만 바꾼 사본. 커버 수정 화면에서 돌아올 때 App이 상세의 `Room`을 갱신하는 용도
   - `enum Room.Status` — `.shooting` / `.printWaiting` / `.printed`
   - `Room.previewShooting` · `previewPrintWaiting` · `previewPrinted` · `previewRooms` —
     `#Preview`·테스트용 상수. id는 음수(-1~-3, 서버 양수 id와 불겹침 표식), 날짜는 고정값
@@ -47,6 +49,14 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 - `enum RoomShotCount: Int` — `.twentyFour`(24) / `.fortyEight`(48) / `.seventyTwo`(72), `.default`는 24
   - **방을 만들 때 고르는 입력값의 규칙**이라 `RoomDraft` 전용이다. 이미 존재하는 방의
     `totalPhotoCount`는 서버가 정하는 자유값이라 enum이 아니다
+- `struct RoomCover` — 방 커버 (서버 `cover` 객체). `imageURL: URL?` · `sticker: RoomCoverSticker?`
+  - `none` — 꾸민 적 없는 방의 커버. `isEmpty` — 사진·스티커 둘 다 없음
+  - 목록·상세 API가 둘 다 주는 값이라 `Room`에 들어 있다 (홈 카드와 상세가 같은 커버를 그린다)
+  - `.none`은 `RoomCover?`와 비교하면 `Optional.none`으로 읽힌다 — 옵셔널 체인 뒤에서는 `RoomCover.none`으로 쓴다
+- `struct RoomCoverSticker` — 서버 스티커 한 장. `id: Int64` · `imageURL: URL?` · `color: RoomCoverColor`(칠해진 색)
+  - 그림은 서버 `imageURL`이 아니라 앱의 벡터 도안으로 그린다 — 도안 매핑(서버 id → 도안 표)은 `RoomCoverUI` 참고
+- `struct RoomCoverColor` — 서버 색 한 칸. `id: Int64` · `name` · `hex`(서버는 `#FF1887`, preview는 `FF1887` —
+  파싱은 `RoomCoverUI`가 `#` 유무를 모두 받는다)
 
 ### Errors (`Sources/Errors/`)
 
@@ -66,6 +76,12 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   - 상세는 API 하나당 메서드 하나로 나뉜다 — 상세 API 하나로는 `RoomDetail`을 완성할 수 없어
     (참여자 없음) 반쪽짜리를 돌려주지 않기 위한 분리. 합치기는 UseCase 몫
   - 확인 기록·이름 변경은 반환이 없다 — 반영된 값은 다음 목록 조회가 내려준다
+  - `coverOptions() -> RoomCoverOptions` — 고를 수 있는 스티커·색 목록 (`GET /rooms/cover-options`)
+  - `updateCover(roomID:imageURL:stickerID:colorID:)` — 커버 **전체 교체** (`PUT /rooms/{id}/cover`).
+    세 값을 항상 싣고 없애는 값은 nil로 넘긴다 — 구현체는 nil도 `null` 키로 보내야 한다
+- `protocol RoomCoverImageUploader` — `upload(_ imageData: Data) -> URL`. 커버 사진을 스토리지에 올리고
+  공개 URL을 돌려준다 (프로필 사진과 같은 3단계 업로드). 실패는 `RoomError`
+  - `RoomRepository`와 분리한 이유: 방 API가 아니라 업로드 API라 구현체가 다르다 (`UserDomain.ProfileImageUploader`와 같은 구조)
 
 ### Models (`Sources/Models/`)
 
@@ -82,6 +98,12 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   (`invitationCode` · `members`). `RoomCard`와 같은 구조로 `Room` 코어를 감싼다. `preview` 상수 포함
 - `struct RoomDraft` — `name` · `shotCount`. 방을 만들기 전의 입력값이라 `Room`으로 표현할 수 없다
   (id·상태·인원수는 서버가 채운다)
+- `struct RoomCoverOptions` — 커버 수정 화면의 선택지. `stickers: [RoomCoverStickerOption]`(id·그림 URL — 색은 없다) ·
+  `colors: [RoomCoverColor]`. `empty` · `preview`(id 1…7, 레몬에이드·라즈베리·오렌지·라임·사이다·블루베리·아사이볼)
+    - 서버 스티커 id에 그림 정보가 없어 앱 도안은 **id → 도안 고정 표**로 매핑한다
+      (`RoomCoverUI`가 서버 SVG와 대조한 표). 이 모듈은 id만 안다
+- `struct RoomCoverDraft` — `updateCover` 본문의 재료. `imageURL: URL?`(업로드를 마친 URL) · `stickerID: Int64?` ·
+  `colorID: Int64?`. 업로드는 `UploadRoomCoverImageUseCase`가 따로 한다
 - `struct RoomBoard` — 카드 배열 하나를 `active`(촬영 중·인화 대기·미확인 인화 완료) /
   `printed`(확인을 마친 인화 완료) 두 배열로 가른 결과. `isEmpty`
   - 인화 완료 방은 확인 여부에 따라 한쪽에만 놓인다 — 겹치지 않는다
@@ -122,13 +144,20 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
   (`(roomID) -> Void`). 규칙 없는 단순 통과지만 Feature는 UseCase만 보는 관례를 유지한다
 - `UpdateRoomTitleUseCase` (`\.updateRoomTitleUseCase`) — `RoomNameRule` 적용 후 이름 변경
   (`(roomID, title) -> String`). 정제된 이름을 돌려줘 화면이 입력값 대신 서버 저장값으로 갱신한다
+- `FetchRoomCoverOptionsUseCase` (`\.fetchRoomCoverOptionsUseCase`) — 스티커·색 선택지 조회 (`() -> RoomCoverOptions`).
+  `previewValue`는 `.preview`
+- `UpdateRoomCoverUseCase` (`\.updateRoomCoverUseCase`) — 커버 저장 (`(roomID, RoomCoverDraft)`). 전체 교체라
+  세 값을 모두 싣는다. 스티커 없이 색만 온 경우 `colorID`는 nil — 색은 스티커에 칠하는 값이라 서버에 남을 자리가 없다
+- `UploadRoomCoverImageUseCase` (`\.uploadRoomCoverImageUseCase`) — 커버 사진 업로드 (`(Data) -> URL`),
+  `live(uploader:)`. 저장과 분리한 이유: 업로드는 수 초가 걸려, 그 사이 고른 스티커·색이 사진 저장에 덮이지 않으려면
+  URL을 받은 뒤 그 시점의 커버로 저장해야 한다
 
-전부 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
+전부 `testValue` · `previewValue`를 갖고, `live`는 업로드만 `(uploader:)`, 나머지는 `(repository:)`다.
 
 ## 의존성
 
 - **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (TCA 전이 의존, `Tuist/Package.swift` 경유)
-- **이 모듈에 의존**: `HomeFeature`·`CameraFeature`(UseCase를 `@Dependency`로 주입받음) ·
+- **이 모듈에 의존**: `HomeFeature`·`CameraFeature`·`RoomDetailFeature`(UseCase를 `@Dependency`로 주입받음) ·
   `RoomData`(인터페이스 구현) · 합성 루트(`CHALLAApp`·`HomeFeatureDemo`·`CameraFeatureDemo` —
   `.live(repository:)` 조립)
 
@@ -138,8 +167,8 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
 mise exec -- tuist test RoomDomain
 ```
 
-Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockRoomRepository`로
-인터페이스만 갈아끼워 검증한다.
+Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockRoomRepository` ·
+`MockRoomCoverImageUploader`로 인터페이스만 갈아끼워 검증한다.
 
 - `RoomNameRuleTests` — 20자 경계, 한글·조합 이모지 한 글자 계산, `normalize`가 앞뒤만 떼는지,
   공백만 입력한 이름
@@ -153,3 +182,7 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `JoinRoomUseCaseLiveTests` — 코드 정규화 후 전달, 빈 코드 가드, `.roomNotFound` 전파
 - `FetchRoomDetailUseCaseLiveTests` — 두 결과의 합치기(같은 id로 호출됐는지 캡처 검증),
   어느 쪽이 실패해도 부분 성공 없이 오류 하나 전파
+- `RoomCoverTests` — `none`·`isEmpty`, `Room.withCover`가 커버만 바꾸고 `renamed`가 커버를 유지하는지,
+  `preview`의 스티커–색 짝
+- `RoomCoverUseCaseLiveTests` — 옵션 조회 위임·오류 전파, 커버 저장의 draft 전달·스티커 없을 때 colorID nil·오류 전파,
+  업로드 URL 반환·오류 전파

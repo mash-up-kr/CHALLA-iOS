@@ -20,6 +20,7 @@ public struct Room: Identifiable, Equatable, Sendable {
     /// 인화가 완료되는 시각 — 촬영을 마치면 서버가 +24시간으로 정한다 (백엔드 확정 2026-08-13).
     /// 인화 대기 화면의 카운트다운 기준값이며, 촬영 중에는 nil.
     public let photoPrintCompletedAt: Date?
+    public let cover: RoomCover
 
     public enum Status: Equatable, Sendable {
         case shooting // 촬영 중
@@ -44,7 +45,22 @@ public struct Room: Identifiable, Equatable, Sendable {
             remainedPhotoCount: remainedPhotoCount,
             createdAt: createdAt,
             expiresAt: expiresAt,
-            photoPrintCompletedAt: photoPrintCompletedAt
+            photoPrintCompletedAt: photoPrintCompletedAt,
+            cover: cover
+        )
+    }
+
+    public func withCover(_ cover: RoomCover) -> Room {
+        Room(
+            id: id,
+            title: title,
+            status: status,
+            totalPhotoCount: totalPhotoCount,
+            remainedPhotoCount: remainedPhotoCount,
+            createdAt: createdAt,
+            expiresAt: expiresAt,
+            photoPrintCompletedAt: photoPrintCompletedAt,
+            cover: cover
         )
     }
 
@@ -56,7 +72,8 @@ public struct Room: Identifiable, Equatable, Sendable {
         remainedPhotoCount: Int,
         createdAt: Date,
         expiresAt: Date,
-        photoPrintCompletedAt: Date? = nil
+        photoPrintCompletedAt: Date? = nil,
+        cover: RoomCover = .none
     ) {
         self.id = id
         self.title = title
@@ -66,6 +83,7 @@ public struct Room: Identifiable, Equatable, Sendable {
         self.createdAt = createdAt
         self.expiresAt = expiresAt
         self.photoPrintCompletedAt = photoPrintCompletedAt
+        self.cover = cover
     }
 }
 
