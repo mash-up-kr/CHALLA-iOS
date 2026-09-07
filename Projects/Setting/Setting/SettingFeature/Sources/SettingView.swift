@@ -82,13 +82,11 @@ public struct SettingView: View {
 
     private var appSettingCard: some View {
         CHALLAListSection("앱 설정") {
-            // 값 글자는 고른 테마 색으로 칠한다 — 테마 화면에서 바꾸면 delegate로 돌아와 함께 바뀐다.
             CHALLAListRow(
                 "테마",
                 icon: .palette,
                 iconColor: SettingLayout.rowIconColor,
-                accessory: .arrow(value: store.themeDisplayName),
-                themeColor: store.currentTheme.themeColor
+                accessory: .arrow(value: store.themeDisplayName)
             ) {
                 send(.themeRowTapped)
             }
@@ -116,13 +114,14 @@ public struct SettingView: View {
 
     private var feedbackCard: some View {
         CHALLAListSection("피드백") {
-            CHALLAListRow(
-                "찰나 응원하기",
-                icon: .carrot,
-                iconColor: SettingLayout.rowIconColor
-            ) {
-                send(.supportRowTapped)
-            }
+            // 찰나 응원하기 — App Store 리뷰 주소가 없어 눌러도 아무 일이 없다. 주소가 정해질 때까지 숨긴다.
+            // CHALLAListRow(
+            //     "찰나 응원하기",
+            //     icon: .carrot,
+            //     iconColor: SettingLayout.rowIconColor
+            // ) {
+            //     send(.supportRowTapped)
+            // }
             CHALLAListRow(
                 "피드백 보내기",
                 icon: .chatTeardropDots,

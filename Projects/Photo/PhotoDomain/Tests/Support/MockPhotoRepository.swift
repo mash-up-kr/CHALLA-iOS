@@ -10,6 +10,7 @@ final class MockPhotoRepository: PhotoRepository {
 
     /// 리액션 요청 한 건의 인자.
     struct ReactionCall: Equatable {
+        let roomID: Int64
         let photoID: String
         let kind: ReactionKind
         let isOn: Bool
@@ -17,21 +18,26 @@ final class MockPhotoRepository: PhotoRepository {
 
     private struct State {
         var requestedRoomIDs: [Int64] = []
+        var reactionsForPhotoIDs: [String] = []
         var reactionCalls: [ReactionCall] = []
         var imageDataRequests: [String] = []
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
     private let photosResult: Result<[Photo], PhotoError>
-    private let reactionResult: Result<Photo, PhotoError>
+    private let reactionsResult: Result<PhotoReactions, PhotoError>
+    /// setReaction은 값을 돌려주지 않으므로 성공/실패만 지정한다.
+    private let reactionResult: Result<Void, PhotoError>
     private let imageDataResult: Result<Data, PhotoError>
 
     init(
         photosResult: Result<[Photo], PhotoError> = .success([]),
-        reactionResult: Result<Photo, PhotoError> = .failure(.unknown),
+        reactionsResult: Result<PhotoReactions, PhotoError> = .success(PhotoReactions()),
+        reactionResult: Result<Void, PhotoError> = .success(()),
         imageDataResult: Result<Data, PhotoError> = .failure(.unknown)
     ) {
         self.photosResult = photosResult
+        self.reactionsResult = reactionsResult
         self.reactionResult = reactionResult
         self.imageDataResult = imageDataResult
     }
@@ -40,6 +46,11 @@ final class MockPhotoRepository: PhotoRepository {
 
     var requestedRoomIDs: [Int64] {
         state.withLock { $0.requestedRoomIDs }
+    }
+
+    /// reactions(forPhotoID:)에 전달된 사진 ID (호출 순서대로).
+    var reactionsForPhotoIDs: [String] {
+        state.withLock { $0.reactionsForPhotoIDs }
     }
 
     /// setReaction에 전달된 인자 (호출 순서대로).
@@ -58,9 +69,16 @@ final class MockPhotoRepository: PhotoRepository {
         return try photosResult.get()
     }
 
-    func setReaction(photoID: String, kind: ReactionKind, isOn: Bool) async throws -> Photo {
-        state.withLock { $0.reactionCalls.append(ReactionCall(photoID: photoID, kind: kind, isOn: isOn)) }
-        return try reactionResult.get()
+    func reactions(forPhotoID photoID: String) async throws -> PhotoReactions {
+        state.withLock { $0.reactionsForPhotoIDs.append(photoID) }
+        return try reactionsResult.get()
+    }
+
+    func setReaction(roomID: Int64, photoID: String, kind: ReactionKind, isOn: Bool) async throws {
+        state.withLock {
+            $0.reactionCalls.append(ReactionCall(roomID: roomID, photoID: photoID, kind: kind, isOn: isOn))
+        }
+        try reactionResult.get()
     }
 
     func imageData(for photo: Photo) async throws -> Data {

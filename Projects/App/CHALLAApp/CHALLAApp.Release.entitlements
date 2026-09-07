@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Release(배포) 구성 전용 엔타이틀먼트.
+    CHALLAApp.entitlements 와 aps-environment 만 다르다 — 항목을 추가할 때는 양쪽을 같이 고칠 것.
+
+    App Store 프로비저닝 프로파일은 aps-environment 를 production 으로만 포함한다.
+    development 인 채로 아카이브하면 서명이 "provisioning profile doesn't include the
+    aps-environment entitlement value 'development'" 로 거부된다.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+	<key>aps-environment</key>
+	<string>production</string>
+</dict>
+</plist>

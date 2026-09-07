@@ -10,7 +10,7 @@ import SettingFeature
 /// `CHALLAApp/Sources/CompositionRoot.swift`가 같은 형태의 배선을 갖는다.
 ///
 /// **무엇이 실제고 무엇이 스텁인가**
-/// - 테마·알림 저장: 실제 `UserDefaults` (`DefaultSettingsRepository`)
+/// - 테마·알림 저장: 실제 `UserDefaults` (테마는 `@Shared(.appTheme)`, 알림은 `DefaultSettingsRepository`)
 /// - 프로필: 스텁 (#33 머지 후 교체)
 /// - 알림 권한·설정 앱 열기: **항상 스텁**. 시뮬레이터 권한 상태에 따라 배너가 흔들리면
 ///   시안 대조 검증이 불가능하고, 실제로 설정 앱이 열리면 캡처 흐름이 끊긴다
@@ -26,7 +26,6 @@ enum CompositionRoot {
         let settings = settingsRepository(for: arguments)
 
         registerProfile(state: arguments.state(of: .setting), into: &values)
-        registerTheme(settings: settings, into: &values)
         registerNotification(state: arguments.state(of: .notification), settings: settings, into: &values)
         registerAccount(state: arguments.state(of: .account), into: &values)
         registerExternalLinks(into: &values)
@@ -34,16 +33,25 @@ enum CompositionRoot {
 
     // MARK: - 저장소
 
-    /// `--theme` · `--serviceNotification`이 주어졌으면 그 값의 **읽기만** 고정한다
+    /// `--serviceNotification`이 주어졌으면 그 값의 **읽기만** 고정한다
     /// (`ForcedSettingsRepository` 주석 참고).
     private static func settingsRepository(for arguments: DemoLaunchArguments) -> any SettingsRepository {
         let base = DefaultSettingsRepository()
-        guard arguments.hasExplicitTheme || arguments.serviceNotification != nil else { return base }
+        guard let isServiceNotificationEnabled = arguments.serviceNotification else { return base }
         return ForcedSettingsRepository(
             base: base,
-            theme: arguments.hasExplicitTheme ? arguments.theme : nil,
-            isServiceNotificationEnabled: arguments.serviceNotification
+            isServiceNotificationEnabled: isServiceNotificationEnabled
         )
+    }
+
+    /// `--theme`가 주어졌으면 저장값을 덮어쓴다.
+    ///
+    /// 테마는 `@Shared`가 저장소를 직접 읽어서 `ForcedSettingsRepository`로 가로챌 수 없다.
+    /// 대신 화면을 만들기 전에 저장값 자체를 바꾼다. 인자가 없으면 이전 실행에서 고른 값이 남는다.
+    static func forceThemeIfRequested(_ arguments: DemoLaunchArguments) {
+        guard arguments.hasExplicitTheme else { return }
+        @Shared(.appTheme) var theme
+        $theme.withLock { $0 = arguments.theme }
     }
 
     // MARK: - 프로필
@@ -69,18 +77,6 @@ enum CompositionRoot {
         default:
             values.loadProfileUseCase = .live(profile: StubProfileProvider())
         }
-    }
-
-    // MARK: - 테마
-
-    /// 상태 분기가 없다 — 로컬 저장이라 실패 경로가 없고, 값이 즉시 돌아와 로딩 표시도 없다.
-    /// 프로필이 `loading`·`error`여도 테마는 정상 표시된다(그게 프로필과 분리한 이유다).
-    private static func registerTheme(
-        settings: any SettingsRepository,
-        into values: inout DependencyValues
-    ) {
-        values.loadThemeUseCase = .live(settings: settings)
-        values.selectThemeUseCase = .live(settings: settings)
     }
 
     // MARK: - 알림

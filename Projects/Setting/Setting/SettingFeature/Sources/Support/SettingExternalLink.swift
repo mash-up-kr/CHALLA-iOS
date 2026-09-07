@@ -10,6 +10,7 @@ import Foundation
 public struct SettingExternalLinks: Sendable {
 
     /// 찰나 응원하기 → App Store 리뷰 작성 화면.
+    /// 주소(App ID)가 확정되지 않아 행 자체를 숨겨 둔 상태다 (`SettingView.feedbackCard`).
     public var appStoreReview: @Sendable () -> URL?
 
     /// 피드백 보내기 → 구글폼.
@@ -18,11 +19,11 @@ public struct SettingExternalLinks: Sendable {
 
 extension SettingExternalLinks: DependencyKey {
 
-    /// TODO: App ID(`https://apps.apple.com/app/id<APP_ID>?action=write-review`)와
-    /// 구글폼 주소가 확정되면 채운다. 그때까지는 눌러도 아무 것도 열리지 않는다.
+    /// TODO: App ID(`https://apps.apple.com/app/id<APP_ID>?action=write-review`)가 확정되면
+    /// `appStoreReview`를 채운다. 그때까지는 응원하기 행을 숨겨 두었다.
     public static let liveValue = SettingExternalLinks(
         appStoreReview: { nil },
-        feedbackForm: { nil }
+        feedbackForm: { URL(string: "https://forms.gle/StueBwLpofWJ21dG9") }
     )
 
     public static let testValue = SettingExternalLinks()

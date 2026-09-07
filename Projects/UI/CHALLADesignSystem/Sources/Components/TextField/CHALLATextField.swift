@@ -22,15 +22,23 @@ public struct CHALLATextField: View {
     private let placeholder: String
     private let textAlignment: TextAlignment
     private let typography: CHALLATypography
-    private let borderColor: Color
+    /// 호출부가 넘긴 색. nil이면 지금 적용된 테마를 따른다.
+    private let borderColorOverride: Color?
     private let externalFocus: FocusState<Bool>.Binding?
+
+    @Environment(\.challaTheme) private var theme
+
+    private var borderColor: Color {
+        borderColorOverride ?? theme.accent
+    }
 
     /// - Parameters:
     ///   - text: 입력값. 소유는 호출부가 한다.
     ///   - placeholder: 비어 있을 때 보여줄 안내 문구.
     ///   - textAlignment: 글자 정렬. Figma 컴포넌트 기본은 중앙, 실사용(방 만들기)은 왼쪽 오버라이드.
     ///   - typography: 글자 타이포 (Figma customize 속성).
-    ///   - borderColor: 포커스 테두리 + 커서 색 (Figma customize 속성).
+    ///   - borderColor: 포커스 테두리 + 커서 색. 생략하면 지금 적용된 테마를 따른다 —
+    ///     검증 실패처럼 테마와 무관한 색을 써야 할 때만 넘긴다.
     ///   - focus: 외부 포커스 바인딩. 키보드를 프로그래밍으로 열고 닫아야 할 때 주입한다.
     ///     nil이면 포커스를 내부에서만 관리한다 (기존 동작).
     public init(
@@ -38,14 +46,14 @@ public struct CHALLATextField: View {
         placeholder: String,
         textAlignment: TextAlignment = .center,
         typography: CHALLATypography = .body.medium.medium,
-        borderColor: Color = CHALLAColor.defaultTheme,
+        borderColor: Color? = nil,
         focus: FocusState<Bool>.Binding? = nil
     ) {
         self._text = text
         self.placeholder = placeholder
         self.textAlignment = textAlignment
         self.typography = typography
-        self.borderColor = borderColor
+        borderColorOverride = borderColor
         self.externalFocus = focus
     }
 

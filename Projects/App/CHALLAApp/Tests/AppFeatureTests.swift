@@ -1,4 +1,5 @@
 @testable import CHALLAApp
+import AppDomain
 import AuthDomain
 import ComposableArchitecture
 import Foundation
@@ -20,6 +21,7 @@ private enum Fixture {
     static let renamedProfile = UserProfile(id: 1, nickname: "새이름", imageURL: profile.imageURL)
     static let pushToken = "fcm-token"
     static let card = RoomCard.previewShooting
+    static let appStore = URL(string: "https://apps.apple.com/kr/app/id0000000000")
 }
 
 /// 로그인 성공 뒤 토큰 등록이 걸리는지만 본다.
@@ -44,11 +46,18 @@ private actor SpyPushTokenRepository: PushTokenRepository {
 @Suite("AppFeature — 화면 전이")
 struct AppFeatureTests {
 
+    /// 시계를 주입하지 않으면 프로필 재시도 대기가 `UnimplementedClock`에 걸려
+    /// 이펙트 안에서 이슈가 기록되고, 병렬 실행에서 엉뚱한 테스트의 실패로 잡힌다.
+    /// `TestClock`은 시간이 저절로 흐르지 않아 의도치 않은 재시도도 막는다.
     private static func store(
-        initialState: AppFeature.State
+        initialState: AppFeature.State,
+        withDependencies updates: (inout DependencyValues) -> Void = { _ in }
     ) -> TestStoreOf<AppFeature> {
         TestStore(initialState: initialState) {
             AppFeature()
+        } withDependencies: {
+            $0.continuousClock = TestClock()
+            updates(&$0)
         }
     }
 
@@ -60,12 +69,14 @@ struct AppFeatureTests {
         let store = TestStore(initialState: AppFeature.State.launching) {
             AppFeature()
         } withDependencies: {
+            $0.checkAppUpdateUseCase.run = { .notRequired }
             $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .restored })
             $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: { Fixture.profile })
             $0.sessionExpirationChannel = channel
         }
 
         await store.send(.task)
+        await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .restored)
         await store.receive(\.profileResponse.success, Fixture.profile) {
             $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
@@ -82,6 +93,7 @@ struct AppFeatureTests {
         let store = TestStore(initialState: AppFeature.State.launching) {
             AppFeature()
         } withDependencies: {
+            $0.checkAppUpdateUseCase.run = { .notRequired }
             $0.restoreSessionUseCase = RestoreSessionUseCase(run: { .signedOut })
             $0.fetchMyProfileUseCase = FetchMyProfileUseCase(run: {
                 profileRequested.setValue(true)
@@ -91,6 +103,7 @@ struct AppFeatureTests {
         }
 
         await store.send(.task)
+        await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .signedOut) {
             $0 = .login(.init())
         }
@@ -307,5 +320,6 @@ struct AppFeatureTests {
         #expect(setting.screenID == .setting)
         #expect(edit.screenID == .profileEdit)
         #expect(roomDetail.screenID == .roomDetail)
+        #expect(AppFeature.State.forceUpdate(storeURL: nil).screenID == .forceUpdate)
     }
 }

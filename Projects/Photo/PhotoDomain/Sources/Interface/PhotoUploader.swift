@@ -10,6 +10,7 @@ public protocol PhotoUploader: Sendable {
     /// 실패는 반드시 `PhotoError`로 정규화해 던진다.
     /// - Parameters:
     ///   - jpegData: 촬영본 JPEG. 인코딩은 호출부가 끝내서 넘긴다.
+    ///     서버의 파일 크기 상한 준수는 구현 책임이다 — 호출부는 압축을 신경 쓰지 않는다.
     ///   - roomID: 업로드할 방의 서버 식별자 (`Room.id`와 같은 값).
     ///   - filterName: 촬영에 쓴 필터의 `CameraFilter.name`.
     func upload(jpegData: Data, roomID: Int64, filterName: String) async throws -> Int

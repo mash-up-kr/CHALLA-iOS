@@ -10,6 +10,7 @@ struct RoomCardMappingTests {
         status: RoomStatusDTO = .shooting,
         thumbnails: [String] = [],
         photoPrintCompletedAt: String? = nil,
+        photoPrintCompletionCheckedAt: String? = nil,
         createdAt: String = "2026-08-01T10:00:00",
         expiresAt: String = "2026-08-31T10:00:00"
     ) -> RoomListResponseDTO.RoomDTO {
@@ -22,6 +23,7 @@ struct RoomCardMappingTests {
             remainedPhotoCount: 10,
             thumbnailImageUrls: thumbnails,
             photoPrintCompletedAt: photoPrintCompletedAt,
+            photoPrintCompletionCheckedAt: photoPrintCompletionCheckedAt,
             createdAt: createdAt,
             expiresAt: expiresAt
         )

@@ -14,7 +14,7 @@ Store별 `withDependencies`로.
 
 **프레임워크 타입**: `.staticFramework`로 선언한다. 동적 dylib으로 만들 경우 정적인 `AuthDomain`·`Dependencies`가
 이 framework과 앱 바이너리(AuthData 경유)에 각각 복제 링크되어, TCA `@TaskLocal` 기반 `@Dependency` 주입이
-리소스 간에 갈라질 수 있기 때문이다. 리소스(소셜 아이콘)는 Tuist가 합성하는 리소스 번들 + `Bundle.module`로 동작한다.
+리소스 간에 갈라질 수 있기 때문이다. 리소스(소셜 아이콘 · 브랜드 심볼)는 Tuist가 합성하는 리소스 번들 + `Bundle.module`로 동작한다.
 
 ## 공개 API
 
@@ -38,11 +38,11 @@ Store별 `withDependencies`로.
 
 ### `LoginView` (SwiftUI, `@ViewAction(for: LoginFeature.self)`)
 - `init(store: StoreOf<LoginFeature>)` — App/Demo가 Store를 만들어 주입한다
-- 구성: 배경(`Background.surface`) → 중앙 `LoginBrandView`(opacity 0.1 장식 — VoiceOver 제외)
+- 구성: 배경(`Background.surface`) → 중앙 `LoginBrandView`(브랜드 심볼 + `challa` 워드마크 + 태그라인)
   → 하단 소셜 버튼 스택(카카오/애플) + 실패 얼럿 바인딩(`$store.scope(state: \.alert, ...)`)
 - 로딩 UX: 탭한 버튼만 스피너(`inFlightProvider`), 두 버튼 모두 비활성(`isLoading`)
-- VoiceOver: 브랜드 그룹은 `.accessibilityHidden(true)`로 제외, 소셜 버튼은 아이콘·스피너를
-  합쳐 버튼 하나로 읽는다 (label=타이틀, value=진행 상태 "로그인 중")
+- VoiceOver: 심볼·워드마크는 "challa" 하나로 읽고(`children: .ignore`), 태그라인은 그대로 읽는다.
+  소셜 버튼은 아이콘·스피너를 합쳐 버튼 하나로 읽는다 (label=타이틀, value=진행 상태 "로그인 중")
 - 색·타이포는 DS 토큰만 사용 (`CHALLAColor.Social.*`, `CHALLAFont.*` — 원시 hex/Font.custom 없음)
 - 하위 컴포넌트 `LoginBrandView`·`SocialLoginButton`은 internal (모듈 밖 비공개)
 

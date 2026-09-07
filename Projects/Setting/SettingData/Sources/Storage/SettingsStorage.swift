@@ -5,9 +5,6 @@ import Foundation
 /// `UserDefaults`를 직접 쓰지 않고 한 겹 두는 이유는 테스트 때문이다 —
 /// 실제 `UserDefaults`를 쓰면 테스트끼리 상태가 새고 실행 순서에 결과가 흔들린다.
 public protocol SettingsStorage: Sendable {
-    func string(forKey key: String) -> String?
-    func setString(_ value: String, forKey key: String)
-
     func bool(forKey key: String) -> Bool?
     func setBool(_ value: Bool, forKey key: String)
 }
@@ -22,14 +19,6 @@ public struct UserDefaultsSettingsStorage: SettingsStorage, @unchecked Sendable 
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-    }
-
-    public func string(forKey key: String) -> String? {
-        defaults.string(forKey: key)
-    }
-
-    public func setString(_ value: String, forKey key: String) {
-        defaults.set(value, forKey: key)
     }
 
     /// 값이 없을 때 `false`가 아니라 `nil`을 돌려준다 —

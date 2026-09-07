@@ -13,6 +13,7 @@ let project = Project.makeAppProject(
         .roomDetailFeature, .roomDomain,
         // TODO: PhotoData가 생기면 가짜 사진 조회 대신 실구현을 주입한다.
         .photoDomain,
+        .photoLibrary, // 촬영 진입이 묻는 사진첩 권한을 값으로 갈아끼운다 (데모에 시스템 팝업을 띄우지 않는다)
         .roomData, // 데모앱은 조립 지점이라 Data 직접 의존 허용 (아키텍처 규칙 2의 예외)
         .composableArchitecture
     ]

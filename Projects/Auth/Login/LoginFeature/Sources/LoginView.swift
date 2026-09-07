@@ -23,8 +23,9 @@ public struct LoginView: View {
                 .ignoresSafeArea()
 
             LoginBrandView()
+                .padding(.horizontal, 22)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .offset(y: -31) // Figma: 세로 중앙 기준 -31pt
+                .offset(y: -31) // 시안: 세로 중앙 기준 -31pt
 
             VStack {
                 Spacer()

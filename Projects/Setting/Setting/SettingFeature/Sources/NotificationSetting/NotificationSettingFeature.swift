@@ -22,9 +22,6 @@ public struct NotificationSettingFeature {
         /// 조회 전에 배너를 띄웠다가 권한이 허용이면 곧바로 사라져 깜빡인다.
         public var systemAuthorization: NotificationAuthorizationStatus?
 
-        /// 토글 ON 색에 쓰는 사용자 테마. 부모가 시드한다.
-        public var theme: AppTheme
-
         /// 권한이 허용이 아닐 때만 배너를 보여준다 (시안에 허용 상태 배너가 없다).
         ///
         /// `.denied`뿐 아니라 `.notDetermined`도 포함한다 — 사용자 눈에는 둘 다 "알림이 꺼져 있음"이다.
@@ -34,9 +31,7 @@ public struct NotificationSettingFeature {
             return systemAuthorization != .authorized
         }
 
-        public init(theme: AppTheme) {
-            self.theme = theme
-        }
+        public init() {}
     }
 
     // MARK: - Action

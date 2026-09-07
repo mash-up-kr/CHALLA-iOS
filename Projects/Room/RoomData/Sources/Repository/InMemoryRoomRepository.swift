@@ -132,6 +132,24 @@ public actor InMemoryRoomRepository: RoomRepository {
         return membersByRoom[roomID] ?? []
     }
 
+    public func checkPrintCompletion(roomID: Room.ID) async throws {
+        try await waitAndCheckFailure()
+
+        guard let index = storedCards.firstIndex(where: { $0.id == roomID }) else {
+            throw RoomError.roomNotFound
+        }
+        storedCards[index] = storedCards[index].withPrintCompletionChecked(at: .now)
+    }
+
+    public func updateTitle(roomID: Room.ID, title: String) async throws {
+        try await waitAndCheckFailure()
+
+        guard let index = storedCards.firstIndex(where: { $0.id == roomID }) else {
+            throw RoomError.roomNotFound
+        }
+        storedCards[index] = storedCards[index].renamed(to: title)
+    }
+
     // MARK: - 초대 코드
 
     /// 초대 코드 자릿수. 서버가 발급하는 코드와 같은 길이로 맞춘다.
@@ -167,6 +185,31 @@ public actor InMemoryRoomRepository: RoomRepository {
 private extension RoomCard {
     /// 인원수만 바꾼 새 값. 필드가 `let`이라 통째로 다시 만든다.
     func withMemberCount(_ count: Int) -> RoomCard {
-        RoomCard(room: room, memberCount: count, thumbnailURLs: thumbnailURLs)
+        RoomCard(
+            room: room,
+            memberCount: count,
+            thumbnailURLs: thumbnailURLs,
+            photoPrintCompletionCheckedAt: photoPrintCompletionCheckedAt
+        )
+    }
+
+    /// 확인 시각만 채운 새 값 — 실서버가 check 요청 후 목록 조회에 채워 주는 것을 재현한다.
+    func withPrintCompletionChecked(at date: Date) -> RoomCard {
+        RoomCard(
+            room: room,
+            memberCount: memberCount,
+            thumbnailURLs: thumbnailURLs,
+            photoPrintCompletionCheckedAt: date
+        )
+    }
+
+    /// 제목만 바꾼 새 값 — 실서버가 title 변경 후 목록 조회에 반영해 주는 것을 재현한다.
+    func renamed(to title: String) -> RoomCard {
+        RoomCard(
+            room: room.renamed(to: title),
+            memberCount: memberCount,
+            thumbnailURLs: thumbnailURLs,
+            photoPrintCompletionCheckedAt: photoPrintCompletionCheckedAt
+        )
     }
 }

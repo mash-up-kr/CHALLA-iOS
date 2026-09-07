@@ -1,6 +1,6 @@
 import Foundation
 
-/// 헤드라인 문구. `highlighted`가 있으면 첫 줄을 lime 색으로 강조한다 (환영 화면의 닉네임).
+/// 헤드라인 문구. `highlighted`가 있으면 첫 줄을 테마 색으로 강조한다 (환영 화면의 닉네임).
 struct ProfileFormHeadline: Equatable {
     var highlighted: String?
     /// 나머지 줄 (개행 포함 가능).

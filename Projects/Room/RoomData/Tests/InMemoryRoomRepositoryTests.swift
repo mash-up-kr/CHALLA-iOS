@@ -154,6 +154,59 @@ struct InMemoryRoomRepositoryTests {
         }
     }
 
+    // MARK: - 인화 완료 확인
+
+    @Test("인화 완료 확인은 그 방의 확인 시각만 채우고 목록에 반영한다")
+    func checkPrintCompletionFillsCheckedAt() async throws {
+        let repository = Self.makeRepository(cards: [.previewPrinted, Self.joinable])
+
+        try await repository.checkPrintCompletion(roomID: RoomCard.previewPrinted.id)
+
+        let cards = try await repository.rooms()
+        let checked = try #require(cards.first(where: { $0.id == RoomCard.previewPrinted.id }))
+        #expect(checked.photoPrintCompletionCheckedAt != nil)
+        // 확인 시각 외에는 그대로다.
+        #expect(checked.room == RoomCard.previewPrinted.room)
+        #expect(checked.memberCount == RoomCard.previewPrinted.memberCount)
+        // 다른 방은 건드리지 않는다.
+        #expect(cards.last == Self.joinable)
+    }
+
+    @Test("없는 방의 인화 완료 확인은 .roomNotFound를 던진다")
+    func checkPrintCompletionUnknownRoomThrows() async {
+        let repository = Self.makeRepository(cards: [Self.joinable])
+
+        await #expect(throws: RoomError.roomNotFound) {
+            try await repository.checkPrintCompletion(roomID: -999)
+        }
+    }
+
+    // MARK: - 이름 변경
+
+    @Test("이름 변경은 그 방의 제목만 바꾸고 나머지 값은 유지한다")
+    func updateTitleRenamesRoomOnly() async throws {
+        let repository = Self.makeRepository(cards: [Self.joinable])
+
+        try await repository.updateTitle(roomID: Self.joinable.id, title: "강릉 여행 2박 3일")
+
+        let card = try #require(try await repository.rooms().first)
+        #expect(card.room.title == "강릉 여행 2박 3일")
+        // 제목만 바뀐 사본과 같아야 한다 — 다른 필드가 딸려 바뀌면 여기서 걸린다.
+        #expect(card.room == Self.joinable.room.renamed(to: "강릉 여행 2박 3일"))
+        #expect(card.memberCount == Self.joinable.memberCount)
+        #expect(card.thumbnailURLs == Self.joinable.thumbnailURLs)
+        #expect(card.photoPrintCompletionCheckedAt == Self.joinable.photoPrintCompletionCheckedAt)
+    }
+
+    @Test("없는 방의 이름 변경은 .roomNotFound를 던진다")
+    func updateTitleUnknownRoomThrows() async {
+        let repository = Self.makeRepository(cards: [Self.joinable])
+
+        await #expect(throws: RoomError.roomNotFound) {
+            try await repository.updateTitle(roomID: -999, title: "강릉 여행")
+        }
+    }
+
     // MARK: - 실패 주입
 
     @Test("failure를 심으면 모든 메서드가 그 오류를 던진다")
@@ -174,6 +227,12 @@ struct InMemoryRoomRepositoryTests {
         }
         await #expect(throws: RoomError.network) {
             _ = try await repository.members(roomID: Self.joinable.id)
+        }
+        await #expect(throws: RoomError.network) {
+            try await repository.checkPrintCompletion(roomID: Self.joinable.id)
+        }
+        await #expect(throws: RoomError.network) {
+            try await repository.updateTitle(roomID: Self.joinable.id, title: "강릉 여행")
         }
     }
 }

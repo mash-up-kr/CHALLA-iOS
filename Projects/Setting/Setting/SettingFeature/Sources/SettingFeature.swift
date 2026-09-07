@@ -4,15 +4,15 @@ import SettingDomain
 
 /// 설정 화면의 TCA Feature.
 ///
-/// 화면 진입 시 프로필(원격)과 테마(로컬)를 **따로** 불러와 보여주고,
+/// 화면 진입 시 프로필(원격)을 불러와 보여주고,
 /// 하위 화면(테마·알림·계정 관리)으로의 이동을 **직접** 관리한다 — `path`(`StackState`)를 소유한다.
 ///
 /// 하위 화면이 같은 모듈 안에 있어 App이 조립할 것이 없다. App에 올리는 `delegate`는
 /// 설정 밖으로 나가야 하는 것(프로필 편집·뒤로가기)과 앱 전체를 되돌려야 하는 것
 /// (로그아웃·탈퇴 완료)뿐이다.
 ///
-/// 설정 값을 바꾸는 UI는 없지만 **테마 저장은 여기서 한다** — 자기가 표시하는 값이고,
-/// 부모 이펙트는 하위 화면이 pop돼도 취소되지 않는다 (`MODULE.md`의 "설정 저장은 누가 하나").
+/// 테마는 읽지도 저장하지도 않는다. `@Shared(.appTheme)`가 저장소를 직접 읽어서
+/// 표시할 값이 항상 있고, 하위 화면이 바꾼 값도 그대로 보인다.
 @Reducer
 public struct SettingFeature {
 
@@ -35,11 +35,11 @@ public struct SettingFeature {
         /// 아직 불러오지 못했으면 `nil` — 헤더 자리를 비워 둔다.
         public var profile: SettingProfile?
 
-        /// 로컬 저장이라 **실패하지 않는다** — 프로필 조회가 실패해도 값이 남는다.
-        /// 조회 전에만 `nil`이고, 그때는 테마 행 값 자리가 비어 있다.
-        public var theme: AppTheme?
+        /// 사용자가 고른 테마. 저장소를 직접 읽어서 불러오는 단계가 없고,
+        /// 테마 화면에서 고른 값도 바로 반영된다.
+        @Shared(.appTheme) public var theme: AppTheme
 
-        /// 프로필 조회 중. 테마는 즉시 돌아와 로딩 표시가 없다.
+        /// 프로필 조회 중. 테마는 로딩 표시가 필요 없다.
         public var isLoading = false
 
         @Presents public var alert: AlertState<Action.Alert>?
@@ -47,16 +47,9 @@ public struct SettingFeature {
         /// 하위 화면 스택 (테마 / 알림 / 계정 관리).
         public var path = StackState<Path.State>()
 
-        /// 테마 행에 표시할 값. 불러오기 전에는 `nil`이라 값 없이 화살표만 보인다.
-        /// 빈 문자열을 넘기면 `CHALLAListRow`가 "값 있음"으로 보고 빈 Text와 간격을 그린다.
-        public var themeDisplayName: String? {
-            theme?.displayName
-        }
-
-        /// 하위 화면에 시드할 현재 테마. 조회 전 한 순간만 기본 테마다.
-        /// 색으로 바꾸는 일은 뷰가 한다 — State는 도메인 값만 갖는다.
-        public var currentTheme: AppTheme {
-            theme ?? .default
+        /// 테마 행에 표시할 값.
+        public var themeDisplayName: String {
+            theme.displayName
         }
 
         public init() {}
@@ -97,9 +90,6 @@ public struct SettingFeature {
         /// 내부 — 프로필 조회 결과 (실패 경로가 있어 `Result`).
         case profileResponse(Result<SettingProfile, SettingError>)
 
-        /// 내부 — 저장소에서 읽은 테마 (로컬이라 실패 경로가 없다).
-        case themeLoaded(AppTheme)
-
         /// 하위 화면 스택.
         case path(StackActionOf<Path>)
 
@@ -115,8 +105,6 @@ public struct SettingFeature {
     // MARK: - Dependencies
 
     @Dependency(\.loadProfileUseCase) var loadProfileUseCase
-    @Dependency(\.loadThemeUseCase) var loadThemeUseCase
-    @Dependency(\.selectThemeUseCase) var selectThemeUseCase
     @Dependency(\.settingExternalLinks) var externalLinks
     @Dependency(\.openURL) var openURL
 
@@ -129,25 +117,13 @@ public struct SettingFeature {
                 // 이미 불러왔으면 다시 부르지 않는다 — 하위 화면에서 돌아올 때마다 깜빡이지 않게.
                 guard state.profile == nil, !state.isLoading else { return .none }
                 state.isLoading = true
-                // 프로필(원격·실패 가능)과 테마(로컬·실패 불가)를 따로 읽는다.
-                // 한 묶음으로 받으면 프로필이 실패할 때 테마까지 함께 비어 버린다.
-                return .merge(
-                    .run { [loadThemeUseCase] send in
-                        await send(.themeLoaded(loadThemeUseCase.run()))
-                    },
-                    .run { [loadProfileUseCase] send in
-                        await send(.profileResponse(Result {
-                            try await loadProfileUseCase.run()
-                        }.mapToSettingError()))
-                    }
-                )
+                // 테마는 여기서 읽지 않는다. `@Shared`가 저장소를 직접 읽어 이미 값이 있다.
+                return .run { [loadProfileUseCase] send in
+                    await send(.profileResponse(Result {
+                        try await loadProfileUseCase.run()
+                    }.mapToSettingError()))
+                }
                 .cancellable(id: CancelID.load, cancelInFlight: true)
-
-            case let .themeLoaded(theme):
-                // 이미 아는 값은 덮지 않는다 — 하위 화면에서 방금 고른 값이 저장 완료보다 먼저 도착한다.
-                guard state.theme == nil else { return .none }
-                state.theme = theme
-                return .none
 
             case let .profileResponse(.success(profile)):
                 state.isLoading = false
@@ -172,11 +148,11 @@ public struct SettingFeature {
             // MARK: - 하위 화면 push
 
             case .view(.themeRowTapped):
-                state.path.append(.theme(ThemeFeature.State(selectedTheme: state.currentTheme)))
+                state.path.append(.theme(ThemeFeature.State()))
                 return .none
 
             case .view(.notificationRowTapped):
-                state.path.append(.notification(NotificationSettingFeature.State(theme: state.currentTheme)))
+                state.path.append(.notification(NotificationSettingFeature.State()))
                 return .none
 
             case .view(.accountRowTapped):
@@ -184,19 +160,6 @@ public struct SettingFeature {
                 return .none
 
             // MARK: - 하위 화면 delegate
-
-            case let .path(.element(id: _, action: .theme(.delegate(.themeChanged(theme))))):
-                // 재조회 없이 표시값만 갈아끼운다.
-                state.theme = theme
-                // 저장도 여기서 한다 — 테마 화면이 pop되면 그 화면의 이펙트는 취소된다.
-                // 로컬 저장이라 실패 경로가 없어 결과를 받지 않는다.
-                //
-                // 취소 ID를 붙이지 않는다. 부모가 pop보다 먼저 사라지는 경우(App이 설정 화면을
-                // 통째로 교체)에는 이 이펙트도 함께 취소돼 고른 테마가 유실된다.
-                // 즉시 끝나는 로컬 write라 중복 실행을 막을 이유도 없다.
-                return .run { [selectThemeUseCase] _ in
-                    await selectThemeUseCase.run(theme)
-                }
 
             case .path(.element(id: _, action: .account(.delegate(.signedOut)))):
                 // 스택을 먼저 비운다 — App이 화면을 즉시 교체하지 않는 구현이어도

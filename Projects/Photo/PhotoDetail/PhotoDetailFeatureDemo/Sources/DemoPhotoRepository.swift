@@ -1,8 +1,8 @@
 import Foundation
 import PhotoDomain
 
-/// 데모용 사진 저장소. 서버 명세가 확정되기 전까지 `PhotoData` 자리를 대신한다.
-/// 리액션은 메모리에만 쌓이고, 원본 이미지만 실제로 내려받는다(사진첩 저장 확인용).
+/// 데모용 사진 저장소. `PhotoData`가 생기기 전까지 그 자리를 대신한다.
+/// 리액션은 메모리에만 저장하고, 원본 이미지만 실제로 내려받는다(사진첩 저장 확인용).
 struct DemoPhotoRepository: PhotoRepository {
 
     /// 데모가 흉내 낼 상황.
@@ -37,24 +37,35 @@ struct DemoPhotoRepository: PhotoRepository {
         }
     }
 
-    func setReaction(photoID: String, kind: ReactionKind, isOn: Bool) async throws -> Photo {
+    func reactions(forPhotoID photoID: String) async throws -> PhotoReactions {
+        guard case let .populated(store) = scenario else { return PhotoReactions() }
+        try await Task.sleep(for: latency)
+        // 데모는 서버가 없으니 메모리 저장소에 쌓인 리액션을 그대로 돌려준다(재진입 시 스티커·띠 복원).
+        guard let photo = await store.photo(id: photoID) else { return PhotoReactions() }
+        return PhotoReactions(stickers: photo.reactions, reactedKindsByUser: photo.reactedKindsByUser)
+    }
+
+    func setReaction(roomID _: Int64, photoID: String, kind: ReactionKind, isOn _: Bool) async throws {
         guard case let .populated(store) = scenario else { throw PhotoError.unknown }
         try await Task.sleep(for: latency)
 
-        let updated = await store.setReaction(
+        // 데모는 서버가 없으니 메모리 저장소에 반영해 재진입 시에도 스티커가 남게 한다.
+        let updated = await store.addReaction(
             photoID: photoID,
             kind: kind,
-            isOn: isOn,
             userID: DemoFixture.currentUserID
         )
-        guard let updated else { throw PhotoError.unknown }
-        return updated
+        guard updated != nil else { throw PhotoError.unknown }
     }
 
     func imageData(for photo: Photo) async throws -> Data {
         do {
             let (data, _) = try await URLSession.shared.data(from: photo.imageURL)
             return data
+        } catch let error as URLError where error.code == .cancelled {
+            // 취소를 network 오류로 바꾸면 "네트워크 확인" 얼럿이 잘못 뜬다. 취소는 취소로 올린다.
+            // 실 구현(PhotoData)도 이 경로를 그대로 두면 안 된다.
+            throw CancellationError()
         } catch {
             throw PhotoError.network
         }

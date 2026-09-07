@@ -1,6 +1,17 @@
 // swift-tools-version: 6.0
 @preconcurrency import PackageDescription
 
+#if TUIST
+    import struct ProjectDescription.PackageSettings
+
+    /// Xcode 27은 macOS 배포 타겟 하한이 12.0이라, 외부 패키지 기본값 11.0을 12.0으로 올린다.
+    let packageSettings = PackageSettings(
+        baseSettings: .settings(
+            base: ["MACOSX_DEPLOYMENT_TARGET": "12.0"]
+        )
+    )
+#endif
+
 /// 추가·변경 후에는 `mise exec -- tuist install`을 다시 실행한다.
 let package = Package(
     name: "CHALLADependencies",

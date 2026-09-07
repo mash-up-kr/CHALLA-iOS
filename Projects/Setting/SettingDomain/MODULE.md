@@ -10,9 +10,9 @@
 **색을 모른다.** `AppTheme`은 테마의 *정체*와 `displayName`까지만 책임진다.
 Domain이 `CHALLADesignSystem`을 import하면 도메인이 UI에 묶이기 때문이다.
 
-`AppTheme` → `CHALLAColor.Primary` 매핑은 **`SettingFeature`에 있다**
+`AppTheme` → `CHALLATheme` 매핑은 **`SettingFeature`에 있다**
 (`Sources/Support/AppTheme+ThemeColor.swift`). Domain은 UI를 모르고 DS는 Domain을 모르므로
-둘 다 아는 레이어가 Feature뿐이다. 앱 전체 테마 적용이 생기면 공용 위치로 승격한다.
+둘 다 아는 레이어가 Feature뿐이다. 설정 밖의 모듈이 이 매핑을 쓰게 되면 공용 위치로 승격한다.
 
 **의존 주입 설계**: `AuthDomain`과 같다 — UseCase는 `@DependencyClient` + `TestDependencyKey`로
 선언하고 **`liveValue`를 두지 않는다.** 인자 없는 `liveValue`를 채우려면 구체 구현체를 만들어야 하고,
@@ -51,8 +51,8 @@ Domain이 `CHALLADesignSystem`을 import하면 도메인이 UI에 묶이기 때�
 
 ### Interface (`Sources/Interface/`)
 
-- `protocol SettingsRepository` (구현: `SettingData`) — 테마·알림
-  - `fetchTheme() async -> AppTheme` / `updateTheme(_:) async`
+- `protocol SettingsRepository` (구현: `SettingData`) — 알림
+  - 테마는 여기 없다. `SettingFeature`의 `@Shared(.appTheme)`가 저장소를 직접 읽는다
   - `fetchNotificationSetting() async -> NotificationSetting` / `updateNotificationSetting(_:) async`
   - 로컬 저장이라 실패 개념이 없어 던지지 않는다. 값이 없으면 각 타입의 `default`를 돌려준다
 - `protocol SettingProfileProvider` (구현: 합성 지점) — 프로필
@@ -82,8 +82,6 @@ Domain이 `CHALLADesignSystem`을 import하면 도메인이 UI에 묶이기 때�
 | UseCase | 시그니처 | live 조립 |
 | :-- | :-- | :-- |
 | `LoadProfileUseCase` | `() async throws -> SettingProfile` | `.live(profile:)` |
-| `LoadThemeUseCase` | `() async -> AppTheme` | `.live(settings:)` |
-| `SelectThemeUseCase` | `(AppTheme) async -> Void` | `.live(settings:)` |
 | `LoadNotificationSettingsUseCase` | `() async -> NotificationSettingsSnapshot` | `.live(settings:permission:)` |
 | `UpdateServiceNotificationUseCase` | `(Bool) async -> Void` | `.live(settings:)` |
 | `OpenSystemNotificationSettingsUseCase` | `() async -> Void` | `.live(permission:)` |
@@ -93,18 +91,44 @@ Domain이 `CHALLADesignSystem`을 import하면 도메인이 UI에 묶이기 때�
 - 테마·알림 계열은 로컬 저장이라 **던지지 않는다** — 실패 개념이 없다
 - `UpdateServiceNotificationUseCase`가 `NotificationSetting` 전체가 아니라 `Bool`을 받는 이유:
   지금 항목이 하나뿐이라 화면이 다른 필드를 알 필요가 없다. 항목이 늘면 시그니처를 넓힌다
-- 파일은 화면 단위로 묶는다(`ThemeUseCases` · `NotificationUseCases` · `AccountUseCases`).
+- 파일은 화면 단위로 묶는다(`NotificationUseCases` · `AccountUseCases`).
   1파일 1UseCase면 파일이 8개로 흩어져 탐색 비용이 더 크다. `LoadProfileUseCase.swift`만 단독 파일이다
 
-### 프로필과 테마를 왜 따로 읽나
+### 테마 UseCase가 왜 없나
 
 **실패 가능성이 다른 값은 한 묶음으로 돌려주지 않는다.**
 예전에는 `LoadSettingsUseCase`가 프로필(원격·실패 가능)과 테마(로컬·실패 불가)를 `SettingsSnapshot`
 하나로 묶어 줬는데, 프로필 조회가 실패하면 스냅샷이 통째로 비어 **저장된 테마까지 사라졌다.**
-설정 화면은 기본 테마를 표시하고, 그 값을 시드로 받는 알림 화면은 토글 색까지 틀리게 그렸다.
+그래서 `LoadThemeUseCase`·`SelectThemeUseCase`로 갈라 각각 호출하게 했다.
 
-지금은 `LoadProfileUseCase`와 `LoadThemeUseCase`를 화면이 각각 호출한다.
-테마는 로컬이라 즉시 돌아와 깜빡임도 없다.
+지금은 그 둘도 없다. 테마를 설정 밖의 화면까지 쓰게 되면서 `SettingFeature`의
+`@Shared(.appTheme)`가 저장소를 직접 읽는다 — 읽는 곳이 늘어도 UseCase 주입을 새로 배선하지
+않아도 되고, 프로필 실패와도 무관하다. 알림은 설정 화면 안에서만 쓰므로 UseCase 그대로다.
+
+### `@Shared`를 쓸지 판단하는 기준
+
+테마가 첫 사례다. 계기는 `AppFeature.State`가 화면 9개짜리 enum이라는 점이었다 —
+값을 state에 얹으려면 `profile`처럼 9개 case 전부에 끼워야 하고, 화면이 늘 때마다 그 배선이 늘어난다.
+`@Shared`는 그 배선을 없애지만 공짜가 아니라서, **아래 네 가지가 모두 "예"일 때만 쓴다.**
+
+1. 여러 화면이 읽는가 — 한 화면 안에서 끝나면 UseCase로 충분하다
+2. 실패할 일이 없는가 — 서버를 타면 로딩·에러 상태가 필요해 Repository가 맞다
+3. 쓰는 곳이 한 군데인가 — 여러 곳이 쓰면 순서 관리가 필요해 Reducer를 거친다
+4. 아래 테스트 비용을 치를 만큼 중요한가
+
+**테스트 비용** — 테스트의 `defaultAppStorage`는 읽을 때마다 새 저장소를 만든다.
+값을 미리 넣어둔 저장소와 `TestStore`가 보는 저장소가 서로 다른 물건이 되어,
+시드가 반영되지 않은 채로 통과하거나 엉뚱한 변화로 잡힌다.
+`SettingFeature/Tests/Support/ThemeStorage.swift`의 `withThemeStorage`가 둘을 같은 컨텍스트로 묶는다.
+값 하나를 옮길 때마다 이 헬퍼를 거쳐야 한다.
+
+| 값 | 여러 화면 | 실패 없음 | 쓰기 한 곳 | 결론 |
+| :-- | :-: | :-: | :-: | :-- |
+| 테마 | O | O | O | `@Shared` |
+| 알림 설정 | X (설정 안에서 끝남) | O | O | UseCase 유지 |
+| 프로필 | O | X (서버 조회) | X | Repository 유지 |
+
+설정 화면 쪽 배경은 `SettingFeature/MODULE.md`의 "설정 저장은 누가 하나" 참고.
 
 ## 의존 관계
 

@@ -8,6 +8,8 @@ import SwiftUI
 /// CTA 슬롯(위 여백 8 + 높이 54)은 버튼이 없어도 자리를 예약한다 — CTA 등장 시 카드가 움직이지 않는다.
 struct ProfileFormView: View {
 
+    @Environment(\.challaTheme) private var theme
+
     let headline: ProfileFormHeadline
     let avatar: ProfileAvatarSource
     let showsCameraBadge: Bool
@@ -46,7 +48,7 @@ struct ProfileFormView: View {
             if let highlighted = headline.highlighted {
                 Text(highlighted)
                     .challaFont(.heading.small.bold)
-                    .foregroundStyle(CHALLAColor.Primary.yellow)
+                    .foregroundStyle(theme.accent)
                     .lineLimit(1)
             }
             Text(headline.text)

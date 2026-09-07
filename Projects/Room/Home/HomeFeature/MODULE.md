@@ -9,21 +9,25 @@ TCA로 작성하며 `RoomDomain`의 UseCase를 `@Dependency`로 주입받는다 
 **화면 전환은 하지 않는다.** 방 상세·설정·카메라로 가는 것은 App의 몫이라 `delegate` 액션으로 넘긴다
 (규칙 3: Feature끼리 직접 참조하지 않는다).
 
-**촬영 진입은 홈이 준비까지 마친다.** 촬영 중 카드 하단의 촬영 뱃지를 누르면 촬영 가능 방 목록·필터(목록에
-이어 LUT까지) 조회와 권한 요청을 한꺼번에 걸고(`async let` 3개), 모두 갖춰졌을 때만
+**촬영 진입은 홈이 준비까지 마친다.** 촬영 중 카드 하단의 촬영 뱃지를 누르면 `ShootEntry`의
+`ShootPreparation`이 목록·필터(LUT 포함)·권한을 한꺼번에 갖추고, 전부 성공했을 때만
 `delegate(.cameraRequested)`를 보낸다. 준비 중에는 그 카드의 뱃지가 스피너로 바뀌고 다시 눌리지 않는다.
-권한이 거절되면 설정 앱으로 보내는 얼럿을, 조회가 실패하면 실패 얼럿을 띄우고 카메라로 넘어가지 않는다 —
+실패하면 얼럿(권한이면 설정 앱으로, 조회 실패면 그 문구)을 띄우고 카메라로 넘어가지 않는다 —
 반쪽짜리 카메라 화면(목록 없음·검은 프리뷰·색이 안 먹는 필터)을 띄우지 않기 위해서다.
-LUT를 여기서 함께 받는 이유는 카메라 화면에서 받으면 필터 띠가 한동안 반쪽으로 뜨기 때문이다.
 
-**권한은 카메라 · 사진첩(`.addOnly`) 둘을 이 시점에 이어서 묻는다.** 촬영본은 사진첩에 저장한 뒤
-업로드로 이어지므로, 저장 권한 없이 들어가면 셔터를 누르는 족족 실패한다. 시스템 팝업은 한 번에 하나만
-뜨기 때문에 둘을 병렬로 걸지 않고 카메라 → 사진첩 순서로 묻는다 (카메라가 거절되면 사진첩은 묻지 않는다).
+준비 규칙(조회·권한을 동시에 걸고, 권한은 카메라 → 사진첩 순서로, 권한 거절이 조회 실패보다 앞선다)은
+방 상세의 사진 찍기와 공유한다 — 상세는 `ShootEntry/MODULE.md`.
 
 **부모/자식 책임 분리**: 두 드로어는 각자 리듀서를 갖고, 성공을 `delegate`로 알리기만 한다.
 드로어를 닫고 목록에 반영하는 것은 홈이 한다 — 목록은 홈의 State라 자식이 손댈 수 없고,
 닫기와 반영이 한 리듀서 패스 안에서 끝나야 목록에 안 들어간 채 드로어만 닫히는 중간 상태가 없다.
 실패 얼럿은 반대로 자식이 소유한다 — 드로어를 연 채 입력값 그대로 다시 시도할 수 있어야 한다.
+
+**인화 완료 시각에 알람을 걸어 재조회한다.** 목록 응답마다 인화 대기 방들의 완료 예정 시각 중
+가장 이른 미래 시각에 한 번 깨어나는 이펙트를 다시 건다. 깨어나면 재조회해 인화 대기 카드가
+"확인하기" 카드로 바뀌는 것을 사용자 조작 없이 반영한다. 다음 목록에 대기 방이 없으면 걸어 둔
+알람도 거둔다. 초 단위 카운트다운 표기는 State가 아니라 뷰의 `TimelineView`가
+`PrintCountdown`으로 매초 계산한다 — 방 상세의 카운트다운 바와 같은 방식이다.
 
 ## 공개 API
 
@@ -35,11 +39,8 @@ App(또는 데모앱)이 쓰는 것만 열려 있다. 드로어 뷰와 내부 �
     부모가 넣어 준다. 이슈 #33이 프로필 정본을 만들면 UseCase 주입으로 바꾼다
   - `Action.Delegate` — `.roomSelected(Room)` · `.roomCreated(Room)` · `.roomJoined(Room)` · `.settingsTapped` ·
     `.cameraRequested(CameraEntry)`
-- `struct CameraEntry` — 카메라 화면을 띄우는 재료(누른 방 id + 촬영 가능 방 목록 + 필터 목록).
-  카메라 화면은 아무것도 스스로 조회하지 않아서, 홈이 미리 받아 이 묶음으로 넘긴다.
-  LUT는 이 묶음에 담지 않는다 — `CameraFilterCatalog`에 이미 등록돼 있다
-- `enum ShootPreparationError` — 촬영 준비 실패
-  (`.cameraPermissionDenied` · `.photoLibraryPermissionDenied` · `.loadFailed(message:)`)
+
+`CameraEntry` · `ShootPreparationError`는 `ShootEntry` 모듈이 정의한다 — 방 상세의 사진 찍기와 같은 타입이다.
 
 `CreateRoomFeature` · `JoinRoomFeature`는 `Destination`에 담기느라 `public`이지만 App이 직접 쓰지 않는다.
 
@@ -50,7 +51,8 @@ App(또는 데모앱)이 쓰는 것만 열려 있다. 드로어 뷰와 내부 �
 - `showsLoading` — 첫 조회 중. 재조회 중에는 보던 목록을 유지한다
 - `errorMessage` — 조회에 실패했고 보여줄 목록도 없을 때의 안내 문구
 - `showsEmptyState` — 조회를 마쳤는데 방이 없을 때
-- `board` — 그 외. `RoomBoard`가 촬영 중 · 촬영 완료 두 섹션으로 가른다
+- `board` — 그 외. `RoomBoard`가 상단(촬영 중·인화 대기·미확인 인화 완료)과
+  하단(확인을 마친 인화 완료)으로 가른다. 순서는 서버 정렬 그대로다
 
 ### 겹쳐 뜨는 것
 
@@ -62,8 +64,8 @@ App(또는 데모앱)이 쓰는 것만 열려 있다. 드로어 뷰와 내부 �
 
 ## 의존성
 
-- **이 모듈이 의존**: `RoomDomain` · `PhotoDomain` · `PhotoLibrary` · `CHALLADesignSystem` · `ComposableArchitecture`
-- **이 모듈에 의존**: `HomeFeatureDemo` · (예정) `CHALLAApp`
+- **이 모듈이 의존**: `RoomDomain` · `ShootEntry`(촬영 진입 준비) · `CHALLADesignSystem` · `ComposableArchitecture`
+- **이 모듈에 의존**: `HomeFeatureDemo` · `CHALLAApp`
 
 ## 알려진 임시 구현
 
@@ -82,10 +84,12 @@ Swift Testing + TCA `TestStore` 기반. 시뮬레이터가 필요하다 (`@MainA
 - `HomeFeatureTests` — 조회·빈 상태·실패 얼럿과 재시도, 목록이 있는 재조회 실패는 본문을 안 건드리는지,
   드로어가 열려 있으면 얼럿으로 덮지 않는지, 취소된 조회가 재개되는지,
   카드 탭·설정의 delegate 위임, `+` 메뉴에서 두 드로어 진입, 생성·입장 결과의 목록 반영
-  (재입장은 중복 없이 값만 갱신)
+  (재입장은 중복 없이 값만 갱신), 완료 시각 도달 시 알람이 재조회를 부르는지(`TestClock`)
 - `CreateRoomFeatureTests` — 20자 자르기, 버튼 잠금 조건, 매수 선택, 성공 delegate,
   가드 2종(빈 이름·요청 중), 실패 얼럿 후 입력값 유지, 닫기의 dismiss
 - `JoinRoomFeatureTests` — 버튼 잠금 조건, 입력 중 공백을 지우지 않는지, 성공 delegate,
   가드 2종, `.roomNotFound` 얼럿 후 입력값 유지, 닫기의 dismiss
+- `HomeShootEntryTests` — 촬영 뱃지의 준비 중 표시, 성공 시 delegate, 실패 시 얼럿, 없는 방 id 무시.
+  준비 자체(권한 순서·실패 판단)는 `ShootEntry` 테스트가 본다
 
 화면 상태별 UI 확인은 `HomeFeatureDemo`가 맡는다 — 실행 인자로 목록 6상태와 드로어를 바로 띄운다.

@@ -44,8 +44,8 @@ struct RootView: View {
                     NavigationLink("Film Card") {
                         FilmCardGallery()
                     }
-                    NavigationLink("Card Item") {
-                        CardItemGallery()
+                    NavigationLink("Room Card") {
+                        RoomCardGallery()
                     }
                     NavigationLink("Print Card") {
                         PrintCardGallery()
@@ -61,6 +61,9 @@ struct RootView: View {
                     }
                     NavigationLink("SnackBar") {
                         SnackBarGallery()
+                    }
+                    NavigationLink("Tooltip") {
+                        TooltipGallery()
                     }
                 }
 

@@ -3,9 +3,11 @@ import ComposableArchitecture
 import PhotoDomain
 import PhotoLibrary
 import RoomDomain
+import ShootEntry
 import Testing
 
-/// 촬영 뱃지를 눌렀을 때의 준비 흐름 — 목록·필터 LUT·권한이 모두 갖춰져야 카메라로 넘어간다.
+/// 촬영 뱃지를 눌렀을 때 홈이 하는 일 — 준비 중 표시, 성공하면 delegate, 실패하면 얼럿.
+/// 준비 자체(권한 순서·조회 실패 판단)는 `ShootEntry`의 테스트가 본다.
 @MainActor
 @Suite("HomeFeature 촬영 진입")
 struct HomeShootEntryTests {
@@ -21,9 +23,7 @@ struct HomeShootEntryTests {
     private static func makeStore(
         isPermitted: Bool = true,
         photoAuthorization: PhotoLibraryAuthorization = .authorized,
-        rooms: @escaping @Sendable () async throws -> [ShootableRoom] = { shootableRooms },
-        filters: @escaping @Sendable () async throws -> [CameraFilter] = { filters },
-        prepareFilters: @escaping @Sendable ([CameraFilter]) async throws -> Void = { _ in }
+        rooms: @escaping @Sendable () async throws -> [ShootableRoom] = { shootableRooms }
     ) -> TestStoreOf<HomeFeature> {
         var state = HomeFeature.State(nickname: "찰나")
         state.cards = [card]
@@ -32,8 +32,8 @@ struct HomeShootEntryTests {
             HomeFeature()
         } withDependencies: {
             $0.fetchShootableRoomsUseCase.run = rooms
-            $0.fetchCameraFiltersUseCase.run = filters
-            $0.prepareCameraFiltersUseCase.run = prepareFilters
+            $0.fetchCameraFiltersUseCase.run = { filters }
+            $0.prepareCameraFiltersUseCase.run = { _ in }
             $0.requestCameraPermissionUseCase.run = { isPermitted }
             $0.photoLibraryPermission.request = { _ in photoAuthorization }
         }
@@ -54,7 +54,7 @@ struct HomeShootEntryTests {
         await store.receive(\.delegate.cameraRequested)
     }
 
-    @Test("카메라 권한을 거절하면 카메라로 넘어가지 않고 설정 안내 얼럿을 띄운다")
+    @Test("권한을 거절하면 카메라로 넘어가지 않고 설정 안내 얼럿을 띄운다")
     func blocksWhenPermissionDenied() async {
         let store = Self.makeStore(isPermitted: false)
 
@@ -63,56 +63,13 @@ struct HomeShootEntryTests {
         }
         await store.receive(\.shootPreparationResponse.failure) {
             $0.preparingShootRoomID = nil
-            $0.destination = .alert(ShootPreparationError.cameraPermissionDenied.alert)
+            $0.destination = .alert(
+                ShootPreparationError.cameraPermissionDenied.alert(openSettings: .openSettingsTapped)
+            )
         }
     }
 
-    @Test("사진첩 권한을 거절하면 카메라로 넘어가지 않고 설정 안내 얼럿을 띄운다")
-    func blocksWhenPhotoLibraryPermissionDenied() async {
-        let store = Self.makeStore(photoAuthorization: .denied)
-
-        await store.send(.view(.shootButtonTapped(Self.card.id))) {
-            $0.preparingShootRoomID = Self.card.id
-        }
-        await store.receive(\.shootPreparationResponse.failure) {
-            $0.preparingShootRoomID = nil
-            $0.destination = .alert(ShootPreparationError.photoLibraryPermissionDenied.alert)
-        }
-    }
-
-    @Test("사진첩이 제한 허용이어도 저장은 되므로 카메라로 넘어간다")
-    func allowsLimitedPhotoLibrary() async {
-        let store = Self.makeStore(photoAuthorization: .limited)
-
-        await store.send(.view(.shootButtonTapped(Self.card.id))) {
-            $0.preparingShootRoomID = Self.card.id
-        }
-        await store.receive(\.shootPreparationResponse.success) {
-            $0.preparingShootRoomID = nil
-        }
-        await store.receive(\.delegate.cameraRequested)
-    }
-
-    @Test("카메라 권한을 거절하면 사진첩은 묻지 않는다 — 팝업이 겹치지 않게 순서대로 묻는다")
-    func skipsPhotoLibraryWhenCameraDenied() async {
-        let didAskPhotoLibrary = LockIsolated(false)
-        let store = Self.makeStore(isPermitted: false)
-        store.dependencies.photoLibraryPermission.request = { _ in
-            didAskPhotoLibrary.setValue(true)
-            return .authorized
-        }
-
-        await store.send(.view(.shootButtonTapped(Self.card.id))) {
-            $0.preparingShootRoomID = Self.card.id
-        }
-        await store.receive(\.shootPreparationResponse.failure) {
-            $0.preparingShootRoomID = nil
-            $0.destination = .alert(ShootPreparationError.cameraPermissionDenied.alert)
-        }
-        #expect(didAskPhotoLibrary.value == false)
-    }
-
-    @Test("목록 조회에 실패하면 카메라로 넘어가지 않고 실패를 알린다")
+    @Test("목록 조회에 실패하면 카메라로 넘어가지 않고 실패 문구를 그대로 알린다")
     func blocksWhenLoadFails() async {
         let store = Self.makeStore(rooms: { throw RoomError.network })
 
@@ -123,51 +80,7 @@ struct HomeShootEntryTests {
         let failure = ShootPreparationError.loadFailed(message: RoomError.network.userMessage)
         await store.receive(\.shootPreparationResponse.failure) {
             $0.preparingShootRoomID = nil
-            $0.destination = .alert(failure.alert)
-        }
-    }
-
-    @Test("LUT를 못 받으면 카메라로 넘어가지 않는다 — 필터가 안 먹는 화면을 띄우지 않는다")
-    func blocksWhenLUTPreparationFails() async {
-        let store = Self.makeStore(prepareFilters: { _ in throw PhotoError.network })
-
-        await store.send(.view(.shootButtonTapped(Self.card.id))) {
-            $0.preparingShootRoomID = Self.card.id
-        }
-
-        let failure = ShootPreparationError.loadFailed(message: PhotoError.network.userMessage)
-        await store.receive(\.shootPreparationResponse.failure) {
-            $0.preparingShootRoomID = nil
-            $0.destination = .alert(failure.alert)
-        }
-    }
-
-    @Test("필터 목록을 받은 뒤에 그 목록으로 LUT를 준비한다")
-    func preparesLUTsForFetchedFilters() async {
-        let prepared = LockIsolated<[CameraFilter]>([])
-        let store = Self.makeStore(prepareFilters: { prepared.setValue($0) })
-
-        await store.send(.view(.shootButtonTapped(Self.card.id))) {
-            $0.preparingShootRoomID = Self.card.id
-        }
-        await store.receive(\.shootPreparationResponse.success) {
-            $0.preparingShootRoomID = nil
-        }
-        await store.receive(\.delegate.cameraRequested)
-
-        #expect(prepared.value == Self.filters)
-    }
-
-    @Test("권한도 없고 조회도 실패하면 권한 안내를 먼저 보여준다 — 사용자가 먼저 할 일이라서")
-    func permissionTakesPrecedence() async {
-        let store = Self.makeStore(isPermitted: false, rooms: { throw RoomError.network })
-
-        await store.send(.view(.shootButtonTapped(Self.card.id))) {
-            $0.preparingShootRoomID = Self.card.id
-        }
-        await store.receive(\.shootPreparationResponse.failure) {
-            $0.preparingShootRoomID = nil
-            $0.destination = .alert(ShootPreparationError.cameraPermissionDenied.alert)
+            $0.destination = .alert(failure.alert(openSettings: .openSettingsTapped))
         }
     }
 

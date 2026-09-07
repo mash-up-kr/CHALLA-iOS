@@ -37,8 +37,7 @@ struct SocialLoginButton: View {
             }
             .foregroundStyle(foreground)
             .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, minHeight: 54)
+            .frame(maxWidth: .infinity, minHeight: 54) // 시안 54pt — 라인 여백까지 더해지면 넘치므로 세로 패딩은 두지 않는다
             .background(background)
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }

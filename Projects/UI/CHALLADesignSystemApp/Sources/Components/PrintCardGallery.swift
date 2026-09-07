@@ -2,14 +2,14 @@ import CHALLADesignSystem
 import SwiftUI
 
 /// Component > Print Card 검수 화면.
-/// 인화 카드의 상태 2종(인화 대기/완료)과 사진 장수 엣지 케이스를 나열한다.
+/// 인화 완료 카드의 기본 모습과 사진 장수 엣지 케이스를 나열한다.
 /// 사진은 picsum.photos에서 실사진을 받아 주입한다 — 인터넷이 없으면 로딩 자리만 남는다.
 struct PrintCardGallery: View {
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 40) {
-                statusSection
+                basicSection
                 countSection
             }
             .padding(20)
@@ -21,20 +21,15 @@ struct PrintCardGallery: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    // MARK: - Status 섹션
+    // MARK: - Basic 섹션
 
-    /// 상태 2종 검수 — 칩 색과 낱장 blur/선명이 함께 바뀌는지 확인.
-    private var statusSection: some View {
+    /// 기본 모습 검수 — 선명한 낱장 3장 + "+N" 슬롯, 제목·인원 줄 확인.
+    private var basicSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            galleryTitle("Status")
-            galleryCaption("인화 대기 (칩 회색톤 · 낱장 blur)")
+            galleryTitle("Basic")
+            galleryCaption("전체 24장 — 낱장 3장 선명 + 마지막 슬롯 +21")
             samplePhotosCard(seeds: ["p1", "p2", "p3", "p4"]) {
-                CHALLAPrintCard(status: .printing, title: "친구들과 강릉 여행",
-                                memberCount: 11, photos: $0, totalPhotoCount: 24)
-            }
-            galleryCaption("인화 완료 (칩 노랑톤 · 낱장 선명)")
-            samplePhotosCard(seeds: ["p1", "p2", "p3", "p4"]) {
-                CHALLAPrintCard(status: .printed, title: "인화 완료 된 방이에요",
+                CHALLAPrintCard(title: "친구들과 강릉 여행",
                                 memberCount: 11, photos: $0, totalPhotoCount: 24)
             }
         }
@@ -48,12 +43,12 @@ struct PrintCardGallery: View {
             galleryTitle("Photo Count")
             galleryCaption("전체 4장 — 마지막 슬롯도 일반 낱장 (+N 없음)")
             samplePhotosCard(seeds: ["p1", "p2", "p3", "p4"]) {
-                CHALLAPrintCard(status: .printed, title: "딱 네 장 찍은 방",
+                CHALLAPrintCard(title: "딱 네 장 찍은 방",
                                 memberCount: 4, photos: $0, totalPhotoCount: 4)
             }
             galleryCaption("전체 2장 — 뒤 슬롯 비움 (시안 없음 · 디자이너 확인 예정)")
             samplePhotosCard(seeds: ["p1", "p2"]) {
-                CHALLAPrintCard(status: .printed, title: "두 장뿐인 방",
+                CHALLAPrintCard(title: "두 장뿐인 방",
                                 memberCount: 2, photos: $0, totalPhotoCount: 2)
             }
         }

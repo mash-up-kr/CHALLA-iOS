@@ -1,12 +1,14 @@
 import CHALLADesignSystem
 import SwiftUI
 
-/// 환영 화면 하단의 lime 글로우 (장식 전용).
+/// 환영 화면 하단의 테마 색 글로우 (장식 전용).
 struct WelcomeGlowView: View {
+
+    @Environment(\.challaTheme) private var theme
 
     var body: some View {
         Ellipse()
-            .fill(CHALLAColor.Primary.yellow.opacity(Metric.opacity))
+            .fill(theme.accent.opacity(Metric.opacity))
             .frame(height: Metric.height)
             .blur(radius: Metric.blurRadius)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)

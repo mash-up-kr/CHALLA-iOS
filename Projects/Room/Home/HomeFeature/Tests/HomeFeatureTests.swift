@@ -1,5 +1,6 @@
 @testable import HomeFeature
 import ComposableArchitecture
+import Foundation
 import RoomDomain
 import Testing
 
@@ -13,12 +14,18 @@ struct HomeFeatureTests {
 
     private static func makeStore(
         initialState: HomeFeature.State = HomeFeature.State(nickname: "찰나"),
-        fetchRooms: FetchRoomsUseCase = .testValue
+        fetchRooms: FetchRoomsUseCase = .testValue,
+        clock: any Clock<Duration> = TestClock()
     ) -> TestStoreOf<HomeFeature> {
         TestStore(initialState: initialState) {
             HomeFeature()
         } withDependencies: {
             $0.fetchRoomsUseCase = fetchRooms
+            $0.continuousClock = clock
+            // 알람을 걸지 말지는 "지금이 완료 시각 전인가"로 갈리는데, 실제 시각을 읽으면 돌릴 때마다
+            // 결과가 달라진다. 프리뷰 카드의 완료 시각(생성 + 3일)보다 뒤로 고정해 두면 기본 픽스처에서는
+            // 알람이 걸리지 않는다 — 알람 동작 자체는 미래 완료 시각 카드를 쓰는 전용 테스트가 본다.
+            $0.date = .constant(Date(timeIntervalSince1970: 1_790_000_000))
         }
     }
 

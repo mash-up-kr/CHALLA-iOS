@@ -26,8 +26,7 @@ enum DemoFixture {
                 id: "photo-\(index)",
                 imageURL: imageURL,
                 author: author,
-                capturedAt: capturedAt,
-                reactions: index == 1 ? [clapReaction] : []
+                capturedAt: capturedAt
             )
         }
     }
@@ -42,6 +41,4 @@ enum DemoFixture {
         components.minute = 34
         return Calendar(identifier: .gregorian).date(from: components) ?? Date(timeIntervalSince1970: 0)
     }()
-
-    private static let clapReaction = PhotoReaction(kind: .clap, userID: "user-tomato")
 }

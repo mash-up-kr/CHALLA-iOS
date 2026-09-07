@@ -8,6 +8,8 @@ struct HomeEmptyView: View {
 
     // MARK: - 프로퍼티
 
+    @Environment(\.challaTheme) private var theme
+
     let nickname: String
     let profileImageURL: URL?
     let onCreateRoom: () -> Void
@@ -32,7 +34,7 @@ struct HomeEmptyView: View {
             VStack(spacing: 0) {
                 Text(nickname)
                     .challaFont(.heading.small.bold)
-                    .foregroundStyle(CHALLAColor.Primary.yellow)
+                    .foregroundStyle(theme.accent)
                 Text("행복한 찰나를 남겨 보세요")
                     .challaFont(.heading.small.bold)
                     .foregroundStyle(CHALLAColor.Label.normal)

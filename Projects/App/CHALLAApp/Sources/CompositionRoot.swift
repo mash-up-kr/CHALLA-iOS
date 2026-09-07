@@ -1,7 +1,11 @@
+import AppData
+import AppDomain
 import AuthData
 import AuthDomain
 import CameraFeature // CameraFilterCatalog — 진입 전에 LUT를 등록해 둔다
 import CHALLANetwork
+import ChatData
+import ChatDomain
 import ComposableArchitecture
 import FirebaseMessaging // 델리게이트 콜백 전에도 이미 발급된 토큰을 물어볼 수 있다
 import Foundation
@@ -9,6 +13,7 @@ import Keychain
 import NotificationData
 import PhotoData
 import PhotoDomain
+import PhotoLibrary
 import RoomData
 import RoomDomain
 import SettingData
@@ -56,6 +61,7 @@ enum CompositionRoot {
         )
         values.pushTokenSynchronizer = pushSynchronizer
 
+        registerAppUpdate(into: &values)
         // 로그아웃은 계정 관리 어댑터도 쓴다. 값을 돌려받아 넘기는 이유는 registerAuth 주석 참고.
         let logout = registerAuth(
             into: &values,
@@ -66,6 +72,7 @@ enum CompositionRoot {
         registerUser(into: &values, client: client, repository: userRepository)
         registerRoom(into: &values, client: client)
         registerPhoto(into: &values, client: client)
+        registerChat(into: &values, client: client)
         registerSetting(
             into: &values,
             using: SettingCollaborators(
@@ -77,6 +84,13 @@ enum CompositionRoot {
                 clearImageCache: clearImageCache
             )
         )
+
+        #if DEBUG
+            // 서버는 현재 버전에 강제 업데이트를 내리지 않으므로, 화면을 눈으로 확인하는 수단은 여전히 이 인자뿐이다.
+            if ProcessInfo.processInfo.arguments.contains("--force-update") {
+                values.checkAppUpdateUseCase.run = { .forced(storeURL: nil) }
+            }
+        #endif
     }
 
     /// 갱신 전용 클라이언트에 얹는다 — 인증 헤더도 재시도도 붙이지 않는다.
@@ -113,6 +127,22 @@ enum CompositionRoot {
                 LoggingInterceptor(level: Self.loggingLevel)
             ],
             retrier: TokenRefreshRetrier(refresher: refresher)
+        )
+    }
+
+    /// 버전 체크는 로그인 전(스플래시)이라 토큰이 필요 없어 공용 client를 쓰지 않고,
+    /// 응답이 늦으면 스플래시가 그만큼 멈추므로 타임아웃을 짧게 잡은 전용 세션을 쓴다.
+    private static func registerAppUpdate(into values: inout DependencyValues) {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 3
+        let client = DefaultHTTPClient(
+            session: URLSession(configuration: configuration),
+            interceptors: [LoggingInterceptor(level: .basic)]
+        )
+        values.checkAppUpdateUseCase = .live(
+            repository: DefaultAppVersionRepository(client: client),
+            // 값이 없으면 빈 문자열로 보낸다 — 서버가 거절해도 fail-open이라 앱은 진행된다.
+            currentVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
         )
     }
 
@@ -161,19 +191,27 @@ enum CompositionRoot {
         values.joinRoomUseCase = .live(repository: repository)
         values.fetchRoomDetailUseCase = .live(repository: repository)
         values.fetchShootableRoomsUseCase = .live(repository: repository)
+        values.checkPrintCompletionUseCase = .live(repository: repository)
+        values.updateRoomTitleUseCase = .live(repository: repository)
 
-        // 방 상세의 사진 그리드가 쓰는 fetchRoomPhotosUseCase는 등록하지 않는다 —
-        // PhotoData에 사진 조회 구현이 아직 없다 (필터·업로드만 있음). 미등록 상태로 두면
-        // 호출 시 런타임 경고가 뜨고 그리드는 빈 칸으로 남는다. 구현이 생기면 여기서 등록한다.
+        // 방 상세·사진 상세가 쓰는 fetchRoomPhotosUseCase는 Photo aggregate라 registerPhoto에서 등록한다.
     }
 
     /// client 공유 조건은 registerUser와 같다. 카메라 화면이 앱에 조립되면 이 배선을 그대로 쓴다.
     private static func registerPhoto(into values: inout DependencyValues, client: any HTTPClient) {
+        let photoRepository = DefaultPhotoRepository(client: client)
         let filterRepository = DefaultCameraFilterRepository(client: client)
         let uploader = DefaultPhotoUploader(client: client)
         // 안내 노출 기록만 서버가 아니라 기기에 남는다 (`CameraOnboardingRepository` 주석 참고).
         let onboarding = DefaultCameraOnboardingRepository()
         let cameraPermission = SystemCameraPermissionProvider()
+
+        // 사진 조회·리액션·저장 — 방 상세 그리드와 사진 상세가 함께 쓴다.
+        values.fetchRoomPhotosUseCase = .live(repository: photoRepository)
+        // 리액션은 목록에 없어 사진을 펼칠 때 한 장씩 지연 조회한다(1+N 회피).
+        values.fetchPhotoReactionsUseCase = .live(repository: photoRepository)
+        values.setPhotoReactionUseCase = .live(repository: photoRepository)
+        values.savePhotoUseCase = .live(repository: photoRepository, photoLibrary: PhotoLibraryWritingAdapter())
 
         values.fetchCameraFiltersUseCase = .live(repository: filterRepository)
         values.prepareCameraFiltersUseCase = .live(
@@ -187,6 +225,13 @@ enum CompositionRoot {
         values.openCameraSettingsUseCase = .live(permission: cameraPermission)
     }
 
+    /// 채팅 조회·작성. client 공유 조건은 registerUser와 같다(공유 client여야 토큰이 붙는다).
+    private static func registerChat(into values: inout DependencyValues, client: any HTTPClient) {
+        let chatRepository = DefaultChatRepository(client: client)
+        values.fetchChatsUseCase = .live(repository: chatRepository)
+        values.sendChatUseCase = .live(repository: chatRepository)
+    }
+
     /// 설정 조립이 필요로 하는 다른 aggregate의 결과물.
     /// 설정 화면 하나가 Auth·User·Notification을 모두 걸치기 때문에 인자가 많아 묶었다.
     private struct SettingCollaborators {
@@ -198,8 +243,9 @@ enum CompositionRoot {
         let clearImageCache: @Sendable () async -> Void
     }
 
-    /// 테마·알림은 기기에 저장하고, 프로필·계정은 다른 aggregate를 어댑터로 잇는다
+    /// 알림은 기기에 저장하고, 프로필·계정은 다른 aggregate를 어댑터로 잇는다
     /// (`Sources/Adapters/` 두 파일의 주석 참고).
+    /// 테마는 여기 없다 — `@Shared(.appTheme)`가 저장소와 직접 이어져 있어 조립할 것이 없다.
     private static func registerSetting(
         into values: inout DependencyValues,
         using collaborators: SettingCollaborators
@@ -221,8 +267,6 @@ enum CompositionRoot {
         )
 
         values.loadProfileUseCase = .live(profile: profile)
-        values.loadThemeUseCase = .live(settings: settings)
-        values.selectThemeUseCase = .live(settings: settings)
         values.loadNotificationSettingsUseCase = .live(settings: settings, permission: permission)
         values.openSystemNotificationSettingsUseCase = .live(permission: permission)
         values.signOutUseCase = .live(account: account)
@@ -244,5 +288,22 @@ enum CompositionRoot {
             }
             return status
         })
+    }
+}
+
+/// Core의 사진첩 저장(`PhotoLibraryStore`)을 도메인 인터페이스(`PhotoLibraryWriting`)에 연결한다.
+/// Core는 도메인을 모르므로(`Keychain`과 같은 이유) 앱에서 어댑터로 오류를 `PhotoError`로 바꿔 준다.
+private struct PhotoLibraryWritingAdapter: PhotoLibraryWriting {
+
+    private let store = PhotoLibraryStore()
+
+    func save(imageData: Data) async throws {
+        do {
+            try await store.save(imageData: imageData)
+        } catch PhotoLibraryError.permissionDenied {
+            throw PhotoError.permissionDenied
+        } catch {
+            throw PhotoError.saveFailed
+        }
     }
 }

@@ -2,14 +2,18 @@ import CHALLADesignSystem
 import ComposableArchitecture
 import PhotoDomain
 import SwiftUI
+import UIKit
 
-/// 사진 상세 화면. 하단 입력창은 아직 모양만 있다 — 채팅은 후속 이슈다.
+/// 사진 상세 화면
 @ViewAction(for: PhotoDetailFeature.self)
 public struct PhotoDetailView: View {
 
-    // MARK: - 프로퍼티와 init
+    @Environment(\.challaTheme) private var theme
 
     @Bindable public var store: StoreOf<PhotoDetailFeature>
+
+    /// 입력창이 차지하는 높이 — 콘텐츠가 그만큼 하단 여백을 비워 입력창과 겹치지 않게 한다.
+    @State private var inputHeight: CGFloat = 0
 
     public init(store: StoreOf<PhotoDetailFeature>) {
         self.store = store
@@ -18,10 +22,35 @@ public struct PhotoDetailView: View {
     // MARK: - Body
 
     public var body: some View {
-        ZStack {
-            CHALLAColor.Background.surface.ignoresSafeArea()
+        ZStack(alignment: .bottom) {
+            CHALLAColor.Background.surface
+                .ignoresSafeArea()
+                // 빈 영역을 탭하면 키보드를 내린다.
+                .onTapGesture { dismissKeyboard() }
             glow.ignoresSafeArea()
+
             content
+                // 입력창 자리만큼 하단을 비운다(입력창은 오버레이라 콘텐츠 레이아웃에 안 낀다).
+                .padding(.bottom, inputHeight)
+                // 키보드가 올라와도 콘텐츠(사진·리액션)는 반응하지 않아 리사이즈되지 않는다 — 채팅 화면과 동일.
+                .ignoresSafeArea(.keyboard, edges: .bottom)
+
+            // 입력창만 키보드 위로 떠오르고, 키보드는 아래(리액션 바·사진 하단)를 덮기만 한다.
+            messageField
+                .padding(.top, Metric.messageFieldTopSpacing)
+                .padding(.horizontal, Metric.messageFieldHorizontalPadding)
+                .padding(.bottom, Metric.messageFieldBottomSpacing)
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.onChange(of: proxy.size.height, initial: true) { _, height in
+                            inputHeight = height
+                        }
+                    }
+                )
+
+            if store.isSaving {
+                savingOverlay
+            }
         }
         // 탑 내비게이션을 직접 그리므로 시스템 바는 숨긴다.
         .toolbar(.hidden, for: .navigationBar)
@@ -44,16 +73,21 @@ public struct PhotoDetailView: View {
             photoArea
                 .padding(.top, Metric.photoTopPadding)
                 .padding(.horizontal, Metric.photoHorizontalPadding)
-                // 사진과 Spacer가 둘 다 유연해서, 작은 화면에서 사진이 먼저 줄지 않도록 우선권을 준다.
+                // 리액션을 남기면 이모지가 사진 위로 쏟아진다. id가 바뀔 때마다 처음부터 다시 튄다.
+                .overlay {
+                    if let burst = store.reactionBurst {
+                        ReactionBurstView(kind: burst.kind)
+                            .id(burst.id)
+                    }
+                }
+                // 화면이 작아도 Spacer보다 사진 크기를 먼저 지켜 리액션 바가 잘리지 않게 한다.
                 .layoutPriority(1)
+                // 사진을 탭하면 키보드를 내린다.
+                .onTapGesture { dismissKeyboard() }
 
             Spacer(minLength: Metric.reactionBarTopSpacing)
 
             reactionBar
-
-            messageField
-                .padding(.top, Metric.messageFieldTopSpacing)
-                .padding(.horizontal, Metric.messageFieldHorizontalPadding)
         }
     }
 
@@ -71,25 +105,26 @@ public struct PhotoDetailView: View {
     }
 
     private var pager: some View {
-        // TabView는 제안된 공간을 다 채우므로, 비율만 잡은 빈 뷰가 크기를 정해준다.
-        Color.clear
-            .aspectRatio(PhotoCard.aspectRatio, contentMode: .fit)
-            .overlay {
-                TabView(selection: selection) {
-                    ForEach(store.photos) { photo in
-                        PhotoCard(photo: photo)
-                            .tag(Optional(photo.id))
-                    }
+        // 사진은 남는 공간에 맞춰 축소되(작은 기기에서 리액션 바가 잘리지 않게), 세로 공간이 바뀌어도
+        // 리사이즈되지 않도록 콘텐츠 전체가 키보드를 무시한다(body에서 `.ignoresSafeArea(.keyboard)`).
+        GeometryReader { proxy in
+            TabView(selection: selection) {
+                ForEach(store.photos) { photo in
+                    PhotoCard(photo: photo, slots: store.stickerSlots, isBlurred: !store.isPrinted)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .tag(Optional(photo.id))
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                // 페이지 TabView는 VoiceOver에 사진을 넘길 방법을 주지 않는다.
-                .accessibilityElement(children: .contain)
-                .accessibilityAction(named: Text("다음 사진")) { send(.adjacentPhotoRequested(offset: 1)) }
-                .accessibilityAction(named: Text("이전 사진")) { send(.adjacentPhotoRequested(offset: -1)) }
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            // 페이지 TabView는 VoiceOver에 사진을 넘길 방법을 주지 않는다.
+            .accessibilityElement(children: .contain)
+            .accessibilityAction(named: Text("다음 사진")) { send(.adjacentPhotoRequested(offset: 1)) }
+            .accessibilityAction(named: Text("이전 사진")) { send(.adjacentPhotoRequested(offset: -1)) }
+        }
+        .aspectRatio(PhotoCard.aspectRatio, contentMode: .fit)
     }
 
-    /// 사진이 없을 때의 빈 자리. 카드 모양만 남긴다.
+    /// 사진이 없을 때의 빈 자리. 로딩 중이면 스피너, 끝났으면 안내 문구를 얹는다.
     private var emptyCard: some View {
         RoundedRectangle(cornerRadius: CHALLARadius.xxlarge)
             .strokeBorder(CHALLAColor.Line.normal, lineWidth: Metric.cardBorderWidth)
@@ -97,8 +132,25 @@ public struct PhotoDetailView: View {
             .overlay {
                 if store.isLoading {
                     ProgressView().tint(CHALLAColor.Label.neutral)
+                } else {
+                    // TODO: 시안에 빈 상태 표현이 없어 임의 문구다 — 빈 상태 시안이 나오면 교체한다.
+                    Text("아직 인화된 사진이 없어요")
+                        .challaFont(.body.medium.medium)
+                        .foregroundStyle(CHALLAColor.Label.neutral)
+                        .multilineTextAlignment(.center)
                 }
             }
+    }
+
+    /// 저장 중 화면을 덮는 오버레이. 다운로드가 몇 초 걸리므로 진행 중임을 표시한다.
+    private var savingOverlay: some View {
+        ZStack {
+            CHALLAColor.Material.dimmer.ignoresSafeArea()
+            ProgressView().tint(CHALLAColor.Static.white)
+        }
+        .accessibilityElement()
+        .accessibilityLabel("사진 저장 중")
+        .accessibilityAddTraits(.isModal)
     }
 
     // MARK: - 하단
@@ -113,22 +165,20 @@ public struct PhotoDetailView: View {
         }
     }
 
-    /// 채팅 입력창 자리. `.disabled(true)`는 글자색까지 비활성 색으로 바꿔 시안과 달라지므로 탭만 막고,
-    /// VoiceOver에는 반응 없는 입력창이 잡히지 않게 숨긴다.
+    /// 이 사진에 채팅 메시지를 보내는 입력창. 채팅 상세와 동일한 DS 컴포넌트를 쓰고 placeholder만 다르다.
     private var messageField: some View {
-        CHALLATextField(
-            text: .constant(""),
-            placeholder: "이 사진에 메시지를 보내 보세요.",
-            textAlignment: .leading
-        )
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
+        CHALLAMessageInputBar(
+            text: Binding(get: { store.messageDraft }, set: { send(.messageChanged($0)) }),
+            placeholder: "이 사진에 메시지를 보내 보세요."
+        ) {
+            send(.sendMessageTapped)
+        }
     }
 
-    /// 화면 아래를 물들이는 테마색 번짐 (시안의 배경 타원).
+    /// 화면 하단의 배경 그라데이션.
     private var glow: some View {
         Ellipse()
-            .fill(CHALLAColor.defaultTheme.opacity(Metric.glowOpacity))
+            .fill(theme.accent.opacity(Metric.glowOpacity))
             .frame(height: Metric.glowHeight)
             .blur(radius: Metric.glowBlurRadius)
             .frame(maxHeight: .infinity, alignment: .bottom)
@@ -150,29 +200,30 @@ public struct PhotoDetailView: View {
     }
 
     private func selectedKinds(of photo: Photo) -> Set<ReactionKind> {
-        Set(photo.reactions.filter { $0.userID == store.currentUserID }.map(\.kind))
+        // 스티커는 첫 이모지 하나지만, 칩 띠는 내가 이 사진에 누른 종류 전부에 켜진다(서버 재조회 시에도 복원).
+        photo.reactedKinds(by: store.currentUserID)
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
 
 // MARK: - Figma 실측값
 
 private enum Metric {
-    /// 탑 내비 아래 ~ 사진 카드 (146 − 114).
     static let photoTopPadding: CGFloat = 32
     static let photoHorizontalPadding: CGFloat = 16
-    static let cardBorderWidth: CGFloat = 1
-    /// 사진 아래 ~ 점 표시 (493 − 477).
     static let indicatorTopSpacing: CGFloat = 16
-    /// 사진 카드 아래 ~ 리액션 바 (684 − 649).
     static let reactionBarTopSpacing: CGFloat = 35
-    static let reactionBarHorizontalPadding: CGFloat = 24
-    /// 리액션 바 아래 ~ 입력창 (758 − 742).
     static let messageFieldTopSpacing: CGFloat = 16
     static let messageFieldHorizontalPadding: CGFloat = 20
-    /// 배경 타원 390 × 244, 노랑 20%.
+    static let messageFieldBottomSpacing: CGFloat = 12
+    static let reactionBarHorizontalPadding: CGFloat = 24
+    static let cardBorderWidth: CGFloat = 1
+    /// 배경 그라데이션 390 × 244, 투명도 20%.
     static let glowHeight: CGFloat = 244
     static let glowOpacity: Double = 0.2
-    /// Figma gaussian 300 — SwiftUI blur와 수치 체계가 달라 시각 근사값.
     static let glowBlurRadius: CGFloat = 150
 }
 
@@ -200,6 +251,7 @@ private enum Metric {
                     )
                 }
             })
+            $0.fetchPhotoReactionsUseCase = .previewValue
         }
     )
 }

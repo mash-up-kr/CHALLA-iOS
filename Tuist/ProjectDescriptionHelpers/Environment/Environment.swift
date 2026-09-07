@@ -4,7 +4,7 @@ import ProjectDescription
 /// 배포 타겟·번들ID 접두사 등
 public enum Environment {
 
-    public static let appName: String = "CHALLA"
+    public static let appName: String = "찰나"
     public static let organizationName: String = "CHALLA"
     public static let bundleIdPrefix: String = "com.challa"
     public static let destinations: Destinations = [.iPhone]

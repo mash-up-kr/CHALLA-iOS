@@ -3,10 +3,12 @@ import Foundation
 import PhotoDomain
 import SwiftUI
 
-/// 사진 위쪽에 얹히는 촬영자 표시 — 아바타 + 닉네임 + 찍은 시각.
+/// 사진 상단의 촬영자 표시. 아바타·닉네임·촬영 시각.
 struct PhotoAuthorHeader: View {
 
     // MARK: - 프로퍼티
+
+    @Environment(\.challaTheme) private var theme
 
     let author: PhotoAuthor
     let capturedAt: Date
@@ -16,7 +18,8 @@ struct PhotoAuthorHeader: View {
     var body: some View {
         VStack(spacing: Metric.rowSpacing) {
             HStack(spacing: Metric.avatarSpacing) {
-                AsyncImage(url: author.avatarURL) { image in
+                // DS의 캐시 이미지 뷰. 캐러셀을 넘길 때 같은 아바타를 다시 받지 않는다.
+                CHALLAAsyncImage(url: author.avatarURL) { image in
                     CHALLAAvatar(photo: image, size: Metric.avatarSize)
                 } placeholder: {
                     CHALLAAvatar(photo: nil, size: Metric.avatarSize)
@@ -30,7 +33,7 @@ struct PhotoAuthorHeader: View {
 
             Text(Self.formatted(capturedAt))
                 .challaFont(.body.small.medium)
-                .foregroundStyle(CHALLAColor.defaultTheme)
+                .foregroundStyle(theme.accent)
         }
         .accessibilityElement(children: .combine)
     }

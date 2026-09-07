@@ -28,6 +28,7 @@ struct RoomListResponseDTO: Decodable, Sendable {
         let remainedPhotoCount: Int
         let thumbnailImageUrls: [String]
         let photoPrintCompletedAt: String?
+        let photoPrintCompletionCheckedAt: String?
         let createdAt: String
         let expiresAt: String
     }
