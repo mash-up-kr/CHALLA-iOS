@@ -6,11 +6,12 @@
 (다운샘플링) 그리드·셀 표시 시 메모리 사용량을 줄이고, 메모리·디스크 2단 캐시로
 재디코딩·재다운로드를 피한다.
 
-시스템 프레임워크(Foundation · CoreGraphics · ImageIO · UIKit · CryptoKit · UniformTypeIdentifiers)만 사용하며,
+시스템 프레임워크(Foundation · CoreGraphics · ImageIO · UIKit · SwiftUI · CryptoKit · UniformTypeIdentifiers)만 사용하며,
 CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetwork`와도 무관하다
 (아키텍처 규칙 6 저촉 없음 — "OS를 만지면 Core").
 
-> 다운샘플러 + 2단 캐시(메모리·디스크) + 로더(`ImageLoader`) + 업로드용 압축기(`ImageCompressor`)까지가 이 모듈 범위다.
+> 다운샘플러 + 2단 캐시(메모리·디스크) + 로더(`ImageLoader`) + 업로드용 압축기(`ImageCompressor`) +
+> 원격 SVG를 도형으로 읽는 벡터 경로(`VectorDrawingLoader`)까지가 이 모듈 범위다.
 > 화면 쪽 짝인 DS 뷰(`CHALLAAsyncImage`)는 `CHALLADesignSystem`에 있다 (#43).
 
 전체 도해(파이프라인 · 타입 변환 · 캐시 삭제 정책 · 테스트 60개 카탈로그): [`docs/imagekit-map.html`](../../../docs/imagekit-map.html) — 브라우저로 열면 경로별 인터랙티브 구조도가 나온다.
@@ -51,6 +52,10 @@ CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetw
 | `ImageLoader` | `actor`. 메모리→디스크→네트워크 조회 오케스트레이터. 같은 키 중복 제거(coalescing), 캐시 승격 |
 | `ImageDataFetching` | 네트워크 페치 추상화(주입 지점). 기본 구현 `URLSessionImageDataFetcher`(URLCache 끈 세션) |
 | `ImageLoadingError` | `invalidResponse` / `httpStatus` / `emptyData` / `downsampling` / `encodingFailed` / `networkFailed` / `cancelled` |
+| `VectorDrawing` | `Sendable` 값 타입. 다각형 목록으로 표현한 벡터 도형. `path(in:)`으로 SwiftUI `Path` 생성 |
+| `SVGShapeParser` | `Sendable` 값 타입. SVG 바이트 → `VectorDrawing` (rect · 직선 path만) |
+| `VectorDrawingError` | `invalidEncoding` / `missingSize` / `noShapes` |
+| `VectorDrawingLoader` | `actor`. 원격 SVG를 `VectorDrawing`으로 받아 메모리에만 캐시. 비트맵 파이프라인과 독립 |
 
 ### 다운샘플링
 
@@ -203,6 +208,55 @@ public actor ImageLoader {
   신호를 받는 쪽은 App이고 비우는 쪽이 로더다. 디스크는 남기므로 다음 요청은 네트워크 없이 복구된다.
   로그아웃 등 사용자 데이터 정리는 메모리·디스크를 모두 비우는 `removeAll()`이다.
 
+### 벡터 로딩 (원격 SVG)
+
+방 커버 스티커는 서버가 SVG로만 준다. 위 비트맵 파이프라인으로는 못 그린다 —
+**iOS는 SVG를 런타임에 디코딩하지 못하고**(`CGImageSourceCreateWithData`가 count 0 / status -4를 낸다.
+에셋 카탈로그의 SVG는 빌드 때 벡터로 컴파일되는 것이라 런타임 로딩과 무관하다),
+설령 비트맵으로 만들 수 있어도 디스크 캐시 포맷이 JPEG라 스티커의 알파가 날아간다.
+그래서 비트맵을 거치지 않고 **도형(다각형 목록)으로 파싱해 SwiftUI `Path`로 그린다.**
+
+```swift
+public struct VectorDrawing: Equatable, Sendable {
+    public init(size: CGSize, subpaths: [[CGPoint]])
+    public let size: CGSize            // viewBox, 없으면 width/height
+    public let subpaths: [[CGPoint]]   // 닫힌 다각형들. 그리는 순서가 nonzero 감김을 정한다
+    public var isEmpty: Bool
+    public func path(in rect: CGRect) -> Path   // 비율 유지로 채우고(aspect fill) 가운데 정렬
+}
+
+public struct SVGShapeParser: Sendable {
+    public init()
+    public func parse(_ data: Data) throws -> VectorDrawing
+}
+
+public enum VectorDrawingError: Error, Sendable, Equatable {
+    case invalidEncoding   // UTF-8 텍스트가 아님
+    case missingSize       // viewBox·width/height 모두 없음
+    case noShapes          // 그릴 도형이 하나도 없음
+}
+
+public actor VectorDrawingLoader {
+    public init(fetcher: any ImageDataFetching = URLSessionImageDataFetcher(), maxCount: Int = 32)
+    public func drawing(from url: URL) async throws -> VectorDrawing
+}
+```
+
+- **색은 담지 않는다.** 서버 파일에는 색이 박혀 있지만(파일당 단색) 기획이 색 × 도안 조합이라
+  파일의 `fill`은 무시하고 호출부가 칠한다.
+- 파서가 다루는 문법은 서버 스티커가 쓰는 좁은 부분집합이다 — `<rect>`(rx/ry 없음)와
+  직선 명령(`M` `L` `H` `V` `Z`, 대문자 절대 / 소문자 상대)만인 `<path d>`. `XMLParser` 대신 문자 스캔으로 읽는다.
+  `<defs>`·`<clipPath>` 안의 도형은 건너뛴다 — 서버 파일의 clipPath는 viewBox 전체를 덮는 `<rect>`라
+  그리면 스티커가 통짜 사각형이 된다.
+- **모르는 명령(곡선 `C`·`Q`·`A` 등)이 나오면 그 서브패스만 버리고 나머지는 그린다** — 도안이 바뀌어도
+  화면이 통째로 비지 않게. 크기를 못 읽거나 남는 도형이 하나도 없을 때만 던진다.
+- 로더에 **디스크 캐시는 두지 않는다** — 스티커는 7개·수 KB라 메모리로 충분하고, `DiskImageCache`는
+  JPEG 바이트 저장소라 형식이 달라 섞을 수 없다(섞으려면 알파를 살리는 PNG 인코더가 따라온다).
+  메모리 캐시는 URL 키 LRU(기본 32개)이며, 같은 URL 동시 요청은 진행 중 `Task`를 공유해 한 번만 받는다.
+- HTTP 상태·전송 실패는 `ImageLoader`와 같은 규칙으로 `ImageLoadingError`에 매핑한다(2xx만 성공).
+  재시도는 하지 않는다 — 스티커는 없으면 그 자리가 비는 장식이라 사진처럼 붙잡을 이유가 없다.
+- `DependencyValues`에는 넣지 않는다 — 이 모듈은 Dependencies를 모르고, 주입은 상위(App·뷰)가 한다.
+
 ## 의존 관계
 
 - 이 모듈이 의존하는 모듈: 없음 (외부 패키지 0개, CHALLA 모듈 0개 — 시스템 프레임워크만)
@@ -214,6 +268,8 @@ public actor ImageLoader {
 디스크 캐시 테스트는 테스트마다 고유한 임시 디렉터리를 만들어 서로 격리한다.
 로더 테스트는 `Tests/Support/MockImageDataFetcher.swift`(호출 횟수 계수)를 주입해 네트워크 없이
 캐시 히트·중복 제거·에러 매핑을 검증한다 — 시뮬레이터 위에서 돌지만 실제 서버에 붙지 않는다.
+벡터 쪽은 SVG 문자열을 테스트 안에 직접 써서(서버 스티커와 같은 모양의 축약본 포함) 파서를 검증하고,
+`VectorDrawingLoader`도 같은 목 페처를 주입해 캐시·요청 합치기·실패 전파를 확인한다.
 
 ```bash
 mise exec -- tuist generate --no-open
