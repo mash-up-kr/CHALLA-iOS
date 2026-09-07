@@ -13,6 +13,8 @@ enum RoomEndpoint: Endpoint, AccessTokenAuthorizable {
     case members(roomID: Int64)
     case checkPrintCompletion(roomID: Int64)
     case updateTitle(roomID: Int64, UpdateTitleRequestDTO)
+    case coverOptions
+    case updateCover(roomID: Int64, UpdateCoverRequestDTO)
 
     var baseURL: URL {
         CHALLAAPIEnvironment.baseURL
@@ -27,14 +29,16 @@ enum RoomEndpoint: Endpoint, AccessTokenAuthorizable {
         case let .members(roomID): return "/api/v1/rooms/\(roomID)/users"
         case let .checkPrintCompletion(roomID): return "/api/v1/rooms/\(roomID)/photo-print-completion/check"
         case let .updateTitle(roomID, _): return "/api/v1/rooms/\(roomID)/title"
+        case .coverOptions: return "/api/v1/rooms/cover-options"
+        case let .updateCover(roomID, _): return "/api/v1/rooms/\(roomID)/cover"
         }
     }
 
     var method: HTTPMethod {
         switch self {
-        case .rooms, .shootable, .detail, .members: return .get
+        case .rooms, .shootable, .detail, .members, .coverOptions: return .get
         case .create, .join: return .post
-        case .checkPrintCompletion, .updateTitle: return .put
+        case .checkPrintCompletion, .updateTitle, .updateCover: return .put
         }
     }
 
@@ -51,7 +55,9 @@ enum RoomEndpoint: Endpoint, AccessTokenAuthorizable {
             return .requestJSONEncodable(dto)
         case let .updateTitle(_, dto):
             return .requestJSONEncodable(dto)
-        case .detail, .members, .checkPrintCompletion:
+        case let .updateCover(_, dto):
+            return .requestJSONEncodable(dto)
+        case .detail, .members, .checkPrintCompletion, .coverOptions:
             return .requestPlain // 실을 것 없음 — 대상은 경로가 가리킨다
         }
     }

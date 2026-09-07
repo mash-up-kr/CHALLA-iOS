@@ -113,6 +113,37 @@ public struct DefaultRoomRepository: RoomRepository {
 
     /// 생성·입장 응답은 `{ id }`뿐인데 계약은 카드를 요구한다 — 목록을 다시 받아 그 id의 카드를 찾는다.
     /// TODO: 백엔드가 생성·입장 응답에 방 전체를 실어주면 이 재조회를 지운다 (#54 백엔드 확인 항목).
+    public func coverOptions() async throws -> RoomCoverOptions {
+        do {
+            let response = try await client.request(
+                RoomEndpoint.coverOptions,
+                as: BaseResponseDTO<CoverOptionsResponseDTO>.self
+            )
+            return try response.unwrap().room.toDomain()
+        } catch {
+            throw RoomError.normalized(error)
+        }
+    }
+
+    public func updateCover(roomID: Room.ID, imageURL: URL?, stickerID: Int64?, colorID: Int64?) async throws {
+        do {
+            let response = try await client.request(
+                RoomEndpoint.updateCover(
+                    roomID: roomID,
+                    UpdateCoverRequestDTO(
+                        coverImageUrl: imageURL?.absoluteString,
+                        coverStickerId: stickerID,
+                        coverStickerColorId: colorID
+                    )
+                ),
+                as: BaseResponseDTO<EmptyResponseDTO>.self
+            )
+            try response.ensureSuccess()
+        } catch {
+            throw RoomError.normalized(error)
+        }
+    }
+
     private func card(withID id: Int64) async throws -> RoomCard {
         guard let card = try await rooms().first(where: { $0.id == id }) else {
             // 방금 만들었거나 입장한 방이 목록에 없다 — 서버 계약 위반이라 정해진 케이스가 없다.

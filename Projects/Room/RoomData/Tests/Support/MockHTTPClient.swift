@@ -12,6 +12,7 @@ final class MockHTTPClient: HTTPClient {
     struct CapturedRequest: Sendable, Equatable {
         let path: String
         let method: HTTPMethod
+        let headers: [String: String]
         let usesBearerToken: Bool
         /// `.requestJSONEncodable`·`.requestData`로 실린 본문 — 서버 계약대로 실렸는지 검증한다.
         let body: Data?
@@ -43,6 +44,7 @@ final class MockHTTPClient: HTTPClient {
                 CapturedRequest(
                     path: endpoint.path,
                     method: endpoint.method,
+                    headers: endpoint.headers ?? [:],
                     usesBearerToken: Self.usesBearerToken(endpoint),
                     body: Self.body(of: endpoint.task),
                     queryItems: Self.queryItems(of: endpoint.task)
