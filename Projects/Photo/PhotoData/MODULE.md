@@ -59,8 +59,9 @@
 
 ## 내부 구성 (internal — 서버 계약이 바뀌면 여기만 바뀐다)
 
-- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`(공통 껍데기, UserData·RoomData 복사본 — #51에서
-  통합), `CameraFiltersResponseDTO`(`{ shoot: { cameraFilters } }` 이중 껍데기),
+- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`는 #51에서 `CHALLANetwork`로 공용화됐고,
+  이 모듈은 `PhotoError`를 묶은 무인자 `unwrap()` 확장(`BaseResponseDTO+Photo`)만 둔다.
+  `CameraFiltersResponseDTO`(`{ shoot: { cameraFilters } }` 이중 껍데기),
   `CompletePhotoRequestDTO`/`CompletePhotoResponseDTO`, `ListPhotosSliceResponseDTO`/`ListPhotosResponseDTO`(목록·페이지네이션),
   `GetPhotoDetailEnvelopeDTO`/`PhotoDetailDTO`/`ChatDTO`(상세 — 리액션이 `chats`로 온다),
   `CreateReactionRequestDTO`(리액션 = `{ chat: { roomId, photoId, type:"EMOJI", content } }`)/`CreateReactionResponseDTO`,
@@ -86,8 +87,8 @@
 mise exec -- tuist test PhotoData
 ```
 
-Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockHTTPClient`
-(RoomData 것의 복사본)로 서버 없이 검증한다.
+Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). 공용 `MockHTTPClient`
+(`CHALLANetworkTesting`)로 서버 없이 검증한다.
 
 - `DefaultPhotoRepositoryTests` — 목록 변환·roomId/page/size 쿼리, 이미지 없는 장 건너뛰기,
   `hasNext` 페이지네이션, 상세 `chats`→유저별 첫 이모지 스티커, 리액션 POST 본문(roomId·photoId·EMOJI·content),

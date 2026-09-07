@@ -23,8 +23,15 @@ enum CompositionRoot {
             failure: state == .error ? .network : nil
         )
 
+        // 안내를 이미 본 것으로 심어 두면 그리드가 바로 뜬다 — printNotice 상태에서만 비워 필름을 띄운다.
+        let printNotice = InMemoryPrintNoticeRepository(
+            seenRoomIDs: state == .printNotice ? [] : [room.id]
+        )
+
         values.fetchRoomDetailUseCase = .live(repository: repository)
         values.checkPrintCompletionUseCase = .live(repository: repository)
+        values.shouldShowPrintNoticeUseCase = .live(repository: printNotice)
+        values.markPrintNoticeSeenUseCase = .live(repository: printNotice)
         values.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
             DemoSamples.photos(count: DemoSamples.photoCount(for: state))
         })
