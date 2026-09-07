@@ -39,6 +39,8 @@ App(또는 데모앱)이 쓰는 것만 열려 있다. 드로어 뷰와 내부 �
     부모가 넣어 준다. 이슈 #33이 프로필 정본을 만들면 UseCase 주입으로 바꾼다
   - `Action.Delegate` — `.roomSelected(Room)` · `.roomCreated(Room)` · `.roomJoined(Room)` · `.settingsTapped` ·
     `.cameraRequested(CameraEntry)`
+  - 커버는 `RoomCard.room.cover`에 실려 온다 — 카드는 커버 사진이 있으면 대표 사진 대신 그것을,
+    스티커는 `RoomCoverUI`의 id → 도안 매핑으로 사진 위·딤 아래에 얹는다. 따로 조회하는 것이 없다
 
 `CameraEntry` · `ShootPreparationError`는 `ShootEntry` 모듈이 정의한다 — 방 상세의 사진 찍기와 같은 타입이다.
 
@@ -64,7 +66,7 @@ App(또는 데모앱)이 쓰는 것만 열려 있다. 드로어 뷰와 내부 �
 
 ## 의존성
 
-- **이 모듈이 의존**: `RoomDomain` · `ShootEntry`(촬영 진입 준비) · `CHALLADesignSystem` · `ComposableArchitecture`
+- **이 모듈이 의존**: `RoomDomain` · `RoomCoverUI`(커버 색·스티커 매핑) · `ShootEntry`(촬영 진입 준비) · `CHALLADesignSystem` · `ComposableArchitecture`
 - **이 모듈에 의존**: `HomeFeatureDemo` · `CHALLAApp`
 
 ## 알려진 임시 구현

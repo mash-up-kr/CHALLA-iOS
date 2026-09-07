@@ -1,5 +1,6 @@
 import CHALLADesignSystem
 import ComposableArchitecture
+import RoomCoverUI
 import RoomDomain
 import SwiftUI
 
@@ -216,9 +217,10 @@ public struct HomeView: View {
         }
     }
 
-    /// 카드 커버 이미지 로드 슬롯. 성공·placeholder 양쪽에서 같은 카드 본문을 그린다.
+    /// 카드 커버 이미지 로드 슬롯. 커버 사진이 있으면 그것을, 없으면 대표 사진(첫 썸네일)을 쓴다.
+    /// 성공·placeholder 양쪽에서 같은 카드 본문을 그린다.
     private func cardImage(_ card: RoomCard, now: Date) -> some View {
-        CHALLAAsyncImage(url: card.coverImageURL) { image in
+        CHALLAAsyncImage(url: card.room.cover.imageURL ?? card.coverImageURL) { image in
             cardItem(card, photo: image, now: now)
         } placeholder: {
             cardItem(card, photo: nil, now: now)
@@ -246,16 +248,19 @@ public struct HomeView: View {
 
     /// 대표 사진 유무만 다른 두 자리에서 카드 생성을 공유한다.
     private func cardItem(_ card: RoomCard, photo: Image?, now: Date) -> some View {
-        CHALLARoomCard(
+        let sticker = card.room.cover.sticker
+        return CHALLARoomCard(
             title: card.room.title,
             memberCount: card.memberCount,
             photo: photo,
             variant: variant(for: card, now: now)
-        )
+        ) {
+            RoomCoverStickerView(url: sticker?.imageURL, color: sticker?.color.color ?? .clear)
+        }
     }
 
     /// 방 상태를 카드 변형으로 옮긴다.
-    private func variant(for card: RoomCard, now: Date) -> CHALLARoomCard.Variant {
+    private func variant(for card: RoomCard, now: Date) -> CHALLARoomCardVariant {
         switch card.room.status {
         case .shooting:
             .shooting(
