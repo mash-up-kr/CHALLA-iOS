@@ -24,8 +24,8 @@ let project = Project(
             infoPlist: .default,
             sources: ["Tests/**"],
             // .roomDomain: 테스트가 Room 엔티티·RoomError로 저장소 동작을 검증한다.
-            // .network: MockHTTPClient가 Response·NetworkError를 직접 만든다.
-            dependencies: [.target(name: "RoomData"), .roomDomain, .network]
+            // .networkTesting: 공용 MockHTTPClient. .network: 테스트가 Response·NetworkError를 직접 만든다.
+            dependencies: [.target(name: "RoomData"), .roomDomain, .network, .networkTesting]
         )
     ]
 )

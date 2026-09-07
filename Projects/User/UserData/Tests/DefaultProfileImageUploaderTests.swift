@@ -1,5 +1,6 @@
 @testable import UserData
 import CHALLANetwork
+import CHALLANetworkTesting
 import Foundation
 import Testing
 import UIKit
