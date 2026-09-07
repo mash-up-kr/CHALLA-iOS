@@ -20,6 +20,11 @@ let project = Project.makeAppProject(
             .dictionary([
                 "CFBundleTypeRole": .string("Editor"),
                 "CFBundleURLSchemes": .array([.string("kakao$(KAKAO_NATIVE_APP_KEY)")])
+            ]),
+            .dictionary([
+                // 서버 초대 폴백 페이지의 "앱에서 보기" 버튼이 challa://invite/{코드}로 앱을 연다
+                "CFBundleTypeRole": .string("Editor"),
+                "CFBundleURLSchemes": .array([.string("challa")])
             ])
         ])
     ],

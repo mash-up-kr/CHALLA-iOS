@@ -41,10 +41,16 @@
 
 ## 초대 링크 진입 (`onOpenURL` · `PendingInviteCode`)
 
-유니버설 링크(`https://challa.stellaris.co.kr/invite/{코드}`)로 앱이 열리면 `CHALLAApp`의
-`.onOpenURL`이 URL을 `AppFeature.inviteLinkOpened`로 넘긴다 (SwiftUI 수명주기 앱은 유니버설
-링크를 이 입구로 전달한다 — #100 실기기에서 확인. 카카오 로그인 복귀 URL만 SDK로 먼저 돌려보낸다). 파싱은
-`RoomDomain.InviteLink`가 한다 — 초대 링크 모양이 아니면 조용히 무시한다.
+초대 링크로 앱이 열리면 `CHALLAApp`의 `.onOpenURL`이 URL을 `AppFeature.inviteLinkOpened`로
+넘긴다 (SwiftUI 수명주기 앱은 유니버설 링크도 이 입구로 전달한다 — #100 실기기에서 확인.
+카카오 로그인 복귀 URL만 SDK로 먼저 돌려보낸다). 들어오는 링크는 두 모양이다:
+
+- 유니버설 링크 `https://challa.stellaris.co.kr/invite/{코드}` — 메모·문자 등에서 탭
+- 커스텀 스킴 `challa://invite/{코드}` — 카톡 인앱 브라우저(웹뷰)에서는 유니버설 링크가
+  앱을 못 열어, 서버 폴백 페이지의 "앱에서 보기" 버튼이 이 모양으로 쏜다 (Info.plist에
+  `challa` 스킴 등록)
+
+파싱은 `RoomDomain.InviteLink`가 한다 — 두 모양이 아니면 조용히 무시한다.
 
 - **로그인 후** — 어느 화면에 있든 `home`을 새로 만들어 `inviteCodeReceived(code)`를 넘긴다.
   입장(드로어와 같은 `JoinRoomUseCase`)·목록 반영·실패 얼럿까지 홈이 맡고, 성공하면 기존

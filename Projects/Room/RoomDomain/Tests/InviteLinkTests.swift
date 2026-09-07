@@ -54,4 +54,29 @@ struct InviteLinkTests {
         let url = try #require(URL(string: "https://challa.stellaris.co.kr/invite/1928121/"))
         #expect(InviteLink.code(from: url) == "1928121")
     }
+
+    @Test("커스텀 스킴(challa://invite/코드)에서도 초대 코드를 꺼낸다")
+    func parsesCustomScheme() throws {
+        // 카톡 인앱 브라우저에서는 유니버설 링크가 앱을 못 열어, 서버 폴백 페이지의
+        // "앱에서 보기" 버튼이 이 모양으로 쏜다.
+        let url = try #require(URL(string: "challa://invite/1928121"))
+        #expect(InviteLink.code(from: url) == "1928121")
+    }
+
+    @Test("커스텀 스킴을 대문자로 적어도(CHALLA://INVITE) 초대 코드를 꺼낸다")
+    func toleratesUppercaseCustomScheme() throws {
+        let url = try #require(URL(string: "CHALLA://INVITE/1928121"))
+        #expect(InviteLink.code(from: url) == "1928121")
+    }
+
+    @Test("커스텀 스킴이라도 우리 모양이 아니면 코드를 꺼내지 않는다", arguments: [
+        "challa://join/1928121", // invite가 아닌 자리
+        "challa://invite", // 코드 없음
+        "challa://invite/19/28", // 경로가 더 깊음
+        "otherapp://invite/1928121" // 다른 앱 스킴
+    ])
+    func rejectsForeignCustomSchemeURL(raw: String) throws {
+        let url = try #require(URL(string: raw))
+        #expect(InviteLink.code(from: url) == nil)
+    }
 }
