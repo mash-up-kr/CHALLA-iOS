@@ -28,7 +28,6 @@ let project = Project(
             // .roomDomain: 테스트가 Room 엔티티·RoomError로 리듀서 동작을 검증한다.
             dependencies: [
                 .target(name: "HomeFeature"), .roomDomain, .photoDomain, .shootEntry,
-                .photoLibrary, // 촬영 진입이 묻는 사진첩 권한을 테스트가 값으로 갈아끼운다
                 .composableArchitecture
             ]
         )

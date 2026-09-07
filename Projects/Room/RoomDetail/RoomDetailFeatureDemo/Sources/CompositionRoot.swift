@@ -70,7 +70,7 @@ enum CompositionRoot {
 
     /// 사진 찍기 버튼이 부르는 촬영 준비. 데모앱에는 카메라 화면이 없어 진입 요청(delegate)까지가 끝이다 —
     /// 버튼이 로딩으로 바뀌었다 풀리는 것까지만 확인할 수 있다.
-    /// 권한은 값으로 갈아끼워 데모에서 실제 시스템 팝업이 뜨지 않게 한다.
+    /// 카메라 권한은 값으로 갈아끼워 데모에서 실제 시스템 팝업이 뜨지 않게 한다.
     private static func registerShootEntry(room: Room, into values: inout DependencyValues) {
         values.fetchShootableRoomsUseCase = FetchShootableRoomsUseCase(run: {
             [
@@ -86,6 +86,5 @@ enum CompositionRoot {
         // LUT 원본은 서버에만 있다 — 데모는 필터 목록만 있으면 되므로 등록할 것이 없다.
         values.prepareCameraFiltersUseCase = PrepareCameraFiltersUseCase(run: { _ in })
         values.requestCameraPermissionUseCase = RequestCameraPermissionUseCase(run: { true })
-        values.photoLibraryPermission.request = { _ in .authorized }
     }
 }
