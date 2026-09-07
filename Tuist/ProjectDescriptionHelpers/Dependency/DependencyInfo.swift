@@ -70,6 +70,10 @@ public extension TargetDependency {
         target: "RoomDetailFeature",
         path: .relativeToRoot("Projects/Room/RoomDetail/RoomDetailFeature")
     )
+    static let roomCoverUI = TargetDependency.project(
+        target: "RoomCoverUI",
+        path: .relativeToRoot("Projects/Room/RoomCoverUI")
+    )
 
     // MARK: - Photo
 
