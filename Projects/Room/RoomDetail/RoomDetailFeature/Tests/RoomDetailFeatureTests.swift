@@ -120,6 +120,36 @@ struct RoomDetailFeatureTests {
         await store.receive(\.photosResponse.failure) // 상태 변화 없음 — 슬롯이 빈 모습 그대로
     }
 
+    @Test("촬영을 마치고 들어오면 마지막 사진을 1초간 강조했다가 거둔다")
+    func newestPhotoIsHighlightedAfterCapture() async {
+        let clock = TestClock()
+        let store = Self.makeStore(
+            initialState: .init(room: .previewShooting, highlightsNewestPhoto: true),
+            fetchDetail: FetchRoomDetailUseCase(run: { _ in Self.detail }),
+            fetchPhotos: FetchRoomPhotosUseCase(run: { _ in Self.photos }),
+            clock: clock
+        )
+
+        await store.send(.view(.task)) {
+            $0.detailLoad = .loading
+        }
+        await store.receive(\.detailResponse.success) {
+            $0.detailLoad = .loaded
+            $0.detail = Self.detail
+            $0.room = Self.fresherRoom
+        }
+        await store.receive(\.photosResponse.success) {
+            $0.photos = Self.photos
+            $0.highlightsNewestPhoto = false // 한 번만 강조한다
+            $0.highlightedPhotoID = "1"
+        }
+
+        await clock.advance(by: .seconds(1))
+        await store.receive(\.newestPhotoHighlightElapsed) {
+            $0.highlightedPhotoID = nil
+        }
+    }
+
     // MARK: - 팝오버
 
     @Test("팝오버를 여닫아도 조회를 다시 걸지 않는다")
