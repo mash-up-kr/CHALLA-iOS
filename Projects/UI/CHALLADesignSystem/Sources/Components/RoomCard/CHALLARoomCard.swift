@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 디자인 시스템 방 카드.
 /// 방 대표 사진 위에 딤 그라데이션을 깔고 제목·인원을 겹쳐 보여주며,
-/// 하단 요소는 방 상태(`Variant`)에 따라 갈린다 — 촬영 중(장수 뱃지) · 인화 대기(남은 시간 뱃지) · 인화 완료(확인하기 버튼).
+/// 하단 요소는 방 상태(`Variant`)에 따라 갈린다 — 촬영 중(사진 찍기 뱃지) · 인화 대기(남은 시간 뱃지) · 인화 완료(확인하기 버튼).
 /// 홈 방 목록의 가로 스크롤에 쓰이며, 크기는 시안 고정(200×266) — 기기 폭과 무관한 물건 크기다.
 ///
 /// 사진과 커버 스티커는 이미 로드된 `Image`를 받는다 — URL 로딩은 호출부 책임이라 이 컴포넌트는 네트워크의 존재를 모른다.
@@ -12,7 +12,7 @@ import SwiftUI
 ///
 /// ```swift
 /// CHALLARoomCard(title: "친구들과 강릉 여행", memberCount: 1, photo: photo,
-///                variant: .shooting(shotCount: 24, totalCount: 24, isPreparing: false, onShoot: { store.send(.shootTapped) }))
+///                variant: .shooting(isPreparing: false, onShoot: { store.send(.shootTapped) }))
 /// CHALLARoomCard(title: "친구들과 유럽 여행", memberCount: 5, photo: photo, coverSticker: sticker,
 ///                variant: .printWaiting(remainingTime: "2:15:32"))
 /// CHALLARoomCard(title: "친구들과 유럽 여행", memberCount: 5, photo: photo, coverSticker: sticker,
@@ -24,18 +24,24 @@ public struct CHALLARoomCard: View {
 
     /// 방 상태에 따라 달라지는 하단 요소. 공통 틀(사진·딤·제목·인원)은 상태와 무관하다.
     public enum Variant {
-        /// 촬영 중 — 테마 색 카메라 뱃지에 `찍은 장수/총 장수`를 보여준다.
+        /// 촬영 중 — 테마 색 카메라 뱃지에 "사진 찍기"를 보여준다.
+        /// 찍은 장수는 싣지 않는다 — 2차 시안이 `21/24`를 문구로 바꿨다 (7531:88599 주석).
         /// isPreparing이면 뱃지가 스피너로 바뀌고 눌리지 않는다.
         /// 준비가 카드마다 따로 도므로 어느 방을 눌렀는지도 이 값으로 드러난다.
-        /// onShoot이 nil이면 뱃지는 장수만 보여주는 그림으로 남는다
+        /// onShoot이 nil이면 뱃지는 눌리지 않는 그림으로 남는다
         /// (촬영으로 갈 수 없는 자리에서 눌리는 것처럼 보이지 않게 한다).
-        case shooting(shotCount: Int, totalCount: Int, isPreparing: Bool, onShoot: (() -> Void)?)
+        case shooting(isPreparing: Bool, onShoot: (() -> Void)?)
         /// 인화 대기 — 어두운 시계 뱃지에 남은 시간 문자열을 보여준다. 뱃지는 눌리지 않는 그림이다.
         case printWaiting(remainingTime: String)
         /// 인화 완료 — 테마 색 확인하기 버튼. 같은 색 글로우로 시선을 끈다.
         /// onConfirm이 nil이면 버튼 모양의 그림으로 남는다.
         case printed(onConfirm: (() -> Void)?)
     }
+
+    // MARK: - 표기 규칙
+
+    /// 촬영 중 뱃지 문구 — 뱃지 표시와 VoiceOver 라벨이 같은 문장을 쓴다.
+    private static let shootingBadgeTitle = "사진 찍기"
 
     // MARK: - 프로퍼티와 init
 
@@ -163,7 +169,7 @@ public struct CHALLARoomCard: View {
 
     private var hasAction: Bool {
         switch variant {
-        case let .shooting(_, _, _, onShoot): onShoot != nil
+        case let .shooting(_, onShoot): onShoot != nil
         case .printWaiting: false
         case let .printed(onConfirm): onConfirm != nil
         }
@@ -171,8 +177,8 @@ public struct CHALLARoomCard: View {
 
     private var cardAccessibilityLabel: String {
         switch variant {
-        case let .shooting(shot, total, _, _):
-            "\(title), \(memberCount)명 참여, 사진 \(shot)/\(total)장 촬영 중"
+        case .shooting:
+            "\(title), \(memberCount)명 참여, 촬영 중"
         case let .printWaiting(remaining):
             "\(title), \(memberCount)명 참여, 인화까지 \(remaining) 남음"
         case .printed:
@@ -185,8 +191,8 @@ public struct CHALLARoomCard: View {
     @ViewBuilder
     private var bottomElement: some View {
         switch variant {
-        case let .shooting(shot, total, isPreparing, onShoot):
-            shootingBadge(shot: shot, total: total, isPreparing: isPreparing, onShoot: onShoot)
+        case let .shooting(isPreparing, onShoot):
+            shootingBadge(isPreparing: isPreparing, onShoot: onShoot)
         case let .printWaiting(remaining):
             waitingBadge(remaining: remaining)
         case let .printed(onConfirm):
@@ -195,26 +201,26 @@ public struct CHALLARoomCard: View {
     }
 
     @ViewBuilder
-    private func shootingBadge(shot: Int, total: Int, isPreparing: Bool, onShoot: (() -> Void)?) -> some View {
+    private func shootingBadge(isPreparing: Bool, onShoot: (() -> Void)?) -> some View {
         if let onShoot {
             Button(action: onShoot) {
-                shootingBadgeSurface(shot: shot, total: total, isPreparing: isPreparing)
+                shootingBadgeSurface(isPreparing: isPreparing)
             }
             .buttonStyle(.plain)
             .disabled(isPreparing)
-            .accessibilityLabel("촬영하기")
-            .accessibilityHint("\(title), 사진 \(shot)/\(total)장 촬영 중")
+            .accessibilityLabel(Self.shootingBadgeTitle)
+            .accessibilityHint("\(title)의 촬영 화면을 엽니다")
         } else {
-            shootingBadgeSurface(shot: shot, total: total, isPreparing: isPreparing)
+            shootingBadgeSurface(isPreparing: isPreparing)
         }
     }
 
-    private func shootingBadgeSurface(shot: Int, total: Int, isPreparing: Bool) -> some View {
+    private func shootingBadgeSurface(isPreparing: Bool) -> some View {
         // 스피너와 원래 내용의 폭이 달라 뱃지가 들썩이지 않도록 겹쳐 두고 보이는 쪽만 바꾼다.
         ZStack {
             HStack(spacing: RoomCardMetric.badgeContentGap) {
                 CHALLAIcon.camera.image(size: .size22, color: CHALLAColor.Static.black)
-                Text("\(shot)/\(total)")
+                Text(Self.shootingBadgeTitle)
                     .challaFont(.body.medium.bold)
                     .foregroundStyle(CHALLAColor.Static.black)
             }
@@ -320,13 +326,13 @@ private enum RoomCardMetric {
                 title: "친구들과 강릉 여행",
                 memberCount: 11,
                 photo: sample,
-                variant: .shooting(shotCount: 24, totalCount: 24, isPreparing: false, onShoot: nil)
+                variant: .shooting(isPreparing: false, onShoot: nil)
             )
             CHALLARoomCard(
                 title: "촬영 준비 중",
                 memberCount: 4,
                 photo: nil,
-                variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: true, onShoot: {})
+                variant: .shooting(isPreparing: true, onShoot: {})
             )
             CHALLARoomCard(
                 title: "인화 대기",

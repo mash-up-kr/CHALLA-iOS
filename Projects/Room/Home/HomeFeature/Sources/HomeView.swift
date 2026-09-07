@@ -259,8 +259,6 @@ public struct HomeView: View {
         switch card.room.status {
         case .shooting:
             .shooting(
-                shotCount: card.room.shotPhotoCount,
-                totalCount: card.room.totalPhotoCount,
                 isPreparing: store.preparingShootRoomID == card.id,
                 onShoot: { send(.shootButtonTapped(card.id)) }
             )

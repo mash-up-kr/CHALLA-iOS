@@ -5,7 +5,9 @@ import RoomDomain
 import ShootEntry
 
 /// 방 상세 화면. 홈에서 받은 `Room`으로 제목·그리드를 즉시 그리고,
-/// 초대 코드·참여자는 진입 후 조회해 채운다. 화면 전환은 전부 `delegate`로 App에 알린다.
+/// 초대 코드·참여자는 진입 후 조회해 채운다. 처음 들어온 기기면 초대 코드 팝오버를
+/// 열고 툴팁을 붙였다가 닫힐 때 본 것으로 기록하고, 인화 대기 방이면 토스트로 알린다.
+/// 화면 전환은 전부 `delegate`로 App에 알린다.
 @Reducer
 public struct RoomDetailFeature {
 
@@ -20,8 +22,16 @@ public struct RoomDetailFeature {
         public var detailLoad: LoadState = .notRequested
         /// 아바타 탭으로 여는 초대 코드 팝오버.
         public var isInvitePopoverPresented = false
-        /// 복사 완료 안내 토스트 문구. nil이면 숨김 — 타이머가 일정 시간 뒤 거둔다.
+        /// 팝오버 아래 초대 안내 툴팁. 첫 진입에만 켜지고, 팝오버가 닫힐 때 함께 내려간다.
+        public var isInviteGuidePresented = false
+        /// 상세 성공 응답은 화면 진입 후에도 다시 올 수 있다.
+        /// 예: 카운트다운 0초 후 상태 갱신, 상세 조회 실패 후 재시도.
+        /// 초대 안내는 화면 진입당 한 번만 확인하기 위해 사용한다.
+        public var hasCheckedInviteGuide = false
+        /// 복사 완료·인화 대기 안내 토스트 문구. nil이면 숨김 — 타이머가 일정 시간 뒤 거둔다.
         public var toast: String?
+        /// 인화 대기 토스트를 이미 띄웠는지 — 알람 재조회가 같은 응답을 줘도 다시 띄우지 않는다.
+        public var hasShownPrintWaitingToast = false
         /// 인화된 사진들 (찍힌 순). 그리드가 배열 순서를 슬롯 번호와 짝짓는다.
         public var photos: [Photo] = []
         /// 촬영 화면에 들어갈 준비(목록 조회·권한 요청) 중. 사진 찍기 버튼이 로딩으로 바뀌고 다시 눌리지 않는다.
@@ -59,6 +69,8 @@ public struct RoomDetailFeature {
         case shootPreparationResponse(Result<CameraEntry, ShootPreparationError>)
         /// 인화 완료 예정 시각에 도달 — 서버가 상태를 바꿨는지 확인할 차례.
         case printCompletionReached
+        /// 첫 진입 확인이 끝났고 안내를 띄워야 한다 — 이미 봤으면 이 액션은 오지 않는다.
+        case inviteGuideNeeded
         /// 이 방의 인화 완료 안내를 아직 안 봤다 — 띄울 차례다.
         /// 봤으면 아무 일도 일어나지 않아 액션도 오지 않는다.
         case printNoticeReady
@@ -105,6 +117,8 @@ public struct RoomDetailFeature {
     // MARK: - Dependencies
 
     @Dependency(\.checkPrintCompletionUseCase) var checkPrintCompletionUseCase
+    @Dependency(\.shouldShowInviteGuideUseCase) var shouldShowInviteGuideUseCase
+    @Dependency(\.markInviteGuideSeenUseCase) var markInviteGuideSeenUseCase
     @Dependency(\.fetchRoomDetailUseCase) var fetchRoomDetailUseCase
     @Dependency(\.fetchRoomPhotosUseCase) var fetchRoomPhotosUseCase
     @Dependency(\.copyToPasteboard) var copyToPasteboard
@@ -123,14 +137,9 @@ public struct RoomDetailFeature {
         Reduce { state, action in
             switch action {
             // 진입과 재시도가 같은 일을 한다 — 상세와 사진을 다시 부른다.
+            // 첫 진입 안내 확인은 여기가 아니라 첫 상세 성공에서 한다 (checkInviteGuide 주석).
             case .view(.task), .alert(.presented(.retryTapped)):
-                state.detailLoad = .loading
-                // 사진은 방 상태를 따지지 않고 부른다 — 촬영 중이면 빈 배열이 오고 그리드도 빈 슬롯을 그린다.
-                // 상태로 걸러내면 홈에서 받은 상태가 낡은 경우(그 사이 인화 단계로 넘어간 방)를 따라잡아야 한다.
-                return .merge(
-                    fetchDetail(id: state.room.id),
-                    fetchPhotos(id: state.room.id)
-                )
+                return fetchAll(&state)
 
             case let .detailResponse(.success(detail)):
                 state.detailLoad = .loaded
@@ -142,6 +151,8 @@ public struct RoomDetailFeature {
                 return .merge(
                     refreshAtPrintCompletion(room: detail.room),
                     reportPrintCompletionCheck(&state, room: detail.room),
+                    showPrintWaitingToast(&state, room: detail.room),
+                    checkInviteGuide(&state),
                     printNotice
                 )
 
@@ -151,6 +162,11 @@ public struct RoomDetailFeature {
                     fetchDetail(id: state.room.id),
                     fetchPhotos(id: state.room.id)
                 )
+
+            case .inviteGuideNeeded:
+                state.isInvitePopoverPresented = true
+                state.isInviteGuidePresented = true
+                return .none
 
             case .printNoticeReady:
                 state.isPrintNoticePresented = true
@@ -189,6 +205,17 @@ public struct RoomDetailFeature {
 
             case .view(.backButtonTapped):
                 return .send(.delegate(.closeTapped))
+
+            // 팝오버가 어떤 경로로든(바 재탭·바깥 탭) 닫히면 안내도 끝난 것 — 내리고 기록한다.
+            case .binding(\.isInvitePopoverPresented):
+                guard !state.isInvitePopoverPresented, state.isInviteGuidePresented else { return .none }
+                state.isInviteGuidePresented = false
+                // 팝오버를 닫고 곧장 뒤로 나가도 기록은 안 날아간다 — 서버 요청처럼 응답을
+                // 기다리는 게 아니라 UserDefaults에 쓰는 순간 끝나서, 화면이 사라지며
+                // 이펙트가 취소되는 시점엔 이미 저장된 뒤다.
+                return .run { [markInviteGuideSeenUseCase] _ in
+                    await markInviteGuideSeenUseCase.run()
+                }
 
             case .binding:
                 return .none
@@ -248,17 +275,58 @@ public struct RoomDetailFeature {
         .ifLet(\.$alert, action: \.alert)
     }
 
-    private enum CancelID { case detail, photos, toast, printRefresh, prepareShoot, printNotice }
+    private enum CancelID { case detail, photos, toast, printRefresh, prepareShoot, inviteGuide, printNotice }
 
     private enum Const {
         // TODO: 노출 시간은 기획 미확정 — ProfileSetup과 같은 임시값. 확정 시 교체할 것.
         static let toastDuration: Duration = .seconds(2)
         static let copyToastMessage = "초대 코드를 복사했어요"
+        static let printWaitingToastMessage = "인화 대기 중이에요! 조금만 기다려주세요"
+    }
+}
+
+// MARK: - Effects
+
+/// 리듀서 본문과 이펙트 헬퍼를 나눈다 — 초대 안내(#99)와 인화 완료 안내(#102)가 합쳐지며
+/// 타입 본문이 린트 상한(250줄)을 넘었다. 같은 파일이라 private 멤버 접근은 그대로다.
+private extension RoomDetailFeature {
+
+    /// 상세와 사진을 함께 부른다. 사진은 방 상태를 따지지 않는다 — 촬영 중이면 빈 배열이
+    /// 오고 그리드도 빈 슬롯을 그리며, 상태로 걸러내면 홈에서 받은 상태가 낡은 경우
+    /// (그 사이 인화 단계로 넘어간 방)를 따라잡아야 한다.
+    func fetchAll(_ state: inout State) -> Effect<Action> {
+        state.detailLoad = .loading
+        return .merge(
+            fetchDetail(id: state.room.id),
+            fetchPhotos(id: state.room.id)
+        )
+    }
+
+    /// 첫 상세 성공에 한 번, 이 기기에서 처음 들어왔는지 확인하고 처음일 때만 안내 액션을 보낸다.
+    /// 진입(.task)이 아니라 상세 성공 뒤에 확인한다 — 참여자 바가 그려진 다음이라 팝오버가
+    /// 여는 모션과 함께 나타나고, 조회가 실패한 화면 뒤에 보이지 않는 열림 상태가 남지 않는다.
+    func checkInviteGuide(_ state: inout State) -> Effect<Action> {
+        guard !state.hasCheckedInviteGuide else { return .none }
+        state.hasCheckedInviteGuide = true
+        return .run { [shouldShowInviteGuideUseCase] send in
+            guard await shouldShowInviteGuideUseCase.run() else { return }
+            await send(.inviteGuideNeeded)
+        }
+        .cancellable(id: CancelID.inviteGuide, cancelInFlight: true)
+    }
+
+    /// 인화 대기 방에 들어왔다고 토스트로 알린다. 화면당 한 번만 —
+    /// 카운트다운 알람의 재조회가 같은 대기 응답을 줘도 다시 띄우지 않는다.
+    func showPrintWaitingToast(_ state: inout State, room: Room) -> Effect<Action> {
+        guard room.status == .printWaiting, !state.hasShownPrintWaitingToast else { return .none }
+        state.hasShownPrintWaitingToast = true
+        state.toast = Const.printWaitingToastMessage
+        return toastTimer()
     }
 
     /// 촬영에 필요한 것(목록·LUT·권한)은 `ShootEntry`가 받아 온다 — 홈의 촬영 뱃지와 같은 준비다.
     /// 의존성 해석은 이펙트 바깥에서 끝낸다 (`ShootPreparation()`).
-    private func prepareShoot(roomID: Room.ID) -> Effect<Action> {
+    func prepareShoot(roomID: Room.ID) -> Effect<Action> {
         let preparation = ShootPreparation()
 
         return .run { send in
@@ -268,7 +336,7 @@ public struct RoomDetailFeature {
         .cancellable(id: CancelID.prepareShoot, cancelInFlight: true)
     }
 
-    private func fetchDetail(id: Room.ID) -> Effect<Action> {
+    func fetchDetail(id: Room.ID) -> Effect<Action> {
         .run { [fetchRoomDetailUseCase] send in
             do {
                 let detail = try await fetchRoomDetailUseCase.run(id)
@@ -284,7 +352,7 @@ public struct RoomDetailFeature {
     }
 
     /// 사진 목록은 PhotoDomain 소관이라 방 조회와 별개로 실패할 수 있다 — 에러도 PhotoError로 온다.
-    private func fetchPhotos(id: Room.ID) -> Effect<Action> {
+    func fetchPhotos(id: Room.ID) -> Effect<Action> {
         .run { [fetchRoomPhotosUseCase] send in
             do {
                 // 그리드는 리액션을 그리지 않으므로 목록만 받는다 (리액션은 사진 상세에서 지연 조회).
@@ -307,7 +375,7 @@ public struct RoomDetailFeature {
     ///
     /// 상세·사진 두 응답에서 불리므로 한 번 물어본 뒤에는 다시 묻지 않는다 —
     /// 두 번 물으면 안내를 닫은 직후 도착한 응답이 안내를 다시 띄운다.
-    private func checkPrintNotice(state: inout State) -> Effect<Action> {
+    func checkPrintNotice(state: inout State) -> Effect<Action> {
         guard state.room.status == .printed, !state.photos.isEmpty, !state.didCheckPrintNotice
         else { return .none }
         state.didCheckPrintNotice = true
@@ -323,7 +391,7 @@ public struct RoomDetailFeature {
     ///
     /// 인화 대기 + 예정 시각이 미래일 때만 건다. 시각이 지났는데 상태가 그대로면(서버 전환 지연)
     /// 다시 걸지 않는다 — 걸면 0초짜리 알람이 반복돼 무한 재조회가 된다.
-    private func refreshAtPrintCompletion(room: Room) -> Effect<Action> {
+    func refreshAtPrintCompletion(room: Room) -> Effect<Action> {
         guard room.status == .printWaiting,
               let completedAt = room.photoPrintCompletedAt,
               completedAt > date.now
@@ -343,7 +411,7 @@ public struct RoomDetailFeature {
     /// 홈 State가 사라지고, 홈이 보내던 요청도 함께 취소돼 기록이 유실됐다.
     /// 상세는 사용자가 보는 동안 화면에 남아 있어 요청이 끝까지 나간다.
     /// 실패는 무시한다 — 확인하기 카드가 남아 다음 진입 때 다시 시도된다.
-    private func reportPrintCompletionCheck(_ state: inout State, room: Room) -> Effect<Action> {
+    func reportPrintCompletionCheck(_ state: inout State, room: Room) -> Effect<Action> {
         guard room.status == .printed, !state.hasReportedPrintCompletionCheck else { return .none }
         state.hasReportedPrintCompletionCheck = true
         return .run { [checkPrintCompletionUseCase] _ in
@@ -352,7 +420,7 @@ public struct RoomDetailFeature {
     }
 
     /// 일정 시간 뒤 토스트를 거둔다. 복사를 연타하면 이전 타이머를 취소해 노출 시간이 처음부터 다시 센다.
-    private func toastTimer() -> Effect<Action> {
+    func toastTimer() -> Effect<Action> {
         .run { [clock] send in
             try await clock.sleep(for: Const.toastDuration)
             await send(.toastDismissed)

@@ -3,8 +3,9 @@
 ## 레이어와 책임
 
 **Feature 레이어**. 방 상세 화면 — 제목·슬롯 그리드, 참여자 아바타와 초대 코드 팝오버,
-인화 카운트다운을 그린다 (이슈 #57, 시안 4장 기준).
-인화가 끝난 방에 처음 들어오면 그리드 대신 인화 완료 안내(필름 화면)를 먼저 띄운다.
+인화 카운트다운을 그린다. 처음 들어온 기기면 팝오버를 열어 초대 안내 툴팁을 붙이고,
+인화 대기 방이면 토스트로 알린다 (이슈 #57 · #99).
+인화가 끝난 방에 처음 들어오면 그리드 대신 인화 완료 안내(필름 화면)를 먼저 띄운다 (이슈 #102).
 
 `RoomDomain`·`PhotoDomain`의 UseCase만 주입받고(규칙 2), 화면 전환(뒤로가기·촬영·채팅)은
 전부 `delegate`로 App에 알린다(규칙 3).
@@ -29,7 +30,7 @@
 | 영역 | 기준 | 규칙 |
 | :-- | :-- | :-- |
 | 슬롯 그리드 | **사진 개수** | 찍힌 자리는 사진, 남은 자리는 빈 칸. 사진은 인화 완료면 선명하게, 그 전이면 블러 |
-| 하단 동작 | **방 상태** | 촬영 중은 사진 찍기, 인화 대기는 카운트다운, 인화 완료는 없음 |
+| 하단 동작 | **방 상태** | 촬영 중은 채팅+사진 찍기, 인화 대기는 채팅+카운트다운, 인화 완료는 채팅 버튼 가운데. 셋 다 뒤에 투명→검정 그라데이션. 인화 완료 안내 필름이 떠 있는 동안은 숨김 |
 | 인화 완료 안내 | **방 상태 + 노출 기록** | 인화 완료 + 이 방에서 아직 안 봤으면 그리드 대신 필름 화면 |
 
 촬영 중에 찍은 사진도 블러로 보인다(기획 확인) — 그래서 그리드는 상태가 아니라 사진 유무로 갈린다.
@@ -40,7 +41,8 @@
 
 - `State(room:)` — 홈에서 받은 `Room`을 품고 시작한다. 첫 프레임부터 제목·슬롯 그리드가 그려지고,
   초대 코드·참여자·사진은 진입 후 조회로 채운다
-  - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` · `toast` · `alert`
+  - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` ·
+    `isInviteGuidePresented`(첫 진입 툴팁) · `toast` · `hasShownPrintWaitingToast` · `alert`
 - `Action.delegate` — `closeTapped` · `settingsTapped`(설정 화면 요청 — App이 조립) ·
   `cameraRequested(CameraEntry)`(촬영 준비 완료) · `chatTapped` ·
   `photoTapped(Photo.ID)`(사진 슬롯 탭 → 사진 상세)
@@ -58,6 +60,12 @@
     취소돼 요청이 유실됐다. 도착한 화면이 부르면 수명이 요청과 같이 간다
   - 실패해도 알리지 않는다 — 다음 진입에서 다시 기록된다. 같은 상세에서 두 번 보내지 않게
     `hasReportedPrintCompletionCheck`로 1회 제한
+- 첫 상세 성공에 한 번, 이 기기에서 처음 들어왔는지 확인해 처음일 때만 팝오버를 열고 툴팁을
+  붙인다(`ShouldShowInviteGuideUseCase`) — 참여자 바가 그려진 뒤라 여는 모션이 보이고, 조회가
+  실패한 화면 뒤에 열림 상태가 남지 않는다. 팝오버가 어떤 경로로든 닫히면 툴팁을 내리고
+  본 것으로 기록한다(`MarkInviteGuideSeenUseCase`) — 기록은 기기에만 남는다
+- 인화 대기 방은 상세 응답 시점에 토스트("인화 대기 중이에요!…")를 띄운다. 화면당 한 번 —
+  알람 재조회가 같은 대기 응답을 줘도 다시 띄우지 않는다
 
 #### 인화 완료 안내 (1회성)
 
@@ -149,8 +157,6 @@ iOS 17에는 이를 관찰하는 API가 없다(`onScrollPhaseChange`는 iOS 18).
 
 ## 알려진 미구현
 
-- **툴팁** — 시안(5604:19130)의 "초대 코드로 친구를 초대해보세요"가 빠져 있다.
-  디자인 시스템에 Tooltip 컴포넌트가 없어 담당자 확인 후 추가한다
 - **인화 완료 안내의 연출 세부** — 시안에 안내 움직임의 폭·횟수, 당기는 문턱이 정해져 있지 않다.
   현재 값(14pt 2회 · 문턱 72pt)은 눈으로 잡은 것이라 디자이너 검수로 확정한다.
   내려가는 속도는 이제 상수가 아니라 스크롤의 감속이 정한다
@@ -168,7 +174,8 @@ mise exec -- tuist test RoomDetailFeature
 
 TCA `TestStore`로 리듀서를 검증한다 — 진입 조회(상세+사진), 실패 얼럿과 재시도,
 클립보드 복사와 토스트 타이머(`TestClock`), delegate 위임, 카운트다운 표기 규칙.
-`RoomDetailShootEntryTests`는 촬영 진입만 따로 본다 — 준비 중 표시와 재탭 무시, 성공 시 delegate,
+`RoomDetailInviteGuideTests`는 첫 진입 안내와 인화 대기 토스트를 본다 — 팝오버 자동 열림,
+닫으면 기록, 이미 봤으면 없음, 토스트 1회 제한. `RoomDetailShootEntryTests`는 촬영 진입만 따로 본다 — 준비 중 표시와 재탭 무시, 성공 시 delegate,
 실패 얼럿과 설정 열기. 준비 자체(권한 순서·실패 판단)는 `ShootEntry` 테스트가 본다.
 `RoomDetailPrintNoticeTests`는 인화 완료 안내의 노출·기록 규칙을 본다 — 첫 진입에 뜨는지,
 이미 본 방·사진 없는 방·촬영 중인 방에서는 안 뜨는지, 닫으면 기록하는지, 닫은 뒤 재조회에 다시
@@ -179,7 +186,7 @@ TCA `TestStore`로 리듀서를 검증한다 — 진입 조회(상세+사진), �
 ```bash
 xcrun simctl launch booted com.challa.roomdetailfeature.demo \
   --screen detail \
-  --state <shooting|shootingPartial|printWaiting|printed|printNotice|invite|error> \
+  --state <shooting|shootingPartial|printWaiting|printed|printNotice|invite|inviteGuide|error> \
   [--photos <장수>]   # 인화가 끝난 방의 사진 장수 (기본 72). 장수가 필름 길이와 시간을 정한다
 ```
 

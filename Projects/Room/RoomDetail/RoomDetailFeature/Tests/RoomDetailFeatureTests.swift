@@ -51,6 +51,8 @@ struct RoomDetailFeatureTests {
             $0.fetchRoomDetailUseCase = fetchDetail
             $0.fetchRoomPhotosUseCase = fetchPhotos
             $0.copyToPasteboard = copy
+            // 상세 성공은 초대 안내 확인까지 부른다 — 띄우지 않는 답을 고정해 팝오버가 끼어들지 않게 한다.
+            $0.shouldShowInviteGuideUseCase.run = { false }
             $0.shouldShowPrintNoticeUseCase = shouldShowPrintNotice
             $0.markPrintNoticeSeenUseCase = markPrintNoticeSeen
             $0.continuousClock = clock
@@ -77,6 +79,7 @@ struct RoomDetailFeatureTests {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.room = Self.fresherRoom // 홈에서 받은 값(남은 12장)이 서버 값(5장)으로 덮인다
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.success) {
             $0.photos = Self.photos
@@ -121,6 +124,7 @@ struct RoomDetailFeatureTests {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.room = Self.fresherRoom
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.failure) // 상태 변화 없음 — 슬롯이 빈 모습 그대로
     }
@@ -162,6 +166,7 @@ struct RoomDetailFeatureTests {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.room = Self.fresherRoom
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.success) {
             $0.photos = Self.photos
@@ -247,11 +252,19 @@ struct RoomDetailFeatureTests {
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = RoomDetail(room: Self.waitingRoom, invitationCode: "1928121", members: [])
-            $0.room = Self.waitingRoom // 이 응답이 100초 뒤에 울릴 알람을 건다
+            $0.room = Self.waitingRoom // 이 응답이 100초 뒤에 울릴 알람을 걸고, 대기 토스트를 띄운다
+            $0.hasShownPrintWaitingToast = true
+            $0.toast = "인화 대기 중이에요! 조금만 기다려주세요"
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.success)
 
-        await clock.advance(by: .seconds(100)) // 완료 예정 시각 도달
+        await clock.advance(by: .seconds(2)) // 토스트 노출 시간
+        await store.receive(\.toastDismissed) {
+            $0.toast = nil
+        }
+
+        await clock.advance(by: .seconds(98)) // 완료 예정 시각 도달
         await store.receive(\.printCompletionReached)
         await store.receive(\.detailResponse.success) {
             $0.detail = RoomDetail(room: Self.printedRoom, invitationCode: "1928121", members: [])

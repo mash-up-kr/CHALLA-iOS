@@ -46,6 +46,8 @@ struct RoomDetailPrintNoticeTests {
             $0.fetchRoomPhotosUseCase = fetchPhotos
             $0.shouldShowPrintNoticeUseCase = shouldShowPrintNotice
             $0.markPrintNoticeSeenUseCase = markPrintNoticeSeen
+            // 상세 성공은 초대 안내 확인까지 부른다 — 띄우지 않는 답을 고정해 팝오버가 끼어들지 않게 한다.
+            $0.shouldShowInviteGuideUseCase.run = { false }
             // 인화 완료 방에 들어오면 리듀서가 서버에 확인을 알린다 — 이 묶음의 관심사가 아니라 비워 둔다.
             $0.checkPrintCompletionUseCase = CheckPrintCompletionUseCase(run: { _ in })
             $0.continuousClock = TestClock()
