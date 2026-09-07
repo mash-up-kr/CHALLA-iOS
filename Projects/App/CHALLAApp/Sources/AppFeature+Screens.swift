@@ -103,10 +103,15 @@ public extension AppFeature {
         public var homeCards: IdentifiedArrayOf<RoomCard>
         public var roomDetail: RoomDetailFeature.State
 
-        public init(profile: UserProfile, room: Room, homeCards: IdentifiedArrayOf<RoomCard> = []) {
+        public init(
+            profile: UserProfile,
+            room: Room,
+            homeCards: IdentifiedArrayOf<RoomCard> = [],
+            highlightsNewestPhoto: Bool = false
+        ) {
             self.profile = profile
             self.homeCards = homeCards
-            self.roomDetail = RoomDetailFeature.State(room: room)
+            roomDetail = RoomDetailFeature.State(room: room, highlightsNewestPhoto: highlightsNewestPhoto)
         }
     }
 }
@@ -329,6 +334,16 @@ public extension AppFeature {
                     selectedRoomID: entry.roomID
                 )
             )
+        }
+
+        /// 촬영을 마친 방의 상세로 들어갈 때 쓸 `Room`.
+        /// 방 상세에서 들어왔으면 그 방을, 홈에서 들어왔으면 맡아둔 목록에서 찾는다 —
+        /// 카메라가 들고 있는 `ShootableRoom`은 상세를 그리기에 필드가 모자라다.
+        func shotRoom(id: Room.ID) -> Room? {
+            if case let .roomDetail(room) = origin, room.id == id {
+                return room
+            }
+            return homeCards[id: id]?.room
         }
     }
 
