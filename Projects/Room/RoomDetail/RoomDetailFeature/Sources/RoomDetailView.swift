@@ -42,7 +42,9 @@ public struct RoomDetailView: View {
         .challaMainBackground()
         // 인화 완료 안내 필름이 떠 있는 동안은 숨긴다 — 필름을 당겨 닫는 동작과 하단 툴팁 자리에 채팅 버튼이 겹친다.
         .overlay(alignment: .bottom) {
-            if !store.isPrintNoticePresented { bottomActions }
+            if !store.isPrintNoticePresented {
+                bottomActions
+            }
         }
         .alert($store.scope(state: \.alert, action: \.alert))
         .task { send(.task) }
