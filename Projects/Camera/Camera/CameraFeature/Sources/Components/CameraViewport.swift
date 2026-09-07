@@ -7,10 +7,12 @@ struct CameraViewport<Preview: View>: View {
 
     let zoom: CameraZoom
     let captureAvailability: CameraCaptureAvailability
-    /// 셔터를 누른 순간 뷰파인더를 잠깐 검게 덮는다 (촬영 피드백).
-    let isShutterFlashing: Bool
     /// 안내 스낵바가 떠 있는 동안 프리뷰를 흐리고 어둡게 낮춘다 (시안 camera_snackBar_1·2).
     let isDimmed: Bool
+    /// 촬영 연출 중. 뷰파인더를 촬영본으로 고정하고 배율 배지·핀치를 거둔다 (시안 2).
+    let isCapturing: Bool
+    /// 서버로 올라간 촬영본. 도착 전까지는 nil이고, 그동안은 라이브 프리뷰가 그대로 보인다.
+    let capturedPhoto: Image?
     let onZoomBadgeTap: () -> Void
     let onMagnificationChanged: (CGFloat) -> Void
     let onMagnificationEnded: () -> Void
@@ -18,11 +20,6 @@ struct CameraViewport<Preview: View>: View {
 
     var body: some View {
         viewport
-            .overlay {
-                CHALLAColor.Static.black
-                    .opacity(isShutterFlashing ? 1 : 0)
-                    .allowsHitTesting(false)
-            }
             .aspectRatio(ViewportMetric.viewportAspectRatio, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: ViewportMetric.viewportRadius))
             .padding(ViewportMetric.bezelPadding)
@@ -50,12 +47,31 @@ struct CameraViewport<Preview: View>: View {
             }
             .contentShape(Rectangle()) // 확대 전 원래 프레임에서 핀치를 받는다
             .gesture(magnification)
+            .allowsHitTesting(!isCapturing)
+            .overlay { capturedPhotoLayer }
             .overlay(alignment: .bottomTrailing) {
-                if !isDimmed { // 안내 중에는 배율 배지를 감춘다 (시안에 없음)
+                if !isDimmed, !isCapturing { // 안내·촬영 연출 중에는 배율 배지를 감춘다 (시안에 없음)
                     zoomBadge
                         .padding(ViewportMetric.zoomBadgeInset)
                 }
             }
+    }
+
+    /// 촬영 연출 동안 뷰파인더를 덮어 라이브 프리뷰를 끊는다 — 기기를 움직여도 찍힌 그 장면만 남는다.
+    /// 촬영본이 오기 전(하드웨어 촬영 몇십 ms)에는 아무것도 덮지 않는다. 그 사이를 검게 채우면
+    /// 뷰파인더가 한 번 깜빡이는 것으로 보인다.
+    @ViewBuilder
+    private var capturedPhotoLayer: some View {
+        if let capturedPhoto {
+            capturedPhoto
+                .resizable()
+                .scaledToFill()
+                .clipped()
+                .opacity(isCapturing ? 1 : 0)
+                // 화면 가운데로 내려가는 연출을 따라 서서히 덮이면 그동안 라이브 프리뷰가 비친다 — 덮는 것은 즉시.
+                .animation(nil, value: isCapturing)
+                .allowsHitTesting(false)
+        }
     }
 
     private func blocked(message: String) -> some View {
