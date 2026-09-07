@@ -1,5 +1,6 @@
 import CHALLANetwork
 import Foundation
+import os
 
 /// 구독 요청만 기록하고 이벤트는 흘리지 않는 스텁. 디코딩 검증에만 쓴다.
 struct StubSTOMPClient: STOMPClienting {
@@ -36,6 +37,25 @@ struct ScriptedSTOMPClient: STOMPClienting {
         case .finishes:
             return AsyncThrowingStream { $0.finish() }
         }
+    }
+
+    func applicationDidEnterBackground() async {}
+    func applicationWillEnterForeground() async {}
+}
+
+/// 어떤 주소를 구독했는지만 기록하는 스텁.
+final class RecordingSTOMPClient: STOMPClienting, Sendable {
+
+    private let state = OSAllocatedUnfairLock(initialState: [String]())
+
+    var destinations: [String] {
+        state.withLock { $0 }
+    }
+
+    func subscribe(to destination: String) async throws -> AsyncThrowingStream<STOMPEvent, any Error> {
+        state.withLock { $0.append(destination) }
+        // 끝내지 않는다 — 실제 구독처럼 소비가 멈출 때까지 열려 있다.
+        return AsyncThrowingStream { _ in }
     }
 
     func applicationDidEnterBackground() async {}

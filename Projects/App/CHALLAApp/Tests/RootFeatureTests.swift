@@ -8,7 +8,7 @@ import Testing
 import UserDomain
 
 /// 구독을 건 방 id를 기록하는 스텁. 이벤트는 테스트가 직접 밀어 넣는다.
-private final class SpyRoomEventStream: Sendable {
+final class SpyRoomEventStream: Sendable {
 
     private let state = OSAllocatedUnfairLock(initialState: [[Room.ID]]())
     private let events: @Sendable ([Room.ID]) -> AsyncThrowingStream<RoomMemberJoinedEvent, any Error>
@@ -48,7 +48,7 @@ private enum Fixture {
     }
 }
 
-private extension RoomCard {
+extension RoomCard {
     /// 샘플 카드의 id만 바꾼다 — 구독 대상이 방 id별로 갈리는지 보려면 서로 다른 id가 필요하다.
     func withRoomID(_ id: Room.ID) -> RoomCard {
         RoomCard(
@@ -85,11 +85,13 @@ struct RootFeatureTests {
 
         await store.send(.roomEvent(.joined(Fixture.joined))) {
             $0.joinToast = Fixture.joined
+            $0.shownJoinKey = RootFeature.JoinKey(Fixture.joined)
         }
 
         await clock.advance(by: .seconds(3))
         await store.receive(\.toastDismissed) {
             $0.joinToast = nil
+            $0.shownJoinKey = nil
         }
     }
 
@@ -104,14 +106,23 @@ struct RootFeatureTests {
             $0.observeRoomMemberJoinedUseCase = .previewValue
         }
 
-        await store.send(.roomEvent(.joined(Fixture.joined))) { $0.joinToast = Fixture.joined }
+        await store.send(.roomEvent(.joined(Fixture.joined))) {
+            $0.joinToast = Fixture.joined
+            $0.shownJoinKey = RootFeature.JoinKey(Fixture.joined)
+        }
         await clock.advance(by: .seconds(2))
-        await store.send(.roomEvent(.joined(second))) { $0.joinToast = second }
+        await store.send(.roomEvent(.joined(second))) {
+            $0.joinToast = second
+            $0.shownJoinKey = RootFeature.JoinKey(second)
+        }
 
         // 첫 토스트의 남은 1초가 지나도 내려가지 않는다 — 타이머가 다시 시작됐기 때문.
         await clock.advance(by: .seconds(2))
         await clock.advance(by: .seconds(1))
-        await store.receive(\.toastDismissed) { $0.joinToast = nil }
+        await store.receive(\.toastDismissed) {
+            $0.joinToast = nil
+            $0.shownJoinKey = nil
+        }
     }
 
     @Test("홈이 방 목록을 받으면 한 번의 구독으로 그 방들을 전부 받는다")
@@ -160,24 +171,6 @@ struct RootFeatureTests {
         )
         await store.send(.roomEvent(.joined(mine)))
         #expect(store.state.joinToast == nil)
-    }
-
-    @Test("같은 참여가 두 주소로 두 번 와도 한 번만 처리한다 (전환 기간)")
-    func ignoresDuplicateJoin() async {
-        let clock = TestClock()
-        let store = TestStore(initialState: RootFeature.State()) {
-            RootFeature()
-        } withDependencies: {
-            $0.continuousClock = clock
-            $0.observeRoomMemberJoinedUseCase = .previewValue
-        }
-
-        await store.send(.roomEvent(.joined(Fixture.joined))) { $0.joinToast = Fixture.joined }
-        // 사용자 주소·방 주소로 같은 이벤트가 또 온다 — 상태도 타이머도 건드리지 않는다.
-        await store.send(.roomEvent(.joined(Fixture.joined)))
-
-        await clock.advance(by: .seconds(3))
-        await store.receive(\.toastDismissed) { $0.joinToast = nil }
     }
 
     @Test("토스트를 누르면 그 방으로 이동한다")
@@ -353,5 +346,100 @@ struct RootFeatureTests {
         await store.send(.roomEventsFailed)
 
         #expect(store.state.roomEventRetryCount == 3)
+    }
+
+    @Test("마지막 방을 나가 목록이 비면 이전 구독을 거둔다")
+    func stopsSubscribingWhenLastRoomIsLeft() async {
+        let spy = SpyRoomEventStream()
+        var initialState = RootFeature.State()
+        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+
+        let cards = [Fixture.card(id: 11)]
+        let store = TestStore(initialState: initialState) {
+            RootFeature()
+        } withDependencies: {
+            $0.continuousClock = ImmediateClock()
+            $0.observeRoomMemberJoinedUseCase = spy.useCase
+            $0.fetchRoomsUseCase = FetchRoomsUseCase(run: { cards })
+        }
+        store.exhaustivity = .off
+
+        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.finish()
+        #expect(store.state.subscribedRooms.map(\.id) == [11])
+
+        // 조회가 끝난 뒤의 빈 목록은 "아직 안 불러왔다"가 아니라 "이제 내 방이 없다"이다.
+        await store.send(.app(.home(.roomsResponse(.success([])))))
+        await store.finish()
+
+        #expect(store.state.subscribedRooms.isEmpty)
+    }
+}
+
+/// 같은 참여가 두 주소로 두 번 오는 전환 기간의 처리.
+@Suite("RootFeature — 참여 알림 중복 제거")
+struct RootFeatureJoinDeduplicationTests {
+
+    @Test("같은 참여가 두 주소로 두 번 와도 한 번만 처리한다 (전환 기간)")
+    func ignoresDuplicateJoin() async {
+        let clock = TestClock()
+        let store = TestStore(initialState: RootFeature.State()) {
+            RootFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.observeRoomMemberJoinedUseCase = .previewValue
+        }
+
+        await store.send(.roomEvent(.joined(Fixture.joined))) {
+            $0.joinToast = Fixture.joined
+            $0.shownJoinKey = RootFeature.JoinKey(Fixture.joined)
+        }
+        // 사용자 주소·방 주소로 같은 이벤트가 또 온다 — 상태도 타이머도 건드리지 않는다.
+        await store.send(.roomEvent(.joined(Fixture.joined)))
+
+        await clock.advance(by: .seconds(3))
+        await store.receive(\.toastDismissed) {
+            $0.joinToast = nil
+            $0.shownJoinKey = nil
+        }
+    }
+
+    @Test("두 주소가 실어 주는 값이 서로 달라도 같은 참여면 한 번만 띄운다")
+    func ignoresDuplicateJoinWithDifferentPayloads() async {
+        // 전환 기간에 방 주소는 userId 없이, 사용자 주소는 userId를 실어 보낼 수 있다.
+        // 값 전체를 비교하면 서로 다른 이벤트가 되어 같은 참여에 토스트가 두 번 뜬다.
+        let fromRoomTopic = RoomMemberJoined(
+            roomID: Fixture.joined.roomID,
+            roomTitle: Fixture.joined.roomTitle,
+            userID: nil,
+            nickname: Fixture.joined.nickname,
+            profileImageURL: nil
+        )
+        let fromUserQueue = RoomMemberJoined(
+            roomID: Fixture.joined.roomID,
+            roomTitle: Fixture.joined.roomTitle,
+            userID: 99,
+            nickname: Fixture.joined.nickname,
+            profileImageURL: URL(string: "https://cdn.test/u.jpg")
+        )
+
+        let clock = TestClock()
+        let store = TestStore(initialState: RootFeature.State()) {
+            RootFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.observeRoomMemberJoinedUseCase = .previewValue
+        }
+        store.exhaustivity = .off
+
+        await store.send(.roomEvent(.joined(fromRoomTopic)))
+        await store.send(.roomEvent(.joined(fromUserQueue)))
+
+        // 나중에 온 쪽이 화면을 덮어쓰지 않는다 — 타이머도 다시 시작되지 않아야 한다.
+        #expect(store.state.joinToast == fromRoomTopic)
+
+        await clock.advance(by: .seconds(3))
+        await store.receive(\.toastDismissed)
+        #expect(store.state.joinToast == nil)
     }
 }

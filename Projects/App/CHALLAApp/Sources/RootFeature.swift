@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import Foundation
+import HomeFeature
 import RoomDomain
 
 /// 앱 전체를 감싸는 루트 — 화면 전환(`AppFeature`) 위에 화면과 무관한 것을 얹는다.
@@ -19,6 +20,9 @@ public struct RootFeature {
         /// 지금 떠 있는 참여 안내. nil이면 숨김.
         public var joinToast: RoomMemberJoined?
 
+        /// 지금 띄워 둔 참여가 무엇이었는지. 같은 참여가 두 주소로 오는 것을 거르는 데만 쓴다.
+        var shownJoinKey: JoinKey?
+
         /// 참여 구독을 다시 걸어 본 횟수.
         var roomEventRetryCount = 0
 
@@ -37,16 +41,22 @@ public struct RootFeature {
             guard case let .home(screen) = app else { return subscribedRooms }
             // 홈으로 돌아오면 화면이 새로 만들어져 목록이 잠깐 비어 있다.
             // 그때 구독을 끊으면 뒤로 갈 때마다 전체 재구독이 돌고, 그 틈에 온 이벤트를 놓친다.
-            guard !screen.home.cards.isEmpty else { return subscribedRooms }
+            //
+            // 조회가 끝난 뒤의 빈 목록은 다르다. 마지막 방을 나간 경우라
+            // 그대로 두면 이제 내 방이 아닌 곳의 참여 토스트를 계속 받는다.
+            guard screen.home.loadState == .loaded || !screen.home.cards.isEmpty else {
+                return subscribedRooms
+            }
             return screen.home.cards.map(\.room)
         }
 
-        /// 구독을 다시 걸지 판단하는 기준. 방 **목록**이 바뀔 때만 다시 건다.
+        /// 구독을 다시 걸지 판단하는 기준. **어느 방이 있는지**가 바뀔 때만 다시 건다.
         ///
-        /// `Room` 전체를 보면 사진 한 장 찍어 `remainedPhotoCount`만 달라져도 전체 재구독이 돈다
-        /// (홈이 진입할 때마다 목록을 새로 받는다). 그 사이에 온 이벤트는 버려진다.
-        var subscribableRoomIDs: [Room.ID] {
-            subscribableRooms.map(\.id)
+        /// 홈은 들어올 때마다 목록을 새로 받는다. `Room` 전체를 보면 사진 한 장 찍어
+        /// `remainedPhotoCount`만 달라져도, 순서를 보면 서버가 다른 차례로 주기만 해도
+        /// 전체 재구독이 돈다. 재구독 사이에 온 이벤트는 받을 곳이 없다.
+        var subscribableRoomIDs: Set<Room.ID> {
+            Set(subscribableRooms.map(\.id))
         }
 
         public init() {}
@@ -94,13 +104,18 @@ public struct RootFeature {
                 case let .roomEvent(.joined(joined)):
                     state.roomEventRetryCount = 0
                     // 내가 들어간 것을 나에게 알리지 않는다.
-                    // 서버가 사용자 단위 주소로 보내기 시작하면 내 참여도 나에게 온다.
+                    // 사용자 단위 주소로 오므로 내 참여도 나에게 온다.
                     if let profile = state.app.currentProfile, joined.isMe(userID: profile.id) {
                         return .none
                     }
-                    // 전환 기간에는 같은 참여가 사용자 주소와 방 주소로 두 번 온다.
-                    // 이미 그 알림을 띄우고 있으면 무시한다 — 같은 사람이 같은 방에 두 번 들어올 수는 없다.
-                    guard state.joinToast != joined else { return .none }
+                    // 같은 참여가 두 번 오면 한 번만 띄운다.
+                    //
+                    // 값 전체가 아니라 **어느 방에 누가**로만 비교한다. 방 이름·프로필 URL·userId는
+                    // 서버가 어느 주소로 보내느냐에 따라 실릴 수도, 빠질 수도 있어
+                    // 전체를 비교하면 같은 참여가 서로 다른 값이 되어 토스트가 두 번 뜬다.
+                    let key = JoinKey(joined)
+                    guard state.shownJoinKey != key else { return .none }
+                    state.shownJoinKey = key
                     state.joinToast = joined
                     return .merge(
                         // 연달아 들어와도 마지막 것만 보이고, 볼 시간은 매번 처음부터 다시 준다.
@@ -126,9 +141,11 @@ public struct RootFeature {
                     guard let room = openable else {
                         // 목록에 없는 방이면 열 수 없다. 토스트만 내린다.
                         state.joinToast = nil
+                        state.shownJoinKey = nil
                         return .cancel(id: CancelID.toast)
                     }
                     state.joinToast = nil
+                    state.shownJoinKey = nil
                     return .merge(
                         .cancel(id: CancelID.toast),
                         .send(.app(.openRoomRequested(room)))
@@ -148,6 +165,7 @@ public struct RootFeature {
 
                 case .toastDismissed:
                     state.joinToast = nil
+                    state.shownJoinKey = nil
                     return .none
                 }
             }
@@ -182,6 +200,7 @@ public struct RootFeature {
             // 여기까지 비어 오는 것은 로그아웃뿐이다(홈의 일시적 빈 목록은 위에서 걸러진다).
             // 듣고 있던 것을 끊고 떠 있는 토스트도 거둔다.
             state.joinToast = nil
+            state.shownJoinKey = nil
             return .merge(.cancel(id: CancelID.roomEvents), .cancel(id: CancelID.toast))
         }
         let roomIDs = rooms.map(\.id)
@@ -205,6 +224,21 @@ public struct RootFeature {
         // 재연결(joinedRoomID == nil)이면 어느 방인지 몰라 열려 있는 방을 그냥 갱신한다.
         guard joinedRoomID == nil || joinedRoomID == screen.roomDetail.room.id else { return .none }
         return .send(.app(.roomDetail(.memberJoined)))
+    }
+
+    /// 같은 참여인지 가리는 식별자.
+    ///
+    /// 방 이름·프로필 URL·userId는 실릴 수도 빠질 수도 있어 넣지 않는다.
+    /// 같은 사람이 같은 방에 토스트가 떠 있는 3초 안에 두 번 들어올 수는 없으므로 이것으로 충분하다.
+    struct JoinKey: Equatable {
+
+        let roomID: Room.ID
+        let nickname: String
+
+        init(_ joined: RoomMemberJoined) {
+            roomID = joined.roomID
+            nickname = joined.nickname
+        }
     }
 
     private enum CancelID: Hashable {

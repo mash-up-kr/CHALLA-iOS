@@ -35,7 +35,10 @@ struct STOMPClientResubscribeTests {
 
         await client.applicationDidEnterBackground()
         let stream = try await client.subscribe(to: "/topic/a")
-        let consumer = Task { for try await _ in stream {} }
+        let events = EventCollector()
+        let consumer = Task { for try await event in stream {
+            await events.append(event)
+        } }
         defer { consumer.cancel() }
         try await Task.sleep(for: .milliseconds(20))
 
@@ -48,6 +51,11 @@ struct STOMPClientResubscribeTests {
         // 등록만 해 둔 구독이 복귀할 때 실제로 걸린다.
         #expect(factory.channels.count == 1)
         #expect(await factory.channels[0].roomSubscribes.count == 1)
+
+        // 백그라운드에서 부른 subscribe는 구독 확정을 기다리지 않고 리턴한다.
+        // 그래서 받는 쪽이 "구독됐다"고 믿고 REST를 먼저 부를 수 있는데,
+        // 복귀할 때 오는 .resumed가 그 구간을 다시 메우게 한다. 이 신호가 없으면 조용히 빈다.
+        #expect(await events.events == [.resumed])
     }
 
     // MARK: - 재구독 전송 실패

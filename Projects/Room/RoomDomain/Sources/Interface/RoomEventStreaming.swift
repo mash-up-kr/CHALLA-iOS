@@ -9,9 +9,9 @@ public protocol RoomEventStreaming: Sendable {
     /// 내가 속한 방들의 참여 이벤트를 **한 스트림으로** 받는다.
     /// 어느 방 것인지는 이벤트가 들고 있으므로 받는 쪽이 가려 쓴다.
     ///
-    /// `roomIDs`가 필요한 이유는 지금 서버가 방 단위 주소만 주기 때문이다
-    /// (`/topic/room/{roomId}/member-joined`). 사용자 단위 주소가 생기면 구현이 이 값을 무시하고
-    /// 구독 하나로 끝낸다 — 이 계약과 호출부는 그대로 둔 채 구현만 바뀐다.
+    /// 구현은 사용자 단위 주소 하나로 받으므로 `roomIDs`를 주소로 쓰지 않는다.
+    /// 그래도 인자로 두는 이유는 방 목록이 바뀌면 구독을 다시 걸어야 하기 때문이다 —
+    /// 로그아웃·재로그인·마지막 방 퇴장에 구독이 따라 움직여야 한다.
     func memberJoinedEvents(inRooms roomIDs: [Room.ID]) async throws
         -> AsyncThrowingStream<RoomMemberJoinedEvent, any Error>
 }
