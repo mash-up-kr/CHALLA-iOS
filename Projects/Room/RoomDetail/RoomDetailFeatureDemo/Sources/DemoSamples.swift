@@ -12,6 +12,10 @@ enum DemoSamples {
     /// 시안에 적힌 초대 코드. 저장소에 등록해 두면 방 상세가 이 값을 보여준다.
     static let inviteCode = "1928121"
 
+    /// 인화가 끝난 방의 사진 장수. 실행 인자 `--photos`로 바꾼다 (기본 72).
+    /// 앱이 뜬 뒤로는 바뀌지 않아 한 번만 읽는다.
+    static let printedPhotoCount = DemoScreen.photoCount()
+
     /// id가 음수인 이유는 `InMemoryRoomRepository.nextID` 주석 참고 — 데모는 -20번대를 쓴다.
     /// 생성·만료일은 화면이 실행할 때마다 달라지지 않도록 고정한다.
     private static let createdAt = Date(timeIntervalSince1970: 1_784_000_000)
@@ -24,7 +28,7 @@ enum DemoSamples {
     /// 상태별로 보여줄 방. 슬롯 수(총 촬영 장수)와 남은 장수가 상태마다 다르다.
     static func room(for state: DemoScreen.DetailState) -> Room {
         switch state {
-        case .shooting, .invite, .error:
+        case .shooting, .invite, .inviteGuide, .error:
             return shootingRoom(remained: 24)
         case .shootingPartial, .justShot:
             return shootingRoom(remained: 12)
@@ -40,12 +44,12 @@ enum DemoSamples {
                 // 시안 문구("2:59:58 후 인화 완료")와 같은 값에서 시작해 실제로 줄어든다.
                 photoPrintCompletedAt: Date.now.addingTimeInterval(secondsUntilPrinted)
             )
-        case .printed:
+        case .printed, .printNotice:
             return Room(
                 id: -22,
                 title: "인화 완료 된 방이에요",
                 status: .printed,
-                totalPhotoCount: 72,
+                totalPhotoCount: printedPhotoCount,
                 remainedPhotoCount: 0,
                 createdAt: createdAt,
                 expiresAt: expiresAt,
@@ -90,9 +94,10 @@ enum DemoSamples {
 
     static func photoCount(for state: DemoScreen.DetailState) -> Int {
         switch state {
-        case .shooting, .invite, .error: return 0
+        case .shooting, .invite, .inviteGuide, .error: return 0
         case .shootingPartial, .justShot: return 12
-        case .printWaiting, .printed: return room(for: state).totalPhotoCount
+        case .printWaiting, .printed, .printNotice:
+            return room(for: state).totalPhotoCount
         }
     }
 

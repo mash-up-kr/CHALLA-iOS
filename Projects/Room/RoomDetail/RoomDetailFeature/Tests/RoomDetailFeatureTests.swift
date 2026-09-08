@@ -39,15 +39,20 @@ struct RoomDetailFeatureTests {
         initialState: RoomDetailFeature.State = .init(room: .previewShooting),
         fetchDetail: FetchRoomDetailUseCase = .testValue,
         fetchPhotos: FetchRoomPhotosUseCase = .testValue,
-        copy: CopyToPasteboard = .testValue,
-        clock: any Clock<Duration> = TestClock()
+        clock: any Clock<Duration> = TestClock(),
+        // 대부분의 테스트는 안내와 무관하다 — 이미 본 것으로 두면 안내가 끼어들지 않는다.
+        shouldShowPrintNotice: ShouldShowPrintNoticeUseCase = .init(run: { _ in false }),
+        markPrintNoticeSeen: MarkPrintNoticeSeenUseCase = .init(run: { _ in })
     ) -> TestStoreOf<RoomDetailFeature> {
         TestStore(initialState: initialState) {
             RoomDetailFeature()
         } withDependencies: {
             $0.fetchRoomDetailUseCase = fetchDetail
             $0.fetchRoomPhotosUseCase = fetchPhotos
-            $0.copyToPasteboard = copy
+            // 상세 성공은 초대 안내 확인까지 부른다 — 띄우지 않는 답을 고정해 팝오버가 끼어들지 않게 한다.
+            $0.shouldShowInviteGuideUseCase.run = { false }
+            $0.shouldShowPrintNoticeUseCase = shouldShowPrintNotice
+            $0.markPrintNoticeSeenUseCase = markPrintNoticeSeen
             $0.continuousClock = clock
             // 인화 완료 응답이 확인 기록(check)을 보낸다 — 여기 테스트들은 기록 자체를 검증하지 않아 무시 스텁.
             $0.checkPrintCompletionUseCase = CheckPrintCompletionUseCase(run: { _ in })
@@ -67,13 +72,16 @@ struct RoomDetailFeatureTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.room = Self.fresherRoom // 홈에서 받은 값(남은 12장)이 서버 값(5장)으로 덮인다
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.success) {
+            $0.photosLoad = .loaded
             $0.photos = Self.photos
         }
     }
@@ -87,6 +95,7 @@ struct RoomDetailFeatureTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.failure) {
             $0.detailLoad = .failed
@@ -99,7 +108,7 @@ struct RoomDetailFeatureTests {
                 TextState(RoomError.network.userMessage)
             }
         }
-        await store.receive(\.photosResponse.success) // 사진 0장 — 상태 변화 없음
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded } // 사진 0장
     }
 
     @Test("사진만 실패하면 얼럿 없이 빈 그리드로 둔다")
@@ -111,43 +120,15 @@ struct RoomDetailFeatureTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.room = Self.fresherRoom
+            $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.failure) // 상태 변화 없음 — 슬롯이 빈 모습 그대로
-    }
-
-    @Test("촬영을 마치고 들어오면 마지막 사진을 1초간 강조했다가 거둔다")
-    func newestPhotoIsHighlightedAfterCapture() async {
-        let clock = TestClock()
-        let store = Self.makeStore(
-            initialState: .init(room: .previewShooting, highlightsNewestPhoto: true),
-            fetchDetail: FetchRoomDetailUseCase(run: { _ in Self.detail }),
-            fetchPhotos: FetchRoomPhotosUseCase(run: { _ in Self.photos }),
-            clock: clock
-        )
-
-        await store.send(.view(.task)) {
-            $0.detailLoad = .loading
-        }
-        await store.receive(\.detailResponse.success) {
-            $0.detailLoad = .loaded
-            $0.detail = Self.detail
-            $0.room = Self.fresherRoom
-        }
-        await store.receive(\.photosResponse.success) {
-            $0.photos = Self.photos
-            $0.highlightsNewestPhoto = false // 한 번만 강조한다
-            $0.highlightedPhotoID = "1"
-        }
-
-        await clock.advance(by: .seconds(1))
-        await store.receive(\.newestPhotoHighlightElapsed) {
-            $0.highlightedPhotoID = nil
-        }
+        await store.receive(\.photosResponse.failure) { $0.photosLoad = .failed } // 슬롯은 빈 모습 그대로
     }
 
     // MARK: - 팝오버
@@ -182,48 +163,42 @@ struct RoomDetailFeatureTests {
         await store.send(.alert(.presented(.retryTapped))) {
             $0.alert = nil
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.detail
             $0.room = Self.fresherRoom
+            $0.hasCheckedInviteGuide = true
         }
         await store.receive(\.photosResponse.success) {
+            $0.photosLoad = .loaded
             $0.photos = Self.photos
         }
     }
 
-    // MARK: - 복사
+    // MARK: - 공유
 
-    @Test("복사 버튼은 초대 코드를 클립보드 의존성에 넘기고, 토스트를 띄웠다가 2초 뒤 거둔다")
-    func copySendsCode() async {
-        let copied = LockIsolated<String?>(nil)
-        let clock = TestClock()
+    @Test("공유 버튼은 초대 링크 공유 시트를 연다")
+    func shareOpensSheet() async {
         var state = RoomDetailFeature.State(room: .previewShooting)
         state.detail = Self.detail
         state.detailLoad = .loaded
-        let store = Self.makeStore(
-            initialState: state,
-            copy: CopyToPasteboard(run: { text in copied.setValue(text) }),
-            clock: clock
-        )
+        let store = Self.makeStore(initialState: state)
 
-        await store.send(.view(.copyInviteCodeTapped)) {
-            $0.toast = "초대 코드를 복사했어요"
-        }
-        await clock.advance(by: .seconds(2))
-        await store.receive(\.toastDismissed) {
-            $0.toast = nil
-        }
+        // 시트에 실리는 값은 InviteLink가 만든 링크다 (형식 자체는 RoomDomain 테스트가 본다).
+        #expect(store.state.inviteShareURL == InviteLink.url(code: "1928121"))
 
-        #expect(copied.value == "1928121")
+        await store.send(.view(.shareInviteCodeTapped)) {
+            $0.isSharePresented = true
+        }
     }
 
-    @Test("코드가 아직 없으면 복사는 무시된다")
-    func copyIgnoredWithoutDetail() async {
-        let store = Self.makeStore() // copy가 testValue — 호출되면 미구현 실패
+    @Test("코드가 아직 없으면 공유는 무시된다")
+    func shareIgnoredWithoutDetail() async {
+        let store = Self.makeStore()
 
-        await store.send(.view(.copyInviteCodeTapped))
+        await store.send(.view(.shareInviteCodeTapped))
     }
 
     // MARK: - 인화 완료 알람
@@ -268,22 +243,31 @@ struct RoomDetailFeatureTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = RoomDetail(room: Self.waitingRoom, invitationCode: "1928121", members: [])
-            $0.room = Self.waitingRoom // 이 응답이 100초 뒤에 울릴 알람을 건다
+            $0.room = Self.waitingRoom // 이 응답이 100초 뒤에 울릴 알람을 걸고, 대기 토스트를 띄운다
+            $0.hasShownPrintWaitingToast = true
+            $0.toast = RoomDetailFeature.Toast("인화 대기 중이에요! 조금만 기다려주세요", placement: .top)
+            $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
 
-        await clock.advance(by: .seconds(100)) // 완료 예정 시각 도달
-        await store.receive(\.printCompletionReached)
+        await clock.advance(by: .seconds(2)) // 토스트 노출 시간
+        await store.receive(\.toastDismissed) {
+            $0.toast = nil
+        }
+
+        await clock.advance(by: .seconds(98)) // 완료 예정 시각 도달
+        await store.receive(\.printCompletionReached) { $0.photosLoad = .loading }
         await store.receive(\.detailResponse.success) {
             $0.detail = RoomDetail(room: Self.printedRoom, invitationCode: "1928121", members: [])
             $0.room = Self.printedRoom // 인화 완료 — 방 상태가 바뀌어 알람은 다시 걸리지 않는다
             $0.hasReportedPrintCompletionCheck = true // 인화 완료 응답이 확인 기록을 보낸다
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
     }
 
     // MARK: - 위임

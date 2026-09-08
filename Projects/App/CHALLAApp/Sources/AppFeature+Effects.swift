@@ -1,12 +1,22 @@
 import AppDomain
 import ComposableArchitecture
 import Foundation
+import HomeFeature
 import UserDomain
 
-/// 실행 직후 한 번씩 도는 앱 전역 이펙트 — 버전 체크 · 세션 복구 · 프로필 조회.
+// MARK: - Effects
+
 extension AppFeature {
 
     enum CancelID { case profile, sessionExpiration, updateCheck, splashHold }
+
+    /// 링크로 실행된 콜드 스타트의 마무리 — 보관해 둔 초대 코드가 있으면 홈에 넘겨 입장을 잇는다.
+    func deliverPendingInviteCode() -> Effect<Action> {
+        .run { [pendingInviteCode] send in
+            guard let code = pendingInviteCode.take() else { return }
+            await send(.home(.inviteCodeReceived(code)))
+        }
+    }
 
     /// 실행 직후 1회 버전 체크.
     /// 실패는 `.notRequired`로 접는다 — 체크 서버가 죽었다고 전 사용자 앱을 스플래시에 가둘 수는 없다.
@@ -20,7 +30,7 @@ extension AppFeature {
     }
 
     /// 저절로 풀릴 수 있는 실패가 이어질 때의 재시도 정책.
-    private enum RetryBackoff {
+    enum RetryBackoff {
         /// 첫 시도를 포함한 총 시도 횟수. 상한이 없으면 화면이 스플래시에 멈춘 채 빠져나가지 못한다.
         static let maxAttempts = 5
 

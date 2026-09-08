@@ -9,13 +9,16 @@ import SwiftUI
 /// 화면이 갈리는 기준이 두 가지로 나뉜다.
 /// - 그리드는 사진 개수를 본다 — 찍힌 자리는 사진, 남은 자리는 빈 칸.
 ///   사진은 인화 완료면 선명하게, 그 전이면 블러로 그린다.
-/// - 하단은 방 상태를 본다 — 촬영 중은 사진 찍기, 인화 대기는 카운트다운, 인화 완료는 없음.
+/// - 하단은 방 상태를 본다 — 촬영 중은 사진 찍기, 인화 대기는 카운트다운,
+///   인화 완료는 채팅 버튼 하나가 가운데.
 @ViewAction(for: RoomDetailFeature.self)
 public struct RoomDetailView: View {
 
     @Bindable public var store: StoreOf<RoomDetailFeature>
 
     @Environment(\.challaTheme) private var theme
+
+    @State private var bottomActionsHeight: CGFloat = 0
 
     public init(store: StoreOf<RoomDetailFeature>) {
         self.store = store
@@ -28,17 +31,59 @@ public struct RoomDetailView: View {
                 leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") { send(.backButtonTapped) },
                 trailing: .icon(.setting, accessibilityLabel: "방 설정") { send(.settingsButtonTapped) }
             )
-            slotGrid
-                .overlay(alignment: .top) { memberBar }
-                // 참여자 바보다 나중에 선언해 열린 팝오버 위에 그려지게 한다.
-                .overlay(alignment: .top) { toastLayer }
+            // 인화 완료 후 첫 진입이면 그리드 대신 필름부터 보여준다. 상단 바는 그대로 둔다 —
+            // 시안의 안내 화면에도 같은 제목과 뒤로 가기가 있다.
+            if store.isPrintNoticePresented {
+                PrintNoticeView(photos: store.photos) { send(.printNoticeDismissed) }
+            } else {
+                slotGrid
+                    .overlay(alignment: .top) { memberBar }
+                    // 참여자 바보다 나중에 선언해 열린 팝오버 위에 그려지게 한다.
+                    .overlay(alignment: .top) { toastLayer(.top) }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .challaMainBackground()
-        .overlay(alignment: .bottom) { bottomActions }
+        // 인화 완료 안내 필름이 떠 있는 동안은 숨긴다 — 필름을 당겨 닫는 동작과 하단 툴팁 자리에 채팅 버튼이 겹친다.
+        .overlay(alignment: .bottom) {
+            if !store.isPrintNoticePresented {
+                bottomActions
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.onChange(of: proxy.size.height, initial: true) { _, height in
+                                bottomActionsHeight = height
+                            }
+                        }
+                    )
+            }
+        }
+        // 버튼 높이가 바뀌어도 토스트와 겹치지 않도록 실측 높이를 사용한다.
+        .overlay(alignment: .bottom) {
+            toastLayer(.bottom)
+                .padding(.bottom, bottomActionsHeight + RoomDetailMetric.bottomToastSpacing)
+        }
         .alert($store.scope(state: \.alert, action: \.alert))
+        .challaDrawer(isPresented: isDrawerPresented) {
+            leaveWhileDownloadingDrawer
+        }
+        .sheet(isPresented: $store.isSharePresented) {
+            if let url = store.inviteShareURL {
+                ActivityShareSheet(items: [url]) {
+                    store.isSharePresented = false // @Bindable 바인딩 쓰기 — 리듀서를 거친다
+                }
+                .presentationDetents([.medium, .large]) // 시안의 반 시트 — 위로 끌면 전체
+            }
+        }
         .task { send(.task) }
+        // 자동으로 열린 안내는 사용자가 손댄 곳이 없어 VoiceOver가 모른다 — 열릴 때 직접 알린다.
+        .onChange(of: store.isInviteGuidePresented) { _, isPresented in
+            guard isPresented else { return }
+            AccessibilityNotification.Announcement(Self.inviteGuideMessage).post()
+        }
     }
+
+    /// 첫 진입 안내 문구 — 툴팁과 VoiceOver 알림이 같은 문장을 쓴다.
+    private static let inviteGuideMessage = "초대 코드로 친구를 초대해보세요"
 
     // MARK: - 슬롯 그리드 (사진 개수 기준)
 
@@ -128,31 +173,71 @@ public struct RoomDetailView: View {
                 },
                 inviteCode: detail.invitationCode,
                 isPresented: $store.isInvitePopoverPresented,
-                onCopyInviteCode: { send(.copyInviteCodeTapped) }
+                // 문구는 뷰 소유 — 리듀서는 띄울지(Bool)만 안다.
+                popoverTooltip: store.isInviteGuidePresented ? Self.inviteGuideMessage : nil,
+                onShareInviteCode: { send(.shareInviteCodeTapped) }
             )
         }
     }
 
     // MARK: - 토스트
 
-    /// 복사 완료 안내. 표시 시간은 리듀서의 타이머가 정하고, 여기는 문구가 있는 동안만 그린다.
+    private var isDrawerPresented: Binding<Bool> {
+        Binding(
+            get: { store.drawer != nil },
+            set: { isPresented in
+                guard !isPresented else { return }
+                send(.drawerDismissed)
+            }
+        )
+    }
+
+    /// 인화 대기 안내. 표시 시간은 리듀서의 타이머가 정하고, 여기는 문구가 있는 동안만 그린다.
     @ViewBuilder
-    private var toastLayer: some View {
-        if let toast = store.toast {
-            CHALLAToast(toast)
-                .padding(.top, RoomDetailMetric.toastTopPadding)
+    private var leaveWhileDownloadingDrawer: some View {
+        if store.drawer == .leaveWhileDownloading {
+            CHALLADrawer(
+                header: .handle,
+                actions: [
+                    CHALLADrawerAction("멈추고 나가기", variant: .neutral, role: .destructive) {
+                        send(.leaveWhileDownloadingConfirmed)
+                    }
+                ],
+                footerAction: CHALLADrawerAction("계속 저장") { send(.drawerDismissed) }
+            ) {
+                CHALLADrawerMessage(
+                    "저장을 멈출까요?",
+                    description: "지금까지 저장된 사진은 사진첩에 남아요"
+                )
+            }
         }
     }
 
-    // MARK: - 하단 동작 (방 상태 기준)
+    @ViewBuilder
+    private func toastLayer(_ placement: RoomDetailFeature.Toast.Placement) -> some View {
+        if let toast = store.toast, toast.placement == placement {
+            CHALLAToast(toast.message)
+                .padding(.top, placement == .top ? RoomDetailMetric.toastTopPadding : 0)
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+// MARK: - 하단 동작 (방 상태 기준)
+
+/// 리듀서와 같은 이유로 뷰 본문에서 떼어 냈다 — 2차 시안 하단(#99)과 전체 다운로드(#103)가
+/// 합쳐지며 타입 본문이 린트 상한(250줄)을 넘었다. 같은 파일이라 private 멤버 접근은 그대로다.
+private extension RoomDetailView {
 
     /// 촬영 중: 채팅 + 사진 찍기 / 인화 대기: 채팅 + 카운트다운 /
-    /// 인화 완료: 아무것도 없음 (시안 5604:19636 — 채팅 버튼도 없다).
+    /// 인화 완료: 채팅 + 전체 다운로드.
+    /// 인화 완료 안내 필름이 떠 있는 동안은 그리지 않는다 (body의 overlay 조건).
     @ViewBuilder
-    private var bottomActions: some View {
+    var bottomActions: some View {
         switch store.room.status {
         case .shooting:
-            actionRow {
+            actionBar {
+                chatButton
                 CHALLATextButton(
                     "사진 찍기",
                     variant: .theme,
@@ -166,7 +251,8 @@ public struct RoomDetailView: View {
                 }
             }
         case .printWaiting:
-            actionRow {
+            actionBar {
+                chatButton
                 if let completedAt = store.room.photoPrintCompletedAt {
                     countdownBar(until: completedAt)
                 } else {
@@ -174,29 +260,79 @@ public struct RoomDetailView: View {
                 }
             }
         case .printed:
-            EmptyView()
+            actionBar {
+                chatButton
+                // 조회에 실패했을 때만 이유를 보여준다. 받는 중에는 버튼을 비활성으로 두는데,
+                // 로딩 중에 실패 문구를 띄우면 매번 진입할 때마다 잘못된 안내가 스쳐 지나간다.
+                if store.photosLoad == .failed {
+                    // 사진만 실패하면 얼럿이 뜨지 않아, 여기가 유일한 재시도 수단이다.
+                    CHALLATextButton(
+                        "사진을 불러오지 못했어요. 다시 시도",
+                        variant: .neutral,
+                        size: .large,
+                        isFullWidth: true
+                    ) {
+                        send(.retryPhotosTapped)
+                    }
+                } else {
+                    CHALLATextButton(
+                        downloadAllTitle,
+                        variant: .theme,
+                        size: .large,
+                        isFullWidth: true,
+                        isLoading: store.downloadAll.isRunning
+                    ) {
+                        send(.downloadAllTapped)
+                    }
+                    .disabled(store.photos.isEmpty)
+                }
+            }
         }
     }
 
-    private func actionRow(@ViewBuilder trailing: () -> some View) -> some View {
+    var downloadAllTitle: String {
+        switch store.downloadAll {
+        case .idle:
+            "전체 다운로드"
+        case let .running(completed, total):
+            "\(completed)/\(total) 저장 중"
+        }
+    }
+
+    /// 하단 동작 줄의 공통 틀 — 내용물 배치와 배경 그라데이션만 담당한다.
+    /// 그라데이션은 위 여백(8)부터 홈 인디케이터 영역까지 투명 → 검정으로 깔린다 (시안 7486:80245).
+    func actionBar(@ViewBuilder content: () -> some View) -> some View {
         HStack(spacing: RoomDetailMetric.actionSpacing) {
-            CHALLAIconButton(
-                .chatTeardropDots,
-                accessibilityLabel: "채팅",
-                variant: .primary,
-                size: .large
-            ) {
-                send(.chatButtonTapped)
-            }
-            trailing()
+            content()
         }
         .padding(.horizontal, RoomDetailMetric.horizontalPadding)
         .padding(.top, RoomDetailMetric.actionTopPadding)
+        .frame(maxWidth: .infinity)
+        .background {
+            LinearGradient(
+                colors: [.clear, CHALLAColor.Static.black],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .bottom)
+        }
+    }
+
+    /// 채팅 진입 버튼. 세 상태가 같은 버튼을 쓰고 자리만 다르다.
+    var chatButton: some View {
+        CHALLAIconButton(
+            .chatTeardropDots,
+            accessibilityLabel: "채팅",
+            variant: .primary,
+            size: .large
+        ) {
+            send(.chatButtonTapped)
+        }
     }
 
     /// 인화 완료까지 남은 시간. 초마다 다시 그린다 — 남은 값은 State에 두지 않고
     /// 완료 예정 시각(photoPrintCompletedAt)에서 그때그때 계산한다.
-    private func countdownBar(until completedAt: Date) -> some View {
+    func countdownBar(until completedAt: Date) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             Text("\(PrintCountdown.text(until: completedAt, now: context.date)) 후 인화 완료")
                 .challaFont(.body.large.bold)
@@ -226,6 +362,7 @@ private enum RoomDetailMetric {
     static let gridBottomPadding: CGFloat = 78
     /// 토스트 내림 — 시안 top 122 − 상단 바 하단 114.
     static let toastTopPadding: CGFloat = 8
+    static let bottomToastSpacing: CGFloat = 12
     /// 채팅 버튼과 사진 찍기 버튼 사이 (시안 8).
     static let actionSpacing: CGFloat = 8
     /// 방금 올린 사진의 강조 테두리 두께 (시안 4 육안 근사값 — 디자이너 검수로 확정한다).
@@ -238,20 +375,6 @@ private enum RoomDetailMetric {
 }
 
 // MARK: - Preview
-
-/// 프리뷰용 가짜 사진. picsum 사진 6장을 돌려 쓴다 — 슬롯마다 다른 URL을 주면
-/// 수십 건이 한꺼번에 나가 picsum이 막고, 같은 URL은 로더가 캐시로 재사용해 6번만 받는다.
-private func previewPhotos(count: Int) -> [Photo] {
-    (0 ..< count).compactMap { index in
-        guard let url = URL(string: "https://picsum.photos/seed/challa-slot\(index % 6)/300/400") else { return nil }
-        return Photo(
-            id: "\(index)",
-            imageURL: url,
-            author: PhotoAuthor(id: "author", nickname: "찰나둥이"),
-            capturedAt: .now
-        )
-    }
-}
 
 #Preview("촬영 중") {
     RoomDetailView(
@@ -270,7 +393,7 @@ private func previewPhotos(count: Int) -> [Photo] {
         } withDependencies: {
             $0.fetchRoomDetailUseCase = .previewValue
             // 24칸 중 12장 찍힌 상태 — 찍은 자리는 블러, 남은 자리는 빈 칸으로 섞여 보인다.
-            $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in previewPhotos(count: 12) })
+            $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in PreviewSamples.photos(count: 12) })
         }
     )
 }
@@ -310,13 +433,24 @@ private func previewPhotos(count: Int) -> [Photo] {
             })
             // 인화 대기는 다 찍었을 때만 들어오는 상태라 빈 슬롯이 없다 (남은 장수 0).
             $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
-                previewPhotos(count: room.totalPhotoCount)
+                PreviewSamples.photos(count: room.totalPhotoCount)
             })
         }
     )
 }
 
-#Preview("인화 완료 (하단 동작 없음)") {
+#Preview("첫 진입 (팝오버 + 툴팁)") {
+    RoomDetailView(
+        store: Store(initialState: RoomDetailFeature.State(room: .previewShooting)) {
+            RoomDetailFeature()
+        } withDependencies: {
+            $0.fetchRoomDetailUseCase = .previewValue
+            $0.shouldShowInviteGuideUseCase.run = { true }
+        }
+    )
+}
+
+#Preview("인화 완료 (채팅 버튼 가운데)") {
     RoomDetailView(
         store: Store(initialState: RoomDetailFeature.State(room: .previewPrinted)) {
             RoomDetailFeature()
@@ -325,7 +459,7 @@ private func previewPhotos(count: Int) -> [Photo] {
                 RoomDetail(room: .previewPrinted, invitationCode: "1928121", members: RoomDetail.preview.members)
             })
             $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
-                previewPhotos(count: Room.previewPrinted.totalPhotoCount)
+                PreviewSamples.photos(count: Room.previewPrinted.totalPhotoCount)
             })
         }
     )

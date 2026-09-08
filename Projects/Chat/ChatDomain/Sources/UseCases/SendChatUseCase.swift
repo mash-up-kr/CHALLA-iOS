@@ -1,10 +1,10 @@
 import Dependencies
 import DependenciesMacros
 
-/// 메시지를 보낸다. 성공 여부만 알린다 — 화면이 로컬 메시지를 낙관적으로 덧붙인다.
+/// 메시지를 보낸다. 서버가 만든 chatId를 돌려주면 화면이 낙관적 메시지를 그 id로 확정한다.
 @DependencyClient
 public struct SendChatUseCase: Sendable {
-    public var run: @Sendable (_ roomID: Int64, _ photoID: Int64?, _ content: String) async throws -> Void
+    public var run: @Sendable (_ roomID: Int64, _ photoID: Int64?, _ content: String) async throws -> Int64?
 }
 
 extension SendChatUseCase: TestDependencyKey {

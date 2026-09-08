@@ -23,15 +23,42 @@ enum CompositionRoot {
             failure: state == .error ? .network : nil
         )
 
+        // 안내를 이미 본 것으로 심어 두면 그리드가 바로 뜬다 — printNotice 상태에서만 비워 필름을 띄운다.
+        let printNotice = InMemoryPrintNoticeRepository(
+            seenRoomIDs: state == .printNotice ? [] : [room.id]
+        )
+
         values.fetchRoomDetailUseCase = .live(repository: repository)
         values.checkPrintCompletionUseCase = .live(repository: repository)
+        values.shouldShowPrintNoticeUseCase = .live(repository: printNotice)
+        values.markPrintNoticeSeenUseCase = .live(repository: printNotice)
         values.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in
             DemoSamples.photos(count: DemoSamples.photoCount(for: state))
         })
+        // 첫 진입 안내는 이 상태에서만 뜬다. 기록은 no-op — 데모를 다시 열어도 같은 컷이 나온다.
+        values.shouldShowInviteGuideUseCase.run = { state == .inviteGuide }
+        values.markInviteGuideSeenUseCase.run = {}
+        values.saveAllPhotosUseCase = Self.stubSaveAllPhotos
         registerShootEntry(room: room, into: &values)
-        // copyToPasteboard는 등록하지 않는다 — liveValue(실제 클립보드)가 그대로 쓰여
-        // 데모에서 복사 후 붙여넣기까지 확인할 수 있다.
+        // 초대 링크 공유는 등록할 의존성이 없다 — 시스템 공유 시트를 뷰가 직접 띄운다.
     }
+
+    /// 사진첩 저장 없이 진행·완료 이벤트를 반환하는 데모 스텁.
+    private static let stubSaveAllPhotos = SaveAllPhotosUseCase(run: { photos in
+        AsyncStream { continuation in
+            let task = Task {
+                for index in photos.indices {
+                    try? await Task.sleep(for: .milliseconds(120))
+                    continuation.yield(
+                        .progress(completed: index + 1, saved: index + 1, total: photos.count)
+                    )
+                }
+                continuation.yield(.finished(saved: photos.count, failed: 0, total: photos.count))
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    })
 
     /// 방 설정이 쓰는 의존성 — 이름 변경 하나뿐이다.
     /// InMemory 저장소에 방을 넣어 두어 "변경" 제출이 실서버처럼 성공한다.

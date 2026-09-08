@@ -60,6 +60,23 @@ public struct AppFeature {
             }
         }
 
+        /// 현재 화면이 들고 있는 내 프로필. 로그인 전 화면(스플래시·로그인·프로필 설정·강제 업데이트)에는
+        /// 없다 — 초대 링크가 왔을 때 "지금 입장할 수 있는 상태인가"의 판별값.
+        public var profile: UserProfile? {
+            switch self {
+            case .launching, .login, .profileSetup, .forceUpdate: return nil
+            case let .home(screen): return screen.profile
+            case let .roomDetail(screen): return screen.profile
+            case let .roomSettings(screen): return screen.profile
+            case let .roomCoverEdit(screen): return screen.profile
+            case let .photoDetail(screen): return screen.profile
+            case let .chat(screen): return screen.profile
+            case let .setting(screen): return screen.profile
+            case let .profileEdit(screen): return screen.profile
+            case let .camera(screen): return screen.profile
+            }
+        }
+
         public enum ScreenID: Equatable, Sendable {
             case launching, login, profileSetup, home, roomDetail, roomSettings, roomCoverEdit
             case photoDetail, chat, setting, profileEdit, camera
@@ -96,6 +113,12 @@ public struct AppFeature {
         case roomCoverSaveFailed(roomID: Room.ID, previousCover: RoomCover)
         /// 엣지 스와이프 pop 제스처 완료. 자식의 뒤로가기 delegate와 같은 곳으로 되돌린다.
         case popGestureCompleted
+
+        /// 유니버설 링크로 열렸다 — 초대 링크면 입장을 잇는다.
+        case inviteLinkOpened(URL)
+
+        /// 화면 밖에서 방을 열어 달라는 요청 (참여 토스트 탭).
+        case openRoomRequested(Room)
     }
 
     // MARK: - Init
@@ -112,6 +135,7 @@ public struct AppFeature {
     @Dependency(\.checkAppUpdateUseCase) var checkAppUpdateUseCase
     @Dependency(\.openURL) var openURL
     @Dependency(\.updateRoomCoverUseCase) var updateRoomCoverUseCase
+    @Dependency(\.pendingInviteCode) var pendingInviteCode
 
     // MARK: - Body
 
@@ -197,13 +221,14 @@ extension AppFeature {
 
             case .splashMinimumHoldFinished:
                 guard case var .launching(splash) = state else { return .none }
-                if let destination = splash.pendingDestination {
-                    state = Self.resolvedState(for: destination)
-                } else {
+                guard let destination = splash.pendingDestination else {
                     splash.isMinimumHoldElapsed = true
                     state = .launching(splash)
+                    return .none
                 }
-                return .none
+                state = Self.resolvedState(for: destination)
+                guard case .home = state else { return .none }
+                return deliverPendingInviteCode()
 
             case .forceUpdateConfirmTapped:
                 guard case let .forceUpdate(storeURL) = state, let url = storeURL else { return .none }
@@ -212,6 +237,21 @@ extension AppFeature {
             case let .roomCoverSaveFailed(roomID, previousCover):
                 revertRoomCover(roomID: roomID, to: previousCover, &state)
                 return .none
+
+            // MARK: - 초대 링크
+
+            // 유니버설 링크로 열렸다 — 초대 링크면 입장을 잇고, 아니면 아무것도 하지 않는다.
+            case let .inviteLinkOpened(url):
+                guard let code = InviteLink.code(from: url) else { return .none }
+                // 로그인 전이면 보관한다 — 홈에 도달하는 시점(프로필 조회 성공·프로필 설정 완료)이 꺼내 쓴다.
+                guard let profile = state.profile else {
+                    return .run { [pendingInviteCode] _ in pendingInviteCode.store(code) }
+                }
+                // 어느 화면에 있었든 홈으로 돌아가 입장을 맡긴다 — 성공 반영도 실패 얼럿도 홈의 것을 쓴다.
+                if state.screenID != .home {
+                    state = .home(HomeScreen(profile: profile))
+                }
+                return .send(.home(.inviteCodeReceived(code)))
 
             case .sessionRestored(.restored):
                 return fetchMyProfile()
@@ -238,7 +278,9 @@ extension AppFeature {
                     for: profile.isProfileCompleted ? .home(profile) : .profileSetup,
                     &state
                 )
-                return .none
+                // 스플래시가 홈을 맡아 두기만 했으면 아직 꺼내지 않는다 — 실제로 도달한 순간에 꺼낸다.
+                guard case .home = state else { return .none }
+                return deliverPendingInviteCode()
 
             case .profileResponse(.failure):
                 guard case let .launching(splash) = state, splash.pendingDestination == nil
@@ -258,7 +300,7 @@ extension AppFeature {
 
             case let .profileSetup(.delegate(.setupCompleted(profile))):
                 state = .home(HomeScreen(profile: profile))
-                return .none
+                return deliverPendingInviteCode()
 
             // MARK: - 홈 delegate
 
@@ -276,6 +318,13 @@ extension AppFeature {
                 state = .roomDetail(
                     RoomDetailScreen(profile: screen.profile, room: card.room, homeCards: screen.home.cards)
                 )
+                return .none
+
+            case let .openRoomRequested(room):
+                // 촬영 중에는 화면을 뺏지 않는다 — 찍고 있던 것이 사라진다.
+                // 로그인 전 화면에는 프로필이 없어 만들 화면도 없다.
+                guard state.screenID != .camera, let profile = state.currentProfile else { return .none }
+                state = .roomDetail(RoomDetailScreen(profile: profile, room: room))
                 return .none
 
             // 진입 버튼이 방·필터·권한을 모두 갖춘 뒤에만 오는 요청이라 여기서 바로 띄운다.
@@ -458,6 +507,8 @@ extension AppFeature {
                 guard case let .profileEdit(screen) = state else { return .none }
                 state = .setting(SettingScreen(profile: screen.profile, homeCards: screen.homeCards))
                 return .none
+
+            // MARK: - 인터랙티브 pop
 
             case .popGestureCompleted:
                 return popCurrentScreen(&state)

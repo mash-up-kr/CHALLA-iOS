@@ -40,11 +40,15 @@ App(또는 데모앱)이 쓰는 것만 열려 있다. 드로어 뷰와 내부 �
   - `Action.Delegate` — `.roomSelected(Room)` · `.roomCreated(Room)` · `.roomJoined(Room)` · `.settingsTapped` ·
     `.cameraRequested(CameraEntry)`
   - 커버는 `RoomCard.room.cover`에 실려 온다 — 카드는 커버 사진이 있으면 대표 사진 대신 그것을,
-    스티커는 `RoomCoverUI`의 id → 도안 매핑으로 사진 위·딤 아래에 얹는다. 따로 조회하는 것이 없다
+    스티커는 서버가 준 SVG를 `RoomCoverUI`가 도형으로 읽어 사진 위·딤 아래에 얹는다. 따로 조회하는 것이 없다
 
 `CameraEntry` · `ShootPreparationError`는 `ShootEntry` 모듈이 정의한다 — 방 상세의 사진 찍기와 같은 타입이다.
 
 `CreateRoomFeature` · `JoinRoomFeature`는 `Destination`에 담기느라 `public`이지만 App이 직접 쓰지 않는다.
+
+- `Action.inviteCodeReceived(String)` — 초대 링크를 받은 App이 보낸다. 드로어 입장과 같은
+  UseCase(`JoinRoomUseCase`)로 입장해 목록에 반영하고 `delegate(.roomJoined)`를 보낸다 —
+  이후 방 상세 전환도 드로어 입장과 같은 경로다. 실패는 홈 얼럿으로 알린다
 
 ### 화면 상태
 
@@ -93,5 +97,7 @@ Swift Testing + TCA `TestStore` 기반. 시뮬레이터가 필요하다 (`@MainA
   가드 2종, `.roomNotFound` 얼럿 후 입력값 유지, 닫기의 dismiss
 - `HomeShootEntryTests` — 촬영 뱃지의 준비 중 표시, 성공 시 delegate, 실패 시 얼럿, 없는 방 id 무시.
   준비 자체(권한 순서·실패 판단)는 `ShootEntry` 테스트가 본다
+- `HomeInviteJoinTests` — 초대 링크 코드 입장: 목록 반영과 delegate, 재입장은 중복 없이 갱신,
+  실패 얼럿, 드로어가 떠 있으면 얼럿으로 덮지 않음
 
 화면 상태별 UI 확인은 `HomeFeatureDemo`가 맡는다 — 실행 인자로 목록 6상태와 드로어를 바로 띄운다.

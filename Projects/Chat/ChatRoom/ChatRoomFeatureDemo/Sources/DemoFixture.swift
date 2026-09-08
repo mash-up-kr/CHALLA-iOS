@@ -1,5 +1,6 @@
 import ChatDomain
 import Foundation
+import os
 import PhotoDomain
 
 /// 데모가 쓰는 고정 데이터.
@@ -8,14 +9,28 @@ enum DemoFixture {
     static let roomID: Int64 = -1
     static let roomTitle = "해피하우스 강릉 여행"
     /// 화면을 보는 사람 = 메시지를 보내는 사람(내 메시지 판별 기준).
+    static let currentUserID: Int64 = 1
     static let currentUserNickname = "아이스크림연준"
+
+    /// 데모 메시지에 붙일 서버 id를 순서대로 뽑는다.
+    private static let nextChatID = OSAllocatedUnfairLock(initialState: Int64(0))
+
+    static func makeChatID() -> Int64 {
+        nextChatID.withLock { value in
+            value += 1
+            return value
+        }
+    }
 
     static func messages() -> [ChatMessage] {
         [
             message(offset: -3600 * 3, kind: .photo, content: "", author: "그린그린엄성현",
-                    photo: "https://picsum.photos/seed/challa-chat-1/300/400"),
+                    photo: "https://picsum.photos/seed/challa-chat-4/300/400"),
             message(offset: -3600 * 2 - 1800, kind: .reaction(.heart), content: "heart", author: "아이스크림연준",
-                    photo: "https://picsum.photos/seed/challa-chat-1/300/400"),
+                    photo: "https://picsum.photos/seed/challa-chat-4/300/400"),
+            // 사진 상세에서 전송한 COMMENT 메시지.
+            message(offset: -3600 * 2 - 900, kind: .photo, content: "이 사진 진짜 잘 나왔다", author: currentUserNickname,
+                    photo: "https://picsum.photos/seed/challa-chat-4/300/400"),
             message(offset: -3600 * 2, kind: .text, content: "사진 진짜 잘 나왔다", author: "그린그린엄성현"),
             message(offset: -3600, kind: .text, content: "그러게 필름 감성 미쳤어", author: currentUserNickname),
             message(offset: -600, kind: .text, content: "다음에 또 가자!", author: "그린그린엄성현"),
@@ -31,10 +46,11 @@ enum DemoFixture {
         photo: String? = nil
     ) -> ChatMessage {
         ChatMessage(
-            id: UUID(),
+            id: .server(makeChatID()),
             kind: kind,
             content: content,
             photoImageURL: photo.flatMap(URL.init(string:)),
+            authorID: author == currentUserNickname ? currentUserID : Int64(abs(author.hashValue % 1000)) + 100,
             authorName: author,
             authorImageURL: URL(string: "https://picsum.photos/seed/challa-\(author.hashValue)/80/80"),
             createdAt: Date(timeIntervalSinceNow: offset)

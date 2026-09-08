@@ -15,6 +15,17 @@
 
 ### Repository (`Sources/Repository/`)
 
+`DefaultPhotoRepository`가 이번에 추가로 맡는 것:
+
+- `deleteReaction(chatID:)` — `DELETE /api/v1/chats/reaction/{chatId}`. 리액션은 EMOJI 채팅이라 채팅 id로 지운다
+- `setReaction(...)`이 생성된 채팅 id를 돌려준다 — 방금 남긴 이모지도 재조회 없이 지울 수 있다.
+  서버가 `data`를 비워 주는 경우가 있어 id는 옵셔널이고, 성공 판정은 `success` 플래그로만 한다
+- `imageDataStream(for:)` — 여러 장의 원본을 `CHALLAImageKit`의 `ImageDataBatchDownloader`로 병렬로 받는다.
+  소비 속도에 맞춰 입력 순서대로 반환해 원본 데이터가 버퍼에 쌓이지 않게 한다. 단건 `imageData(for:)`도 같은 경로를 쓴다.
+- 사진 상세(`GET /photos/{photoId}`)는 **`roomId` 쿼리가 필수**다 — 빠지면 서버가 리액션을 빈 채로 돌려줘
+  사진 상세에 스티커가 하나도 안 보인다
+
+
 - `struct DefaultPhotoRepository: PhotoRepository` — `init(client:)`
   - `photos(inRoom:)` — `GET /photos?roomId=&page=&size=`를 `hasNext` 없을 때까지 이어 받는다(목록만).
     이미지 URL 없는 장은 건너뛴다(한 장 때문에 목록 전체가 실패하지 않게). 리액션은 목록에 없어 담지 않는다
@@ -59,8 +70,9 @@
 
 ## 내부 구성 (internal — 서버 계약이 바뀌면 여기만 바뀐다)
 
-- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`(공통 껍데기, UserData·RoomData 복사본 — #51에서
-  통합), `CameraFiltersResponseDTO`(`{ shoot: { cameraFilters } }` 이중 껍데기),
+- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`는 #51에서 `CHALLANetwork`로 공용화됐고,
+  이 모듈은 `PhotoError`를 묶은 무인자 `unwrap()` 확장(`BaseResponseDTO+Photo`)만 둔다.
+  `CameraFiltersResponseDTO`(`{ shoot: { cameraFilters } }` 이중 껍데기),
   `CompletePhotoRequestDTO`/`CompletePhotoResponseDTO`, `ListPhotosSliceResponseDTO`/`ListPhotosResponseDTO`(목록·페이지네이션),
   `GetPhotoDetailEnvelopeDTO`/`PhotoDetailDTO`/`ChatDTO`(상세 — 리액션이 `chats`로 온다),
   `CreateReactionRequestDTO`(리액션 = `{ chat: { roomId, photoId, type:"EMOJI", content } }`)/`CreateReactionResponseDTO`,
@@ -86,8 +98,8 @@
 mise exec -- tuist test PhotoData
 ```
 
-Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockHTTPClient`
-(RoomData 것의 복사본)로 서버 없이 검증한다.
+Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). 공용 `MockHTTPClient`
+(`CHALLANetworkTesting`)로 서버 없이 검증한다.
 
 - `DefaultPhotoRepositoryTests` — 목록 변환·roomId/page/size 쿼리, 이미지 없는 장 건너뛰기,
   `hasNext` 페이지네이션, 상세 `chats`→유저별 첫 이모지 스티커, 리액션 POST 본문(roomId·photoId·EMOJI·content),

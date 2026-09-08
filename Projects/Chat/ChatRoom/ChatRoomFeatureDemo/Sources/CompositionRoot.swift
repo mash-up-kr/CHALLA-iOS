@@ -13,11 +13,13 @@ enum CompositionRoot {
 
         values.fetchChatsUseCase = .live(repository: repository)
         values.sendChatUseCase = .live(repository: repository)
+        // 데모에는 소켓이 없다. 이벤트가 오지 않는 스트림을 꽂아 구독 자리만 채운다.
+        values.observeChatsUseCase = .previewValue
     }
 
     private static func scenario(for demoState: DemoLaunchArguments.State) -> DemoChatRepository.Scenario {
         switch demoState {
-        case .default: .populated(DemoChatStore(messages: DemoFixture.messages()))
+        case .default, .printWaiting: .populated(DemoChatStore(messages: DemoFixture.messages()))
         case .loading: .neverFinishes
         case .empty: .empty
         case .error: .failure(.network)

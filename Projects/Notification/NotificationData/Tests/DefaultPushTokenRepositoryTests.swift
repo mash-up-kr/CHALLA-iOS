@@ -1,5 +1,6 @@
 @testable import NotificationData
 import CHALLANetwork
+import CHALLANetworkTesting
 import Foundation
 import NotificationDomain
 import Testing

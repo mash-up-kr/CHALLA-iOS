@@ -11,6 +11,10 @@ let project = Project.makeAppProject(
     additionalInfoPlist: [
         "NSPhotoLibraryUsageDescription": .string("커버 사진을 설정하려면 사진 접근이 필요해요.")
     ],
+    signing: .manual(
+        debugProfile: "CHALLA_Dev_Wildcard",
+        releaseProfile: "CHALLA_Dev_Wildcard"
+    ),
     usesAPIEnvironment: false, // InMemory 저장소만 쓴다 — 서버 주소 불필요
     dependencies: [
         .roomDetailFeature, .roomDomain,
