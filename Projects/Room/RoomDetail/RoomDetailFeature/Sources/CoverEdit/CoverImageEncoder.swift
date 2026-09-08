@@ -16,7 +16,7 @@ enum CoverImageEncodingError: Error, Equatable, Sendable {
 
 extension CoverImageEncoder: DependencyKey {
 
-    /// CopyToPasteboard와 같은 이유로 liveValue를 바로 채운다 — Data 접근이 없어 합성 루트가 조립할 것이 없다.
+    /// liveValue를 바로 채운다 — Data 접근이 없어 합성 루트가 조립할 것이 없다.
     static let liveValue = CoverImageEncoder { data in
         let image = try ImageDownsampler().downsample(data: data, pointSize: Const.pointSize, scale: Const.scale)
         guard let jpeg = UIImage(cgImage: image).jpegData(compressionQuality: Const.compressionQuality) else {

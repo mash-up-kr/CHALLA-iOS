@@ -1,5 +1,6 @@
 @testable import RoomData
 import CHALLANetwork
+import CHALLANetworkTesting
 import Foundation
 import RoomDomain
 import Testing

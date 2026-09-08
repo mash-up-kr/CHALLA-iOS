@@ -163,6 +163,10 @@ public struct AppView: View {
             case .roomDetail:
                 if let roomDetailStore = store.scope(state: \.roomDetail?.roomDetail, action: \.roomDetail) {
                     RoomDetailView(store: roomDetailStore)
+                        // 방이 바뀌면 뷰도 다른 것으로 본다. 참여 토스트를 눌러 방 A에서 방 B로
+                        // 건너뛰면 상태만 갈리고 뷰는 재사용돼 `.task`가 다시 돌지 않는다 —
+                        // 그러면 B의 상세·참여자 조회가 아예 시작되지 않는다.
+                        .id(roomDetailStore.room.id)
                         .screenLayer(.roomDetail, coordinator: transitionCoordinator)
                 }
 

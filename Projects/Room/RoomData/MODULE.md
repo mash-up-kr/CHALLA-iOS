@@ -32,7 +32,7 @@
   - `updateCover`는 **전체 교체** — nil인 값도 키를 남겨 `null`로 보낸다 (`UpdateCoverRequestDTO`의 custom `encode`).
     합성 Encodable은 nil 키를 빼 버려 서버가 "그 값은 두라"로 읽을 수 있다
   - `coverOptions()`는 `GET /rooms/cover-options`를 그대로 옮긴다 — 배열 순서·id를 바꾸지 않는다
-    (앱 도안은 스티커 id로 고정 매핑한다, `RoomCoverUI` MODULE.md 참고). 선택지의 스티커는 `color`가 없다 —
+    (스티커 그림은 응답의 `imageUrl`이 정한다). 선택지의 스티커는 `color`가 없다 —
     스웨거와 달리 실제 응답에 없어 `StickerOptionDTO`로 따로 받는다
   - 상태 없는 `struct`다 — 진짜 데이터가 전부 서버에 있고 이 타입은 통로라 actor가 필요 없다
 - `struct DefaultRoomCoverImageUploader: RoomCoverImageUploader` — `init(client:)`
@@ -58,11 +58,31 @@
   - 업로드 없이 `https://example.com/cover/<uuid>.jpg`를 돌려준다. 데모앱은 이 URL로 사진을 내려받지 못하므로
     커버 수정 화면이 로컬 바이트를 계속 그리는 규칙에 기댄다. `failure`는 저장 실패 화면 재현용
 
+- `struct DefaultInviteGuideRepository: InviteGuideRepository` — `init(storage:)`
+  - 초대 안내 노출 여부를 기기에 저장한다 (키 `challa.room.inviteGuide.seen`)
+  - `InviteGuideStorage`(`Sources/Storage/`)가 저장을 추상한다 — 실행 앱은 `UserDefaults`
+    구현, 테스트는 메모리 구현. 방 목록·상세와 달리 서버가 없는 유일한 저장소다
+
 **`actor`인 이유** (InMemory): 방 목록이 계속 바뀌는데 `RoomRepository`는 `Sendable`이라 동시 접근이
 안전해야 한다. 락으로 묶는 방법도 있으나 `await`로 기다리는 구간이 있어 쓸 수 없다(락은 스레드를 붙잡고
 `await`는 놓는다). 대신 actor는 재진입을 허용하므로 — `await`에서 멈춘 사이 다른 호출이 상태를 바꿀 수
 있다 — 모든 메서드가 기다리는 일을 `waitAndCheckFailure()`로 앞에 모으고 그 뒤로는 `await` 없이
 상태를 읽고 쓴다.
+
+- `struct DefaultPrintNoticeRepository: PrintNoticeRepository` — `init(storage:)`
+  - 인화 완료 안내를 봤는지 방마다 기기에 저장한다 (`challa.room.printNotice.seen.<roomID>`).
+    서버가 아니라 기기에 남기는 이유는 `RoomDomain.PrintNoticeRepository` 주석 참고
+  - 방마다 키를 하나씩 쓴다 — 한 키에 방 목록을 모으면 읽고 쓸 때마다 목록을 갈아 끼워야 해
+    Bool 하나짜리 기록에는 과하다. 방이 지워져도 기록은 남지만 키 하나가 Bool 하나라 무시할 수 있다
+- `actor InMemoryPrintNoticeRepository: PrintNoticeRepository` — `init(seenRoomIDs:)`
+  - 데모·테스트용. 앱을 끄면 사라져 매번 안내부터 다시 볼 수 있다
+
+### Storage (`Sources/Storage/`)
+
+- `protocol PrintNoticeStorage` — `bool(forKey:)` · `setBool(_:forKey:)`
+- `struct UserDefaultsPrintNoticeStorage: PrintNoticeStorage` — `init(defaults:)`
+  - `UserDefaults`를 한 겹 감싼다. 실제 `UserDefaults`를 테스트가 직접 쓰면 상태가 새고
+    실행 순서에 결과가 흔들린다 (`PhotoData.CameraOnboardingStorage`와 같은 판단)
 
 ### Sample (`Sources/Sample/`)
 
@@ -79,8 +99,8 @@
 
 ## 내부 구성 (internal — 서버 계약이 바뀌면 여기만 바뀐다)
 
-- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`(공통 껍데기 `{success, message, data}`,
-  UserData 복사본 — CHALLANetwork 공통화는 #51 진행 중), 요청·응답 DTO, `RoomStatusDTO`
+- `DTO/` — 스웨거 스키마와 1:1. `BaseResponseDTO`는 #51에서 `CHALLANetwork`로 공용화됐고,
+  이 모듈은 `RoomError`를 묶은 무인자 `unwrap()` 확장만 둔다. 요청·응답 DTO, `RoomStatusDTO`
   (모르는 상태 값은 디코딩 실패를 택한다). 날짜는 `String`으로 받는다 — 공용 디코더에 날짜 규칙을
   설정하면 다른 도메인 API까지 영향을 받아 매핑에서만 파싱한다
   - `RoomCoverDTO`(`coverImageUrl?` · `sticker?`) · `StickerDTO` · `ColorDTO` · `CoverOptionsResponseDTO`.
@@ -102,7 +122,7 @@
 ## 의존성
 
 - **이 모듈이 의존**: `RoomDomain`(인터페이스·엔티티·오류) · `CHALLANetwork`(HTTPClient·Endpoint)
-- **이 모듈에 의존**: `CHALLAApp` · `HomeFeatureDemo` · `CameraFeatureDemo` · `RoomDetailFeatureDemo` — 합성 루트만 import한다
+- **이 모듈에 의존**: `CHALLAApp` · `HomeFeatureDemo` · `RoomDetailFeatureDemo` · `CameraFeatureDemo` — 합성 루트만 import한다
   (아키텍처 규칙 2: Feature는 Data를 import하지 않는다)
 
 ## 테스트 실행 방법
@@ -111,8 +131,8 @@
 mise exec -- tuist test RoomData
 ```
 
-Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockHTTPClient`
-(호출 캡처 + 준비된 JSON 응답, UserData 것에 `queryItems` 캡처를 더한 복사본 — `headers`도 캡처한다)로 서버 없이 검증한다.
+Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). 공용 `MockHTTPClient`
+(`CHALLANetworkTesting` — 호출 캡처 + 준비된 JSON 응답, `queryItems`·`headers` 모두 캡처)로 서버 없이 검증한다.
 
 - `DefaultRoomRepositoryTests` — 상태 3개 배열 쿼리·bearer 확인, `success:false` 언랩(서버 메시지
   보존), transport→`.network` 정규화, 생성·입장의 본문 계약과 재조회 왕복(POST→GET 순서),
@@ -132,7 +152,26 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
   (id 음수 표식 포함), 만든 방이 목록에 남고 최근 방이 맨 앞, 입장 인원 증가 반영,
   없는 코드의 `.roomNotFound`, 상세의 초대 코드 두 경로(역방향 조회·id로 생성),
   참여자 주입 반환, `failure` 주입 시 모든 메서드 전파
+- `DefaultPrintNoticeRepositoryTests` — 기록 없을 때 기본값, 기록 후 유지, 방별 분리,
+  저장소를 물려받은 새 인스턴스가 기록을 읽는지 (앱 재실행 상황)
+
+- `DefaultInviteGuideRepositoryTests` — 기록 없음 기본값, 기록 후 조회, 같은 저장소로
+  다시 만들어도 유지(앱 재시작)
 - `InMemoryRoomCoverTests` — 옵션 주입·기본 `.preview`, `updateCover`의 옵션 기반 조립(색 생략 시 스티커 기본색,
   전부 nil이면 빈 커버), 없는 id `.unknown`·없는 방 `.roomNotFound`·`failure` 전파, 업로더의 고정 URL 형태·`failure` 전파
 
 `RoomSamples`는 값 선언뿐이라 테스트하지 않는다.
+
+## 방 참여 실시간 알림
+
+`RoomEventSubscriber: RoomEventStreaming` — `/user/queue/member-joined` **하나**를 구독한다.
+방 개수와 무관하다.
+
+- 구독이 확정된 뒤에야 리턴한다. 걸지 못하면 그대로 던져 받는 쪽(`RootFeature`)이 다시 걸게 한다.
+- 구독이 **오류로** 끊기면 스트림도 오류로 끝낸다. 정상 종료로 끝내면 받는 쪽이
+  "구독을 거뒀다"로 읽어 다시 걸지 않고, 참여 알림이 죽은 채 남는다.
+  소비를 멈춰서 끝난 것(취소)은 실패로 보지 않는다.
+- 본문 한 건이 깨져도 스트림을 죽이지 않는다. 그 한 건만 버린다.
+- 본문은 REST와 같은 봉투(`{success, message, data}`)를 기본으로 두되, 봉투 없이 오는 형태도 받는다.
+- `userId`는 optional로 받는다. 서버 계약이 아니라 방어다 — 빠져도 알림 자체는 쓸 수 있으므로
+  이벤트를 버리지 않는다. 대신 "내가 들어간 것" 판별만 못 하게 된다.

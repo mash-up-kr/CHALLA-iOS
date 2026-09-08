@@ -16,7 +16,7 @@ let project = Project(
             // .photoDomain: 사진 그리드가 인화된 사진 목록을 조회한다 (ARCHITECTURE.md — 결과 그리드는 방 상세가 흡수).
             // .shootEntry: 사진 찍기 버튼이 카메라 진입 준비(목록·LUT·권한)를 홈과 공유한다.
             // .photoLibrary: 커버 사진을 고르기 전에 사진첩 권한을 묻는다.
-            // .imageKit: 고른 사진을 카드 크기로 다운샘플해 저장한다.
+            // .imageKit: 고른 사진을 카드 크기로 다운샘플해 저장하고, 인화 완료 안내가 필름에 실릴 사진을 미리 받는다.
             // .roomCoverUI: 커버 색·스티커를 디자인 시스템 토큰으로 옮기는 매핑을 홈과 공유한다.
             dependencies: [
                 .roomDomain, .photoDomain, .shootEntry, .photoLibrary, .imageKit,

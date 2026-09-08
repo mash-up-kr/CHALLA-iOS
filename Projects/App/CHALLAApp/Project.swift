@@ -5,7 +5,7 @@ let project = Project.makeAppProject(
     name: "CHALLAApp",
     displayName: Environment.appName,
     bundleId: "\(Environment.bundleIdPrefix).app", // 실배포앱 = com.challa.app
-    marketingVersion: "1.0.0",
+    marketingVersion: "1.0.1",
     buildNumber: "1",
     additionalInfoPlist: [
         // 디자인 시스템이 다크 전용 팔레트라 시스템 라이트 모드에서도 다크로 고정한다
@@ -22,6 +22,11 @@ let project = Project.makeAppProject(
             .dictionary([
                 "CFBundleTypeRole": .string("Editor"),
                 "CFBundleURLSchemes": .array([.string("kakao$(KAKAO_NATIVE_APP_KEY)")])
+            ]),
+            .dictionary([
+                // 서버 초대 폴백 페이지의 "앱에서 보기" 버튼이 challa://invite/{코드}로 앱을 연다
+                "CFBundleTypeRole": .string("Editor"),
+                "CFBundleURLSchemes": .array([.string("challa")])
             ])
         ])
     ],

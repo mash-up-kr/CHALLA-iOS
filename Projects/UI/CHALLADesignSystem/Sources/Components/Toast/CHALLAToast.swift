@@ -42,29 +42,16 @@ public struct CHALLAToast: View {
     }
 
     public var body: some View {
-        HStack(spacing: Metric.contentSpacing) {
-            if let icon {
-                icon.image(size: .size22, color: variant.iconColor)
+        CHALLAToastSurface {
+            HStack(spacing: CHALLAToastMetric.contentSpacing) {
+                if let icon {
+                    icon.image(size: .size22, color: variant.iconColor)
+                }
+                Text(message)
+                    .challaFont(.body.small.medium)
+                    .foregroundStyle(CHALLAColor.Label.normal)
+                    .lineLimit(1)
             }
-            Text(message)
-                .challaFont(.body.small.medium)
-                .foregroundStyle(CHALLAColor.Label.normal)
-                .lineLimit(1)
-        }
-        .frame(minHeight: Metric.contentMinHeight)
-        .padding(.horizontal, Metric.horizontalPadding)
-        .padding(.vertical, Metric.verticalPadding)
-        // 내용만큼만 넓어지고 한도에서 멈춘다 — maxWidth만 걸면 항상 한도까지 늘어난다.
-        .frame(maxWidth: Metric.maxWidth)
-        .fixedSize(horizontal: true, vertical: false)
-        .background {
-            RoundedRectangle(cornerRadius: CHALLARadius.large)
-                // 시안의 background blur(radius 12)에 대응하는 SwiftUI 재질.
-                .fill(CHALLAColor.Background.level1.opacity(Metric.backgroundOpacity))
-                .background(
-                    .ultraThinMaterial,
-                    in: RoundedRectangle(cornerRadius: CHALLARadius.large)
-                )
         }
         .onAppear {
             AccessibilityNotification.Announcement(message).post()
@@ -74,20 +61,6 @@ public struct CHALLAToast: View {
             AccessibilityNotification.Announcement(newMessage).post()
         }
     }
-}
-
-// MARK: - Zeplin 실측값
-
-private enum Metric {
-    static let contentMinHeight: CGFloat = 32
-    static let contentSpacing: CGFloat = 8
-    static let maxWidth: CGFloat = 320
-
-    /// 여백·배경 농도는 스낵바와 같은 표면 값을 쓴다 (`CHALLAFloatingSurface`).
-    /// 배경에 재질을 한 겹 더 까는 것만 달라서 모디파이어 대신 상수만 공유한다.
-    static let horizontalPadding = CHALLAFloatingSurfaceMetric.horizontalPadding
-    static let verticalPadding = CHALLAFloatingSurfaceMetric.verticalPadding
-    static let backgroundOpacity = CHALLAFloatingSurfaceMetric.backgroundOpacity
 }
 
 #Preview {

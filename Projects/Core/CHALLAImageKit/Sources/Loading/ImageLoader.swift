@@ -26,11 +26,8 @@ public actor ImageLoader {
 
     private let downsampler: ImageDownsampler
     private let encoder: ImageDataEncoder
-    private let fetcher: ImageDataFetching
-
-    /// 일시적인 네트워크 실패 시 사용할 재시도 간격.
-    /// 배열의 개수가 최대 재시도 횟수가 된다.
-    private let retryDelays: [Duration]
+    /// 배치 다운로더와 공유하는 재시도·응답 검증 로직.
+    private let transfer: RemoteImageData
 
     /// 동일한 캐시 키에 대해 현재 진행 중인 이미지 로드 작업.
     ///
@@ -61,8 +58,7 @@ public actor ImageLoader {
 
         self.downsampler = ImageDownsampler()
         self.encoder = ImageDataEncoder()
-        self.fetcher = fetcher
-        self.retryDelays = retryDelays
+        self.transfer = RemoteImageData(fetcher: fetcher, retryDelays: retryDelays)
     }
 
     // MARK: - Public Methods
@@ -193,19 +189,7 @@ public actor ImageLoader {
             return decoded.image
         }
 
-        let (data, response) = try await fetchWithRetry(url)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw ImageLoadingError.invalidResponse
-        }
-
-        guard (200 ..< 300).contains(http.statusCode) else {
-            throw ImageLoadingError.httpStatus(http.statusCode)
-        }
-
-        guard !data.isEmpty else {
-            throw ImageLoadingError.emptyData
-        }
+        let data = try await transfer.data(from: url)
 
         try Task.checkCancellation()
 
@@ -227,54 +211,6 @@ public actor ImageLoader {
         )
 
         return processed.image
-    }
-
-    // MARK: - Network Retry
-
-    /// 재시도 가치가 있는 일시적인 네트워크 오류.
-    ///
-    /// 완전 오프라인(`notConnectedToInternet`)은 즉시 실패하고,
-    /// 전송 도중 연결이 끊긴 경우(`networkConnectionLost`)는 재시도한다.
-    private static let retryableURLErrorCodes: Set<URLError.Code> = [
-        .timedOut,
-        .cannotConnectToHost,
-        .cannotFindHost,
-        .networkConnectionLost,
-        .dnsLookupFailed,
-        .badServerResponse
-    ]
-
-    /// 일시적인 네트워크 실패 시 `retryDelays`에 따라 재시도한다.
-    ///
-    /// 기본값은 1초 → 2초 → 4초이며,
-    /// 취소 또는 재시도 불가능한 오류는 즉시 종료한다.
-    private func fetchWithRetry(
-        _ url: URL
-    ) async throws -> (Data, URLResponse) {
-        var attempt = 0
-
-        while true {
-            do {
-                return try await fetcher.fetch(url)
-            } catch let error as URLError {
-                if error.code == .cancelled {
-                    throw ImageLoadingError.cancelled
-                }
-
-                guard
-                    Self.retryableURLErrorCodes.contains(error.code),
-                    attempt < retryDelays.count
-                else {
-                    throw ImageLoadingError.networkFailed(error.code)
-                }
-
-                try await Task.sleep(
-                    for: retryDelays[attempt]
-                )
-
-                attempt += 1
-            }
-        }
     }
 
     // MARK: - Image Processing

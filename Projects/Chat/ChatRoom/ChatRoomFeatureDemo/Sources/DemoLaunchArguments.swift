@@ -14,6 +14,8 @@ struct DemoLaunchArguments: Equatable {
     enum State: String, CaseIterable {
         /// 메시지가 있는 채팅.
         case `default`
+        /// 채팅 사진의 인화 전 블러 상태.
+        case printWaiting = "print-waiting"
         /// 목록을 불러오는 중에서 멈춘 상태.
         case loading
         case empty

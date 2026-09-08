@@ -9,7 +9,7 @@
 
 담당 범위:
 - **서버 통신** — `UserEndpoint`(`/api/v1/users/me` 하나를 GET·PUT·DELETE로 사용) +
-  공통 응답 래퍼 `BaseResponseDTO` 언랩 + `NetworkError`와 서버 실패 응답(`success=false`)을
+  공통 응답 래퍼 `BaseResponseDTO`(CHALLANetwork) 언랩 + `NetworkError`와 서버 실패 응답(`success=false`)을
   `UserError`로 정규화 (`DefaultUserRepository`).
   baseURL은 `CHALLANetwork`의 `CHALLAAPIEnvironment.baseURL`(앱 전역 서버 값)을 그대로 쓴다.
 - **`user` 키로 한 번 더 감싸기** — 요청·응답 본문이 `user` 키 안에 들어간다
@@ -65,7 +65,7 @@ Feature가 볼 일 없는 세부 타입(Endpoint/DTO/Mapper)은 internal이고, 
 mise exec -- tuist test UserData
 ```
 
-Swift Testing 기반 (`MockHTTPClient` 한 종 — 경로·메서드·요청 본문을 캡처한다):
+Swift Testing 기반 (공용 `MockHTTPClient`는 `CHALLANetworkTesting`에서 가져다 쓴다 — 경로·메서드·요청 본문을 캡처한다):
 
 - `DefaultUserRepositoryTests` — 조회/설정/탈퇴의 경로·메서드 검증, 응답→도메인 매핑,
   `nickname: null` → `isProfileCompleted == false`, `PUT` 본문을 `user` 키로 감싸고 `profileImageUrl` 키 포함,
@@ -75,5 +75,5 @@ Swift Testing 기반 (`MockHTTPClient` 한 종 — 경로·메서드·요청 본
   스토리지 PUT의 Bearer 미부착·`Content-Type`, JPEG 재인코딩(SOI 마커), 디코딩 불가 입력 차단, 403·발급 실패 정규화
 - `UploadEndpointTests` — 서명 URL을 그대로 쓰고 경로를 덧붙이지 않는다
 
-> `MockHTTPClient`는 `endpoint.baseURL`을 읽지 않는다 — `CHALLAAPIEnvironment`가 Info.plist를 요구해
+> 공용 `MockHTTPClient`는 `endpoint.baseURL`을 읽지 않는다 — `CHALLAAPIEnvironment`가 Info.plist를 요구해
 > 테스트 번들에서 접근하면 곧바로 죽는다. URL 규약은 `UploadEndpointTests`가 대신 고정한다.

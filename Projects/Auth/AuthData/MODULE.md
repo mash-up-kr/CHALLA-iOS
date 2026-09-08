@@ -10,7 +10,7 @@
 오케스트레이션(소셜→서버→저장 순서)도 Domain 소유다.
 
 담당 범위:
-- **서버 통신** — `AuthEndpoint`(login/refresh/logout, POST) + 공통 응답 래퍼 `BaseResponseDTO` 언랩 +
+- **서버 통신** — `AuthEndpoint`(login/refresh/logout, POST) + 공통 응답 래퍼 `BaseResponseDTO`(CHALLANetwork) 언랩 +
   `NetworkError`와 서버 실패 응답(`success=false`)을 `AuthError`로 정규화 (`DefaultAuthRepository`).
   요청·응답 본문은 `auth` 키로 한 번 더 감싸인다(서버 전역 규약 — user·room·photo·chat도 각자의 키를 쓴다).
   DTO마다 `auth` 프로퍼티를 직접 두고 페이로드를 `Payload`로 중첩한다 — 별도 래퍼 타입을 만들지 않는다.
@@ -88,10 +88,10 @@ Feature가 볼 일 없는 세부 타입(Endpoint/DTO/Mapper)은 internal이고,
 mise exec -- tuist test AuthData
 ```
 
-Swift Testing 기반 (`Tests/Support/` — `MockHTTPClient`·`MockKeychain`·`MockTokenStore`):
+Swift Testing 기반 (공용 `MockHTTPClient`는 `CHALLANetworkTesting`에서 가져다 쓴다 — Repository/매핑 검증용):
 
 **DTO 테스트**
-- `BaseResponseDTOTests` — 언랩 성공/실패(`success=false`·`data` 누락) · `ensureSuccess`
+- `BaseResponseDTOTests` — AuthData 확장(`unwrap()`/`ensureSuccess()`)의 언랩 성공/실패(`success=false`·`data` 누락)
 
 **Repository 테스트**
 - `DefaultAuthRepositoryTests` — login/refresh/logout 성공 변환, `success=false`→`.server`,

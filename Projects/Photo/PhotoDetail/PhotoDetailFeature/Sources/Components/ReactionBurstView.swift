@@ -14,17 +14,19 @@ struct ReactionBurstView: View {
     @State private var lifted = false
     /// 사라지는 단계.
     @State private var faded = false
-    private let particles: [Particle] = (0 ..< Metric.count).map { _ in Particle.random() }
+
+    /// 뷰 갱신 시 난수가 재생성되지 않도록 위치와 각도를 유지한다.
+    @State private var particles: [Particle] = (0 ..< Metric.count).map { _ in Particle.random() }
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
                 ForEach(particles) { particle in
-                    // 붙는 스티커와 같은 글리프·크기로 처음부터 크게 나타나, 위로 살짝 떠오르며 각도가 바뀌다가 사라진다.
                     kind.emoji.stickerImage
                         .resizable()
                         .scaledToFit()
                         .frame(width: particle.size, height: particle.size)
+                        .scaleEffect(lifted ? 1 : Metric.initialScale)
                         .rotationEffect(.degrees(lifted ? particle.baseAngle + particle.spin : particle.baseAngle))
                         .offset(y: lifted ? -particle.rise : 0)
                         .opacity(faded ? 0 : 1)
@@ -74,6 +76,7 @@ struct ReactionBurstView: View {
     private enum Metric {
         /// 한 번에 튀어나오는 이모지 수.
         static let count = 8
+        static let initialScale: CGFloat = 0.4
         /// 붙는 스티커와 같은 크기 (`ReactionSticker` / `PhotoCard`의 stickerSize와 동일).
         static let size: CGFloat = 82
         /// 위로 빠르게 올라가는 시간(초) — 딱딱 튀어 오르는 느낌.

@@ -112,8 +112,17 @@ jobs:
             ${{ runner.os }}-xcode26.3-tuist-
 
       # Tuist/.build 는 gitignore 라 러너에는 없고, 없으면 generate 가 바로 실패한다.
+      #
+      # 복원한 캐시가 Package.resolved 와 어긋나면(restore-keys 폴백이 예전 캐시를 물어온 경우)
+      # checkouts 에 남은 리비전과 SwiftPM 이 기대하는 리비전이 달라 매니페스트를 못 읽고 그대로 죽는다.
+      # SwiftPM 은 이때 다시 받지 않으므로, 받아 둔 것을 지우고 한 번 더 받는다.
       - name: Install dependencies
-        run: tuist install
+        run: |
+          tuist install || {
+            echo "::warning::복원한 의존성 캐시가 깨졌다 — 지우고 다시 받는다"
+            rm -rf Tuist/.build
+            tuist install
+          }
 
       # [2] 바이너리 캐시 예열 — 변경 없는 모듈과 외부 의존성을 미리 컴파일된 프레임워크로 만들어 둔다.
       #   · 첫 실행/의존성 변경 시에만 전체 컴파일(비쌈), 이후엔 변경분만 증분으로 다시 굽는다.

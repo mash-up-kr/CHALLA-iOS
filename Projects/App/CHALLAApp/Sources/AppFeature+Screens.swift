@@ -238,8 +238,11 @@ public extension AppFeature {
             self.chat = ChatRoomFeature.State(
                 roomID: room.id,
                 roomTitle: room.title,
-                // 내 메시지(오른쪽 흰 버블) 판별 기준. 서버가 userId를 주면 그때 교체한다.
-                currentUserNickname: profile.nickname ?? ""
+                // 내 메시지(오른쪽 흰 버블) 판별 기준.
+                currentUserID: profile.id,
+                // 낙관적으로 덧붙이는 내 메시지의 표시 이름.
+                currentUserNickname: profile.nickname ?? "",
+                isPrinted: room.status == .printed
             )
         }
     }
@@ -337,5 +340,27 @@ public extension AppFeature {
     enum CameraOrigin: Equatable {
         case home
         case roomDetail(Room)
+    }
+}
+
+// MARK: - 현재 화면이 들고 있는 프로필
+
+public extension AppFeature.State {
+
+    /// 로그인 뒤 화면들이 저마다 들고 다니는 프로필. 로그인 전 화면에서는 nil이다.
+    /// 화면 밖(참여 토스트 등)에서 방을 열 때, 새 화면을 만들 프로필을 여기서 얻는다.
+    var currentProfile: UserProfile? {
+        switch self {
+        case let .home(screen): screen.profile
+        case let .roomDetail(screen): screen.profile
+        case let .roomSettings(screen): screen.profile
+        case let .roomCoverEdit(screen): screen.profile
+        case let .photoDetail(screen): screen.profile
+        case let .chat(screen): screen.profile
+        case let .setting(screen): screen.profile
+        case let .profileEdit(screen): screen.profile
+        case let .camera(screen): screen.profile
+        case .launching, .login, .profileSetup, .forceUpdate: nil
+        }
     }
 }
