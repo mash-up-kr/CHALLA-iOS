@@ -15,19 +15,27 @@ struct DemoChatRepository: ChatRepository {
     /// 응답이 즉시 오면 로딩 표시를 볼 수 없어 일부러 늦춘다.
     private let latency: Duration = .milliseconds(500)
 
-    func messages(inRoom _: Int64, page _: Int, size _: Int) async throws -> [ChatMessage] {
+    func messages(inRoom _: Int64, page: Int, size: Int) async throws -> ChatPage {
         switch scenario {
         case let .populated(store):
             try await Task.sleep(for: latency)
-            return await store.all()
+            // 실서버처럼 최신 메시지가 page 0에 오도록 정렬한 뒤 자른다.
+            let messages = await store.all().sorted { $0.createdAt > $1.createdAt }
+            let start = min(page * size, messages.count)
+            let end = min(start + size, messages.count)
+            return ChatPage(
+                messages: Array(messages[start ..< end]),
+                nextPage: page + 1,
+                hasMore: end < messages.count
+            )
 
         case .neverFinishes:
             try await Task.sleep(for: .seconds(60 * 60))
-            return []
+            return ChatPage(messages: [], nextPage: page + 1, hasMore: false)
 
         case .empty:
             try await Task.sleep(for: latency)
-            return []
+            return ChatPage(messages: [], nextPage: page + 1, hasMore: false)
 
         case let .failure(error):
             try await Task.sleep(for: latency)
@@ -35,18 +43,22 @@ struct DemoChatRepository: ChatRepository {
         }
     }
 
-    func send(roomID _: Int64, photoID _: Int64?, content: String) async throws {
+    @discardableResult
+    func send(roomID _: Int64, photoID _: Int64?, content: String) async throws -> Int64? {
         guard case let .populated(store) = scenario else { throw ChatError.unknown }
         try await Task.sleep(for: latency)
 
         // 서버가 없으니 재진입(재조회) 시에도 남도록 저장소에 넣어 둔다. 화면은 낙관적 메시지를 따로 그린다.
+        let chatID = DemoFixture.makeChatID()
         let message = ChatMessage(
-            id: UUID(),
+            id: .server(chatID),
             kind: .text,
             content: content,
+            authorID: DemoFixture.currentUserID,
             authorName: DemoFixture.currentUserNickname,
             createdAt: Date()
         )
         await store.append(message)
+        return chatID
     }
 }

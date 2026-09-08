@@ -14,6 +14,9 @@ public struct LoginFeature {
     public struct State: Equatable {
         /// 로그인 진행 중인 provider (둘 다 비활성 + 해당 버튼 스피너). `nil`이면 유휴.
         public var inFlightProvider: AuthProvider?
+
+        /// 온보딩 페이저에서 현재 보이는 페이지 인덱스 (0~4).
+        public var onboardingPage = 0
         @Presents public var alert: AlertState<Action.Alert>?
 
         /// 진행 중인 provider가 있으면 두 버튼을 모두 비활성화한다.
@@ -29,9 +32,11 @@ public struct LoginFeature {
     public enum Action: ViewAction, Sendable {
 
         /// UI에서만 트리거되는 액션 (`@ViewAction` 뷰가 `send(...)`로 호출).
+        @CasePathable
         public enum ViewAction: Sendable {
             case kakaoLoginButtonTapped
             case appleLoginButtonTapped
+            case onboardingPageChanged(Int)
         }
 
         case view(ViewAction)
@@ -70,6 +75,10 @@ public struct LoginFeature {
 
             case .view(.appleLoginButtonTapped):
                 return startLogin(&state, provider: .apple)
+
+            case let .view(.onboardingPageChanged(page)):
+                state.onboardingPage = page
+                return .none
 
             case .loginResponse(.success):
                 state.inFlightProvider = nil

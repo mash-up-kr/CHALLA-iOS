@@ -14,6 +14,24 @@ public enum CHALLAAPIEnvironment {
         port: infoPlistValue(for: "API_PORT")
     )
 
+    /// STOMP WebSocket 주소. `URLSession.webSocketTask(with:)`는 scheme이 `ws`/`wss`여야 해서 바꿔 준다.
+    ///
+    /// 호스트는 REST와 같다. ATS 예외(`NSExceptionAllowsInsecureHTTPLoads`)가 호스트 단위라 그대로 덮이는데,
+    /// 백엔드가 소켓만 다른 호스트로 옮기면 ATS가 불투명한 -1022로 조용히 막는다.
+    public static let webSocketURL: URL = makeWebSocketURL(baseURL: baseURL)
+
+    static func makeWebSocketURL(baseURL: URL, path: String = "/api/v1/ws") -> URL {
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            fatalError(misconfiguration(key: "API_HOST", detail: "WebSocket 주소를 조립할 수 없습니다."))
+        }
+        components.scheme = baseURL.scheme == "https" ? "wss" : "ws"
+        components.path = path
+        guard let url = components.url else {
+            fatalError(misconfiguration(key: "API_HOST", detail: "WebSocket 주소를 조립할 수 없습니다."))
+        }
+        return url
+    }
+
     /// `URLComponents` 조립 로직만 분리한 순수 함수 — `Bundle.main` 의존 없이 유닛테스트 가능.
     static func makeBaseURL(scheme: String?, host: String?, port: String?) -> URL {
         // 빈 scheme·host를 그대로 넘기면 조립이 "성공"해 ""·"https:" 같은 못 쓰는 URL이 나오고,

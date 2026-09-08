@@ -37,7 +37,7 @@ Data는 aggregate 단위로 묶는 것이 자연스럽다.
 Projects/
 ├─ App/                              (폴더) 앱 실행 · 전체 흐름 조립
 │  ├─ CHALLAApp                      (앱)   실배포앱 — 모든 Feature 조립
-│  │   ├─ AppFeature                       로그인/프로필/메인 진입 분기 + 루트 네비게이션
+│  │   ├─ AppFeature                       로그인/프로필/메인 진입 분기 + 루트 네비게이션 · 초대 링크 진입
 │  │   ├─ AppView                          최상위 SwiftUI View
 │  │   └─ CompositionRoot                  live 구현체 등록 (앱 시작 시 prepareDependencies로 1회)
 │
@@ -66,9 +66,9 @@ Projects/
 │  ├─ RoomDomain                     (모듈) ★ 방 도메인 공용 — Feature 5개가 공유
 │  │   ├─ Entities/                        Room · Participant · InviteCode · RoomID
 │  │   │   └─ FilmStatus                   촬영중 · 인화대기 · 완료  ← Film 도메인 흡수
-│  │   ├─ RoomRepository                   인터페이스 1개
+│  │   ├─ Repository 인터페이스             RoomRepository · InviteGuideRepository(초대 안내 기록)
 │  │   └─ UseCases/                        FetchRooms · Create · Join · Invite · Detail · DevelopFilm · Setting
-│  ├─ RoomData                       (모듈) RoomRepository 구현 1개 + DTO 매핑
+│  ├─ RoomData                       (모듈) RoomRepository 구현 + DTO 매핑 · 초대 안내 기록(UserDefaults)
 │  ├─ RoomCreateFeature              (모듈) 방 이름 · 색상 · 필름 장수 설정
 │  ├─ RoomJoinFeature                (모듈) 초대코드 입력 · 입장
 │  ├─ RoomInviteFeature              (모듈) 초대코드 표시 · 공유

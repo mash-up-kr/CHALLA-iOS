@@ -66,6 +66,14 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   - 상세는 API 하나당 메서드 하나로 나뉜다 — 상세 API 하나로는 `RoomDetail`을 완성할 수 없어
     (참여자 없음) 반쪽짜리를 돌려주지 않기 위한 분리. 합치기는 UseCase 몫
   - 확인 기록·이름 변경은 반환이 없다 — 반영된 값은 다음 목록 조회가 내려준다
+- `protocol InviteGuideRepository` — `hasSeenInviteGuide()` · `markInviteGuideSeen()`.
+  방 상세 첫 진입 안내를 봤는지의 기록. 기기에만 남고 서버에 올리지 않는다 —
+  기기를 바꾸면 안내가 한 번 더 뜬다
+- `protocol PrintNoticeRepository` — `hasSeenPrintNotice(roomID:) -> Bool` ·
+  `markPrintNoticeSeen(roomID:)`
+  - 인화 완료 안내(방 상세의 필름 화면)를 방마다 한 번만 띄우기 위한 노출 기록
+  - 구현체 계약: 기록은 방 단위이고 실패 개념이 없다. 서버가 아니라 기기에 남긴다 —
+    안내 하나 때문에 서버 왕복을 기다리지 않기 위해서다
 
 ### Models (`Sources/Models/`)
 
@@ -105,6 +113,11 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
 - `enum PrintCountdown` — `text(until:now:)`. "2:59:58" 표기 — 시는 자릿수 제한 없이,
   분·초는 두 자리, 0 아래로 내려가지 않는다. 홈 카드의 대기 뱃지와 방 상세 카운트다운 바가
   같은 표기를 쓴다
+- `enum InviteLink` — 초대 링크 주소 형식을 아는 유일한 곳. 보낼 때는 `url(code:)`(방 상세
+  공유 시트)가 유니버설 링크(`https://challa.stellaris.co.kr/invite/{코드}`)를 만들고,
+  받을 때는 `code(from:)`(링크 진입 — CHALLAApp)가 두 모양을 읽는다 — 유니버설 링크와
+  커스텀 스킴(`challa://invite/{코드}`, 서버 폴백 페이지의 "앱에서 보기" 버튼이 쏜다).
+  두 모양이 아니면 코드를 돌려주지 않는다
 
 ### UseCases (`@DependencyClient` — `liveValue` 없음)
 
@@ -122,13 +135,22 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
   (`(roomID) -> Void`). 규칙 없는 단순 통과지만 Feature는 UseCase만 보는 관례를 유지한다
 - `UpdateRoomTitleUseCase` (`\.updateRoomTitleUseCase`) — `RoomNameRule` 적용 후 이름 변경
   (`(roomID, title) -> String`). 정제된 이름을 돌려줘 화면이 입력값 대신 서버 저장값으로 갱신한다
+- `ShouldShowInviteGuideUseCase` (`\.shouldShowInviteGuideUseCase`) — 방 상세에 처음
+  들어왔는지 (`-> Bool`, 던지지 않음). previewValue는 false — 프리뷰마다 안내가 겹치지 않게,
+  안내 컷은 직접 true를 꽂는다
+- `MarkInviteGuideSeenUseCase` (`\.markInviteGuideSeenUseCase`) — 안내를 본 것으로 기록 (`-> Void`)
+
+- `ShouldShowPrintNoticeUseCase` (`\.shouldShowPrintNoticeUseCase`) — 이 방의 인화 완료 안내를
+  아직 안 봤는지 (`(Room.ID) -> Bool`). 던지지 않으며 확인이 안 되면 `false`(안 띄움)
+- `MarkPrintNoticeSeenUseCase` (`\.markPrintNoticeSeenUseCase`) — 이 방의 안내를 본 것으로 기록
+  (`(Room.ID) -> Void`)
 
 전부 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
 
 ## 의존성
 
 - **이 모듈이 의존**: `Dependencies` · `DependenciesMacros` (TCA 전이 의존, `Tuist/Package.swift` 경유)
-- **이 모듈에 의존**: `HomeFeature`·`CameraFeature`(UseCase를 `@Dependency`로 주입받음) ·
+- **이 모듈에 의존**: `HomeFeature`·`RoomDetailFeature`·`CameraFeature`(UseCase를 `@Dependency`로 주입받음) ·
   `RoomData`(인터페이스 구현) · 합성 루트(`CHALLAApp`·`HomeFeatureDemo`·`CameraFeatureDemo` —
   `.live(repository:)` 조립)
 
@@ -153,3 +175,17 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `JoinRoomUseCaseLiveTests` — 코드 정규화 후 전달, 빈 코드 가드, `.roomNotFound` 전파
 - `FetchRoomDetailUseCaseLiveTests` — 두 결과의 합치기(같은 id로 호출됐는지 캡처 검증),
   어느 쪽이 실패해도 부분 성공 없이 오류 하나 전파
+- `InviteGuideUseCasesLiveTests` — 기록이 없을 때만 띄우라고 답하는지, 기록이 이후 조회에 반영되는지
+- `InviteLinkTests` — 링크 모양·라운드트립, 우리 링크가 아닌 URL 거부(https 5종·커스텀 스킴 4종), 끝 슬래시·대문자·쿼리 허용
+- `PrintNoticeUseCasesLiveTests` — 저장소 답을 뒤집어 전달하는지, 기록이 물어본 방에만 남는지
+
+## 방 참여 실시간 알림 (추가)
+
+- `struct RoomMemberJoined` — `roomID`·`roomTitle`·`userID`·`nickname`·`profileImageURL`.
+  **참여자 목록은 이 값으로 만들지 않는다** — 이 알림을 신호 삼아 다시 조회한다.
+- `enum RoomMemberJoinedEvent` — `.joined(RoomMemberJoined)` · `.resumed`
+- `protocol RoomEventStreaming` — `memberJoinedEvents(inRooms:)`. 방 목록을 받아 한 스트림으로 돌려준다
+  (방마다 구독을 거는 것은 Data 레이어 사정이라 이 계약에는 드러나지 않는다).
+- `ObserveRoomMemberJoinedUseCase`
+- `enum RoomJoinAnnouncement` — 참여 안내 문구 규칙 (닉네임 8자 말줄임, 주격 조사 '이/가')
+

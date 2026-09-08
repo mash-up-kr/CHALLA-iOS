@@ -20,8 +20,12 @@
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `home` |
 | `home` | 설정 버튼 → `setting` / 방 진입(목록에서 고름·방 만들기·초대 코드) → `roomDetail` |
-| `roomDetail` | `closeTapped` → `home`(새 State) / 사진 슬롯 탭(`photoTapped`) → `photoDetail` — 촬영·채팅은 붙일 화면이 아직 없어 TODO |
+| `roomDetail` | `closeTapped` → `home`(새 State) / 설정 → `roomSettings` / 채팅 → `chat` / 촬영 준비 완료 → `camera` / 사진 슬롯 탭 → `photoDetail` |
+| `roomSettings` | `closeTapped` → `roomDetail`(새 State — 설정이 들고 있는 최신 제목으로 조립) |
+| `chat` | `closeRequested` → `roomDetail`(새 State) |
+| `camera` | `closeRequested` → 들어온 화면(`home`/`roomDetail`)을 새로 만들어 복귀 |
 | `photoDetail` | `closeRequested` → `roomDetail`(새 State — 돌아가면 사진·리액션을 새로 조회) |
+| (로그인 후 모든 화면) | 초대 링크 수신 → `home`(새 State) 경유 입장 → 성공 시 `roomDetail` |
 | `setting` | `backRequested` → `home` / `editProfileRequested` → `profileEdit` / `signedOut`·`accountDeleted` → `login` |
 | `profileEdit` | `editCompleted` → `setting`(새 State) / `cancelled` → `setting` |
 | `forceUpdate` | **나가는 전이 없음** — 앱 업데이트만 가능 |
@@ -34,6 +38,29 @@
 
 방 상세에서 나올 때도 `HomeFeature.State`를 **새로 만든다.** 그 방에서 사진을 찍고 나왔을 수 있어
 목록을 다시 조회해야 한다.
+
+## 초대 링크 진입 (`onOpenURL` · `PendingInviteCode`)
+
+초대 링크로 앱이 열리면 `CHALLAApp`의 `.onOpenURL`이 URL을 `AppFeature.inviteLinkOpened`로
+넘긴다 (SwiftUI 수명주기 앱은 유니버설 링크도 이 입구로 전달한다 — #100 실기기에서 확인.
+카카오 로그인 복귀 URL만 SDK로 먼저 돌려보낸다). 들어오는 링크는 두 모양이다:
+
+- 유니버설 링크 `https://challa.stellaris.co.kr/invite/{코드}` — 메모·문자 등에서 탭
+- 커스텀 스킴 `challa://invite/{코드}` — 카톡 인앱 브라우저(웹뷰)에서는 유니버설 링크가
+  앱을 못 열어, 서버 폴백 페이지의 "앱에서 보기" 버튼이 이 모양으로 쏜다 (Info.plist에
+  `challa` 스킴 등록)
+
+파싱은 `RoomDomain.InviteLink`가 한다 — 두 모양이 아니면 조용히 무시한다.
+
+- **로그인 후** — 어느 화면에 있든 `home`을 새로 만들어 `inviteCodeReceived(code)`를 넘긴다.
+  입장(드로어와 같은 `JoinRoomUseCase`)·목록 반영·실패 얼럿까지 홈이 맡고, 성공하면 기존
+  `roomJoined` 전이로 `roomDetail`에 도달한다. 서버는 이미 참여한 방도 성공(그 방 id)으로 준다
+  (2026-09-05 실서버 확인) — 내 방 링크 = 그 방 열기다
+- **로그인 전(스플래시·로그인·프로필 설정)** — 아직 입장할 수 없어 코드를 `PendingInviteCode`
+  보관함에 넣어 두고, 홈에 도달하는 두 지점(프로필 조회 성공 · 프로필 설정 완료)이 꺼내 잇는다.
+  보관함이 State가 아니라 의존성인 이유: `AppFeature.State`가 화면 enum이라 화면과 무관한 값을
+  얹을 자리가 없다. 꺼내면 비워져 같은 코드로 두 번 입장하지 않고, 프로세스가 끝나면 사라진다
+  (`forceUpdate`처럼 홈에 도달하지 못하는 화면에서 받은 코드는 그대로 소멸한다)
 
 ## 자동 로그인 · 토큰 갱신
 
@@ -116,7 +143,8 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme CHALLAApp \
 ```
 
 기기 이름은 런타임마다 중복되므로 `xcrun simctl list devices available`로 UDID를 확인해 쓴다.
-`AppFeatureTests`가 위 전이표를 TestStore로 고정한다.
+`AppFeatureTests`가 위 전이표를 TestStore로 고정한다. `AppInviteLinkTests`는 초대 링크 분기
+(초대 링크 아님 무시 · 즉시 입장 · 타 화면 홈 경유 · 로그인 전 보관 → 홈 도달 후 전달)를 본다.
 
 ## 의존 관계
 
@@ -139,3 +167,32 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme CHALLAApp \
   제한이 없으면 그 키로 다른 Google API를 호출할 수 있다.
 - 실기기 푸시 확인에는 Apple Developer App ID의 Push Notifications 활성화와
   APNs Auth Key(.p8) Firebase 콘솔 업로드가 필요하다
+
+## RootFeature · RootView
+
+`AppFeature`(화면 전환) 위에 화면과 무관한 것을 얹는 루트다. 지금 얹는 것은 **방 참여 토스트** 하나다 —
+"방 참여 시 어떤 화면에 있든 상단 토스트" 정책이라 방 상세 화면이 아니라 여기가 주인이어야 한다.
+
+구독은 사용자 단위 주소(`/user/queue/member-joined`) **하나**다. 방 개수와 무관하다.
+
+- 구독 대상 목록은 **홈이 이미 받아 둔 방 목록**이다. 이 값을 쓰려고 목록을 따로 조회하지 않는다.
+  지금은 구독 주소가 방과 무관하지만, 목록을 계속 보는 이유는 두 가지다 —
+  토스트를 눌렀을 때 열 방을 여기서 찾고, 로그아웃·마지막 방 퇴장에 구독을 거둬야 한다.
+  비교는 방 **id 목록**으로만 한다. `Room` 전체를 보면 사진 한 장에 `remainedPhotoCount`가 달라져
+  전체 재구독이 돌고 그 사이 이벤트를 놓친다.
+- 홈의 빈 목록은 `loadState`로 가른다. 조회 전의 빈 목록은 구독을 유지하고,
+  조회가 끝난 뒤의 빈 목록(마지막 방 퇴장)에는 구독과 토스트를 함께 거둔다.
+- **내 참여는 나에게 띄우지 않는다.** 사용자 단위 주소라 내가 들어간 것도 나에게 온다.
+  판별은 `userId` 비교다 — 닉네임은 동명이인을 가리지 못한다.
+- 같은 참여가 두 번 와도 한 번만 띄운다. 비교 키는 `(방 id, 닉네임)`이다.
+  방 이름·프로필 URL·`userId`는 서버가 어느 주소로 보내느냐에 따라 실릴 수도 빠질 수도 있어,
+  값 전체를 비교하면 같은 참여가 서로 다른 값이 되어 토스트가 두 번 뜬다.
+- 토스트를 누르면 그 방으로 이동한다(`AppFeature.Action.openRoomRequested`).
+  촬영 중에는 무시한다 — 찍고 있던 것이 사라진다.
+  방 상세는 **방 id를 뷰의 정체성으로** 받는다(`AppView`의 `.id(room.id)`). 그러지 않으면
+  방 A를 보다가 방 B 토스트를 눌렀을 때 상태만 갈리고 뷰가 재사용돼 `.task`가 다시 돌지 않는다.
+- 재연결(`.resumed`)에는 토스트를 띄우지 않는다. 그동안 누가 들어왔는지 알 수 없기 때문이다.
+  대신 열려 있는 방이 있으면 참여자를 다시 조회하게 한다.
+- 구독 실패는 얼럿 없이 정해진 횟수(3회·5초 간격)만 다시 건다. 재시도 예산은
+  새로 구독을 걸 때와 `.resumed`를 받을 때 되돌린다 — 되돌리지 않으면 한 번 소진한 뒤로는
+  어떤 장애에도 다시 시도하지 않는다.

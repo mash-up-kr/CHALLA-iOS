@@ -20,8 +20,16 @@ struct CreateReactionRequestDTO: Encodable, Sendable {
     }
 }
 
-/// `POST /api/v1/chats/reaction` 응답 페이로드.
-///
-/// 생성된 채팅만 돌려주고 갱신된 사진·리액션 목록은 주지 않는다 — 성공 여부 확인에만 쓴다.
-/// 필드는 읽지 않으므로 비워 둔다 (`BaseResponseDTO.unwrap()`이 data 존재만 검증).
-struct CreateReactionResponseDTO: Decodable, Sendable {}
+/// 리액션 생성 응답. 삭제에 필요한 `chatId`만 파싱한다.
+/// 성공 응답에도 값이 누락될 수 있어 옵셔널로 선언한다.
+struct CreateReactionResponseDTO: Decodable, Sendable {
+
+    let chat: Payload?
+
+    struct Payload: Decodable, Sendable {
+        let chatId: Int64?
+    }
+}
+
+/// 리액션 삭제 응답. 본문은 사용하지 않고 성공 여부만 확인한다.
+struct DeleteReactionResponseDTO: Decodable, Sendable {}

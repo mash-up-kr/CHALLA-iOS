@@ -28,11 +28,10 @@ Endpoint · DTO · 오류 매핑은 전부 `internal`이고, 밖으로 여는 �
   `ensureSuccess()`로 성공 여부만 본다
 - `sendTestPush`는 서버에 FCM 자격증명이 없으면 500이 난다 — 서버 설정 확인에도 쓸 수 있다
 
-## `BaseResponseDTO` 세 번째 사본
+## `BaseResponseDTO` 공용화 (#51)
 
-`AuthData` · `UserData`에 같은 타입이 있고 이게 세 번째다. `unwrap`이 던지는 오류 타입만
-aggregate마다 다르고 나머지는 같다. 공용 모듈로 올릴 시점이지만, 오류 타입을 제네릭으로 빼면서
-세 Data 모듈을 함께 고쳐야 해 이 이슈 범위를 넘는다 — **별도 이슈로 승격한다.**
+`BaseResponseDTO`는 #51에서 `CHALLANetwork`로 올려 공용으로 쓴다. 실패 시 던질 오류 타입만
+aggregate마다 다르므로, 이 모듈은 `NotificationError`를 묶은 무인자 `unwrap()`/`ensureSuccess()` 확장만 둔다.
 
 ## 테스트 실행
 
@@ -44,7 +43,7 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme NotificationData \
 기기 이름은 런타임마다 중복되므로 `xcrun simctl list devices available`로 UDID를 확인해 쓴다.
 
 테스트는 라우팅 계약(경로 · 메서드 · bearer 여부 · 본문 모양)과 오류 정규화를 고정한다.
-`Tests/Support/MockHTTPClient`는 `UserData`의 것과 같은 구현이다.
+공용 `MockHTTPClient`는 `CHALLANetworkTesting`에서 가져다 쓴다.
 
 ## 의존 관계
 

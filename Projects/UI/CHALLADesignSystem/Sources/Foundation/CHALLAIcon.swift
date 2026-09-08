@@ -31,6 +31,7 @@ public enum CHALLAIcon: String, CaseIterable, Sendable {
     case plus = "Plus"
     case profile = "Profile"
     case setting = "Setting"
+    case shareNetwork = "ShareNetwork"
     case signOut = "SignOut"
     case unfoldMore = "UnfoldMore"
 

@@ -34,6 +34,8 @@ struct RoomDetailPrintCompletionCheckTests {
             $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in detail })
             $0.fetchRoomPhotosUseCase = FetchRoomPhotosUseCase(run: { _ in [] })
             $0.checkPrintCompletionUseCase = check
+            // 상세 성공은 초대 안내 확인까지 부른다 — 띄우지 않는 답을 고정해 팝오버가 끼어들지 않게 한다.
+            $0.shouldShowInviteGuideUseCase.run = { false }
             $0.continuousClock = TestClock()
             // 인화 완료 알람의 남은 시간 계산이 쓴다 — 고정해야 테스트가 결정적이다.
             $0.date = .constant(Date(timeIntervalSince1970: 0))
@@ -51,13 +53,15 @@ struct RoomDetailPrintCompletionCheckTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.printedDetail
             $0.hasReportedPrintCompletionCheck = true
+            $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         await store.finish()
 
         #expect(checkedIDs.value == [Room.previewPrinted.id])
@@ -74,22 +78,25 @@ struct RoomDetailPrintCompletionCheckTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.printedDetail
             $0.hasReportedPrintCompletionCheck = true
+            $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
 
         // 재시도·재진입과 같은 경로 — 조회는 다시 돌지만 기록 플래그가 남아 있다.
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         await store.finish()
 
         #expect(checkedIDs.value == [Room.previewPrinted.id])
@@ -102,12 +109,14 @@ struct RoomDetailPrintCompletionCheckTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.shootingDetail
+            $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         await store.finish()
     }
 
@@ -121,13 +130,15 @@ struct RoomDetailPrintCompletionCheckTests {
 
         await store.send(.view(.task)) {
             $0.detailLoad = .loading
+            $0.photosLoad = .loading
         }
         await store.receive(\.detailResponse.success) {
             $0.detailLoad = .loaded
             $0.detail = Self.printedDetail
             $0.hasReportedPrintCompletionCheck = true
+            $0.hasCheckedInviteGuide = true
         }
-        await store.receive(\.photosResponse.success)
+        await store.receive(\.photosResponse.success) { $0.photosLoad = .loaded }
         // 실패 액션도 얼럿도 없어야 한다 — 남은 이펙트가 있으면 finish가 걸어낸다.
         await store.finish()
     }

@@ -9,6 +9,7 @@ struct ChatMessageRow: View {
 
     let message: ChatMessage
     let isMine: Bool
+    var isPhotoBlurred = false
 
     var body: some View {
         if isMine {
@@ -81,9 +82,27 @@ struct ChatMessageRow: View {
             )
     }
 
+    /// 이미지 원본 크기가 레이아웃에 영향을 주지 않도록 카드 크기를 먼저 고정한다.
     private var photoCard: some View {
-        CHALLAAsyncImage(url: message.photoImageURL)
+        Color.clear
             .frame(width: Metric.photoWidth, height: Metric.photoHeight)
+            .overlay {
+                CHALLAAsyncImage(url: message.photoImageURL) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        // 블러로 가장자리가 투명해지지 않도록 이미지를 확장한다.
+                        .padding(isPhotoBlurred ? -Metric.blurEdgeBleed : 0)
+                        .blur(radius: isPhotoBlurred ? Metric.photoBlurRadius : 0)
+                } placeholder: {
+                    CHALLAColor.Background.level2
+                }
+            }
+            .overlay {
+                if isPhotoBlurred {
+                    CHALLAColor.Static.white.opacity(Metric.veilOpacity)
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: Metric.photoRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: Metric.photoRadius)
@@ -129,6 +148,10 @@ private enum Metric {
     static let photoHeight: CGFloat = 109.33
     static let photoRadius: CGFloat = 10
     static let photoTextSpacing: CGFloat = 4
+    /// 방 상세 필름 카드와 동일한 블러 반경.
+    static let photoBlurRadius: CGFloat = 13.5
+    static let blurEdgeBleed: CGFloat = photoBlurRadius * 2
+    static let veilOpacity: Double = 0.05
     /// 사진 위에 얹는 이모지 크기·기울기·모서리 오프셋(시안: 좌상단, 10°).
     static let stickerSize: CGFloat = 44
     static let stickerRotation: Double = 10

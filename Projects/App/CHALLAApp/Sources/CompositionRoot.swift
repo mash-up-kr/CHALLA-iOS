@@ -31,8 +31,10 @@ enum CompositionRoot {
 
     #if DEBUG
         private static let loggingLevel: LoggingInterceptor.Level = .verbose
+        private static let socketLogLevel: STOMPLogger.Level = .verbose
     #else
         private static let loggingLevel: LoggingInterceptor.Level = .basic
+        private static let socketLogLevel: STOMPLogger.Level = .none
     #endif
 
     static func registerLiveDependencies(
@@ -45,11 +47,14 @@ enum CompositionRoot {
         values.sessionExpirationChannel = sessionExpiration
 
         let refreshTokenUseCase = makeRefreshTokenUseCase(tokenStore: tokenStore)
-        let client = makeClient(
+        // 소켓과 HTTP가 같은 갱신기를 공유해야 한 쪽이 갱신한 토큰을 다른 쪽도 쓴다.
+        let refresher = AuthTokenRefresher(
+            refresh: { try await refreshTokenUseCase.run() },
             tokenStore: tokenStore,
-            refreshTokenUseCase: refreshTokenUseCase,
-            sessionExpiration: sessionExpiration
+            onSessionExpired: { sessionExpiration.notify() }
         )
+        let client = makeClient(refresher: refresher, tokenStore: tokenStore)
+        let stompClient = makeSTOMPClient(tokenStore: tokenStore, refresher: refresher)
 
         let userRepository = DefaultUserRepository(client: client)
         let settings = DefaultSettingsRepository()
@@ -72,7 +77,7 @@ enum CompositionRoot {
         registerUser(into: &values, client: client, repository: userRepository)
         registerRoom(into: &values, client: client)
         registerPhoto(into: &values, client: client)
-        registerChat(into: &values, client: client)
+        registerRealtime(into: &values, client: client, stompClient: stompClient)
         registerSetting(
             into: &values,
             using: SettingCollaborators(
@@ -109,22 +114,15 @@ enum CompositionRoot {
 
     /// 모든 도메인이 공유하는 요청 클라이언트. 401을 만나면 토큰을 갱신하고 그 요청을 한 번 다시 보낸다.
     private static func makeClient(
-        tokenStore: KeychainTokenStore,
-        refreshTokenUseCase: RefreshTokenUseCase,
-        sessionExpiration: SessionExpirationChannel
+        refresher: AuthTokenRefresher,
+        tokenStore: KeychainTokenStore
     ) -> any HTTPClient {
-        let refresher = AuthTokenRefresher(
-            refresh: { try await refreshTokenUseCase.run() },
-            tokenStore: tokenStore,
-            onSessionExpired: { sessionExpiration.notify() }
-        )
-
-        return DefaultHTTPClient(
+        DefaultHTTPClient(
             session: .shared,
             interceptors: [
                 AuthInterceptor(tokenProvider: tokenStore),
                 // 응답 본문 확인은 개발 중에만 — 릴리스 로그에 토큰·PII를 남기지 않는다.
-                LoggingInterceptor(level: Self.loggingLevel)
+                LoggingInterceptor(level: loggingLevel)
             ],
             retrier: TokenRefreshRetrier(refresher: refresher)
         )
@@ -185,6 +183,8 @@ enum CompositionRoot {
     /// client 공유 조건은 registerUser와 같다. 데모앱은 이 자리에 `InMemoryRoomRepository`를 꽂는다.
     private static func registerRoom(into values: inout DependencyValues, client: any HTTPClient) {
         let repository = DefaultRoomRepository(client: client)
+        // 인화 완료 안내 노출 기록만 서버가 아니라 기기에 남는다 (`PrintNoticeRepository` 주석 참고).
+        let printNotice = DefaultPrintNoticeRepository()
 
         values.fetchRoomsUseCase = .live(repository: repository)
         values.createRoomUseCase = .live(repository: repository)
@@ -193,6 +193,13 @@ enum CompositionRoot {
         values.fetchShootableRoomsUseCase = .live(repository: repository)
         values.checkPrintCompletionUseCase = .live(repository: repository)
         values.updateRoomTitleUseCase = .live(repository: repository)
+        values.shouldShowPrintNoticeUseCase = .live(repository: printNotice)
+        values.markPrintNoticeSeenUseCase = .live(repository: printNotice)
+
+        // 초대 안내 기록만 서버가 아니라 기기에 남는다 (`InviteGuideRepository` 주석 참고).
+        let inviteGuide = DefaultInviteGuideRepository()
+        values.shouldShowInviteGuideUseCase = .live(repository: inviteGuide)
+        values.markInviteGuideSeenUseCase = .live(repository: inviteGuide)
 
         // 방 상세·사진 상세가 쓰는 fetchRoomPhotosUseCase는 Photo aggregate라 registerPhoto에서 등록한다.
     }
@@ -211,7 +218,9 @@ enum CompositionRoot {
         // 리액션은 목록에 없어 사진을 펼칠 때 한 장씩 지연 조회한다(1+N 회피).
         values.fetchPhotoReactionsUseCase = .live(repository: photoRepository)
         values.setPhotoReactionUseCase = .live(repository: photoRepository)
+        values.deletePhotoReactionUseCase = .live(repository: photoRepository)
         values.savePhotoUseCase = .live(repository: photoRepository, photoLibrary: PhotoLibraryWritingAdapter())
+        values.saveAllPhotosUseCase = .live(repository: photoRepository, photoLibrary: PhotoLibraryWritingAdapter())
 
         values.fetchCameraFiltersUseCase = .live(repository: filterRepository)
         values.prepareCameraFiltersUseCase = .live(
@@ -225,11 +234,58 @@ enum CompositionRoot {
         values.openCameraSettingsUseCase = .live(permission: cameraPermission)
     }
 
-    /// 채팅 조회·작성. client 공유 조건은 registerUser와 같다(공유 client여야 토큰이 붙는다).
-    private static func registerChat(into values: inout DependencyValues, client: any HTTPClient) {
+    /// 앱 전체가 공유하는 STOMP 연결. 두 구독자가 이 인스턴스 하나를 나눠 쓴다 —
+    /// 따로 만들면 연결이 둘이 되고 인증·재연결도 두 벌이 된다.
+    ///
+    /// 앱 생명주기를 직접 알려 준다: iOS가 백그라운드에서 소켓을 끊어도 `receive()`가 돌아오지 않는
+    /// 경우가 있어, 알려 주지 않으면 복귀 후 실시간이 조용히 멎는다.
+    private static func makeSTOMPClient(
+        tokenStore: KeychainTokenStore,
+        refresher: AuthTokenRefresher
+    ) -> STOMPClient {
+        let client = STOMPClient(
+            url: CHALLAAPIEnvironment.webSocketURL,
+            tokenProvider: tokenStore,
+            tokenRefresher: refresher,
+            // 릴리스에서는 끈다 — 프레임 본문에 채팅 내용이 실린다.
+            logLevel: socketLogLevel
+        )
+
+        let center = NotificationCenter.default
+        center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { _ in
+            Task { await client.applicationDidEnterBackground() }
+        }
+        center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: nil) { _ in
+            Task { await client.applicationWillEnterForeground() }
+        }
+        return client
+    }
+
+    /// 소켓을 쓰는 aggregate 배선을 한 곳에 모은다 — 둘 다 같은 `STOMPClient` 하나를 나눠 쓴다.
+    private static func registerRealtime(
+        into values: inout DependencyValues,
+        client: any HTTPClient,
+        stompClient: STOMPClient
+    ) {
+        registerChat(into: &values, client: client, stompClient: stompClient)
+        registerRoomEvents(into: &values, stompClient: stompClient)
+    }
+
+    /// 채팅 조회·작성(REST)과 실시간 수신(소켓). client 공유 조건은 registerUser와 같다.
+    private static func registerChat(
+        into values: inout DependencyValues,
+        client: any HTTPClient,
+        stompClient: STOMPClient
+    ) {
         let chatRepository = DefaultChatRepository(client: client)
         values.fetchChatsUseCase = .live(repository: chatRepository)
         values.sendChatUseCase = .live(repository: chatRepository)
+        values.observeChatsUseCase = .live(streaming: ChatEventSubscriber(client: stompClient))
+    }
+
+    /// 방 참여 이벤트 수신. 조회는 registerRoom이 맡고 여기는 소켓만 담당한다.
+    private static func registerRoomEvents(into values: inout DependencyValues, stompClient: STOMPClient) {
+        values.observeRoomMemberJoinedUseCase = .live(streaming: RoomEventSubscriber(client: stompClient))
     }
 
     /// 설정 조립이 필요로 하는 다른 aggregate의 결과물.
@@ -302,6 +358,9 @@ private struct PhotoLibraryWritingAdapter: PhotoLibraryWriting {
             try await store.save(imageData: imageData)
         } catch PhotoLibraryError.permissionDenied {
             throw PhotoError.permissionDenied
+        } catch is CancellationError {
+            // 화면 이탈로 끊긴 것이라 실패로 세면 안 된다 — 호출부가 취소를 구분해 멈춘다.
+            throw CancellationError()
         } catch {
             throw PhotoError.saveFailed
         }

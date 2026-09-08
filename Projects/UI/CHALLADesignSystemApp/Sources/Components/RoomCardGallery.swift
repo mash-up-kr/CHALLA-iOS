@@ -37,7 +37,7 @@ struct RoomCardGallery: View {
                     title: "친구들과 강릉 여행",
                     memberCount: 11,
                     photo: $0,
-                    variant: .shooting(shotCount: 24, totalCount: 24, isPreparing: false, onShoot: nil)
+                    variant: .shooting(isPreparing: false, onShoot: nil)
                 )
             }
             galleryCaption("사진 없음 (photo: nil — 로딩 전·사진 없는 방)")
@@ -45,7 +45,7 @@ struct RoomCardGallery: View {
                 title: "이제 막 만든 방",
                 memberCount: 1,
                 photo: nil,
-                variant: .shooting(shotCount: 0, totalCount: 24, isPreparing: false, onShoot: nil)
+                variant: .shooting(isPreparing: false, onShoot: nil)
             )
         }
     }
@@ -56,13 +56,13 @@ struct RoomCardGallery: View {
     private var textSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             galleryTitle("Text")
-            galleryCaption("긴 제목 (줄바꿈) + 세 자리 촬영 장수")
+            galleryCaption("긴 제목 (줄바꿈)")
             samplePhotoCard(seed: "room2") {
                 CHALLARoomCard(
                     title: "동아리 엠티에서 찍은 사진 다 모아두는 방",
                     memberCount: 10,
                     photo: $0,
-                    variant: .shooting(shotCount: 999, totalCount: 999, isPreparing: false, onShoot: nil)
+                    variant: .shooting(isPreparing: false, onShoot: nil)
                 )
             }
         }
@@ -74,26 +74,26 @@ struct RoomCardGallery: View {
     private var shootSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             galleryTitle("Shoot")
-            galleryCaption("액션 없음 — 장수만 보여주는 그림")
+            galleryCaption("액션 없음 — 눌리지 않는 그림")
             CHALLARoomCard(
                 title: "촬영 버튼 없는 방",
                 memberCount: 4,
                 photo: nil,
-                variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: false, onShoot: nil)
+                variant: .shooting(isPreparing: false, onShoot: nil)
             )
             galleryCaption("액션 있음 — 뱃지가 촬영 버튼이 된다")
             CHALLARoomCard(
                 title: "촬영 가능한 방",
                 memberCount: 4,
                 photo: nil,
-                variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: false, onShoot: {})
+                variant: .shooting(isPreparing: false, onShoot: {})
             )
             galleryCaption("준비 중 — 목록·권한을 받는 동안 스피너, 다시 눌리지 않는다")
             CHALLARoomCard(
                 title: "촬영 준비 중인 방",
                 memberCount: 4,
                 photo: nil,
-                variant: .shooting(shotCount: 12, totalCount: 24, isPreparing: true, onShoot: {})
+                variant: .shooting(isPreparing: true, onShoot: {})
             )
         }
     }
