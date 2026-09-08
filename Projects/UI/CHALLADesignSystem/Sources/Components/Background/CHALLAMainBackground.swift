@@ -21,20 +21,21 @@ private struct MainBackgroundModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content.background {
-            ZStack(alignment: .bottom) {
-                CHALLAColor.Background.surface
-                Ellipse()
-                    .fill(theme.accent.opacity(MainBackgroundMetric.tintOpacity))
-                    .frame(
-                        width: MainBackgroundMetric.ellipseWidth,
-                        height: MainBackgroundMetric.ellipseHeight
-                    )
-                    .blur(radius: MainBackgroundMetric.blurRadius)
-                    // 타원 중심을 화면 바닥 아래로 내려 하단 가장자리만 물들게 한다.
-                    .offset(y: MainBackgroundMetric.ellipseHeight / 2
-                        + MainBackgroundMetric.centerDropBelowBottom)
-            }
-            .ignoresSafeArea()
+            CHALLAColor.Background.surface
+                .overlay(alignment: .bottom) {
+                    Ellipse()
+                        .fill(theme.accent.opacity(MainBackgroundMetric.tintOpacity))
+                        .frame(
+                            width: MainBackgroundMetric.ellipseWidth,
+                            height: MainBackgroundMetric.ellipseHeight
+                        )
+                        .blur(radius: MainBackgroundMetric.blurRadius)
+                        // 타원 중심을 화면 바닥 아래로 내려 하단 가장자리만 물들게 한다.
+                        .offset(y: MainBackgroundMetric.ellipseHeight / 2
+                            + MainBackgroundMetric.centerDropBelowBottom)
+                }
+                .clipped()
+                .ignoresSafeArea()
         }
     }
 }

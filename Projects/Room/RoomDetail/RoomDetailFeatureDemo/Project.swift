@@ -8,6 +8,9 @@ let project = Project.makeAppProject(
     bundleId: "\(Environment.bundleIdPrefix).roomdetailfeature.demo",
     marketingVersion: "1.0.0",
     buildNumber: "1",
+    additionalInfoPlist: [
+        "NSPhotoLibraryUsageDescription": .string("커버 사진을 설정하려면 사진 접근이 필요해요.")
+    ],
     signing: .manual(
         debugProfile: "CHALLA_Dev_Wildcard",
         releaseProfile: "CHALLA_Dev_Wildcard"

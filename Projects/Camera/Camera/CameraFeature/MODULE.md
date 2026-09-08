@@ -2,7 +2,7 @@
 
 **레이어: Feature** — 방에 사진을 남기는 카메라 화면 하나를 담당한다.
 
-뷰파인더(베젤·배율)·촬영 조작(플래시·셔터·카메라 전환)·필터 띠·방 선택 드로어·촬영 불가 안내를
+뷰파인더(베젤·배율)·촬영 조작(플래시·셔터·카메라 전환)·필터 띠·남은 장수·촬영 불가 안내를
 한 리듀서로 다룬다. 상태 변경은 전부 `CameraFeature` 안에서 일어나고, 뷰는 렌더링과 `send(...)`만 한다.
 
 ## 지금 구현 범위
@@ -12,6 +12,7 @@
 - **이 화면은 아무것도 조회하지 않는다.** 방 목록·필터 목록·필터 LUT를 진입 버튼(홈의 촬영 뱃지 ·
   방 상세의 사진 찍기)이 미리 받아 두고, 전부 성공했을 때만 `State(rooms:filters:)`로 넘기며
   들어온다. 실패하면 애초에 이 화면으로 넘어오지 않으므로, 여기에는 로딩·조회 실패 상태가 없다.
+  방 선택은 화면에서 없앴다 (시안 '1.촬영 전') — 방은 진입 경로가 정하고 이 화면에서는 바꿀 수 없다.
   준비는 두 진입 버튼이 `ShootEntry` 모듈의 `ShootPreparation`으로 함께 한다 —
   쓰는 UseCase는 `FetchShootableRoomsUseCase`(RoomDomain, `GET /rooms/shootable`) ·
   `FetchCameraFiltersUseCase` · `PrepareCameraFiltersUseCase`(PhotoDomain)다.
@@ -29,13 +30,24 @@
   하드웨어 캡처는 이 delegate를 받는 쪽(`CameraSession`의 `LiveCameraFeature`)이 수행하고, 결과 JPEG을
   `Action.captureCompleted(roomID:filterID:jpegData:)`로 되돌려주면 리듀서가
   `UploadPhotoUseCase`(발급→스토리지 PUT→완료 통보)로 업로드한다. 응답의 `remainedPhotoCount`로
-  그 방의 남은 장수를 갱신하고, 0이면 촬영을 막는다. 실패는 토스트로 알린다.
-- 화면을 닫는 수단은 **위·아래 스와이프뿐이다** — 시안에 닫기 버튼이 없다.
-  손가락을 따라 화면이 밀리고 문턱을 넘겨 놓으면 `delegate(.closeRequested)`가 나가며, 어디로 돌아갈지는 App이 정한다.
-  제스처가 유일한 경로라 VoiceOver의 두 손가락 문지르기(escape)에도 같은 동작을 연결해 뒀다 —
-  스위치 제어·Voice Control 사용자를 위한 대안은 아직 없으므로, 닫기 동선이 시안에 정해지면 다시 볼 것.
-  뷰파인더 위에서도 닫기 스와이프와 핀치 줌이 함께 동작한다 — 닫기 제스처를 병행 인식(`simultaneousGesture`)으로
-  붙이고, 핀치가 도는 동안·가로 끌기·드로어가 열린 동안·안내 스낵바가 떠 있는 동안에는 닫기로 보지 않는다.
+  그 방의 남은 장수를 갱신하고, 0이면 촬영을 막는다. 실패는 토스트로 알리며 연출도 함께 풀린다.
+- **셔터를 누른 순간부터 화면은 촬영 연출로 바뀐다** (시안 '2.촬영 버튼 클릭 시') — 뷰파인더만 남기고
+  나머지가 사라지면서 뷰파인더가 화면 세로 가운데로 내려간다. `State.capture`(`CaptureProgress`)가
+  이 구간을 나타내고, 그동안 셔터는 잠긴다.
+  **연출 동안 뷰파인더는 라이브 프리뷰가 아니라 촬영본 한 장에 고정된다** — 기기를 움직여도 화면은 그대로다.
+  `captureCompleted`로 돌아온 JPEG(=서버에 올라가는 그 사진)을 `capture.photoData`에 담아 뷰파인더가 그린다.
+  스틸 촬영은 셔터음이 난 뒤 수백 ms가 지나야 끝나므로, 그동안은 **프리뷰를 얼려서** 메운다 —
+  조립 지점의 프리뷰(`CameraFilteredPreviewView(source:isFrozen:)`)가 `isCapturing` 동안 새 프레임을
+  버리고 마지막 프레임을 그대로 다시 그린다. 그래서 셔터를 누른 순간부터 화면이 멈춰 있고,
+  촬영본이 도착하면 같은 장면이 그 사진으로 조용히 바뀐다.
+  연출은 **업로드 완료**와 **최소 노출 1초**가 둘 다 차야 끝나고, 그때
+  `delegate(.captureFinished(roomID:))`가 나간다 — 업로드가 순식간에 끝나도 연출이 한 번은 보인다.
+  이 delegate를 받은 App은 그 방의 상세로 넘어가며, 방금 올린 사진을 강조하라고 알린다
+  (시안 '3.촬영 이후 상세 화면' · '4.촬영 이후 상세 화면 강조 효과').
+- 화면을 닫는 수단은 **화면 맨 아래 닫기 버튼뿐이다** (시안 '1.촬영 전').
+  누르면 `delegate(.closeRequested)`가 나가고, 어디로 돌아갈지는 App이 정한다.
+  이전의 위·아래 스와이프 닫기는 없앴다 — 버튼이 생겨 제스처를 겸할 이유가 없어졌고,
+  제스처만 있을 때 스위치 제어·Voice Control에서 닫을 길이 없던 문제도 함께 사라진다.
 - **카메라에 처음 들어왔을 때만** 잠깐 뜸을 들인 뒤 온보딩 안내 스낵바가 2단계로 뜬다
   (`CameraCoachMark` — 시안 camera_snackBar_1·2). 안내 중에는 뷰파인더를 흐리고 어둡게 덮고,
   필터 띠·하단 블록의 밝기를 낮추면서 조작도 막고, 셔터에 글로우를 두른다.
@@ -49,13 +61,14 @@
 
 | 타입 | 설명 |
 | :-- | :-- |
-| `CameraFeature` | 화면 리듀서. `State(rooms:filters:selectedRoomID:…)`(방·필터는 필수 — 진입 전에 받아 넘긴다) · `Action`(`view` / `coachMarkDelayElapsed` / `captureCompleted` / `uploadResponse` / `delegate` / `toastDismissed`) |
+| `CameraFeature` | 화면 리듀서. `State(rooms:filters:selectedRoomID:…)`(방·필터는 필수 — 진입 전에 받아 넘긴다) · `Action`(`view` / `coachMarkDelayElapsed` / `minimumCaptureDisplayElapsed` / `captureCompleted` / `uploadResponse` / `delegate` / `toastDismissed`) |
+| `CameraFeature.CaptureProgress` | 촬영 연출의 진행 상태. 끝나는 조건 둘(`isMinimumDisplayElapsed` · `uploadedRoomID`)과 뷰파인더에 고정할 촬영본(`photoData`) |
 | `CameraView<Preview>` | 화면 뷰. `init(store:preview:)` · `init(store:)`(플레이스홀더 프리뷰) |
 | `CameraPreviewPlaceholder` | `preview` 슬롯을 주입하지 않았을 때 뷰파인더를 채우는 대역 뷰 (프리뷰·시뮬레이터용) |
 | `CameraCardsLevel` | 남은 장수 표시 단계 (`normal` · `low` · `unavailable`) |
 | `CameraCoachMark` | 온보딩 안내 단계 (`shutterCost` · `shutterCaution`). 단계별 `message` · `actionTitle` |
 | `CameraFilterCatalog` | 서버에서 내려받은 LUT의 등록소. `register(cubeData:for:)`(다운로드 원자료 파싱·등록 — 진입 준비가 부른다) · `lutFilter(id:)`(id → 새 `CIColorCube`) · `filteredJPEG(from:filterID:)`(촬영본 후처리 — JPEG 품질 1.0으로 굽는다. 업로드 상한은 `CHALLAImageKit.ImageCompressor`가 맞추므로 여기서 미리 깎지 않는다) |
-| `CameraFilteredPreviewView` | LUT 입힌 프레임(`CIImage`)을 Metal로 그리는 프리뷰 뷰 — `preview` 슬롯용 |
+| `CameraFilteredPreviewView` | LUT 입힌 프레임(`CIImage`)을 Metal로 그리는 프리뷰 뷰 — `preview` 슬롯용. `isFrozen`이면 새 프레임을 버려 화면을 멈춘다 |
 | `CameraPreviewFrameSource` | 프리뷰 프레임 공급자 프로토콜. 카메라 세션(조립 지점 소유)이 구현한다 |
 | `CameraZoom` | 뷰파인더 배율 (`factor` · `label` · `range`) |
 | `CameraCaptureAvailability` | 촬영 가능 여부 (`available` · `unavailable(viewportMessage:toastMessage:)` · `noCardsLeft`) |
@@ -110,7 +123,7 @@ xcrun simctl launch booted com.challa.camerafeature.demo --screen camera --state
 FlashOn·SelectRoom은 아직 인자로 띄우지 못한다 — 목록에서 들어간 뒤 직접 눌러 확인한다.
 
 실기기 카메라 배선은 실행 앱과 공유한다 (`CameraSession` 모듈 — `LiveCameraFeature`가
-`delegate(.captureRequested)`를 받아 촬영·사진첩 저장 후 `captureCompleted`로 되돌리고,
+`delegate(.captureRequested)`를 받아 촬영 후 `captureCompleted`로 되돌리고,
 `LiveCameraPreview`가 `preview` 슬롯을 채운다). 시뮬레이터에는 카메라가 없어 프리뷰가 비어 보인다.
 
 진입 경로도 실앱과 같은 모양으로 재현한다 — `CameraEntryView`가 카메라를 띄우기 전에

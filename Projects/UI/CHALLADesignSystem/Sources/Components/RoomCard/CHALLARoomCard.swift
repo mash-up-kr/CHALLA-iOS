@@ -2,10 +2,11 @@ import SwiftUI
 
 /// 디자인 시스템 방 카드.
 /// 방 대표 사진 위에 딤 그라데이션을 깔고 제목·인원을 겹쳐 보여주며,
-/// 하단 요소는 방 상태(`Variant`)에 따라 갈린다 — 촬영 중(사진 찍기 뱃지) · 인화 대기(남은 시간 뱃지) · 인화 완료(확인하기 버튼).
+/// 하단 요소는 방 상태(`CHALLARoomCardVariant`)에 따라 갈린다 — 촬영 중(사진 찍기 뱃지) · 인화 대기(남은 시간 뱃지) · 인화 완료(확인하기 버튼) · 없음(커버 미리보기).
 /// 홈 방 목록의 가로 스크롤에 쓰이며, 크기는 시안 고정(200×266) — 기기 폭과 무관한 물건 크기다.
 ///
-/// 사진과 커버 스티커는 이미 로드된 `Image`를 받는다 — URL 로딩은 호출부 책임이라 이 컴포넌트는 네트워크의 존재를 모른다.
+/// 사진은 이미 로드된 `Image`를 받고, 커버 스티커는 뷰 슬롯으로 받는다 — 로딩·색칠이 모두 호출부 책임이라
+/// 이 컴포넌트는 네트워크의 존재를 모른다.
 /// 인화 대기의 남은 시간도 표시 문자열로 받는다 — 시간 계산과 1초 갱신은 호출부(Feature)의 몫이고 카드는 그림이다.
 /// 카드 자체의 탭은 받지 않는다 — 카드는 그림이고, 탭은 호출부가 Button 등으로 감싸서 처리한다.
 /// 하단 뱃지·버튼만 예외로 자기 액션을 갖는다 (카드 탭과 다른 곳으로 가기 때문).
@@ -13,35 +14,36 @@ import SwiftUI
 /// ```swift
 /// CHALLARoomCard(title: "친구들과 강릉 여행", memberCount: 1, photo: photo,
 ///                variant: .shooting(isPreparing: false, onShoot: { store.send(.shootTapped) }))
-/// CHALLARoomCard(title: "친구들과 유럽 여행", memberCount: 5, photo: photo, coverSticker: sticker,
+/// CHALLARoomCard(title: "친구들과 유럽 여행", memberCount: 5, photo: photo,
 ///                variant: .printWaiting(remainingTime: "2:15:32"))
-/// CHALLARoomCard(title: "친구들과 유럽 여행", memberCount: 5, photo: photo, coverSticker: sticker,
-///                variant: .printed(onConfirm: { store.send(.confirmTapped) }))
+/// CHALLARoomCard(title: "친구들과 유럽 여행", memberCount: 12, photo: nil, variant: .plain) {
+///     RoomCoverStickerView(url: sticker.imageURL, color: CHALLAColor.Primary.green)
+/// }
 /// ```
-public struct CHALLARoomCard: View {
+/// 방 카드 하단 요소. 카드가 제네릭(스티커 슬롯)이라 안에 두면 `CHALLARoomCard<A>.Variant`와
+/// `CHALLARoomCard<B>.Variant`가 서로 다른 타입이 돼 호출부가 타입을 적을 수 없다.
+public enum CHALLARoomCardVariant {
+    /// 촬영 중 — 테마 색 카메라 뱃지에 "사진 찍기"를 보여준다.
+    /// 찍은 장수는 싣지 않는다 — 2차 시안이 `21/24`를 문구로 바꿨다 (7531:88599 주석).
+    /// isPreparing이면 뱃지가 스피너로 바뀌고 눌리지 않는다.
+    /// 준비가 카드마다 따로 도므로 어느 방을 눌렀는지도 이 값으로 드러난다.
+    /// onShoot이 nil이면 뱃지는 눌리지 않는 그림으로 남는다
+    /// (촬영으로 갈 수 없는 자리에서 눌리는 것처럼 보이지 않게 한다).
+    case shooting(isPreparing: Bool, onShoot: (() -> Void)?)
+    /// 인화 대기 — 어두운 시계 뱃지에 남은 시간 문자열을 보여준다. 뱃지는 눌리지 않는 그림이다.
+    case printWaiting(remainingTime: String)
+    /// 인화 완료 — 테마 색 확인하기 버튼. 같은 색 글로우로 시선을 끈다.
+    /// onConfirm이 nil이면 버튼 모양의 그림으로 남는다.
+    case printed(onConfirm: (() -> Void)?)
+    /// 하단 요소 없음 — 커버 이미지 수정 화면의 미리보기처럼 상태와 무관하게 커버만 보여주는 자리.
+    case plain
+}
 
-    // MARK: - 공개 타입
+/// 촬영 중 뱃지 문구 — 뱃지 표시와 VoiceOver 라벨이 같은 문장을 쓴다.
+/// 카드가 제네릭(스티커 슬롯)이라 안에 둘 수 없다 — 제네릭 타입은 static 저장 프로퍼티를 갖지 못한다.
+private let shootingBadgeTitle = "사진 찍기"
 
-    /// 방 상태에 따라 달라지는 하단 요소. 공통 틀(사진·딤·제목·인원)은 상태와 무관하다.
-    public enum Variant {
-        /// 촬영 중 — 테마 색 카메라 뱃지에 "사진 찍기"를 보여준다.
-        /// 찍은 장수는 싣지 않는다 — 2차 시안이 `21/24`를 문구로 바꿨다 (7531:88599 주석).
-        /// isPreparing이면 뱃지가 스피너로 바뀌고 눌리지 않는다.
-        /// 준비가 카드마다 따로 도므로 어느 방을 눌렀는지도 이 값으로 드러난다.
-        /// onShoot이 nil이면 뱃지는 눌리지 않는 그림으로 남는다
-        /// (촬영으로 갈 수 없는 자리에서 눌리는 것처럼 보이지 않게 한다).
-        case shooting(isPreparing: Bool, onShoot: (() -> Void)?)
-        /// 인화 대기 — 어두운 시계 뱃지에 남은 시간 문자열을 보여준다. 뱃지는 눌리지 않는 그림이다.
-        case printWaiting(remainingTime: String)
-        /// 인화 완료 — 테마 색 확인하기 버튼. 같은 색 글로우로 시선을 끈다.
-        /// onConfirm이 nil이면 버튼 모양의 그림으로 남는다.
-        case printed(onConfirm: (() -> Void)?)
-    }
-
-    // MARK: - 표기 규칙
-
-    /// 촬영 중 뱃지 문구 — 뱃지 표시와 VoiceOver 라벨이 같은 문장을 쓴다.
-    private static let shootingBadgeTitle = "사진 찍기"
+public struct CHALLARoomCard<CoverSticker: View>: View {
 
     // MARK: - 프로퍼티와 init
 
@@ -50,28 +52,28 @@ public struct CHALLARoomCard: View {
     private let title: String
     private let memberCount: Int
     private let photo: Image?
-    private let coverSticker: Image?
-    private let variant: Variant
+    private let variant: CHALLARoomCardVariant
+    private let coverSticker: CoverSticker
 
     /// - Parameters:
     ///   - title: 방 이름. 길면 줄바꿈된다.
     ///   - memberCount: 참여 인원 수 (제목 아래 person 아이콘 옆).
     ///   - photo: 방 대표 사진 또는 커버 이미지. nil이면 바닥색만 보인다 (로딩 전·사진 없음 대응).
-    ///   - coverSticker: 방 커버 스티커. 사진 위·딤 아래에 카드 전체 크기로 얹는다.
-    ///     nil이면 커버를 설정하지 않은 방이다 (방 상태와 무관한 값).
     ///   - variant: 방 상태별 하단 요소.
+    ///   - coverSticker: 방 커버 스티커 자리. 사진 위·딤 아래에 카드 전체 크기로 깔리고 넘친 만큼 잘린다.
+    ///     스티커 그림과 색은 호출부가 정한다 — DS는 도안을 갖지 않는다.
     public init(
         title: String,
         memberCount: Int,
         photo: Image?,
-        coverSticker: Image? = nil,
-        variant: Variant
+        variant: CHALLARoomCardVariant,
+        @ViewBuilder coverSticker: () -> CoverSticker
     ) {
         self.title = title
         self.memberCount = memberCount
         self.photo = photo
-        self.coverSticker = coverSticker
         self.variant = variant
+        self.coverSticker = coverSticker()
     }
 
     // MARK: - Body
@@ -98,7 +100,7 @@ public struct CHALLARoomCard: View {
     /// 사진 채움은 FilmCard와 같은 방식 — Color가 크기를 잡고 사진은 overlay로 얹어 넘친 만큼 잘라낸다.
     /// 층 순서는 시안 그대로: 사진 → 커버 스티커 → 딤.
     private var background: some View {
-        CHALLAColor.Background.level2
+        baseColor
             .overlay {
                 if let photo {
                     photo
@@ -106,15 +108,17 @@ public struct CHALLARoomCard: View {
                         .scaledToFill()
                 }
             }
-            .overlay {
-                if let coverSticker {
-                    coverSticker
-                        .resizable()
-                        .scaledToFill()
-                }
-            }
+            .overlay { coverSticker }
             .clipped()
             .overlay { scrim }
+    }
+
+    /// 사진이 없을 때의 바닥. 커버 미리보기(plain)는 시안이 검정, 목록 카드는 로딩 전 자리라 level2.
+    private var baseColor: Color {
+        if case .plain = variant {
+            return CHALLAColor.Static.black
+        }
+        return CHALLAColor.Background.level2
     }
 
     /// 위에서 아래로 깔리는 딤 2겹 — 검정(0.8→0.2, 상단 텍스트 가독성) + 흰색 하이라이트(0.2→0).
@@ -172,6 +176,7 @@ public struct CHALLARoomCard: View {
         case let .shooting(_, onShoot): onShoot != nil
         case .printWaiting: false
         case let .printed(onConfirm): onConfirm != nil
+        case .plain: false
         }
     }
 
@@ -183,6 +188,8 @@ public struct CHALLARoomCard: View {
             "\(title), \(memberCount)명 참여, 인화까지 \(remaining) 남음"
         case .printed:
             "\(title), \(memberCount)명 참여, 인화 완료"
+        case .plain:
+            "\(title), \(memberCount)명 참여"
         }
     }
 
@@ -197,6 +204,8 @@ public struct CHALLARoomCard: View {
             waitingBadge(remaining: remaining)
         case let .printed(onConfirm):
             confirmButton(onConfirm: onConfirm)
+        case .plain:
+            EmptyView()
         }
     }
 
@@ -208,7 +217,7 @@ public struct CHALLARoomCard: View {
             }
             .buttonStyle(.plain)
             .disabled(isPreparing)
-            .accessibilityLabel(Self.shootingBadgeTitle)
+            .accessibilityLabel(shootingBadgeTitle)
             .accessibilityHint("\(title)의 촬영 화면을 엽니다")
         } else {
             shootingBadgeSurface(isPreparing: isPreparing)
@@ -220,7 +229,7 @@ public struct CHALLARoomCard: View {
         ZStack {
             HStack(spacing: RoomCardMetric.badgeContentGap) {
                 CHALLAIcon.camera.image(size: .size22, color: CHALLAColor.Static.black)
-                Text(Self.shootingBadgeTitle)
+                Text(shootingBadgeTitle)
                     .challaFont(.body.medium.bold)
                     .foregroundStyle(CHALLAColor.Static.black)
             }
@@ -287,6 +296,18 @@ public struct CHALLARoomCard: View {
     }
 }
 
+// MARK: - 스티커 없는 카드
+
+public extension CHALLARoomCard where CoverSticker == EmptyView {
+
+    /// 커버 스티커를 얹지 않는 자리 (목록 카드 대부분).
+    init(title: String, memberCount: Int, photo: Image?, variant: CHALLARoomCardVariant) {
+        self.init(title: title, memberCount: memberCount, photo: photo, variant: variant) {
+            EmptyView()
+        }
+    }
+}
+
 // MARK: - Figma 실측값
 
 private enum RoomCardMetric {
@@ -346,6 +367,15 @@ private enum RoomCardMetric {
                 photo: nil,
                 variant: .printed(onConfirm: {})
             )
+            CHALLARoomCard(
+                title: "커버 미리보기",
+                memberCount: 12,
+                photo: nil,
+                variant: .plain
+            ) {
+                Ellipse()
+                    .fill(CHALLAColor.Primary.green.opacity(0.6))
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity)

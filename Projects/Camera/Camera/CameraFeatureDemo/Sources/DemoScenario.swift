@@ -16,6 +16,8 @@ struct DemoScenario: Equatable {
         case error
         /// 최초 진입 — 뜸을 들인 뒤 안내 1단계가 뜨고, "다음"을 누르면 2단계로 이어진다.
         case coach
+        /// 셔터를 누른 직후 — 뷰파인더만 남아 화면 가운데로 내려간 연출 (시안 2).
+        case capturing
     }
 
     let screen: Screen
@@ -24,6 +26,7 @@ struct DemoScenario: Equatable {
     static let all: [DemoScenario] = [
         DemoScenario(screen: .camera, state: .default),
         DemoScenario(screen: .camera, state: .coach),
+        DemoScenario(screen: .camera, state: .capturing),
         DemoScenario(screen: .camera, state: .error)
     ]
 
@@ -31,6 +34,7 @@ struct DemoScenario: Equatable {
         switch (screen, state) {
         case (.camera, .default): "카메라"
         case (.camera, .coach): "카메라 최초 진입 — 안내 (camera_snackBar_1 → 2)"
+        case (.camera, .capturing): "카메라 — 촬영 버튼 클릭 시"
         case (.camera, .error): "카메라 — 촬영 불가 + 토스트"
         }
     }
@@ -80,6 +84,12 @@ extension DemoScenario {
         // 안내는 심지 않고 리듀서가 진입 시 스스로 띄우게 둔다 — 등장 연출과 단계 전환을 그대로 확인한다.
         case (.camera, .default), (.camera, .coach):
             return CameraFeature.State(rooms: rooms, filters: filters)
+
+        case (.camera, .capturing):
+            // 시뮬레이터에는 카메라가 없어 촬영본을 대역으로 심는다 — 연출 중 뷰파인더가 이 한 장에 고정된다.
+            var state = CameraFeature.State(rooms: rooms, filters: filters)
+            state.capture = CameraFeature.CaptureProgress(photoData: DemoCapturedPhoto.jpegData)
+            return state
 
         case (.camera, .error):
             // 토스트 초기 노출 — 셔터를 누르지 않고도 시안 상태를 그대로 띄운다.

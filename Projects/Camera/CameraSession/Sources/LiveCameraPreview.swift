@@ -17,7 +17,8 @@ public struct LiveCameraPreview: View {
     }
 
     public var body: some View {
-        CameraFilteredPreviewView(source: session)
+        // 셔터를 누른 순간 프리뷰를 멈춘다. 촬영본이 도착하기까지의 텀 동안에도 찍은 장면이 그대로 남는다.
+        CameraFilteredPreviewView(source: session, isFrozen: store.isCapturing)
             .task {
                 session.setPreviewFilter(id: store.selectedFilterID)
                 await session.start(position: store.cameraPosition)

@@ -14,6 +14,7 @@ struct DemoScreenContentView: View {
         switch screen {
         case let .detail(state): DetailContent(state: state)
         case let .settings(state): SettingsContent(state: state)
+        case let .coverEdit(state): CoverEditContent(state: state)
         }
     }
 }
@@ -41,5 +42,18 @@ private struct SettingsContent: View {
 
     var body: some View {
         RoomSettingsView(store: store)
+    }
+}
+
+private struct CoverEditContent: View {
+
+    @State private var store: StoreOf<RoomCoverEditFeature>
+
+    init(state: DemoScreen.CoverEditState) {
+        _store = State(initialValue: DemoStore.makeCoverEdit(for: state))
+    }
+
+    var body: some View {
+        RoomCoverEditView(store: store)
     }
 }

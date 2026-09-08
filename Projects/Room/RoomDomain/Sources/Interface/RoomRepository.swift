@@ -1,3 +1,5 @@
+import Foundation
+
 /// 방 데이터를 가져오고 저장하는 창구. 구현은 `RoomData`가 맡고 이 모듈은 그 실체를 모른다.
 ///
 /// 구현체가 지켜야 할 계약:
@@ -31,4 +33,10 @@ public protocol RoomRepository: Sendable {
 
     /// 방 이름을 바꾼다 (`PUT /rooms/{id}/title`). 응답에 돌려줄 것이 없어 성공 여부만 확인한다.
     func updateTitle(roomID: Room.ID, title: String) async throws
+
+    /// 커버 스티커·색 팔레트 (`GET /rooms/cover-options`). 배열 순서는 서버가 준 그대로 돌려준다.
+    func coverOptions() async throws -> RoomCoverOptions
+
+    /// 커버를 통째로 바꾼다 (`PUT /rooms/{id}/cover`). nil은 "없음"으로 실린다 — 사진·스티커를 지우는 방법이다.
+    func updateCover(roomID: Room.ID, imageURL: URL?, stickerID: Int64?, colorID: Int64?) async throws
 }

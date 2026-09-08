@@ -3,9 +3,8 @@ import CameraFeature
 import CoreImage
 import os
 import PhotoDomain
-import PhotoLibrary
 
-/// 실기기 카메라 세션. `AVCaptureSession` 구성·필터 프리뷰·촬영·사진첩 저장을 전담한다.
+/// 실기기 카메라 세션. `AVCaptureSession` 구성·필터 프리뷰·촬영을 전담한다.
 /// 실행 앱(`CHALLAApp`)과 데모앱이 같은 인스턴스 구성을 쓴다.
 ///
 /// 프리뷰는 `AVCaptureVideoDataOutput` 프레임에 LUT(`CameraFilterCatalog`)를 입혀
@@ -87,14 +86,11 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
         }
     }
 
-    /// 촬영 후 선택 필터를 입힌 JPEG을 사진첩(Add-only)에 저장하고 그 JPEG을 돌려준다 —
-    /// 호출부가 업로드로 잇는다. `PHPhotoLibraryAddOnly` 권한만
-    /// 요구한다 — 추가만 하면 되므로 `PhotoLibrary` 모듈의 읽기·선택 권한(`.readWrite`)까지는 필요 없다.
-    public func captureAndSavePhoto(flashMode: CameraFlashMode, filterID: CameraFilter.ID) async throws -> Data {
+    /// 촬영본에 선택 필터를 입힌 JPEG을 돌려준다 — 호출부가 업로드로 잇는다.
+    /// 촬영본은 사용자 사진첩에 저장하지 않는다.
+    public func capturePhoto(flashMode: CameraFlashMode, filterID: CameraFilter.ID) async throws -> Data {
         let data = try await capturePhotoData(flashMode: flashMode)
-        let filtered = CameraFilterCatalog.filteredJPEG(from: data, filterID: filterID) ?? data
-        try await PhotoLibraryStore().save(imageData: filtered)
-        return filtered
+        return CameraFilterCatalog.filteredJPEG(from: data, filterID: filterID) ?? data
     }
 
     private func capturePhotoData(flashMode: CameraFlashMode) async throws -> Data {
@@ -134,7 +130,6 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
         guard currentInput?.device.position != position.avPosition else { return }
 
         session.beginConfiguration()
-        defer { session.commitConfiguration() }
 
         if let currentInput {
             session.removeInput(currentInput)
@@ -143,18 +138,29 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
             let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position.avPosition),
             let input = try? AVCaptureDeviceInput(device: device),
             session.canAddInput(input)
-        else { return }
+        else {
+            session.commitConfiguration()
+            return
+        }
 
         session.addInput(input)
         currentInput = input
+        session.commitConfiguration()
+
+        // 센서 방향 판별이 새 입력 기준으로 갱신된 뒤라야 해서 커밋 이후에 연결을 잡는다
         configureConnections(position: position)
     }
 
     /// 입력을 갈아끼우면 연결이 새로 생기므로 그때마다 다시 잡는다. 세션 큐에서만 호출한다.
     private func configureConnections(position: CameraPosition) {
         // 프리뷰 레이어 없이 직접 프레임을 다루므로 세로 회전도 직접 지정한다 (앱은 세로 고정)
-        for connection in [videoOutput.connection(with: .video), photoOutput.connection(with: .video)] {
-            guard let connection, connection.isVideoRotationAngleSupported(90) else { continue }
+        let previewAngle: CGFloat = isSensorMountedPortrait ? 0 : 90
+        if let connection = videoOutput.connection(with: .video),
+           connection.isVideoRotationAngleSupported(previewAngle) {
+            connection.videoRotationAngle = previewAngle
+        }
+        // photoOutput은 센서가 세로 장착이어도 스스로 이전 세대 방향(가로)으로 보정해 내보낸다
+        if let connection = photoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
             connection.videoRotationAngle = 90
         }
         // 전면 프리뷰만 거울상 — 시스템 카메라와 동일 (저장본은 photoOutput 기본값 유지)
@@ -162,6 +168,13 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
             preview.automaticallyAdjustsVideoMirroring = false
             preview.isVideoMirrored = position == .front
         }
+    }
+
+    /// 센서가 세로로 장착됐는지 — iPhone 17 계열 전면 카메라가 여기 해당한다.
+    /// 이 플래그는 "이전 세대와 센서 방향이 다른 구성"에서만 참이라 기종 하드코딩 없이 판별에 쓸 수 있다.
+    private var isSensorMountedPortrait: Bool {
+        guard #available(iOS 26.0, *) else { return false }
+        return photoOutput.isCameraSensorOrientationCompensationSupported
     }
 }
 

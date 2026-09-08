@@ -66,7 +66,6 @@ struct CHALLAApp: App {
 
                     // 초대 Universal Link는 SwiftUI의 onOpenURL로 수신된다.
                     // 실제 초대 링크 여부와 코드 검증은 Reducer에서 처리한다.
-                    // 루트가 화면 전환을 감싸고 있어 한 겹 안으로 보낸다.
                     store.send(.app(.inviteLinkOpened(url)))
                 }
         }

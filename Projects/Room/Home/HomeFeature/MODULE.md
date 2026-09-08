@@ -15,7 +15,7 @@ TCA로 작성하며 `RoomDomain`의 UseCase를 `@Dependency`로 주입받는다 
 실패하면 얼럿(권한이면 설정 앱으로, 조회 실패면 그 문구)을 띄우고 카메라로 넘어가지 않는다 —
 반쪽짜리 카메라 화면(목록 없음·검은 프리뷰·색이 안 먹는 필터)을 띄우지 않기 위해서다.
 
-준비 규칙(조회·권한을 동시에 걸고, 권한은 카메라 → 사진첩 순서로, 권한 거절이 조회 실패보다 앞선다)은
+준비 규칙(조회·카메라 권한을 동시에 걸고, 권한 거절이 조회 실패보다 앞선다)은
 방 상세의 사진 찍기와 공유한다 — 상세는 `ShootEntry/MODULE.md`.
 
 **부모/자식 책임 분리**: 두 드로어는 각자 리듀서를 갖고, 성공을 `delegate`로 알리기만 한다.
@@ -39,6 +39,8 @@ App(또는 데모앱)이 쓰는 것만 열려 있다. 드로어 뷰와 내부 �
     부모가 넣어 준다. 이슈 #33이 프로필 정본을 만들면 UseCase 주입으로 바꾼다
   - `Action.Delegate` — `.roomSelected(Room)` · `.roomCreated(Room)` · `.roomJoined(Room)` · `.settingsTapped` ·
     `.cameraRequested(CameraEntry)`
+  - 커버는 `RoomCard.room.cover`에 실려 온다 — 카드는 커버 사진이 있으면 대표 사진 대신 그것을,
+    스티커는 서버가 준 SVG를 `RoomCoverUI`가 도형으로 읽어 사진 위·딤 아래에 얹는다. 따로 조회하는 것이 없다
 
 `CameraEntry` · `ShootPreparationError`는 `ShootEntry` 모듈이 정의한다 — 방 상세의 사진 찍기와 같은 타입이다.
 
@@ -68,7 +70,7 @@ App(또는 데모앱)이 쓰는 것만 열려 있다. 드로어 뷰와 내부 �
 
 ## 의존성
 
-- **이 모듈이 의존**: `RoomDomain` · `ShootEntry`(촬영 진입 준비) · `CHALLADesignSystem` · `ComposableArchitecture`
+- **이 모듈이 의존**: `RoomDomain` · `RoomCoverUI`(커버 색·스티커 매핑) · `ShootEntry`(촬영 진입 준비) · `CHALLADesignSystem` · `ComposableArchitecture`
 - **이 모듈에 의존**: `HomeFeatureDemo` · `CHALLAApp`
 
 ## 알려진 임시 구현

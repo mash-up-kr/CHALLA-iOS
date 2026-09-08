@@ -3,7 +3,7 @@ import ComposableArchitecture
 import SettingDomain
 import SwiftUI
 
-/// 테마 선택 화면 — 여섯 개 중 하나에 체크가 찍힌 단일 선택 목록.
+/// 테마 선택 화면 — 일곱 개 중 하나에 체크가 찍힌 단일 선택 목록.
 ///
 /// 고른 뒤에도 화면에 머문다 (`ThemeFeature` 주석 참고).
 @ViewAction(for: ThemeFeature.self)
@@ -40,7 +40,7 @@ public struct ThemeView: View {
 
     // MARK: - 목록
 
-    /// 헤더 없는 카드 한 장에 여섯 행. 순서는 `AppTheme`의 선언 순서이고 시안 순서와 같다.
+    /// 헤더 없는 카드 한 장에 일곱 행. 순서는 `AppTheme`의 선언 순서이고 시안 순서와 같다.
     private var themeCard: some View {
         CHALLAListSection {
             ForEach(AppTheme.allCases, id: \.self) { theme in

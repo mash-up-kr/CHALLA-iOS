@@ -9,6 +9,7 @@ struct ColorGallery: View {
                 ("Pink", CHALLAColor.Primary.pink),
                 ("Orange", CHALLAColor.Primary.orange),
                 ("Yellow", CHALLAColor.Primary.yellow),
+                ("Green", CHALLAColor.Primary.green),
                 ("Sky", CHALLAColor.Primary.sky),
                 ("Blue", CHALLAColor.Primary.blue),
                 ("Purple", CHALLAColor.Primary.purple)

@@ -46,7 +46,8 @@ public enum RoomSamples {
             totalPhotoCount: 24,
             remainedPhotoCount: 1, // 뱃지 23/24
             createdAt: createdAt,
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            cover: RoomCover(sticker: RoomCoverOptions.preview.stickers[0].sticker(color: RoomCoverOptions.preview.colors[0]))
         ),
         memberCount: 11,
         // 촬영 중 카드의 대표 사진 = 첫 썸네일 (RoomCard.coverImageURL).

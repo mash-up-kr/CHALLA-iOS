@@ -19,6 +19,8 @@ public struct SettingView: View {
     public var body: some View {
         NavigationStack(path: $store.scope(state: \.path, action: \.path)) {
             settingRoot
+                // 하위 화면이 시스템 바를 숨겨 죽는 스와이프 백을 되살린다.
+                .background { InteractivePopGestureEnabler().frame(width: 0, height: 0) }
         } destination: { store in
             Group {
                 switch store.case {
@@ -31,8 +33,7 @@ public struct SettingView: View {
                 }
             }
             // 세 화면 모두 `CHALLATopNavigation`을 직접 그리므로 시스템 바를 숨긴다.
-            // 부작용으로 시스템 스와이프 백 제스처가 사라진다 — 뒤로가기는 CaretLeft 버튼으로만 한다
-            // (`MODULE.md`의 "시안 대비 알려진 차이").
+            // 바를 숨기면 스와이프 백이 함께 죽어서 `InteractivePopGestureEnabler`가 되살린다.
             .toolbar(.hidden, for: .navigationBar)
         }
     }

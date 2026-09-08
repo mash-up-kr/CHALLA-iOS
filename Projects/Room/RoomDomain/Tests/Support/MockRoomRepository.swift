@@ -18,12 +18,21 @@ final class MockRoomRepository: RoomRepository {
         var memberRoomIDs: [Room.ID] = []
         var checkedPrintCompletionRoomIDs: [Room.ID] = []
         var titleUpdates: [TitleUpdate] = []
+        var coverOptionsCallCount = 0
+        var coverUpdates: [CoverUpdate] = []
     }
 
     /// updateTitle 한 번의 호출 내용. 인자가 둘이라 배열 하나로 못 담아 묶는다.
     struct TitleUpdate: Equatable {
         let roomID: Room.ID
         let title: String
+    }
+
+    struct CoverUpdate: Equatable {
+        let roomID: Room.ID
+        let imageURL: URL?
+        let stickerID: Int64?
+        let colorID: Int64?
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -35,6 +44,8 @@ final class MockRoomRepository: RoomRepository {
     private let membersResult: Result<[RoomMember], RoomError>
     private let checkPrintCompletionResult: Result<Void, RoomError>
     private let updateTitleResult: Result<Void, RoomError>
+    private let coverOptionsResult: Result<RoomCoverOptions, RoomError>
+    private let updateCoverResult: Result<Void, RoomError>
 
     init(
         roomsResult: Result<[RoomCard], RoomError> = .failure(.unknown),
@@ -44,7 +55,9 @@ final class MockRoomRepository: RoomRepository {
         roomInfoResult: Result<(room: Room, invitationCode: String), RoomError> = .failure(.unknown),
         membersResult: Result<[RoomMember], RoomError> = .failure(.unknown),
         checkPrintCompletionResult: Result<Void, RoomError> = .failure(.unknown),
-        updateTitleResult: Result<Void, RoomError> = .failure(.unknown)
+        updateTitleResult: Result<Void, RoomError> = .failure(.unknown),
+        coverOptionsResult: Result<RoomCoverOptions, RoomError> = .failure(.unknown),
+        updateCoverResult: Result<Void, RoomError> = .failure(.unknown)
     ) {
         self.roomsResult = roomsResult
         self.shootableRoomsResult = shootableRoomsResult
@@ -54,6 +67,8 @@ final class MockRoomRepository: RoomRepository {
         self.membersResult = membersResult
         self.checkPrintCompletionResult = checkPrintCompletionResult
         self.updateTitleResult = updateTitleResult
+        self.coverOptionsResult = coverOptionsResult
+        self.updateCoverResult = updateCoverResult
     }
 
     // MARK: - 검증용 프로퍼티
@@ -98,6 +113,14 @@ final class MockRoomRepository: RoomRepository {
         state.withLock { $0.titleUpdates }
     }
 
+    var coverOptionsCallCount: Int {
+        state.withLock { $0.coverOptionsCallCount }
+    }
+
+    var coverUpdates: [CoverUpdate] {
+        state.withLock { $0.coverUpdates }
+    }
+
     // MARK: - RoomRepository
 
     func rooms() async throws -> [RoomCard] {
@@ -138,5 +161,19 @@ final class MockRoomRepository: RoomRepository {
     func updateTitle(roomID: Room.ID, title: String) async throws {
         state.withLock { $0.titleUpdates.append(TitleUpdate(roomID: roomID, title: title)) }
         try updateTitleResult.get()
+    }
+
+    func coverOptions() async throws -> RoomCoverOptions {
+        state.withLock { $0.coverOptionsCallCount += 1 }
+        return try coverOptionsResult.get()
+    }
+
+    func updateCover(roomID: Room.ID, imageURL: URL?, stickerID: Int64?, colorID: Int64?) async throws {
+        state.withLock {
+            $0.coverUpdates.append(
+                CoverUpdate(roomID: roomID, imageURL: imageURL, stickerID: stickerID, colorID: colorID)
+            )
+        }
+        try updateCoverResult.get()
     }
 }

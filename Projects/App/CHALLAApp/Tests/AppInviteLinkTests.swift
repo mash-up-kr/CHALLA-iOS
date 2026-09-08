@@ -107,7 +107,8 @@ struct AppInviteLinkTests {
     func coldStartHoldsCodeUntilHome() async throws {
         // 보관함을 실제 동작(넣고 한 번 꺼내기)으로 주입한다 — 보관·전달이 이 테스트의 관심사다.
         let box = LockIsolated<String?>(nil)
-        let store = TestStore(initialState: AppFeature.State.launching) {
+        // 스플래시 최소 노출은 이 테스트의 관심사가 아니다 — 이미 끝난 상태에서 시작한다.
+        let store = TestStore(initialState: AppFeature.State.launching(.init(isMinimumHoldElapsed: true))) {
             AppFeature()
         } withDependencies: {
             $0.pendingInviteCode = PendingInviteCode(
@@ -136,5 +137,30 @@ struct AppInviteLinkTests {
         }
         #expect(screen.roomDetail.room.id == Self.card.id)
         #expect(box.value == nil) // 꺼낸 뒤 비워졌다
+    }
+
+    @Test("스플래시가 홈을 맡아둔 경우에도 노출이 끝나는 순간 보관된 코드를 꺼낸다")
+    func deliversHeldCodeWhenSplashEnds() async {
+        let box = LockIsolated<String?>("1928121")
+        let store = TestStore(
+            initialState: AppFeature.State.launching(.init(pendingDestination: .home(Self.profile)))
+        ) {
+            AppFeature()
+        } withDependencies: {
+            $0.pendingInviteCode = PendingInviteCode(
+                store: { code in box.setValue(code) },
+                take: { box.withValue { code in
+                    defer { code = nil }
+                    return code
+                } }
+            )
+            $0.joinRoomUseCase = JoinRoomUseCase(run: { _ in Self.card })
+        }
+        store.exhaustivity = .off
+
+        await store.send(.splashMinimumHoldFinished)
+        await store.receive(\.home.delegate.roomJoined)
+
+        #expect(box.value == nil)
     }
 }

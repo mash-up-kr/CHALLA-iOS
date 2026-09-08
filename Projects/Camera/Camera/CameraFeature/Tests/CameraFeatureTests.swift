@@ -38,48 +38,94 @@ struct CameraFeatureControlTests {
 
     @Test("촬영 가능하면 셔터가 선택된 방·필터를 실어 delegate로 넘긴다")
     func shutterDelegatesWhenAvailable() async {
+        let clock = TestClock()
         let store = TestStore(initialState: .fixture(selectedFilterID: "필터2")) {
             CameraFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
         }
 
-        await store.send(.view(.shutterButtonTapped)) { $0.isCapturing = true }
+        await store.send(.view(.shutterButtonTapped)) { $0.capture = CameraFeature.CaptureProgress() }
         await store.receive(.delegate(.captureRequested(roomID: 1, filterID: "필터2")))
+
+        await clock.advance(by: .seconds(1))
+        await store.receive(.minimumCaptureDisplayElapsed) { $0.capture?.isMinimumDisplayElapsed = true }
     }
 
     @Test("셔터를 연타해도 촬영은 한 번만 나간다")
     func shutterIgnoresRepeatedTapsWhileCapturing() async {
+        let clock = TestClock()
         let store = TestStore(initialState: .fixture(selectedFilterID: "필터2")) {
             CameraFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
         }
 
-        await store.send(.view(.shutterButtonTapped)) { $0.isCapturing = true }
+        await store.send(.view(.shutterButtonTapped)) { $0.capture = CameraFeature.CaptureProgress() }
         await store.receive(.delegate(.captureRequested(roomID: 1, filterID: "필터2")))
 
         // 촬영이 도는 동안의 추가 탭은 아무 일도 하지 않는다.
         await store.send(.view(.shutterButtonTapped))
         await store.send(.view(.shutterButtonTapped))
+
+        await clock.advance(by: .seconds(1))
+        await store.receive(.minimumCaptureDisplayElapsed) { $0.capture?.isMinimumDisplayElapsed = true }
     }
 
-    @Test("촬영본이 돌아오면 셔터가 다시 열린다")
-    func shutterReopensAfterCapture() async {
+    @Test("업로드가 최소 노출 시간보다 빨리 끝나도 1초를 채운 뒤에 방 상세로 넘어간다")
+    func captureWaitsForMinimumDisplay() async {
+        let clock = TestClock()
         let store = TestStore(initialState: .fixture(selectedFilterID: "필터2")) {
             CameraFeature()
         } withDependencies: {
+            $0.continuousClock = clock
             $0.uploadPhotoUseCase.run = { _, _, _ in 5 }
         }
 
-        await store.send(.view(.shutterButtonTapped)) { $0.isCapturing = true }
+        await store.send(.view(.shutterButtonTapped)) { $0.capture = CameraFeature.CaptureProgress() }
         await store.receive(.delegate(.captureRequested(roomID: 1, filterID: "필터2")))
 
         await store.send(.captureCompleted(roomID: 1, filterID: "필터2", jpegData: Data("jpeg".utf8))) {
-            $0.isCapturing = false
+            $0.capture?.photoData = Data("jpeg".utf8)
+        }
+        // 업로드가 끝나도 아직 넘어가지 않는다 — 최소 노출 시간이 남아 있다.
+        await store.receive(.uploadResponse(roomID: 1, .success(5))) {
+            $0.rooms[id: 1] = ShootableRoom(id: 1, title: "방1", remainedPhotoCount: 5, totalPhotoCount: 24)
+            $0.capture?.uploadedRoomID = 1
+        }
+
+        await clock.advance(by: .seconds(1))
+        await store.receive(.minimumCaptureDisplayElapsed) { $0.capture?.isMinimumDisplayElapsed = true }
+        await store.receive(.delegate(.captureFinished(roomID: 1)))
+    }
+
+    @Test("최소 노출 시간이 먼저 지나면 업로드가 끝나는 즉시 방 상세로 넘어간다")
+    func captureFinishesWhenUploadCompletesLast() async {
+        let clock = TestClock()
+        let store = TestStore(initialState: .fixture(selectedFilterID: "필터2")) {
+            CameraFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.uploadPhotoUseCase.run = { _, _, _ in 5 }
+        }
+
+        await store.send(.view(.shutterButtonTapped)) { $0.capture = CameraFeature.CaptureProgress() }
+        await store.receive(.delegate(.captureRequested(roomID: 1, filterID: "필터2")))
+
+        await clock.advance(by: .seconds(1))
+        await store.receive(.minimumCaptureDisplayElapsed) { $0.capture?.isMinimumDisplayElapsed = true }
+
+        await store.send(.captureCompleted(roomID: 1, filterID: "필터2", jpegData: Data("jpeg".utf8))) {
+            $0.capture?.photoData = Data("jpeg".utf8)
         }
         await store.receive(.uploadResponse(roomID: 1, .success(5))) {
             $0.rooms[id: 1] = ShootableRoom(id: 1, title: "방1", remainedPhotoCount: 5, totalPhotoCount: 24)
+            $0.capture?.uploadedRoomID = 1
         }
+        await store.receive(.delegate(.captureFinished(roomID: 1)))
     }
 
-    @Test("촬영이 실패해도 셔터가 다시 열리고 실패를 알린다")
+    @Test("촬영이 실패하면 연출이 풀리고 셔터가 다시 열린다")
     func shutterReopensAfterCaptureFailure() async {
         let clock = TestClock()
         let store = TestStore(initialState: .fixture(selectedFilterID: "필터2")) {
@@ -88,11 +134,11 @@ struct CameraFeatureControlTests {
             $0.continuousClock = clock
         }
 
-        await store.send(.view(.shutterButtonTapped)) { $0.isCapturing = true }
+        await store.send(.view(.shutterButtonTapped)) { $0.capture = CameraFeature.CaptureProgress() }
         await store.receive(.delegate(.captureRequested(roomID: 1, filterID: "필터2")))
 
         await store.send(.captureFailed(message: "촬영에 실패했어요.")) {
-            $0.isCapturing = false
+            $0.capture = nil
             $0.toastMessage = "촬영에 실패했어요."
         }
         await clock.advance(by: .seconds(3))
@@ -133,13 +179,13 @@ struct CameraFeatureControlTests {
         await store.send(.view(.shutterButtonTapped))
     }
 
-    @Test("위·아래로 쓸어내리면 화면을 닫아 달라고 알린다")
-    func dismissSwipeRequestsClose() async {
+    @Test("닫기 버튼을 누르면 화면을 닫아 달라고 알린다")
+    func closeButtonRequestsClose() async {
         let store = TestStore(initialState: CameraFeatureTestFixtures.state()) {
             CameraFeature()
         }
 
-        await store.send(.view(.dismissSwiped))
+        await store.send(.view(.closeButtonTapped))
         await store.receive(.delegate(.closeRequested))
     }
 
@@ -263,68 +309,6 @@ struct CameraFeatureDataFlowTests {
         await store.send(.view(.filterSelected("없는필터")))
     }
 
-    @Test("방 버튼을 누르면 드로어가 열린다")
-    func roomDrawerOpens() async {
-        let store = TestStore(initialState: .fixture()) {
-            CameraFeature()
-        }
-
-        await store.send(.view(.roomSelectButtonTapped)) { $0.isRoomSelectionPresented = true }
-    }
-
-    @Test("방을 고르면 선택이 바뀌고 드로어가 닫힌다")
-    func roomSelectionClosesDrawer() async {
-        let store = TestStore(initialState: .fixture(isRoomSelectionPresented: true)) {
-            CameraFeature()
-        }
-
-        await store.send(.view(.roomSelected(2))) {
-            $0.selectedRoomID = 2
-            $0.isRoomSelectionPresented = false
-        }
-    }
-
-    @Test("장수가 소진된 방을 고르면 촬영이 막히고, 남은 방을 고르면 다시 풀린다")
-    func roomSelectionRecomputesAvailability() async {
-        let soldOut = ShootableRoom(id: 3, title: "소진된 방", remainedPhotoCount: 0, totalPhotoCount: 48)
-        let store = TestStore(
-            initialState: .fixture(rooms: CameraFeatureTestFixtures.rooms + [soldOut], isRoomSelectionPresented: true)
-        ) {
-            CameraFeature()
-        }
-
-        await store.send(.view(.roomSelected(3))) {
-            $0.selectedRoomID = 3
-            $0.isRoomSelectionPresented = false
-        }
-        #expect(store.state.captureAvailability == .noCardsLeft)
-        await store.send(.view(.roomSelectButtonTapped)) { $0.isRoomSelectionPresented = true }
-        await store.send(.view(.roomSelected(1))) {
-            $0.selectedRoomID = 1
-            $0.isRoomSelectionPresented = false
-        }
-        #expect(store.state.captureAvailability == .available)
-    }
-
-    @Test("목록에 없는 방 id는 무시한다 — 드로어도 그대로 열려 있다")
-    func unknownRoomIsIgnored() async {
-        let store = TestStore(initialState: .fixture(isRoomSelectionPresented: true)) {
-            CameraFeature()
-        }
-
-        await store.send(.view(.roomSelected(999)))
-    }
-
-    @Test("드로어를 닫으면 선택은 그대로 두고 닫히기만 한다")
-    func roomDrawerDismissKeepsSelection() async {
-        let store = TestStore(initialState: .fixture(isRoomSelectionPresented: true)) {
-            CameraFeature()
-        }
-
-        await store.send(.view(.roomSelectionDismissed)) { $0.isRoomSelectionPresented = false }
-        #expect(store.state.selectedRoomID == 1)
-    }
-
     @Test("업로드가 끝나면 응답의 남은 장수로 그 방을 갱신한다")
     func uploadUpdatesRemainedCount() async {
         let store = TestStore(initialState: .fixture()) {
@@ -402,7 +386,6 @@ enum CameraFeatureTestFixtures {
         selectedRoomID: ShootableRoom.ID? = nil,
         selectedFilterID: CameraFilter.ID? = nil,
         zoom: CameraZoom = CameraZoom(),
-        isRoomSelectionPresented: Bool = false,
         coachMark: CameraCoachMark? = nil,
         hasStartedCoachMark: Bool = false
     ) -> CameraFeature.State {
@@ -412,7 +395,6 @@ enum CameraFeatureTestFixtures {
             selectedRoomID: selectedRoomID,
             selectedFilterID: selectedFilterID,
             zoom: zoom,
-            isRoomSelectionPresented: isRoomSelectionPresented,
             coachMark: coachMark,
             hasStartedCoachMark: hasStartedCoachMark
         )
@@ -423,13 +405,8 @@ private extension CameraFeature.State {
 
     static func fixture(
         rooms: [ShootableRoom] = CameraFeatureTestFixtures.rooms,
-        selectedFilterID: CameraFilter.ID? = nil,
-        isRoomSelectionPresented: Bool = false
+        selectedFilterID: CameraFilter.ID? = nil
     ) -> Self {
-        CameraFeatureTestFixtures.state(
-            rooms: rooms,
-            selectedFilterID: selectedFilterID,
-            isRoomSelectionPresented: isRoomSelectionPresented
-        )
+        CameraFeatureTestFixtures.state(rooms: rooms, selectedFilterID: selectedFilterID)
     }
 }

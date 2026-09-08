@@ -40,7 +40,7 @@ public struct RoomSettingsFeature {
         @CasePathable
         public enum Delegate: Equatable, Sendable {
             case closeTapped
-            /// 커버 수정 화면은 #69 작업 — App이 받아서 연결한다.
+            /// 커버 수정 화면 요청 — App이 받아서 화면을 바꾼다.
             case coverEditRequested
         }
 

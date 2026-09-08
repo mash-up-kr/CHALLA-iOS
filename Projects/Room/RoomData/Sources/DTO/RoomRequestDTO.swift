@@ -42,3 +42,36 @@ struct JoinRoomRequestDTO: Encodable, Sendable {
         let invitationCode: String
     }
 }
+
+struct UpdateCoverRequestDTO: Encodable, Sendable {
+
+    let room: Payload
+
+    init(coverImageUrl: String?, coverStickerId: Int64?, coverStickerColorId: Int64?) {
+        room = Payload(
+            coverImageUrl: coverImageUrl,
+            coverStickerId: coverStickerId,
+            coverStickerColorId: coverStickerColorId
+        )
+    }
+
+    struct Payload: Encodable, Sendable {
+        let coverImageUrl: String?
+        let coverStickerId: Int64?
+        let coverStickerColorId: Int64?
+
+        private enum CodingKeys: String, CodingKey {
+            case coverImageUrl
+            case coverStickerId
+            case coverStickerColorId
+        }
+
+        /// 전체 교체 계약이라 없애는 값도 null로 실어야 한다 — 합성 encode는 nil 키를 빼 버린다
+        func encode(to encoder: any Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(coverImageUrl, forKey: .coverImageUrl)
+            try container.encode(coverStickerId, forKey: .coverStickerId)
+            try container.encode(coverStickerColorId, forKey: .coverStickerColorId)
+        }
+    }
+}

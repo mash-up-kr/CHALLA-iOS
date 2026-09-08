@@ -8,7 +8,10 @@ import RoomDetailFeature
 enum DemoStore {
 
     static func makeDetail(for state: DemoScreen.DetailState) -> StoreOf<RoomDetailFeature> {
-        var initial = RoomDetailFeature.State(room: DemoSamples.room(for: state))
+        var initial = RoomDetailFeature.State(
+            room: DemoSamples.room(for: state),
+            highlightsNewestPhoto: state == .justShot
+        )
         // 팝오버는 참여자 바를 탭해야 열린다 — 진입 조회가 참여자를 채우면 열린 채로 보인다.
         initial.isInvitePopoverPresented = state == .invite
         return Store(initialState: initial) {
@@ -29,6 +32,24 @@ enum DemoStore {
             RoomSettingsFeature()._printChanges()
         } withDependencies: {
             CompositionRoot.registerSettingsDependencies(room: room, into: &$0)
+        }
+    }
+
+    static func makeCoverEdit(for state: DemoScreen.CoverEditState) -> StoreOf<RoomCoverEditFeature> {
+        let room = DemoSamples.coverEditRoom
+        var initial = RoomCoverEditFeature.State(
+            roomID: room.id,
+            title: room.title,
+            memberCount: DemoSamples.coverEditMemberCount,
+            cover: DemoSamples.cover(for: state)
+        )
+        if state == .stickerImage {
+            initial.localImageData = DemoSamples.coverPhotoData // 서버가 없어 URL 사진은 못 그린다
+        }
+        return Store(initialState: initial) {
+            RoomCoverEditFeature()._printChanges()
+        } withDependencies: {
+            CompositionRoot.registerCoverEditDependencies(for: state, room: room, into: &$0)
         }
     }
 }

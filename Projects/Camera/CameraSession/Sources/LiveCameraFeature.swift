@@ -1,7 +1,7 @@
 import CameraFeature
 import ComposableArchitecture
 
-/// `CameraFeature`를 감싸 `delegate(.captureRequested)`를 실제 촬영·저장으로 잇는다.
+/// `CameraFeature`를 감싸 `delegate(.captureRequested)`를 실제 촬영으로 잇는다.
 ///
 /// `CameraFeature` 자신은 카메라 하드웨어를 모른다 — 실 연동은 조립 지점 몫이라는 설계 때문에,
 /// 실행 앱과 데모앱이 똑같이 필요한 이 배선만 따로 모아 둔다.
@@ -35,11 +35,11 @@ public struct LiveCameraFeature {
                 let flashMode = state.camera.flashMode
                 return .run { [cameraSession] send in // 비-Sendable self 대신 의존성 값만 캡처
                     do {
-                        let jpegData = try await cameraSession.captureAndSavePhoto(
+                        let jpegData = try await cameraSession.capturePhoto(
                             flashMode: flashMode,
                             filterID: filterID
                         )
-                        // 저장까지 끝난 촬영본을 feature에 돌려줘 업로드(장수 차감)로 잇는다.
+                        // 촬영본을 feature에 돌려줘 업로드(장수 차감)로 잇는다.
                         await send(.camera(.captureCompleted(roomID: roomID, filterID: filterID, jpegData: jpegData)))
                     } catch {
                         await send(.camera(.captureFailed(message: error.localizedDescription)))

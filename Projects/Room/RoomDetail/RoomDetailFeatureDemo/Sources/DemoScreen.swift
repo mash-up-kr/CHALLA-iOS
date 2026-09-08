@@ -9,12 +9,15 @@ import Foundation
 ///     xcrun simctl launch booted <bundle-id> --screen detail --state printWaiting
 ///     xcrun simctl launch booted <bundle-id> --screen settings --state rename
 ///     xcrun simctl launch booted <bundle-id> --screen detail --state printNotice --photos 48
+///     xcrun simctl launch booted <bundle-id> --screen coverEdit --state stickerImage
 enum DemoScreen: Hashable {
 
     /// 방 상세.
     case detail(DetailState)
     /// 방 설정. 실제 앱에서는 상세 → 설정 전환을 App이 조립하지만 데모는 바로 띄운다.
     case settings(SettingsState)
+    /// 커버 이미지 수정. 설정 → 커버 전환도 App이 조립하지만 데모는 바로 띄운다.
+    case coverEdit(CoverEditState)
 
     /// 앞의 넷은 방이 어느 단계인지, 다음 셋은 겹쳐 뜨는 화면, 마지막은 조회 실패다.
     enum DetailState: String, CaseIterable {
@@ -22,6 +25,8 @@ enum DemoScreen: Hashable {
         case shooting
         /// 촬영 중 · 일부만 찍혀 사진(블러)과 빈 슬롯이 섞인다.
         case shootingPartial
+        /// 촬영을 마치고 막 들어온 화면 — 방금 올린 사진에 테마색 테두리가 1초간 둘린다.
+        case justShot
         /// 인화 대기 · 전부 블러 + 카운트다운.
         case printWaiting
         /// 인화 완료 · 전부 선명, 하단 버튼 없음.
@@ -44,6 +49,20 @@ enum DemoScreen: Hashable {
         /// 이름 수정 드로어가 열린 화면.
         case rename
     }
+
+    /// 커버 수정 화면의 상태. 앞의 셋은 시안 3장, 뒤의 둘은 탭해야 드러나는 실패다.
+    enum CoverEditState: String, CaseIterable {
+        /// 저장된 커버 없음 — 검정 카드에 색만 선택돼 있다.
+        case empty
+        /// 흩날림 스티커 + 레몬에이드 (시안 '스티커+검정배경').
+        case sticker
+        /// 사진 + 흩날림 스티커 + 라임 (시안 '스티커+이미지배경').
+        case stickerImage
+        /// 사진첩 권한 거부 — 카메라를 누르면 피커 대신 토스트.
+        case permissionDenied
+        /// 저장소 오류 — 스티커를 고른 뒤 뒤로가기를 누르면 저장 실패 얼럿이 뜬다 (사진은 업로드 실패 토스트).
+        case saveError
+    }
 }
 
 // MARK: - 실행 인자 파싱
@@ -58,6 +77,7 @@ extension DemoScreen {
         switch screen {
         case "detail": return .detail(state(stateValue, default: .shooting))
         case "settings": return .settings(state(stateValue, default: .default))
+        case "coverEdit": return .coverEdit(state(stateValue, default: .empty))
         default:
             assertionFailure("--screen 값을 알 수 없음: \(screen)")
             return .detail(.shooting)

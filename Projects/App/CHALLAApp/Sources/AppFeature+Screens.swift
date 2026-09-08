@@ -2,6 +2,7 @@ import CameraFeature
 import CameraSession
 import ChatRoomFeature
 import ComposableArchitecture
+import Foundation
 import HomeFeature
 import PhotoDetailFeature
 import ProfileSetupFeature
@@ -18,6 +19,46 @@ import UserDomain
 // 그래서 뒤로가기로 이전 화면을 다시 만들 때 필요한 값을 각 Screen이 미리 들고 다닌다.
 // 어느 delegate가 어느 Screen을 만들지는 `AppFeature.swift`의 "화면 전이" 부분이 정한다.
 
+// MARK: - SplashScreen
+
+public extension AppFeature {
+
+    /// 스플래시(`launching`) 화면 State — 최소 노출 시간을 지키기 위한 게이트.
+    ///
+    /// 노출이 끝나기 전에 다음 화면이 정해지면 목적지를 맡아 두고,
+    /// `splashMinimumHoldFinished`가 오는 순간 그 화면으로 전이한다.
+    @ObservableState
+    struct SplashScreen: Equatable {
+        /// 최소 노출이 이미 끝났는지. 로그인 직후 재진입처럼 다시 오래 보일 필요가 없으면 true로 시작한다.
+        public var isMinimumHoldElapsed: Bool
+        /// 최소 노출 중에 도착한 다음 화면.
+        public var pendingDestination: SplashDestination?
+
+        public init(
+            isMinimumHoldElapsed: Bool = false,
+            pendingDestination: SplashDestination? = nil
+        ) {
+            self.isMinimumHoldElapsed = isMinimumHoldElapsed
+            self.pendingDestination = pendingDestination
+        }
+    }
+
+    /// 스플래시가 끝난 뒤 이동할 화면. 화면 State는 실제로 전이하는 순간에 만든다.
+    enum SplashDestination: Equatable {
+        case forceUpdate(storeURL: URL?)
+        case login
+        case profileSetup
+        case home(UserProfile)
+
+        var isForceUpdate: Bool {
+            if case .forceUpdate = self {
+                return true
+            }
+            return false
+        }
+    }
+}
+
 // MARK: - HomeScreen
 
 public extension AppFeature {
@@ -31,12 +72,17 @@ public extension AppFeature {
         public var profile: UserProfile
         public var home: HomeFeature.State
 
-        public init(profile: UserProfile) {
+        /// `cards`는 pop으로 돌아올 때 직전 목록을 되살리는 값이다. 비워 두면 첫 조회처럼
+        /// 스피너가 뜨지만, 시딩하면 목록을 즉시 그린 채 재조회 결과로 갱신된다 —
+        /// 전환 중 홈이 통째로 비어 보이는 것을 막는다.
+        public init(profile: UserProfile, cards: IdentifiedArrayOf<RoomCard> = []) {
             self.profile = profile
-            self.home = HomeFeature.State(
+            var home = HomeFeature.State(
                 nickname: profile.nickname ?? "",
                 profileImageURL: profile.imageURL
             )
+            home.cards = cards
+            self.home = home
         }
     }
 }
@@ -53,11 +99,19 @@ public extension AppFeature {
     @ObservableState
     struct RoomDetailScreen: Equatable {
         public var profile: UserProfile
+        /// 홈으로 pop할 때 되살릴 직전 방 목록 (profile을 맡아 두는 것과 같은 이유).
+        public var homeCards: IdentifiedArrayOf<RoomCard>
         public var roomDetail: RoomDetailFeature.State
 
-        public init(profile: UserProfile, room: Room) {
+        public init(
+            profile: UserProfile,
+            room: Room,
+            homeCards: IdentifiedArrayOf<RoomCard> = [],
+            highlightsNewestPhoto: Bool = false
+        ) {
             self.profile = profile
-            self.roomDetail = RoomDetailFeature.State(room: room)
+            self.homeCards = homeCards
+            roomDetail = RoomDetailFeature.State(room: room, highlightsNewestPhoto: highlightsNewestPhoto)
         }
     }
 }
@@ -74,12 +128,56 @@ public extension AppFeature {
     struct RoomSettingsScreen: Equatable {
         public var profile: UserProfile
         public var room: Room
+        /// 방 상세를 거쳐 홈까지 되돌아갈 때 이어 줄 직전 방 목록.
+        public var homeCards: IdentifiedArrayOf<RoomCard>
+        /// 설정 화면은 쓰지 않는다 — 커버 수정 화면의 미리보기에 넘기려고 맡아 둔다.
+        public var memberCount: Int
         public var settings: RoomSettingsFeature.State
 
-        public init(profile: UserProfile, room: Room) {
+        public init(
+            profile: UserProfile,
+            room: Room,
+            homeCards: IdentifiedArrayOf<RoomCard> = [],
+            memberCount: Int = 0
+        ) {
             self.profile = profile
             self.room = room
+            self.homeCards = homeCards
+            self.memberCount = memberCount
             self.settings = RoomSettingsFeature.State(roomID: room.id, title: room.title)
+        }
+    }
+}
+
+// MARK: - RoomCoverEditScreen
+
+public extension AppFeature {
+
+    /// 커버 수정 화면 State + 뒤로가기로 설정 화면을 다시 만들 때 돌려줄 값.
+    @ObservableState
+    struct RoomCoverEditScreen: Equatable {
+        public var profile: UserProfile
+        public var room: Room
+        public var homeCards: IdentifiedArrayOf<RoomCard>
+        public var memberCount: Int
+        public var coverEdit: RoomCoverEditFeature.State
+
+        public init(
+            profile: UserProfile,
+            room: Room,
+            homeCards: IdentifiedArrayOf<RoomCard> = [],
+            memberCount: Int
+        ) {
+            self.profile = profile
+            self.room = room
+            self.homeCards = homeCards
+            self.memberCount = memberCount
+            self.coverEdit = RoomCoverEditFeature.State(
+                roomID: room.id,
+                title: room.title,
+                memberCount: memberCount,
+                cover: room.cover
+            )
         }
     }
 }
@@ -96,11 +194,19 @@ public extension AppFeature {
     struct PhotoDetailScreen: Equatable {
         public var profile: UserProfile
         public var room: Room
+        /// 방 상세를 거쳐 홈까지 되돌아갈 때 이어 줄 직전 방 목록.
+        public var homeCards: IdentifiedArrayOf<RoomCard>
         public var photoDetail: PhotoDetailFeature.State
 
-        public init(profile: UserProfile, room: Room, initialPhotoID: String) {
+        public init(
+            profile: UserProfile,
+            room: Room,
+            initialPhotoID: String,
+            homeCards: IdentifiedArrayOf<RoomCard> = []
+        ) {
             self.profile = profile
             self.room = room
+            self.homeCards = homeCards
             self.photoDetail = PhotoDetailFeature.State(
                 roomID: room.id,
                 roomTitle: room.title,
@@ -126,11 +232,14 @@ public extension AppFeature {
     struct ChatScreen: Equatable {
         public var profile: UserProfile
         public var room: Room
+        /// 방 상세를 거쳐 홈까지 되돌아갈 때 이어 줄 직전 방 목록.
+        public var homeCards: IdentifiedArrayOf<RoomCard>
         public var chat: ChatRoomFeature.State
 
-        public init(profile: UserProfile, room: Room) {
+        public init(profile: UserProfile, room: Room, homeCards: IdentifiedArrayOf<RoomCard> = []) {
             self.profile = profile
             self.room = room
+            self.homeCards = homeCards
             self.chat = ChatRoomFeature.State(
                 roomID: room.id,
                 roomTitle: room.title,
@@ -154,11 +263,18 @@ public extension AppFeature {
     @ObservableState
     struct SettingScreen: Equatable {
         public var profile: UserProfile
+        /// 홈으로 pop할 때 되살릴 직전 방 목록.
+        public var homeCards: IdentifiedArrayOf<RoomCard>
         public var setting: SettingFeature.State
 
-        public init(profile: UserProfile, setting: SettingFeature.State = .init()) {
+        public init(
+            profile: UserProfile,
+            setting: SettingFeature.State = .init(),
+            homeCards: IdentifiedArrayOf<RoomCard> = []
+        ) {
             self.profile = profile
             self.setting = setting
+            self.homeCards = homeCards
         }
     }
 }
@@ -171,10 +287,13 @@ public extension AppFeature {
     @ObservableState
     struct ProfileEditScreen: Equatable {
         public var profile: UserProfile
+        /// 설정을 거쳐 홈까지 되돌아갈 때 이어 줄 직전 방 목록.
+        public var homeCards: IdentifiedArrayOf<RoomCard>
         public var edit: ProfileSetupFeature.State
 
-        public init(profile: UserProfile) {
+        public init(profile: UserProfile, homeCards: IdentifiedArrayOf<RoomCard> = []) {
             self.profile = profile
+            self.homeCards = homeCards
             self.edit = ProfileSetupFeature.State(
                 mode: .edit,
                 nickname: profile.nickname ?? "",
@@ -197,12 +316,20 @@ public extension AppFeature {
         public var profile: UserProfile
         /// 어디서 들어왔는지. 카메라를 닫으면 여기로 되돌린다.
         public var origin: CameraOrigin
+        /// 돌아간 화면이 홈까지 이어 줄 직전 방 목록.
+        public var homeCards: IdentifiedArrayOf<RoomCard>
         /// 카메라 화면 + 실기기 촬영 배선(`CameraSession`).
         public var live: LiveCameraFeature.State
 
-        public init(profile: UserProfile, entry: CameraEntry, origin: CameraOrigin) {
+        public init(
+            profile: UserProfile,
+            entry: CameraEntry,
+            origin: CameraOrigin,
+            homeCards: IdentifiedArrayOf<RoomCard> = []
+        ) {
             self.profile = profile
             self.origin = origin
+            self.homeCards = homeCards
             live = LiveCameraFeature.State(
                 camera: CameraFeature.State(
                     rooms: IdentifiedArray(uniqueElements: entry.rooms),
@@ -210,6 +337,16 @@ public extension AppFeature {
                     selectedRoomID: entry.roomID
                 )
             )
+        }
+
+        /// 촬영을 마친 방의 상세로 들어갈 때 쓸 `Room`.
+        /// 방 상세에서 들어왔으면 그 방을, 홈에서 들어왔으면 맡아둔 목록에서 찾는다 —
+        /// 카메라가 들고 있는 `ShootableRoom`은 상세를 그리기에 필드가 모자라다.
+        func shotRoom(id: Room.ID) -> Room? {
+            if case let .roomDetail(room) = origin, room.id == id {
+                return room
+            }
+            return homeCards[id: id]?.room
         }
     }
 
@@ -232,6 +369,7 @@ public extension AppFeature.State {
         case let .home(screen): screen.profile
         case let .roomDetail(screen): screen.profile
         case let .roomSettings(screen): screen.profile
+        case let .roomCoverEdit(screen): screen.profile
         case let .photoDetail(screen): screen.profile
         case let .chat(screen): screen.profile
         case let .setting(screen): screen.profile

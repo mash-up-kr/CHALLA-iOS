@@ -72,10 +72,13 @@ Projects/
 │  ├─ RoomCreateFeature              (모듈) 방 이름 · 색상 · 필름 장수 설정
 │  ├─ RoomJoinFeature                (모듈) 초대코드 입력 · 입장
 │  ├─ RoomInviteFeature              (모듈) 초대코드 표시 · 공유
-│  └─ RoomDetailFeature              (모듈) 방 상세 · 참여자 · 남은 장수
-│                                           ├ 인화대기/완료 = 이 화면의 "상태"  ← FilmWaiting/Completed 흡수
-│                                           ├ 결과 사진 목록 = 이 화면의 그리드   ← PhotoResult 흡수
-│                                           └ 방 설정 · 이름 수정 = 이 화면의 하위 화면 ← RoomSettingFeature 흡수 (#82)
+│  ├─ RoomDetailFeature              (모듈) 방 상세 · 참여자 · 남은 장수
+│  │                                        ├ 인화대기/완료 = 이 화면의 "상태"  ← FilmWaiting/Completed 흡수
+│  │                                        ├ 결과 사진 목록 = 이 화면의 그리드   ← PhotoResult 흡수
+│  │                                        ├ 방 설정 · 이름 수정 = 이 화면의 하위 화면 ← RoomSettingFeature 흡수 (#82)
+│  │                                        └ 커버 이미지 수정 = 방 설정의 하위 화면 (#107)
+│  └─ RoomCoverUI                    (모듈) 서버 커버(색 hex · 스티커 id)를 DS 토큰·도안으로 옮기는 매핑
+│                                          └ 홈 카드 · 커버 수정 화면이 함께 쓴다 (비-Feature 공용, ShootEntry와 같은 성격)
 │
 ├─ Camera/                           (폴더) 촬영  (Domain/Data 없음)
 │  ├─ CameraFeature                  (모듈) 셔터 · 플래시 · 전후면 · 장수 카운트
@@ -255,6 +258,9 @@ camera.capture()                   // 하드웨어 작동 · 파일 생성
    Domain에 두지 않은 이유는 방(RoomDomain)과 필터·권한(PhotoDomain)을 함께 쓰는데
    두 Domain이 서로를 모르기 때문이다 — Domain끼리 엮는 대신 그 위에 얇게 얹었다.
    **Feature 공통 로직을 여기 모으지 말 것.** 화면 하나를 띄우기 위한 준비만 담는다.
+
+   `RoomCoverUI`도 같은 이유로 뺀 모듈이다 — 홈 카드와 커버 수정 화면이 서버 커버 값을 같은 도안·색으로
+   그려야 하는데, Domain은 UI를 모르고 Feature끼리는 import 할 수 없다.
 
 4. **CameraSession — Feature를 의존하는 조립 보조 모듈**
    `AVCaptureSession`은 Equatable·Sendable이 아니라 TCA State에 담을 수 없다. 리듀서와
