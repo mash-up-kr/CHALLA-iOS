@@ -10,6 +10,7 @@ paths: Projects/**/*.swift
 
 - Feature 등 다른 모듈에서 `Color(hex:)`, `Font.custom` 원시 호출 금지 → `CHALLAColor.xxx`, `CHALLATypography.xxx` 토큰만 사용한다.
 - 원시 호출이 허용되는 유일한 위치: `Projects/UI/CHALLADesignSystem/Sources/Foundation/` 내부.
+  예외: 서버가 내려주는 색(방 커버 팔레트의 hex)은 토큰이 될 수 없어 `RoomCoverUI`에서만 원시 변환한다.
 - 색상·폰트·간격 하드코딩을 발견하면 토큰 추가를 먼저 제안한다 (토큰이 없다고 하드코딩하지 말 것).
 
 ## 디자인 시스템 모듈 순수성

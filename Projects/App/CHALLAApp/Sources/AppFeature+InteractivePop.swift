@@ -1,5 +1,9 @@
 import ComposableArchitecture
+import Foundation
+import HomeFeature
+import RoomDetailFeature
 import RoomDomain
+import SettingFeature
 
 // 엣지 스와이프 pop이 도착할 화면을 정한다.
 //
@@ -10,7 +14,7 @@ import RoomDomain
 extension AppFeature {
 
     /// 지금 화면을 한 단계 되돌린다. pop할 부모가 없는 화면에서는 아무 일도 하지 않는다.
-    func popCurrentScreen(_ state: inout State) {
+    func popCurrentScreen(_ state: inout State) -> Effect<Action> {
         switch state {
 
         case let .roomDetail(screen):
@@ -29,6 +33,19 @@ extension AppFeature {
                 room: screen.room.renamed(to: screen.settings.title),
                 homeCards: screen.homeCards
             ))
+        case let .roomCoverEdit(screen):
+            // 제스처는 뒤로가기 버튼의 저장을 건너뛴다 — 화면이 사라지면 그쪽 이펙트도 취소되므로 App이 대신 저장한다.
+            // 올리는 중이던 사진은 URL이 없어 실리지 못한다 (업로드는 화면과 함께 끝난다).
+            let edit = screen.coverEdit
+            state = .roomSettings(RoomSettingsScreen(
+                profile: screen.profile,
+                room: screen.room.withCover(edit.cover),
+                homeCards: screen.homeCards,
+                memberCount: screen.memberCount
+            ))
+            if edit.hasChanges {
+                return saveRoomCover(roomID: screen.room.id, cover: edit.cover, previous: edit.savedCover)
+            }
         case let .setting(screen):
             state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
         case let .profileEdit(screen):
@@ -37,5 +54,6 @@ extension AppFeature {
         default:
             break
         }
+        return .none
     }
 }

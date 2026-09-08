@@ -23,6 +23,7 @@ public actor InMemoryRoomRepository: RoomRepository {
     private var storedCards: [RoomCard]
     private var inviteCodes: [String: Room.ID]
     private let membersByRoom: [Room.ID: [RoomMember]]
+    private let storedCoverOptions: RoomCoverOptions
     private let latency: Duration
     private let failure: RoomError?
 
@@ -41,12 +42,14 @@ public actor InMemoryRoomRepository: RoomRepository {
         cards: [RoomCard] = [],
         inviteCodes: [String: Room.ID] = [:],
         membersByRoom: [Room.ID: [RoomMember]] = [:],
+        coverOptions: RoomCoverOptions = .preview,
         latency: Duration = .zero,
         failure: RoomError? = nil
     ) {
         storedCards = cards
         self.inviteCodes = inviteCodes
         self.membersByRoom = membersByRoom
+        storedCoverOptions = coverOptions
         self.latency = latency
         self.failure = failure
     }
@@ -153,6 +156,21 @@ public actor InMemoryRoomRepository: RoomRepository {
     // MARK: - 초대 코드
 
     /// 초대 코드 자릿수. 서버가 발급하는 코드와 같은 길이로 맞춘다.
+    public func coverOptions() async throws -> RoomCoverOptions {
+        try await waitAndCheckFailure()
+        return storedCoverOptions
+    }
+
+    public func updateCover(roomID: Room.ID, imageURL: URL?, stickerID: Int64?, colorID: Int64?) async throws {
+        try await waitAndCheckFailure()
+
+        guard let index = storedCards.firstIndex(where: { $0.id == roomID }) else {
+            throw RoomError.roomNotFound
+        }
+        let cover = try cover(imageURL: imageURL, stickerID: stickerID, colorID: colorID)
+        storedCards[index] = storedCards[index].withCover(cover)
+    }
+
     private static let invitationCodeDigits = 7
 
     /// 방 상세가 보여줄 초대 코드. 데모 시나리오에 등록된 방은 입장용 매핑(코드 → 방)을 거꾸로 찾는다.
@@ -168,6 +186,24 @@ public actor InMemoryRoomRepository: RoomRepository {
     }
 
     // MARK: - 공통 처리
+
+    /// 서버가 id를 스티커·색 정보로 되돌려 주는 일을 옵션 목록으로 흉내 낸다
+    private func cover(imageURL: URL?, stickerID: Int64?, colorID: Int64?) throws -> RoomCover {
+        guard let stickerID else {
+            return RoomCover(imageURL: imageURL)
+        }
+        guard let sticker = storedCoverOptions.stickers.first(where: { $0.id == stickerID }) else {
+            throw RoomError.unknown
+        }
+        // 색 id가 없으면 팔레트 첫 색 — 실서버가 무엇을 주는지는 미확인이라 데모가 깨지지 않을 값으로 둔다
+        guard let color = colorID.map({ id in storedCoverOptions.colors.first { $0.id == id } }) ?? storedCoverOptions.colors.first else {
+            throw RoomError.unknown
+        }
+        return RoomCover(
+            imageURL: imageURL,
+            sticker: RoomCoverSticker(id: sticker.id, imageURL: sticker.imageURL, color: color)
+        )
+    }
 
     /// 지연만큼 기다린 뒤 실패 여부를 본다. 이 메서드가 각 호출의 유일한 `await` 지점이다.
     private func waitAndCheckFailure() async throws {
@@ -207,6 +243,15 @@ private extension RoomCard {
     func renamed(to title: String) -> RoomCard {
         RoomCard(
             room: room.renamed(to: title),
+            memberCount: memberCount,
+            thumbnailURLs: thumbnailURLs,
+            photoPrintCompletionCheckedAt: photoPrintCompletionCheckedAt
+        )
+    }
+
+    func withCover(_ cover: RoomCover) -> RoomCard {
+        RoomCard(
+            room: room.withCover(cover),
             memberCount: memberCount,
             thumbnailURLs: thumbnailURLs,
             photoPrintCompletionCheckedAt: photoPrintCompletionCheckedAt

@@ -201,6 +201,11 @@ enum CompositionRoot {
         values.shouldShowInviteGuideUseCase = .live(repository: inviteGuide)
         values.markInviteGuideSeenUseCase = .live(repository: inviteGuide)
 
+        values.fetchRoomCoverOptionsUseCase = .live(repository: repository)
+        values.updateRoomCoverUseCase = .live(repository: repository)
+        // 커버 사진은 프로필과 같은 서명 URL 업로드를 거쳐 URL로 저장된다.
+        values.uploadRoomCoverImageUseCase = .live(uploader: DefaultRoomCoverImageUploader(client: client))
+
         // 방 상세·사진 상세가 쓰는 fetchRoomPhotosUseCase는 Photo aggregate라 registerPhoto에서 등록한다.
     }
 

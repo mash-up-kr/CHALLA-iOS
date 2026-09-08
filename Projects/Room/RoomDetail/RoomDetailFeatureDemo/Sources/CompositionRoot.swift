@@ -69,6 +69,32 @@ enum CompositionRoot {
         values.updateRoomTitleUseCase = .live(repository: repository)
     }
 
+    /// `coverImageEncoder`는 등록하지 않는다 — liveValue라야 실제 갤러리에서 고른 사진이 카드에 보인다.
+    static func registerCoverEditDependencies(
+        for state: DemoScreen.CoverEditState,
+        room: Room,
+        into values: inout DependencyValues
+    ) {
+        let failure: RoomError? = state == .saveError ? .unknown : nil
+        let repository = InMemoryRoomRepository(
+            cards: [
+                RoomCard(
+                    room: room.withCover(DemoSamples.cover(for: state)),
+                    memberCount: DemoSamples.coverEditMemberCount,
+                    thumbnailURLs: []
+                )
+            ],
+            coverOptions: .preview,
+            failure: failure
+        )
+
+        // 저장 실패 상태에서도 색·스티커는 골라야 하므로 옵션은 실패를 심지 않은 저장소가 준다
+        values.fetchRoomCoverOptionsUseCase = .live(repository: InMemoryRoomRepository(coverOptions: .preview))
+        values.updateRoomCoverUseCase = .live(repository: repository)
+        values.uploadRoomCoverImageUseCase = .live(uploader: InMemoryRoomCoverImageUploader(failure: failure))
+        values.photoLibraryPermission.request = { _ in state == .permissionDenied ? .denied : .authorized }
+    }
+
     /// 사진 찍기 버튼이 부르는 촬영 준비. 데모앱에는 카메라 화면이 없어 진입 요청(delegate)까지가 끝이다 —
     /// 버튼이 로딩으로 바뀌었다 풀리는 것까지만 확인할 수 있다.
     /// 권한은 값으로 갈아끼워 데모에서 실제 시스템 팝업이 뜨지 않게 한다.

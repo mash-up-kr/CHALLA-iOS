@@ -12,7 +12,8 @@ struct RoomCardMappingTests {
         photoPrintCompletedAt: String? = nil,
         photoPrintCompletionCheckedAt: String? = nil,
         createdAt: String = "2026-08-01T10:00:00",
-        expiresAt: String = "2026-08-31T10:00:00"
+        expiresAt: String = "2026-08-31T10:00:00",
+        cover: RoomCoverDTO? = nil
     ) -> RoomListResponseDTO.RoomDTO {
         RoomListResponseDTO.RoomDTO(
             id: 1,
@@ -25,7 +26,8 @@ struct RoomCardMappingTests {
             photoPrintCompletedAt: photoPrintCompletedAt,
             photoPrintCompletionCheckedAt: photoPrintCompletionCheckedAt,
             createdAt: createdAt,
-            expiresAt: expiresAt
+            expiresAt: expiresAt,
+            cover: cover
         )
     }
 
@@ -85,6 +87,25 @@ struct RoomCardMappingTests {
         let card = try Self.dto(status: .printCompleted, photoPrintCompletedAt: "not-a-date").toDomain()
 
         #expect(card.room.photoPrintCompletedAt == nil)
+    }
+
+    @Test("커버가 없거나 null이면 빈 커버로 접는다")
+    func mapsMissingCoverToNone() throws {
+        #expect(try Self.dto(cover: nil).toDomain().room.cover == .none)
+    }
+
+    @Test("커버는 사진 URL과 스티커로 옮겨진다")
+    func mapsCover() throws {
+        let cover = RoomCoverDTO(
+            coverImageUrl: "https://img.example.com/cover.jpg",
+            sticker: StickerDTO(id: 3, imageUrl: "https://img.example.com/s.png", color: ColorDTO(id: 2, name: "라즈베리", hex: "#FF1887"))
+        )
+
+        let card = try Self.dto(cover: cover).toDomain()
+
+        #expect(card.room.cover.imageURL?.absoluteString == "https://img.example.com/cover.jpg")
+        #expect(card.room.cover.sticker?.id == 3)
+        #expect(card.room.cover.sticker?.color == RoomCoverColor(id: 2, name: "라즈베리", hex: "#FF1887"))
     }
 
     @Test("깨진 썸네일 URL은 걸러지고 나머지는 남는다")

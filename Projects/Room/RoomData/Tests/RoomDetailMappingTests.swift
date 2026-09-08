@@ -7,7 +7,8 @@ import Testing
 struct RoomDetailMappingTests {
 
     private static func dto(
-        createdAt: String = "2026-08-01T10:00:00"
+        createdAt: String = "2026-08-01T10:00:00",
+        cover: RoomCoverDTO? = nil
     ) -> RoomDetailResponseDTO.Payload {
         RoomDetailResponseDTO.Payload(
             id: 7,
@@ -18,7 +19,8 @@ struct RoomDetailMappingTests {
             invitationCode: "1928121",
             photoPrintCompletedAt: nil,
             createdAt: createdAt,
-            expiresAt: "2026-08-31T10:00:00"
+            expiresAt: "2026-08-31T10:00:00",
+            cover: cover
         )
     }
 
@@ -28,6 +30,18 @@ struct RoomDetailMappingTests {
 
         #expect(room.id == 7)
         #expect(code == "1928121")
+    }
+
+    @Test("커버 유무가 방에 반영된다 — 목록 매핑과 같은 정책")
+    func mapsCover() throws {
+        let sticker = StickerDTO(id: 1, imageUrl: "https://img.example.com/s.png", color: ColorDTO(id: 1, name: "레몬에이드", hex: "#D5F700"))
+
+        let (withCover, _) = try Self.dto(cover: RoomCoverDTO(coverImageUrl: nil, sticker: sticker)).toDomain()
+        let (withoutCover, _) = try Self.dto(cover: nil).toDomain()
+
+        #expect(withCover.cover.imageURL == nil)
+        #expect(withCover.cover.sticker?.id == 1)
+        #expect(withoutCover.cover == .none)
     }
 
     @Test("필수 날짜가 계약과 다르면 .unknown을 던진다 — 목록 매핑과 같은 정책")

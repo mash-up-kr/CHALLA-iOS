@@ -22,7 +22,8 @@ extension RoomListResponseDTO.RoomDTO {
                 createdAt: createdAt,
                 expiresAt: expiresAt,
                 // 촬영 중에는 null이 정상 (인화 대기부터 완료 예정 시각). 파싱 실패 시 이 값만 nil로 두고 방은 유지한다.
-                photoPrintCompletedAt: photoPrintCompletedAt.flatMap(ServerDate.parse)
+                photoPrintCompletedAt: photoPrintCompletedAt.flatMap(ServerDate.parse),
+                cover: cover?.toDomain() ?? .none
             ),
             memberCount: memberCount,
             thumbnailURLs: thumbnailImageUrls.compactMap(URL.init(string:)),

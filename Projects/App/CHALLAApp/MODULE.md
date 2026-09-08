@@ -25,12 +25,14 @@
 | `chat` | `closeRequested` → `roomDetail`(새 State) |
 | `camera` | `closeRequested` → 들어온 화면(`home`/`roomDetail`)을 새로 만들어 복귀 |
 | `photoDetail` | `closeRequested` → `roomDetail`(새 State — 돌아가면 사진·리액션을 새로 조회) |
+| `roomSettings` | `closeTapped` → `roomDetail`(설정의 최신 제목으로 `Room`을 다시 조립) / `coverEditRequested` → `roomCoverEdit` |
+| `roomCoverEdit` | `closeTapped` → `roomSettings`(새 State). 커버는 뒤로가기 버튼이 저장 시점이라 delegate는 저장이 끝난 뒤 온다. 저장된 커버(`savedCover`)를 `Room.withCover`로 반영해 넘긴다 — 상세·홈이 재조회 전에도 새 커버를 그린다. **엣지 스와이프 pop은 그 저장을 건너뛰므로 App이 대신 저장한다** — 화면의 `cover`를 방에 낙관 반영하고 `UpdateRoomCoverUseCase`를 부르며, 실패하면 `roomCoverSaveFailed`로 저장 전 커버로 되돌린다(사용자는 이미 다른 화면이라 알리지 않는다). 올리는 중이던 사진은 화면과 함께 끝나 실리지 않는다 |
 | (로그인 후 모든 화면) | 초대 링크 수신 → `home`(새 State) 경유 입장 → 성공 시 `roomDetail` |
 | `setting` | `backRequested` → `home` / `editProfileRequested` → `profileEdit` / `signedOut`·`accountDeleted` → `login` |
 | `profileEdit` | `editCompleted` → `setting`(새 State) / `cancelled` → `setting` |
 | `forceUpdate` | **나가는 전이 없음** — 앱 업데이트만 가능 |
 
-`roomDetail`·`photoDetail`·`setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을
+`roomDetail`·`roomSettings`·`roomCoverEdit`·`photoDetail`·`setting`·`profileEdit` 케이스는 `UserProfile`을 함께 들고 있다 — 홈이 닉네임을
 표시하는데 뒤로 나올 때 재조회 없이 바로 그려야 한다. `photoDetail`은 복귀할 방(`Room`)도 함께 맡아 둔다.
 
 편집 저장 후에는 `SettingFeature.State`를 **새로 만든다.** `onAppear`가 `profile == nil`일 때만

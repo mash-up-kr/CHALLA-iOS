@@ -31,4 +31,22 @@ enum DemoStore {
             CompositionRoot.registerSettingsDependencies(room: room, into: &$0)
         }
     }
+
+    static func makeCoverEdit(for state: DemoScreen.CoverEditState) -> StoreOf<RoomCoverEditFeature> {
+        let room = DemoSamples.coverEditRoom
+        var initial = RoomCoverEditFeature.State(
+            roomID: room.id,
+            title: room.title,
+            memberCount: DemoSamples.coverEditMemberCount,
+            cover: DemoSamples.cover(for: state)
+        )
+        if state == .stickerImage {
+            initial.localImageData = DemoSamples.coverPhotoData // 서버가 없어 URL 사진은 못 그린다
+        }
+        return Store(initialState: initial) {
+            RoomCoverEditFeature()._printChanges()
+        } withDependencies: {
+            CompositionRoot.registerCoverEditDependencies(for: state, room: room, into: &$0)
+        }
+    }
 }

@@ -30,12 +30,14 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 
 ### Entities (`Sources/Entities/`)
 
-- `struct Room` — 방 그 자체 (목록·상세 API의 교집합 8필드). `id: Int64`(서버 발급) · `title` ·
+- `struct Room` — 방 그 자체 (목록·상세 API의 교집합 9필드). `id: Int64`(서버 발급) · `title` ·
   `status` · `totalPhotoCount: Int` · `remainedPhotoCount` · `createdAt` · `expiresAt` ·
-  `photoPrintCompletedAt?`(인화 완료 예정 시각 = 촬영 완료 +24h — 촬영 중에만 nil, 카운트다운 기준값). 전 필드 `let`이라 갱신은 새 값을 만든다
+  `photoPrintCompletedAt?`(인화 완료 예정 시각 = 촬영 완료 +24h — 촬영 중에만 nil, 카운트다운 기준값) ·
+  `cover: RoomCover`(init 마지막 인자, 기본 `.none`). 전 필드 `let`이라 갱신은 새 값을 만든다
   - `shotPhotoCount` — 찍은 장수 계산 프로퍼티 (`total − remained`, 서버는 남은 장수를 준다)
-  - `renamed(to:)` — 제목만 바꾼 사본. 이름 변경이 서버에 저장된 직후, 재조회가 오기 전
+  - `renamed(to:)` — 제목만 바꾼 사본(커버 유지). 이름 변경이 서버에 저장된 직후, 재조회가 오기 전
     구간에 화면이 새 제목을 먼저 그리는 용도 (App의 화면 조립·InMemory 저장소가 쓴다)
+  - `withCover(_:)` — 커버만 바꾼 사본. 커버 수정 화면에서 돌아올 때 App이 상세의 `Room`을 갱신하는 용도
   - `enum Room.Status` — `.shooting` / `.printWaiting` / `.printed`
   - `Room.previewShooting` · `previewPrintWaiting` · `previewPrinted` · `previewRooms` —
     `#Preview`·테스트용 상수. id는 음수(-1~-3, 서버 양수 id와 불겹침 표식), 날짜는 고정값
@@ -47,6 +49,14 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
 - `enum RoomShotCount: Int` — `.twentyFour`(24) / `.fortyEight`(48) / `.seventyTwo`(72), `.default`는 24
   - **방을 만들 때 고르는 입력값의 규칙**이라 `RoomDraft` 전용이다. 이미 존재하는 방의
     `totalPhotoCount`는 서버가 정하는 자유값이라 enum이 아니다
+- `struct RoomCover` — 방 커버 (서버 `cover` 객체). `imageURL: URL?` · `sticker: RoomCoverSticker?`
+  - `none` — 꾸민 적 없는 방의 커버. `isEmpty` — 사진·스티커 둘 다 없음
+  - 목록·상세 API가 둘 다 주는 값이라 `Room`에 들어 있다 (홈 카드와 상세가 같은 커버를 그린다)
+  - `.none`은 `RoomCover?`와 비교하면 `Optional.none`으로 읽힌다 — 옵셔널 체인 뒤에서는 `RoomCover.none`으로 쓴다
+- `struct RoomCoverSticker` — 서버 스티커 한 장. `id: Int64` · `imageURL: URL?` · `color: RoomCoverColor`(칠해진 색)
+  - 그림은 서버 `imageURL`(SVG)을 `RoomCoverUI`가 도형으로 읽어 그린다 — 앱은 도안을 갖지 않는다
+- `struct RoomCoverColor` — 서버 색 한 칸. `id: Int64` · `name` · `hex`(서버는 `#FF1887`, preview는 `FF1887` —
+  파싱은 `RoomCoverUI`가 `#` 유무를 모두 받는다)
 
 ### Errors (`Sources/Errors/`)
 
@@ -66,6 +76,9 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   - 상세는 API 하나당 메서드 하나로 나뉜다 — 상세 API 하나로는 `RoomDetail`을 완성할 수 없어
     (참여자 없음) 반쪽짜리를 돌려주지 않기 위한 분리. 합치기는 UseCase 몫
   - 확인 기록·이름 변경은 반환이 없다 — 반영된 값은 다음 목록 조회가 내려준다
+  - `coverOptions() -> RoomCoverOptions` — 고를 수 있는 스티커·색 목록 (`GET /rooms/cover-options`)
+  - `updateCover(roomID:imageURL:stickerID:colorID:)` — 커버 **전체 교체** (`PUT /rooms/{id}/cover`).
+    세 값을 항상 싣고 없애는 값은 nil로 넘긴다 — 구현체는 nil도 `null` 키로 보내야 한다
 - `protocol InviteGuideRepository` — `hasSeenInviteGuide()` · `markInviteGuideSeen()`.
   방 상세 첫 진입 안내를 봤는지의 기록. 기기에만 남고 서버에 올리지 않는다 —
   기기를 바꾸면 안내가 한 번 더 뜬다
@@ -74,6 +87,9 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   - 인화 완료 안내(방 상세의 필름 화면)를 방마다 한 번만 띄우기 위한 노출 기록
   - 구현체 계약: 기록은 방 단위이고 실패 개념이 없다. 서버가 아니라 기기에 남긴다 —
     안내 하나 때문에 서버 왕복을 기다리지 않기 위해서다
+- `protocol RoomCoverImageUploader` — `upload(_ imageData: Data) -> URL`. 커버 사진을 스토리지에 올리고
+  공개 URL을 돌려준다 (프로필 사진과 같은 3단계 업로드). 실패는 `RoomError`
+  - `RoomRepository`와 분리한 이유: 방 API가 아니라 업로드 API라 구현체가 다르다 (`UserDomain.ProfileImageUploader`와 같은 구조)
 
 ### Models (`Sources/Models/`)
 
@@ -90,6 +106,11 @@ import해야 해 규칙 2가 깨진다. 대신 `.live(repository:)` 팩토리가
   (`invitationCode` · `members`). `RoomCard`와 같은 구조로 `Room` 코어를 감싼다. `preview` 상수 포함
 - `struct RoomDraft` — `name` · `shotCount`. 방을 만들기 전의 입력값이라 `Room`으로 표현할 수 없다
   (id·상태·인원수는 서버가 채운다)
+- `struct RoomCoverOptions` — 커버 수정 화면의 선택지. `stickers: [RoomCoverStickerOption]`(id·그림 URL — 색은 없다) ·
+  `colors: [RoomCoverColor]`. `empty` · `preview`(id 1…7, 레몬에이드·라즈베리·오렌지·라임·사이다·블루베리·아사이볼)
+    - 그림은 선택지의 `imageURL`(서버 SVG)이 정한다. 이 모듈은 주소만 들고 있고 그리는 일은 `RoomCoverUI`가 한다
+- `struct RoomCoverDraft` — `updateCover` 본문의 재료. `imageURL: URL?`(업로드를 마친 URL) · `stickerID: Int64?` ·
+  `colorID: Int64?`. 업로드는 `UploadRoomCoverImageUseCase`가 따로 한다
 - `struct RoomBoard` — 카드 배열 하나를 `active`(촬영 중·인화 대기·미확인 인화 완료) /
   `printed`(확인을 마친 인화 완료) 두 배열로 가른 결과. `isEmpty`
   - 인화 완료 방은 확인 여부에 따라 한쪽에만 놓인다 — 겹치지 않는다
@@ -144,8 +165,15 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
   아직 안 봤는지 (`(Room.ID) -> Bool`). 던지지 않으며 확인이 안 되면 `false`(안 띄움)
 - `MarkPrintNoticeSeenUseCase` (`\.markPrintNoticeSeenUseCase`) — 이 방의 안내를 본 것으로 기록
   (`(Room.ID) -> Void`)
+- `FetchRoomCoverOptionsUseCase` (`\.fetchRoomCoverOptionsUseCase`) — 스티커·색 선택지 조회 (`() -> RoomCoverOptions`).
+  `previewValue`는 `.preview`
+- `UpdateRoomCoverUseCase` (`\.updateRoomCoverUseCase`) — 커버 저장 (`(roomID, RoomCoverDraft)`). 전체 교체라
+  세 값을 모두 싣는다. 스티커 없이 색만 온 경우 `colorID`는 nil — 색은 스티커에 칠하는 값이라 서버에 남을 자리가 없다
+- `UploadRoomCoverImageUseCase` (`\.uploadRoomCoverImageUseCase`) — 커버 사진 업로드 (`(Data) -> URL`),
+  `live(uploader:)`. 저장과 분리한 이유: 업로드는 수 초가 걸려, 그 사이 고른 스티커·색이 사진 저장에 덮이지 않으려면
+  URL을 받은 뒤 그 시점의 커버로 저장해야 한다
 
-전부 `static func live(repository:)` · `testValue` · `previewValue`를 갖는다.
+전부 `testValue` · `previewValue`를 갖고, `live`는 업로드만 `(uploader:)`, 나머지는 `(repository:)`다.
 
 ## 의존성
 
@@ -160,8 +188,8 @@ UseCase가 `async`라 타이핑마다 부를 수 없어 규칙만 따로 뗀 것
 mise exec -- tuist test RoomDomain
 ```
 
-Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockRoomRepository`로
-인터페이스만 갈아끼워 검증한다.
+Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/Support/MockRoomRepository` ·
+`MockRoomCoverImageUploader`로 인터페이스만 갈아끼워 검증한다.
 
 - `RoomNameRuleTests` — 20자 경계, 한글·조합 이모지 한 글자 계산, `normalize`가 앞뒤만 떼는지,
   공백만 입력한 이름
@@ -178,6 +206,10 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
 - `InviteGuideUseCasesLiveTests` — 기록이 없을 때만 띄우라고 답하는지, 기록이 이후 조회에 반영되는지
 - `InviteLinkTests` — 링크 모양·라운드트립, 우리 링크가 아닌 URL 거부(https 5종·커스텀 스킴 4종), 끝 슬래시·대문자·쿼리 허용
 - `PrintNoticeUseCasesLiveTests` — 저장소 답을 뒤집어 전달하는지, 기록이 물어본 방에만 남는지
+- `RoomCoverTests` — `none`·`isEmpty`, `Room.withCover`가 커버만 바꾸고 `renamed`가 커버를 유지하는지,
+  `preview`의 스티커–색 짝
+- `RoomCoverUseCaseLiveTests` — 옵션 조회 위임·오류 전파, 커버 저장의 draft 전달·스티커 없을 때 colorID nil·오류 전파,
+  업로드 URL 반환·오류 전파
 
 ## 방 참여 실시간 알림 (추가)
 
@@ -188,4 +220,3 @@ Swift Testing 기반 순수 유닛테스트(시뮬레이터 불필요). `Tests/S
   (방마다 구독을 거는 것은 Data 레이어 사정이라 이 계약에는 드러나지 않는다).
 - `ObserveRoomMemberJoinedUseCase`
 - `enum RoomJoinAnnouncement` — 참여 안내 문구 규칙 (닉네임 8자 말줄임, 주격 조사 '이/가')
-

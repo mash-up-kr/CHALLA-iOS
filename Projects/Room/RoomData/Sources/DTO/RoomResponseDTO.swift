@@ -31,6 +31,7 @@ struct RoomListResponseDTO: Decodable, Sendable {
         let photoPrintCompletionCheckedAt: String?
         let createdAt: String
         let expiresAt: String
+        let cover: RoomCoverDTO? // 스웨거는 필수지만 null·누락도 빈 커버로 접는다
     }
 }
 
@@ -49,6 +50,7 @@ struct RoomDetailResponseDTO: Decodable, Sendable {
         let photoPrintCompletedAt: String?
         let createdAt: String
         let expiresAt: String
+        let cover: RoomCoverDTO?
     }
 }
 

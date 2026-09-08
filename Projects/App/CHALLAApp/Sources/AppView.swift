@@ -176,6 +176,12 @@ public struct AppView: View {
                         .screenLayer(.roomSettings, coordinator: transitionCoordinator)
                 }
 
+            case .roomCoverEdit:
+                if let coverStore = store.scope(state: \.roomCoverEdit?.coverEdit, action: \.roomCoverEdit) {
+                    RoomCoverEditView(store: coverStore)
+                        .screenLayer(.roomCoverEdit, coordinator: transitionCoordinator)
+                }
+
             case .photoDetail:
                 if let photoDetailStore = store.scope(state: \.photoDetail?.photoDetail, action: \.photoDetail) {
                     PhotoDetailView(store: photoDetailStore)

@@ -19,7 +19,8 @@ extension RoomDetailResponseDTO.Payload {
             remainedPhotoCount: remainedPhotoCount,
             createdAt: createdAt,
             expiresAt: expiresAt,
-            photoPrintCompletedAt: photoPrintCompletedAt.flatMap(ServerDate.parse)
+            photoPrintCompletedAt: photoPrintCompletedAt.flatMap(ServerDate.parse),
+            cover: cover?.toDomain() ?? .none
         )
         return (room: room, invitationCode: invitationCode)
     }

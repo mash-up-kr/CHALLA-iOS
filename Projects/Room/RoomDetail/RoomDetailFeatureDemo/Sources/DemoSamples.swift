@@ -59,6 +59,39 @@ enum DemoSamples {
     }
 
     /// 상태별로 인화된 사진 장수. 그리드는 이 수만큼 채우고 나머지는 빈 슬롯으로 둔다.
+    static let coverEditMemberCount = 12
+
+    static let coverEditRoom = Room(
+        id: -25,
+        title: "친구들과 유럽 여행",
+        status: .shooting,
+        totalPhotoCount: 24,
+        remainedPhotoCount: 24,
+        createdAt: createdAt,
+        expiresAt: expiresAt
+    )
+
+    /// 진입 시 저장돼 있는 커버.
+    /// 시안 순서대로 첫 스티커(scatter)를 쓴다. 색은 스티커만이면 레몬에이드, 사진과 함께면 라임.
+    static func cover(for state: DemoScreen.CoverEditState) -> RoomCover {
+        let options = RoomCoverOptions.preview
+        switch state {
+        case .empty, .permissionDenied, .saveError:
+            return .none
+        case .sticker:
+            return RoomCover(sticker: options.stickers[0].sticker(color: options.colors[0]))
+        case .stickerImage:
+            return RoomCover(sticker: options.stickers[0].sticker(color: options.colors[3]))
+        }
+    }
+
+    static var coverPhotoData: Data? {
+        let data = Bundle.main.url(forResource: "DemoCoverPhoto", withExtension: "jpg")
+            .flatMap { try? Data(contentsOf: $0) }
+        assert(data != nil, "DemoCoverPhoto.jpg 누락")
+        return data
+    }
+
     static func photoCount(for state: DemoScreen.DetailState) -> Int {
         switch state {
         case .shooting, .invite, .inviteGuide, .error: return 0

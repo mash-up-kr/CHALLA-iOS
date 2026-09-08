@@ -12,6 +12,7 @@ public extension AppTheme {
         case .lemonade: CHALLAColor.Primary.yellow
         case .raspberry: CHALLAColor.Primary.pink
         case .orange: CHALLAColor.Primary.orange
+        case .lime: CHALLAColor.Primary.green
         case .cider: CHALLAColor.Primary.sky
         case .blueberry: CHALLAColor.Primary.blue
         case .acaiBowl: CHALLAColor.Primary.purple

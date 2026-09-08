@@ -69,7 +69,7 @@ final class ScreenTransitionCoordinator {
         switch id {
         case .roomDetail, .setting: return 1
         case .photoDetail, .chat, .profileEdit, .roomSettings: return 2
-        case .camera: return 3
+        case .roomCoverEdit, .camera: return 3
         default: return 0
         }
     }
@@ -79,6 +79,7 @@ final class ScreenTransitionCoordinator {
         case .roomDetail, .setting: return .home
         case .photoDetail, .chat, .roomSettings: return .roomDetail
         case .profileEdit: return .setting
+        case .roomCoverEdit: return .roomSettings
         default: return nil
         }
     }
@@ -86,7 +87,7 @@ final class ScreenTransitionCoordinator {
     /// pop으로 이 화면이 드러날 수 있어 스냅샷을 남겨둘 화면인지.
     static func isPopParent(_ id: AppFeature.State.ScreenID) -> Bool {
         switch id {
-        case .home, .roomDetail, .setting: return true
+        case .home, .roomDetail, .setting, .roomSettings: return true
         default: return false
         }
     }
@@ -141,8 +142,8 @@ final class ScreenTransitionCoordinator {
         var statusCover: Double = 0
     }
 
-    /// 화면 관계 분류. 네비게이션 트리는 홈(0) → 방 상세·설정(1) → 사진 상세·채팅·프로필 편집(2),
-    /// 카메라는 어디서 열려도 모달이다.
+    /// 화면 관계 분류. 네비게이션 트리는 홈(0) → 방 상세·설정(1) → 사진 상세·채팅·프로필 편집·방 설정(2)
+    /// → 커버 수정(3), 카메라는 어디서 열려도 모달이다.
     private static func classify(
         from: AppFeature.State.ScreenID,
         to: AppFeature.State.ScreenID
@@ -170,6 +171,7 @@ final class ScreenTransitionCoordinator {
         case .home: return 0
         case .roomDetail, .setting: return 1
         case .photoDetail, .chat, .profileEdit, .roomSettings: return 2
+        case .roomCoverEdit: return 3
         default: return nil
         }
     }
