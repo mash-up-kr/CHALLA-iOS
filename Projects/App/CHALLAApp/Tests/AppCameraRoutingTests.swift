@@ -91,4 +91,53 @@ struct AppCameraRoutingTests {
             $0 = .home(AppFeature.HomeScreen(profile: CameraFixture.profile))
         }
     }
+
+    /// 촬영을 마치면 닫기와 달리 찍은 방의 상세로 들어간다 — 방금 넣은 사진을 강조한 채로.
+    @Test("촬영이 끝나면 찍은 방의 상세로 넘어가고 방금 올린 사진을 강조한다")
+    func movesToRoomDetailAfterCapture() async {
+        let store = Self.store(
+            initialState: .camera(
+                AppFeature.CameraScreen(
+                    profile: CameraFixture.profile,
+                    entry: CameraFixture.cameraEntry,
+                    origin: .roomDetail(CameraFixture.card.room)
+                )
+            )
+        )
+
+        await store.send(.camera(.camera(.delegate(.captureFinished(roomID: CameraFixture.card.id))))) {
+            $0 = .roomDetail(
+                AppFeature.RoomDetailScreen(
+                    profile: CameraFixture.profile,
+                    room: CameraFixture.card.room,
+                    highlightsNewestPhoto: true
+                )
+            )
+        }
+    }
+
+    @Test("홈에서 들어갔어도 촬영이 끝나면 맡아둔 목록에서 방을 찾아 상세로 넘어간다")
+    func movesToRoomDetailAfterCaptureFromHome() async {
+        let store = Self.store(
+            initialState: .camera(
+                AppFeature.CameraScreen(
+                    profile: CameraFixture.profile,
+                    entry: CameraFixture.cameraEntry,
+                    origin: .home,
+                    homeCards: [CameraFixture.card]
+                )
+            )
+        )
+
+        await store.send(.camera(.camera(.delegate(.captureFinished(roomID: CameraFixture.card.id))))) {
+            $0 = .roomDetail(
+                AppFeature.RoomDetailScreen(
+                    profile: CameraFixture.profile,
+                    room: CameraFixture.card.room,
+                    homeCards: [CameraFixture.card],
+                    highlightsNewestPhoto: true
+                )
+            )
+        }
+    }
 }

@@ -16,6 +16,8 @@ public struct RoomDetailView: View {
 
     @Bindable public var store: StoreOf<RoomDetailFeature>
 
+    @Environment(\.challaTheme) private var theme
+
     @State private var bottomActionsHeight: CGFloat = 0
 
     public init(store: StoreOf<RoomDetailFeature>) {
@@ -128,9 +130,21 @@ public struct RoomDetailView: View {
                 }
             }
             .buttonStyle(.plain)
+            .overlay { newestPhotoHighlight(isOn: photo.id == store.highlightedPhotoID) }
         } else {
             CHALLAFilmCard(variant: .beforeCapture, slotNumber: number)
         }
+    }
+
+    /// 방금 촬영해 올린 사진의 테두리 강조 (시안 4). 켜질 때 부풀었다가 제자리로 오고,
+    /// 1초 뒤 리듀서가 끄면 그대로 옅어져 사라진다.
+    private func newestPhotoHighlight(isOn: Bool) -> some View {
+        RoundedRectangle(cornerRadius: CHALLARadius.medium)
+            .strokeBorder(theme.accent, lineWidth: RoomDetailMetric.highlightBorderWidth)
+            .opacity(isOn ? 1 : 0)
+            .scaleEffect(isOn ? 1 : RoomDetailMetric.highlightAppearScale)
+            .allowsHitTesting(false)
+            .animation(.smooth(duration: 0.35), value: isOn)
     }
 
     /// 사진을 받아오는 동안의 자리. 점선(촬영 전)을 쓰지 않는 이유는 찍힌 자리인데
@@ -351,6 +365,9 @@ private enum RoomDetailMetric {
     static let bottomToastSpacing: CGFloat = 12
     /// 채팅 버튼과 사진 찍기 버튼 사이 (시안 8).
     static let actionSpacing: CGFloat = 8
+    /// 방금 올린 사진의 강조 테두리 두께 (시안 4 육안 근사값 — 디자이너 검수로 확정한다).
+    static let highlightBorderWidth: CGFloat = 2
+    static let highlightAppearScale: CGFloat = 1.06
     /// 버튼 위 여백 (시안 8).
     static let actionTopPadding: CGFloat = 8
     /// 카운트다운 바 높이 — 하단 버튼(.large 54)과 나란히 놓여 같은 높이를 쓴다.

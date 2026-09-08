@@ -3,29 +3,22 @@ import ComposableArchitecture
 import PhotoDomain
 import RoomDomain
 import SwiftUI
+import UIKit
 
-/// 카메라 화면
+/// 카메라 화면.
 ///
-/// 뷰파인더 → 조작 3버튼 → 필터 띠 순의 상단 묶음과, 방 버튼 + 남은 장수의 하단 묶음을 위아래로 벌려 놓는다.
-/// 뷰는 상태 렌더링과 `send(...)` 전달만 한다 — 배율 계산·촬영 차단·토스트 수명은 전부 리듀서 책임이다.
-///
-/// 프리뷰 화면은 `preview` 슬롯으로 주입한다 — 조립 지점이 실기기 프리뷰를 넘기고,
-/// 넘기지 않으면 기본값인 `CameraPreviewPlaceholder`가 들어간다.
+/// 셔터를 누르면 뷰파인더만 남기고 나머지가 사라지면서 뷰파인더가 화면 가운데로 내려간다 (시안 2).
+/// 업로드가 끝나 방 상세로 넘어갈 때까지 그 상태가 유지된다.
 @ViewAction(for: CameraFeature.self)
 public struct CameraView<Preview: View>: View {
 
     public let store: StoreOf<CameraFeature>
     private let preview: () -> Preview
 
-    /// 셔터 피드백(뷰파인더 블랙아웃 · 셔터 버튼 축소) 트리거. 리듀서 상태로 두기엔
-    /// 화면 연출일 뿐이라 뷰 로컬 상태로만 관리한다.
-    @State private var isShutterFeedbackActive = false
+    @State private var isShutterPressed = false
 
-    /// 닫기 스와이프를 손가락만큼 따라가는 오프셋. 놓으면 0으로 돌아가거나 화면이 닫힌다.
-    @State private var dismissDragHeight: CGFloat = 0
-
-    /// 핀치 줌이 진행 중인지. 두 손가락이 세로로 벌어지는 것을 닫기 스와이프로 오인하지 않게 막는다.
-    @State private var isMagnifying = false
+    /// 촬영 연출 동안 뷰파인더에 고정할 촬영본. 리듀서가 든 JPEG을 한 번만 이미지로 푼다.
+    @State private var capturedPhoto: Image?
 
     public init(store: StoreOf<CameraFeature>, @ViewBuilder preview: @escaping () -> Preview) {
         self.store = store
@@ -34,54 +27,26 @@ public struct CameraView<Preview: View>: View {
 
     public var body: some View {
         content
-            .offset(y: dismissDragHeight)
-            // 뷰파인더의 핀치 줌과 같은 자리에서 시작되므로 서로 가로채지 않게 병행 인식으로 붙인다.
-            .simultaneousGesture(dismissGesture)
-            // 스와이프가 유일한 닫기 수단이라 VoiceOver의 escape 제스처에도 같은 동작을 연다.
-            .accessibilityAction(.escape) { send(.dismissSwiped) }
             .task { await send(.task).finish() }
+            // 촬영본은 한 장뿐이라 있고 없음만 보면 된다 — Data 자체를 id로 두면 매 프레임 통째로 비교한다.
+            .task(id: store.capture?.photoData != nil) { loadCapturedPhoto() }
     }
 
-    /// 위·아래 어느 쪽으로든 충분히 쓸어내리면 화면을 닫는다.
-    private var dismissGesture: some Gesture {
-        DragGesture(minimumDistance: CameraViewMetric.dismissDragMinimum)
-            .onChanged { value in
-                guard canDismiss(by: value) else {
-                    dismissDragHeight = 0 // 닫기가 아닌 것으로 판명되면 따라 움직이던 화면을 되돌린다
-                    return
-                }
-                dismissDragHeight = value.translation.height
-            }
-            .onEnded { value in
-                defer { withAnimation(.snappy) { dismissDragHeight = 0 } }
-                guard canDismiss(by: value) else { return }
-                if abs(value.translation.height) > CameraViewMetric.dismissDragThreshold {
-                    send(.dismissSwiped)
-                }
-            }
-    }
-
-    /// 닫기로 볼 수 있는 끌기인지. 같은 자리에서 시작되는 다른 동작을 걸러낸다 —
-    /// 핀치 줌(두 손가락이 세로로 벌어져도 닫히면 안 된다) · 가로 끌기(필터 띠 스크롤) ·
-    /// 방 선택 드로어를 끌어내릴 때 · 안내 스낵바가 조작을 막고 있을 때.
-    private func canDismiss(by value: DragGesture.Value) -> Bool {
-        !isMagnifying
-            && !store.isRoomSelectionPresented
-            && !store.isCoachMarkPresented
-            && abs(value.translation.height) > abs(value.translation.width)
+    private func loadCapturedPhoto() {
+        guard let data = store.capture?.photoData else {
+            capturedPhoto = nil
+            return
+        }
+        capturedPhoto = UIImage(data: data).map(Image.init(uiImage:))
     }
 
     private var content: some View {
         GeometryReader { proxy in
             ZStack {
                 VStack(spacing: 0) {
-                    topSection
-                    Color.clear
-                        .frame(height: CameraViewMetric.middleGap(
-                            availableHeight: proxy.size.height,
-                            width: proxy.size.width
-                        ))
-                    bottomSection
+                    topSection(width: proxy.size.width, height: proxy.size.height)
+                    Spacer(minLength: 0)
+                    closeButton
                 }
 
                 toast
@@ -90,73 +55,66 @@ public struct CameraView<Preview: View>: View {
                 coachMarkSnackBar
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
+            .animation(CameraViewMetric.captureAnimation, value: store.isCapturing)
         }
-        // ZStack 안에 넣으면(형제로 두면) 다른 형제들의 상단 SafeArea 회피가 함께 풀린다 —
-        // 바깥쪽 background로 분리해야 topSection·bottomSection이 SafeArea를 정상적으로 존중한다.
         .background(CHALLAColor.Static.black.ignoresSafeArea())
-        // 드로어를 SafeArea에 붙여 뒤에 남는 "N장 남음" 텍스트를 덮는다
-        .challaDrawer(isPresented: roomSelectionBinding, bottomMargin: 0) {
-            RoomSelectionDrawer(
-                rooms: store.rooms,
-                selectedRoomID: store.selectedRoomID,
-                onSelect: { send(.roomSelected($0)) },
-                onClose: { send(.roomSelectionDismissed) }
-            )
-        }
     }
 
-    private var topSection: some View {
+    private func topSection(width: CGFloat, height: CGFloat) -> some View {
         VStack(spacing: CameraViewMetric.sectionSpacing) {
             CameraViewport(
                 zoom: store.zoom,
                 captureAvailability: store.captureAvailability,
-                isShutterFlashing: isShutterFeedbackActive,
                 isDimmed: store.isCoachMarkPresented,
+                isCapturing: store.isCapturing,
+                capturedPhoto: capturedPhoto,
                 onZoomBadgeTap: { send(.zoomBadgeTapped) },
-                onMagnificationChanged: { magnification in
-                    isMagnifying = true
-                    send(.zoomMagnificationChanged(magnification))
-                },
-                onMagnificationEnded: {
-                    isMagnifying = false
-                    send(.zoomMagnificationEnded)
-                },
+                onMagnificationChanged: { send(.zoomMagnificationChanged($0)) },
+                onMagnificationEnded: { send(.zoomMagnificationEnded) },
                 preview: preview
             )
+            // 촬영 중에는 뷰파인더만 화면 한가운데로 내려간다 — 나머지는 제자리에서 사라진다.
+            .offset(y: store.isCapturing ? CameraViewMetric.captureOffset(height: height, width: width) : 0)
 
-            CameraControlBar(
-                flashMode: store.flashMode,
-                isShutterPressed: isShutterFeedbackActive,
-                isShutterHighlighted: store.isCoachMarkPresented,
-                isShutterEnabled: !store.isCapturing,
-                onFlashTap: { send(.flashButtonTapped) },
-                onShutterTap: handleShutterTap,
-                onCameraSwitchTap: { send(.cameraSwitchButtonTapped) }
-            )
+            VStack(spacing: CameraViewMetric.sectionSpacing) {
+                CameraControlBar(
+                    flashMode: store.flashMode,
+                    isShutterPressed: isShutterPressed,
+                    isShutterHighlighted: store.isCoachMarkPresented,
+                    isShutterEnabled: !store.isCapturing,
+                    onFlashTap: { send(.flashButtonTapped) },
+                    onShutterTap: handleShutterTap,
+                    onCameraSwitchTap: { send(.cameraSwitchButtonTapped) }
+                )
 
-            CameraFilterStrip(
-                filters: store.filters,
-                selectedFilterID: store.selectedFilterID,
-                onSelect: { send(.filterSelected($0)) }
-            )
+                VStack(spacing: CameraViewMetric.remainingCardsSpacing) {
+                    if let room = store.selectedRoom {
+                        RemainingCardsLabel(remaining: room.remainedPhotoCount, total: room.totalPhotoCount)
+                    }
+                    CameraFilterStrip(
+                        filters: store.filters,
+                        selectedFilterID: store.selectedFilterID,
+                        onSelect: { send(.filterSelected($0)) }
+                    )
+                }
+            }
             .coachMarkDimmed(store.isCoachMarkPresented)
+            .modifier(HiddenWhileCapturing(isCapturing: store.isCapturing))
         }
-        .padding(.top, CameraViewMetric.screenTopPadding)
+        .padding(.top, CameraViewMetric.topPadding(height: height, width: width))
     }
 
-    @ViewBuilder
-    private var bottomSection: some View {
-        if let room = store.selectedRoom {
-            VStack(spacing: CameraViewMetric.bottomSpacing) {
-                RoomSelectButton(roomName: room.title) {
-                    send(.roomSelectButtonTapped)
-                }
-                RemainingCardsLabel(remaining: room.remainedPhotoCount, total: room.totalPhotoCount)
-            }
-            .padding(.horizontal, CameraViewMetric.bottomHorizontalPadding)
-            .padding(.bottom, CameraViewMetric.screenBottomPadding)
-            .coachMarkDimmed(store.isCoachMarkPresented)
+    private var closeButton: some View {
+        Button { send(.closeButtonTapped) } label: {
+            CHALLAIcon.close.image(size: .size24, color: CHALLAColor.Label.neutral)
+                .frame(width: CameraViewMetric.closeButtonSize, height: CameraViewMetric.closeButtonSize)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("촬영 화면 닫기")
+        .padding(.bottom, CameraViewMetric.screenBottomPadding)
+        .coachMarkDimmed(store.isCoachMarkPresented)
+        .modifier(HiddenWhileCapturing(isCapturing: store.isCapturing))
     }
 
     private var coachMarkSnackBar: some View {
@@ -174,18 +132,16 @@ public struct CameraView<Preview: View>: View {
         .animation(.easeInOut(duration: 0.25), value: store.coachMark)
     }
 
-    /// 촬영 가능 여부와 무관하게 셔터를 눌렀다는 감각(블랙아웃 · 버튼 축소)부터 즉시 준다 —
-    /// 실제 촬영 성공/차단 여부는 리듀서가 뒤이어 판단한다.
     private func handleShutterTap() {
         withAnimation(.easeOut(duration: 0.1)) {
-            isShutterFeedbackActive = true
+            isShutterPressed = true
         }
         send(.shutterButtonTapped)
 
         Task {
             try? await Task.sleep(for: .milliseconds(120))
             withAnimation(.easeIn(duration: 0.2)) {
-                isShutterFeedbackActive = false
+                isShutterPressed = false
             }
         }
     }
@@ -200,17 +156,6 @@ public struct CameraView<Preview: View>: View {
         }
         .animation(.easeInOut(duration: 0.25), value: store.toastMessage)
     }
-
-    /// DS 드로어는 `Binding<Bool>`을 받는다. 상태 변경은 리듀서만 하도록 닫힘만 액션으로 되돌린다.
-    private var roomSelectionBinding: Binding<Bool> {
-        Binding(
-            get: { store.isRoomSelectionPresented },
-            set: { isPresented in
-                guard !isPresented else { return }
-                send(.roomSelectionDismissed)
-            }
-        )
-    }
 }
 
 public extension CameraView where Preview == CameraPreviewPlaceholder {
@@ -220,56 +165,60 @@ public extension CameraView where Preview == CameraPreviewPlaceholder {
     }
 }
 
-// MARK: - Figma 실측값
+/// 촬영 중 뷰파인더를 뺀 나머지를 지운다. 자리는 그대로 두고(레이아웃 유지) 보이지만 않게 한다 —
+/// 사라지면서 위아래 간격이 접히면 뷰파인더가 두 번 움직이는 것처럼 보인다.
+private struct HiddenWhileCapturing: ViewModifier {
 
-/// 참조하는 각 컴포넌트의 static let height가 View 프로토콜 준수로 MainActor에 격리돼 있다.
-@MainActor
-private enum CameraViewMetric {
+    let isCapturing: Bool
 
-    /// SafeArea(상태바·다이나믹 아일랜드) 아래 여백. 물리 화면 끝 기준 고정값을 쓰면
-    /// SafeArea가 큰 기기(다이나믹 아일랜드 등)에서 베젤이 상태바에 파묻힌다 — 상단 SafeArea는 무시하지 않는다.
-    static let screenTopPadding: CGFloat = 12
-    /// 시안의 하단 콘텐츠 끝(y=804)은 홈 인디케이터 SafeArea(810)보다 6pt 안쪽이다.
-    static let screenBottomPadding: CGFloat = 6
-    static let sectionSpacing: CGFloat = 20
-    static let bottomSpacing: CGFloat = 12
-    static let bottomHorizontalPadding: CGFloat = 40
-    static let toastTopInset: CGFloat = 112
-
-    /// 닫기 스와이프의 시작 문턱과 닫히는 거리 — 시안 육안 근사값, 디자이너 검수로 확정한다.
-    /// 시작 문턱이 없으면 탭할 때 손가락이 흔들리는 것만으로 화면이 밀린다.
-    static let dismissDragMinimum: CGFloat = 20
-    static let dismissDragThreshold: CGFloat = 120
-    /// 안내 스낵바: 시안 366×50 @(12,752) — 좌우 12, 아래는 홈 인디케이터 세이프에어리어 안쪽 8.
-    static let snackBarHorizontalMargin: CGFloat = 12
-    static let snackBarBottomPadding: CGFloat = 8
-    /// 상단 뭉치·하단 뭉치 사이 여백 상한. 시안(844pt 캔버스) 기준 여백은 약 157pt —
-    /// 상한이 없으면 화면이 커질수록 이 여백만 한없이 늘어난다.
-    static let middleGapMaximum: CGFloat = 160
-
-    /// 상단 뭉치(뷰파인더+조작바+필터띠) 전체 높이. 각 컴포넌트가 공개한 높이를 그대로 더한다.
-    static func topSectionHeight(forWidth width: CGFloat) -> CGFloat {
-        screenTopPadding
-            + CameraViewportLayout.height(forWidth: width)
-            + sectionSpacing + CameraControlBar.height
-            + sectionSpacing + CameraFilterStrip.height
-    }
-
-    static let bottomSectionHeight: CGFloat =
-        RoomSelectButton.height + bottomSpacing + RemainingCardsLabel.heightEstimate + screenBottomPadding
-
-    /// 상단·하단 뭉치를 제외한 나머지 세로 공간. 화면이 커질수록 무한히 늘어나지 않도록 상한을 둔다.
-    static func middleGap(availableHeight: CGFloat, width: CGFloat) -> CGFloat {
-        let usedHeight = topSectionHeight(forWidth: width) + bottomSectionHeight
-        return min(middleGapMaximum, max(0, availableHeight - usedHeight))
+    func body(content: Content) -> some View {
+        content
+            .opacity(isCapturing ? 0 : 1)
+            .allowsHitTesting(!isCapturing)
+            .accessibilityHidden(isCapturing)
     }
 }
 
-// MARK: - Preview
+@MainActor
+private enum CameraViewMetric {
+
+    /// 안전 영역 위에서 뷰파인더까지의 여백 (시안 1: 화면 top 100 − 안전 영역 47).
+    static let screenTopPadding: CGFloat = 53
+    static let screenBottomPadding: CGFloat = 6
+    static let sectionSpacing: CGFloat = 20
+    /// 남은 장수와 필터 띠 사이 (시안 1: 필터 글자 top 659 − 남은 장수 bottom 637).
+    static let remainingCardsSpacing: CGFloat = 22
+    static let toastTopInset: CGFloat = 112
+    static let closeButtonSize: CGFloat = 52
+
+    static let snackBarHorizontalMargin: CGFloat = 12
+    static let snackBarBottomPadding: CGFloat = 8
+
+    static let captureAnimation: Animation = .smooth(duration: 0.4)
+
+    /// 화면이 시안(844)보다 짧으면 위 여백부터 줄인다 — 안 그러면 아래 내용이 잘린다.
+    static func topPadding(height: CGFloat, width: CGFloat) -> CGFloat {
+        min(screenTopPadding, max(0, height - contentHeight(forWidth: width)))
+    }
+
+    /// 위 여백을 뺀 나머지 — 뷰파인더부터 닫기 버튼까지.
+    private static func contentHeight(forWidth width: CGFloat) -> CGFloat {
+        CameraViewportLayout.height(forWidth: width)
+            + sectionSpacing + CameraControlBar.height
+            + sectionSpacing + RemainingCardsLabel.heightEstimate
+            + remainingCardsSpacing + CameraFilterStrip.height
+            + closeButtonSize + screenBottomPadding
+    }
+
+    /// 뷰파인더를 화면 세로 가운데로 옮기는 이동량 (시안 2).
+    static func captureOffset(height: CGFloat, width: CGFloat) -> CGFloat {
+        let bezelHeight = CameraViewportLayout.height(forWidth: width)
+        return (height - bezelHeight) / 2 - topPadding(height: height, width: width)
+    }
+}
 
 private extension CameraFeature.State {
 
-    /// 촬영 가능 여부는 방의 남은 장수로 정해지므로, 소진 화면은 `remainedPhotoCount: 0`인 방으로 만든다.
     static func demo(
         remainedPhotoCount: Int = 3,
         flashMode: CameraFlashMode = .on,

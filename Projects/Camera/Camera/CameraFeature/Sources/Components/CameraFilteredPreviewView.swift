@@ -15,11 +15,16 @@ public protocol CameraPreviewFrameSource: AnyObject {
 public struct CameraFilteredPreviewView: UIViewRepresentable {
 
     private let source: CameraPreviewFrameSource
+    private let isFrozen: Bool
 
     /// - Parameters:
     ///   - source: 프레임 공급자. 콜백은 이 뷰가 걸고, 뷰가 사라지면 끊는다.
-    public init(source: CameraPreviewFrameSource) {
+    ///   - isFrozen: 참이면 새 프레임을 버리고 마지막 프레임을 그대로 남긴다.
+    ///     셔터를 누른 순간 화면을 멈추는 데 쓴다 — 스틸 촬영이 끝나기까지의 수백 ms 동안
+    ///     프리뷰가 계속 움직이면 "찍은 순간이 남는다"는 인상이 깨진다.
+    public init(source: CameraPreviewFrameSource, isFrozen: Bool = false) {
         self.source = source
+        self.isFrozen = isFrozen
     }
 
     public func makeCoordinator() -> Renderer {
@@ -43,7 +48,9 @@ public struct CameraFilteredPreviewView: UIViewRepresentable {
         return view
     }
 
-    public func updateUIView(_: MTKView, context _: Context) {}
+    public func updateUIView(_: MTKView, context: Context) {
+        context.coordinator.setFrozen(isFrozen)
+    }
 
     public static func dismantleUIView(_: MTKView, coordinator: Renderer) {
         // 사라진 뷰의 렌더러가 프레임을 계속 받지 않게 끊는다
@@ -63,8 +70,21 @@ public struct CameraFilteredPreviewView: UIViewRepresentable {
         /// CIImage는 불변 객체라 스레드 간 전달이 안전하지만, 구 SDK(CI의 Xcode)에는 Sendable 표기가
         /// 없어 unchecked 계열 API를 쓴다 — 최신 SDK에서만 통과하는 코드를 만들지 않는다.
         private let latestImage = OSAllocatedUnfairLock<CIImage?>(uncheckedState: nil)
+        /// 켜는 쪽(메인)과 보는 쪽(공급자 큐)의 스레드가 달라 락으로 감싼다.
+        private let isFrozen = OSAllocatedUnfairLock(initialState: false)
+
+        func setFrozen(_ frozen: Bool) {
+            isFrozen.withLock { $0 = frozen }
+        }
+
+        /// 지금 그려지고 있는 프레임. 얼어붙은 뒤에도 이 값이 유지되는지 테스트가 확인한다.
+        var latestPreviewImage: CIImage? {
+            latestImage.withLockUnchecked { $0 }
+        }
 
         func enqueue(_ image: CIImage) {
+            // 버리기만 하면 된다 — 마지막 프레임이 남아 드로우 루프가 그대로 다시 그린다.
+            guard !isFrozen.withLock({ $0 }) else { return }
             latestImage.withLockUnchecked { $0 = image }
         }
 

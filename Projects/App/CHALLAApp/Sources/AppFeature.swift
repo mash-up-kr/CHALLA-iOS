@@ -436,6 +436,23 @@ extension AppFeature {
                 }
                 return .none
 
+            // 촬영본이 방에 올라갔다 — 찍은 방의 상세로 들어가고, 방금 넣은 사진을 강조하라고 알린다.
+            // 방을 못 찾으면(있을 수 없지만) 닫기와 같은 길로 되돌린다.
+            case let .camera(.camera(.delegate(.captureFinished(roomID)))):
+                guard case let .camera(screen) = state else { return .none }
+                guard let room = screen.shotRoom(id: roomID) else {
+                    return .send(.camera(.camera(.delegate(.closeRequested))))
+                }
+                state = .roomDetail(
+                    RoomDetailScreen(
+                        profile: screen.profile,
+                        room: room,
+                        homeCards: screen.homeCards,
+                        highlightsNewestPhoto: true
+                    )
+                )
+                return .none
+
             // MARK: - 방 설정 delegate
 
             case .roomSettings(.delegate(.closeTapped)):

@@ -25,6 +25,8 @@ enum DemoScreen: Hashable {
         case shooting
         /// 촬영 중 · 일부만 찍혀 사진(블러)과 빈 슬롯이 섞인다.
         case shootingPartial
+        /// 촬영을 마치고 막 들어온 화면 — 방금 올린 사진에 테마색 테두리가 1초간 둘린다.
+        case justShot
         /// 인화 대기 · 전부 블러 + 카운트다운.
         case printWaiting
         /// 인화 완료 · 전부 선명, 하단 버튼 없음.

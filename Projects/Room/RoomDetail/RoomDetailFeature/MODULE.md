@@ -39,11 +39,14 @@
 
 ### RoomDetailFeature (리듀서)
 
-- `State(room:)` — 홈에서 받은 `Room`을 품고 시작한다. 첫 프레임부터 제목·슬롯 그리드가 그려지고,
+- `State(room:highlightsNewestPhoto:)` — 홈에서 받은 `Room`을 품고 시작한다. 첫 프레임부터 제목·슬롯 그리드가 그려지고,
   초대 코드·참여자·사진은 진입 후 조회로 채운다
   - `room` · `detail`(초대 코드+참여자) · `photos` · `detailLoad` · `isInvitePopoverPresented` ·
     `isInviteGuidePresented`(첫 진입 툴팁) · `isSharePresented`(공유 시트) · `toast` ·
     `hasShownPrintWaitingToast` · `alert`
+- `highlightsNewestPhoto` — 촬영을 마치고 들어온 경로(App이 카메라의 `captureFinished`를 받아 조립)에서만 켠다.
+  사진이 도착하면 **마지막 한 장**의 테두리를 테마색으로 1초간 두르고 거둔다 (시안 '4.촬영 이후 상세 화면 강조 효과').
+  서버 응답에 새 사진의 id가 없어 순서(마지막 = 방금 올린 것)로 짚는다. 한 번 강조하면 꺼져서 재조회로 되풀이되지 않는다
 - `Action.delegate` — `closeTapped` · `settingsTapped`(설정 화면 요청 — App이 조립) ·
   `cameraRequested(CameraEntry)`(촬영 준비 완료) · `chatTapped` ·
   `photoTapped(Photo.ID)`(사진 슬롯 탭 → 사진 상세)

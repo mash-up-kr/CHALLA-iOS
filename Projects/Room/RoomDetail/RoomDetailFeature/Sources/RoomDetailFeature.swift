@@ -53,14 +53,20 @@ public struct RoomDetailFeature {
         public var drawer: Drawer?
         /// 이 화면에서 인화 완료 확인 기록을 이미 보냈는지 — 재시도·알람 재조회마다 다시 보내지 않게 막는다.
         public var hasReportedPrintCompletionCheck = false
+        /// 촬영을 마치고 들어왔다 — 사진이 오면 마지막 한 장(방금 올린 사진)을 잠깐 강조한다.
+        /// 한 번 강조하고 나면 꺼진다. 재조회로 강조가 되풀이되지 않게 하려는 것이다.
+        public var highlightsNewestPhoto: Bool
+        /// 지금 테두리를 두르고 있는 사진.
+        public var highlightedPhotoID: Photo.ID?
 
         /// 공유 시트에 실을 초대 링크. 상세가 오기 전엔 nil — 공유 버튼도 그때만 동작한다.
         public var inviteShareURL: URL? {
             detail.flatMap { InviteLink.url(code: $0.invitationCode) }
         }
 
-        public init(room: Room) {
+        public init(room: Room, highlightsNewestPhoto: Bool = false) {
             self.room = room
+            self.highlightsNewestPhoto = highlightsNewestPhoto
         }
     }
 
@@ -75,6 +81,7 @@ public struct RoomDetailFeature {
         case shootPreparationResponse(Result<CameraEntry, ShootPreparationError>)
         /// 인화 완료 예정 시각에 도달 — 서버가 상태를 바꿨는지 확인할 차례.
         case printCompletionReached
+        case newestPhotoHighlightElapsed
         /// 첫 진입 확인이 끝났고 안내를 띄워야 한다 — 이미 봤으면 이 액션은 오지 않는다.
         case inviteGuideNeeded
         /// 이 방의 인화 완료 안내를 아직 안 봤다 — 띄울 차례다.
@@ -184,6 +191,10 @@ public struct RoomDetailFeature {
                     fetchPhotos(id: state.room.id)
                 )
 
+            case .newestPhotoHighlightElapsed:
+                state.highlightedPhotoID = nil
+                return .none
+
             case .inviteGuideNeeded:
                 state.isInvitePopoverPresented = true
                 state.isInviteGuidePresented = true
@@ -204,7 +215,12 @@ public struct RoomDetailFeature {
                 state.photosLoad = .loaded
                 state.photos = photos
                 // 필름에 실을 사진이 생겼다 — 대개 여기서 안내 여부가 정해진다.
-                return checkPrintNotice(state: &state)
+                let printNotice = checkPrintNotice(state: &state)
+                // 방금 올린 사진은 마지막 장이다 — 서버 응답에 사진 id가 없어 순서로 짚는다.
+                guard state.highlightsNewestPhoto, let newest = photos.last else { return printNotice }
+                state.highlightsNewestPhoto = false
+                state.highlightedPhotoID = newest.id
+                return .merge(printNotice, dimNewestPhotoHighlightAfterDelay())
 
             case .photosResponse(.failure):
                 state.photosLoad = .failed
@@ -332,13 +348,15 @@ public struct RoomDetailFeature {
 
     enum CancelID {
         case detail, quietDetailRefresh, photos, toast, printRefresh, prepareShoot, inviteGuide, printNotice,
-             downloadAll
+             downloadAll, highlight
     }
 
     private enum Const {
         // TODO: 노출 시간은 기획 미확정 — ProfileSetup과 같은 임시값. 확정 시 교체할 것.
         static let toastDuration: Duration = .seconds(2)
         static let printWaitingToastMessage = "인화 대기 중이에요! 조금만 기다려주세요"
+        /// 방금 올린 사진의 테두리 강조가 머무는 시간 (시안 4 → 5).
+        static let newestPhotoHighlightDuration: Duration = .seconds(1)
 
         static func saveAllToast(saved: Int, total: Int) -> String {
             saved == total ? "사진 \(total)장을 저장했어요" : "\(total)장 중 \(saved)장을 저장했어요"
@@ -384,6 +402,15 @@ private extension RoomDetailFeature {
         state.hasShownPrintWaitingToast = true
         state.toast = Toast(Const.printWaitingToastMessage, placement: .top)
         return toastTimer()
+    }
+
+    /// 방금 올린 사진의 테두리 강조를 잠깐 뒀다가 거둔다.
+    func dimNewestPhotoHighlightAfterDelay() -> Effect<Action> {
+        .run { [clock] send in
+            try await clock.sleep(for: Const.newestPhotoHighlightDuration)
+            await send(.newestPhotoHighlightElapsed)
+        }
+        .cancellable(id: CancelID.highlight, cancelInFlight: true)
     }
 
     /// 촬영에 필요한 것(목록·LUT·권한)은 `ShootEntry`가 받아 온다 — 홈의 촬영 뱃지와 같은 준비다.
