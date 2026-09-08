@@ -24,7 +24,7 @@ public struct AppFeature {
     /// 앱의 큰 흐름 단계. 동시에 두 화면이 살아 있을 수 없으므로 enum으로 못 박는다.
     @ObservableState
     public enum State: Equatable {
-        case launching
+        case launching(SplashScreen)
         case login(LoginFeature.State)
         case profileSetup(ProfileSetupFeature.State)
         case home(HomeScreen)
@@ -100,6 +100,8 @@ public struct AppFeature {
 
         /// 버전 체크 결과. 실패는 여기 오기 전에 `.notRequired`로 접힌다 (fail-open).
         case updateCheckResponse(AppUpdateRequirement)
+        /// 스플래시 최소 노출 시간이 끝났다. 맡아둔 다음 화면이 있으면 그리로 전이한다.
+        case splashMinimumHoldFinished
         /// 강제 업데이트 알럿의 '확인'.
         case forceUpdateConfirmTapped
         /// 엣지 스와이프 pop 제스처 완료. 자식의 뒤로가기 delegate와 같은 곳으로 되돌린다.
@@ -193,7 +195,7 @@ extension AppFeature {
             case .task:
                 // 버전 체크는 실행 직후 1회다 — 뷰 재생성으로 task가 다시 와도 재검사하지 않는다.
                 guard case .launching = state else { return .none }
-                return checkAppUpdate()
+                return .merge(checkAppUpdate(), holdSplash())
 
             // 세션 복원은 버전 체크를 통과한 뒤에 시작한다 — 강제 업데이트 화면에서는 아무것도 조회하지 않는다.
             case .updateCheckResponse(.notRequired):
@@ -201,8 +203,19 @@ extension AppFeature {
 
             case let .updateCheckResponse(.forced(storeURL)):
                 // 여기서 나가는 전이는 없다. 업데이트해야만 앱을 쓸 수 있다.
-                state = .forceUpdate(storeURL: storeURL)
+                leaveSplash(for: .forceUpdate(storeURL: storeURL), &state)
                 return .none
+
+            case .splashMinimumHoldFinished:
+                guard case var .launching(splash) = state else { return .none }
+                guard let destination = splash.pendingDestination else {
+                    splash.isMinimumHoldElapsed = true
+                    state = .launching(splash)
+                    return .none
+                }
+                state = Self.resolvedState(for: destination)
+                guard case .home = state else { return .none }
+                return deliverPendingInviteCode()
 
             case .forceUpdateConfirmTapped:
                 guard case let .forceUpdate(storeURL) = state, let url = storeURL else { return .none }
@@ -227,31 +240,41 @@ extension AppFeature {
                 return fetchMyProfile()
 
             case .sessionRestored(.signedOut):
-                state = .login(LoginFeature.State())
+                leaveSplash(for: .login, &state)
                 return .none
 
             case .sessionExpired:
                 guard state.screenID != .login else { return .none }
-                state = .login(LoginFeature.State())
+                if case .launching = state {
+                    leaveSplash(for: .login, &state)
+                } else {
+                    state = .login(LoginFeature.State())
+                }
                 return .cancel(id: CancelID.profile)
 
+            // 늦게 도착한 프로필 응답이 이미 정해진 목적지를 덮지 못하게 하는 방어선 —
+            // 강제 업데이트 화면, 그리고 세션 만료가 스플래시에 맡아둔 login이 여기 걸린다.
             case let .profileResponse(.success(profile)):
-                // 늦게 도착한 프로필 응답이 강제 업데이트 화면을 덮지 못하게 하는 방어선.
-                guard case .launching = state else { return .none }
-                state = profile.isProfileCompleted
-                    ? .home(HomeScreen(profile: profile))
-                    : .profileSetup(ProfileSetupFeature.State())
+                guard case let .launching(splash) = state, splash.pendingDestination == nil
+                else { return .none }
+                leaveSplash(
+                    for: profile.isProfileCompleted ? .home(profile) : .profileSetup,
+                    &state
+                )
+                // 스플래시가 홈을 맡아 두기만 했으면 아직 꺼내지 않는다 — 실제로 도달한 순간에 꺼낸다.
                 guard case .home = state else { return .none }
                 return deliverPendingInviteCode()
 
             case .profileResponse(.failure):
-                guard case .launching = state else { return .none }
+                guard case let .launching(splash) = state, splash.pendingDestination == nil
+                else { return .none }
                 // 미로그인(401)도 조회 실패도 결론은 같다 — 로그인부터 다시.
-                state = .login(LoginFeature.State())
+                leaveSplash(for: .login, &state)
                 return .none
 
             case .login(.delegate(.loginSucceeded)):
-                state = .launching
+                // 프로필 조회 동안만 잠깐 거치는 재진입이라 최소 노출을 다시 적용하지 않는다.
+                state = .launching(SplashScreen(isMinimumHoldElapsed: true))
                 // 여기서 한번 sync 처리.
                 return .merge(
                     fetchMyProfile(),
@@ -451,86 +474,5 @@ extension AppFeature {
                 return .none
             }
         }
-    }
-}
-
-// MARK: - Effects
-
-extension AppFeature {
-
-    private enum CancelID { case profile, sessionExpiration, updateCheck }
-
-    /// 링크로 실행된 콜드 스타트의 마무리 — 보관해 둔 초대 코드가 있으면 홈에 넘겨 입장을 잇는다.
-    private func deliverPendingInviteCode() -> Effect<Action> {
-        .run { [pendingInviteCode] send in
-            guard let code = pendingInviteCode.take() else { return }
-            await send(.home(.inviteCodeReceived(code)))
-        }
-    }
-
-    /// 실행 직후 1회 버전 체크.
-    /// 실패는 `.notRequired`로 접는다 — 체크 서버가 죽었다고 전 사용자 앱을 스플래시에 가둘 수는 없다.
-    private func checkAppUpdate() -> Effect<Action> {
-        .run { [checkAppUpdateUseCase] send in
-            // 취소되면 send 자체가 무시되므로 try? 가 취소를 .notRequired 로 오인해도 화면이 진행되지 않는다.
-            let requirement = await (try? checkAppUpdateUseCase.run()) ?? .notRequired
-            await send(.updateCheckResponse(requirement))
-        }
-        .cancellable(id: CancelID.updateCheck, cancelInFlight: true)
-    }
-
-    /// 저절로 풀릴 수 있는 실패가 이어질 때의 재시도 정책.
-    private enum RetryBackoff {
-        /// 첫 시도를 포함한 총 시도 횟수. 상한이 없으면 화면이 스플래시에 멈춘 채 빠져나가지 못한다.
-        static let maxAttempts = 5
-
-        /// 시도 사이의 대기 간격. 마지막 값이 상한이다.
-        private static let delays: [Duration] = [.seconds(1), .seconds(2), .seconds(4)]
-
-        static func delay(for attempt: Int) -> Duration {
-            delays[min(attempt, delays.count - 1)]
-        }
-    }
-
-    /// 저장된 세션이 있을 때만 프로필을 조회한다 — 없으면 실패할 요청을 보내지 않고 곧바로 로그인 화면으로 간다.
-    private func restoreSession() -> Effect<Action> {
-        .run { [restoreSessionUseCase] send in
-            await send(.sessionRestored(restoreSessionUseCase.run()))
-        }
-    }
-
-    /// 토큰 갱신이 최종 실패하면(재로그인 필요) 어느 화면에 있든 로그인으로 되돌린다.
-    private func observeSessionExpiration() -> Effect<Action> {
-        .run { [sessionExpirationChannel] send in
-            for await _ in sessionExpirationChannel.events {
-                await send(.sessionExpired)
-            }
-        }
-        .cancellable(id: CancelID.sessionExpiration, cancelInFlight: true)
-    }
-
-    private func fetchMyProfile() -> Effect<Action> {
-        .run { [fetchMyProfileUseCase, clock] send in
-            for attempt in 0 ..< RetryBackoff.maxAttempts {
-                do {
-                    let profile = try await fetchMyProfileUseCase.run()
-                    await send(.profileResponse(.success(profile)))
-                    return
-                } catch is CancellationError {
-                    return
-                } catch let error as UserError
-                    where error.isRetryable && attempt < RetryBackoff.maxAttempts - 1 {
-                    // 사용자가 손쓸 수 없는 실패다 — 알리지 않고 아래에서 대기 후 재시도한다.
-                } catch {
-                    // 재시도로 풀리지 않는 실패와 마지막 시도의 실패가 함께 여기로 온다.
-                    await send(.profileResponse(.failure((error as? UserError) ?? .unknown)))
-                    return
-                }
-
-                // try? 로 감싸면 취소된 뒤에도 루프가 계속 돈다 — 취소는 그대로 밖으로 던진다.
-                try await clock.sleep(for: RetryBackoff.delay(for: attempt))
-            }
-        }
-        .cancellable(id: CancelID.profile, cancelInFlight: true)
     }
 }
