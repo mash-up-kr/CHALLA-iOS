@@ -228,6 +228,8 @@ struct RootFeatureTests {
             $0.observeRoomMemberJoinedUseCase = .previewValue
             // 알림을 받은 방 상세가 참여자를 다시 조회한다.
             $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in .preview })
+            // 재조회에 딸려 오는 초대 안내 확인 — 이 테스트의 관심사가 아니라 띄우지 않는다.
+            $0.shouldShowInviteGuideUseCase.run = { false }
         }
         store.exhaustivity = .off
 
