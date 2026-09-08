@@ -3,9 +3,8 @@ import CameraFeature
 import CoreImage
 import os
 import PhotoDomain
-import PhotoLibrary
 
-/// 실기기 카메라 세션. `AVCaptureSession` 구성·필터 프리뷰·촬영·사진첩 저장을 전담한다.
+/// 실기기 카메라 세션. `AVCaptureSession` 구성·필터 프리뷰·촬영을 전담한다.
 /// 실행 앱(`CHALLAApp`)과 데모앱이 같은 인스턴스 구성을 쓴다.
 ///
 /// 프리뷰는 `AVCaptureVideoDataOutput` 프레임에 LUT(`CameraFilterCatalog`)를 입혀
@@ -87,14 +86,11 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
         }
     }
 
-    /// 촬영 후 선택 필터를 입힌 JPEG을 사진첩(Add-only)에 저장하고 그 JPEG을 돌려준다 —
-    /// 호출부가 업로드로 잇는다. `PHPhotoLibraryAddOnly` 권한만
-    /// 요구한다 — 추가만 하면 되므로 `PhotoLibrary` 모듈의 읽기·선택 권한(`.readWrite`)까지는 필요 없다.
-    public func captureAndSavePhoto(flashMode: CameraFlashMode, filterID: CameraFilter.ID) async throws -> Data {
+    /// 촬영본에 선택 필터를 입힌 JPEG을 돌려준다 — 호출부가 업로드로 잇는다.
+    /// 촬영본은 사용자 사진첩에 저장하지 않는다.
+    public func capturePhoto(flashMode: CameraFlashMode, filterID: CameraFilter.ID) async throws -> Data {
         let data = try await capturePhotoData(flashMode: flashMode)
-        let filtered = CameraFilterCatalog.filteredJPEG(from: data, filterID: filterID) ?? data
-        try await PhotoLibraryStore().save(imageData: filtered)
-        return filtered
+        return CameraFilterCatalog.filteredJPEG(from: data, filterID: filterID) ?? data
     }
 
     private func capturePhotoData(flashMode: CameraFlashMode) async throws -> Data {

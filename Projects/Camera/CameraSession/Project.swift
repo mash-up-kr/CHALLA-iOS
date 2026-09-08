@@ -5,5 +5,5 @@ import ProjectDescriptionHelpers
 let project = Project.makeModule(
     name: "CameraSession",
     hasTests: false,
-    dependencies: [.cameraFeature, .photoDomain, .photoLibrary, .composableArchitecture]
+    dependencies: [.cameraFeature, .photoDomain, .composableArchitecture]
 )

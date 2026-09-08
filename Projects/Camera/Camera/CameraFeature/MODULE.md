@@ -110,7 +110,7 @@ xcrun simctl launch booted com.challa.camerafeature.demo --screen camera --state
 FlashOn·SelectRoom은 아직 인자로 띄우지 못한다 — 목록에서 들어간 뒤 직접 눌러 확인한다.
 
 실기기 카메라 배선은 실행 앱과 공유한다 (`CameraSession` 모듈 — `LiveCameraFeature`가
-`delegate(.captureRequested)`를 받아 촬영·사진첩 저장 후 `captureCompleted`로 되돌리고,
+`delegate(.captureRequested)`를 받아 촬영 후 `captureCompleted`로 되돌리고,
 `LiveCameraPreview`가 `preview` 슬롯을 채운다). 시뮬레이터에는 카메라가 없어 프리뷰가 비어 보인다.
 
 진입 경로도 실앱과 같은 모양으로 재현한다 — `CameraEntryView`가 카메라를 띄우기 전에
