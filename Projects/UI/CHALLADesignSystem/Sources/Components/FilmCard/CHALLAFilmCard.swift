@@ -98,6 +98,9 @@ public struct CHALLAFilmCard: View {
                     .scaledToFill()
                     .padding(blurred ? -FilmCardMetric.blurEdgeBleed : 0)
                     .blur(radius: blurred ? FilmCardMetric.photoBlurRadius : 0)
+                    // clip은 그림만 자르고 히트 테스트는 못 자른다 — 넘친 사진이
+                    // 호출부 Button의 탭 영역을 옆 낱장까지 넓히므로 탭에서 뺀다 (#120).
+                    .allowsHitTesting(false)
             }
             .clipped()
             .overlay {
