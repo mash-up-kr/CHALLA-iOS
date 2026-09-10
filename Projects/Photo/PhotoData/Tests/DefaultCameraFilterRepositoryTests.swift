@@ -31,7 +31,7 @@ struct DefaultCameraFilterRepositoryTests {
         let filters = try await repository.filters()
 
         #expect(filters.map(\.name) == ["Black", "Warm"])
-        #expect(filters.map(\.fileURL.absoluteString) == [
+        #expect(filters.map { $0.fileURL?.absoluteString } == [
             "https://cdn.test/black.cube", "https://cdn.test/warm.cube"
         ])
         let request = try #require(client.requests.first)

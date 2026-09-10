@@ -170,13 +170,19 @@ struct CameraFeatureControlTests {
         await store.send(.view(.shutterButtonTapped))
     }
 
-    @Test("필터가 없으면 셔터를 눌러도 촬영이 나가지 않는다")
-    func shutterDoesNothingWithoutFilter() async {
+    @Test("서버 필터가 하나도 없어도 무필터로 촬영이 나간다")
+    func shutterUsesNoneFilterWhenListIsEmpty() async {
+        let clock = TestClock()
         let store = TestStore(initialState: CameraFeatureTestFixtures.state(filters: [])) {
             CameraFeature()
+        } withDependencies: {
+            $0.continuousClock = clock
         }
 
-        await store.send(.view(.shutterButtonTapped))
+        await store.send(.view(.shutterButtonTapped)) { $0.capture = CameraFeature.CaptureProgress() }
+        await store.receive(.delegate(.captureRequested(roomID: 1, filterID: CameraFilter.none.id)))
+        await clock.advance(by: .seconds(1))
+        await store.receive(.minimumCaptureDisplayElapsed) { $0.capture?.isMinimumDisplayElapsed = true }
     }
 
     @Test("닫기 버튼을 누르면 화면을 닫아 달라고 알린다")
@@ -289,6 +295,31 @@ struct CameraFeatureDataFlowTests {
         let state = CameraFeatureTestFixtures.state(rooms: CameraFeatureTestFixtures.soldOutRooms)
 
         #expect(state.captureAvailability == .noCardsLeft)
+    }
+
+    @Test("필터 목록 맨 앞은 항상 무필터(None)다")
+    func noneFilterLeadsTheList() {
+        let state = CameraFeatureTestFixtures.state()
+
+        #expect(state.filters.first == CameraFilter.none)
+        #expect(state.filters.map(\.id) == ["None", "필터1", "필터2", "필터3"])
+    }
+
+    @Test("서버 목록에 None이 섞여 와도 맨 앞에 한 번만 놓인다")
+    func serverNoneIsDeduplicated() throws {
+        let serverNone = try CameraFilter(
+            name: "None",
+            fileURL: #require(URL(string: "https://test.invalid/none.cube"))
+        )
+        let state = CameraFeatureTestFixtures.state(filters: CameraFeatureTestFixtures.filters + [serverNone])
+
+        #expect(state.filters.map(\.id) == ["None", "필터1", "필터2", "필터3"])
+        #expect(state.filters[id: "None"]?.fileURL == nil)
+    }
+
+    @Test("진입하면 무필터가 선택돼 있다")
+    func noneFilterIsSelectedOnEntry() {
+        #expect(CameraFeatureTestFixtures.state().selectedFilterID == CameraFilter.none.id)
     }
 
     @Test("필터를 고르면 선택이 바뀐다")

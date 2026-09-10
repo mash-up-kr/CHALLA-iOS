@@ -31,14 +31,15 @@ public struct DefaultCameraFilterRepository: CameraFilterRepository {
     }
 
     public func lutData(for filter: CameraFilter) async throws -> Data {
-        if let cached = lutCache.data(for: filter.fileURL) {
+        guard let fileURL = filter.fileURL else { throw PhotoError.unknown }
+        if let cached = lutCache.data(for: fileURL) {
             return cached
         }
         do {
             let response = try await client
-                .request(ShootEndpoint.cubeFile(filter.fileURL))
+                .request(ShootEndpoint.cubeFile(fileURL))
                 .filterSuccessfulStatusCodes()
-            lutCache.store(response.data, for: filter.fileURL)
+            lutCache.store(response.data, for: fileURL)
             return response.data
         } catch {
             throw PhotoError.normalized(error)

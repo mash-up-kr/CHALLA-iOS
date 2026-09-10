@@ -28,7 +28,7 @@
 | `ReactionKind` | 리액션 10종(heart · sparkle · thumbsUp · poop · skull · medal · question · huh · loveEyes · fire). 시안의 리액션 바 순서 그대로이며 이모지 글리프는 화면이 정한다 |
 | `PhotoReaction` | `id`(표시용) · `kind` · `userID` · `chatID`(삭제용, nullable). `attachingChatID(_:)`는 표시 ID를 유지한다. 스티커 좌표는 Feature가 계산한다 |
 | `PhotoReactions` | 사진 한 장의 리액션 묶음 — `stickers`(남긴 순서대로 전부) + `reactedKindsByUser`(유저별 종류 전부, 칩 띠용). 목록엔 리액션이 없어 펼칠 때 따로 받아 `Photo.applyingReactions(_:)`로 채운다 |
-| `CameraFilter` | 서버가 내려주는 카메라 필터 한 개 (`GET /shoots/camera-filters` 응답 한 줄). `name`(식별자 겸 표시 이름 — 사진 업로드 API도 이 값으로 필터를 가리킨다) · `fileURL`(LUT .cube 공개 URL). `previewFilters`는 화면 확인용 샘플 |
+| `CameraFilter` | 서버가 내려주는 카메라 필터 한 개 (`GET /shoots/camera-filters` 응답 한 줄). `name`(식별자 겸 표시 이름 — 사진 업로드 API도 이 값으로 필터를 가리킨다) · `fileURL`(LUT .cube 공개 URL, 무필터는 nil). `none`은 색을 입히지 않는 기본 모드로 서버 목록에 없고 촬영 화면이 맨 앞에 붙인다(`isNone`). `previewFilters`는 화면 확인용 샘플 |
 
 ### Errors (`Sources/Errors/`)
 
@@ -73,7 +73,7 @@
 촬영(필터·업로드·안내·권한):
 
 - `FetchCameraFiltersUseCase` (`\.fetchCameraFiltersUseCase`) — 필터 목록 조회 (`-> [CameraFilter]`)
-- `PrepareCameraFiltersUseCase` (`\.prepareCameraFiltersUseCase`) — 필터들의 LUT를 모두 내려받아 등록.
+- `PrepareCameraFiltersUseCase` (`\.prepareCameraFiltersUseCase`) — 필터들의 LUT를 모두 내려받아 등록 (`isNone`은 받을 파일이 없어 건너뛴다).
   하나라도 실패하면 던진다 — 진입 버튼이 이 결과로 카메라 진입 여부를 정한다.
   파싱·등록은 Domain이 모르는 색 변환 영역이라 `live(repository:register:)`로 주입받는다
 - `UploadPhotoUseCase` (`\.uploadPhotoUseCase`) — 사진 업로드 후 남은 장수 (`-> Int`)
