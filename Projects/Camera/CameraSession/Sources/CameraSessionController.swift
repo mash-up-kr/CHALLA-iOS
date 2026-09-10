@@ -40,6 +40,16 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
     /// 프리뷰 프레임에 입힐 LUT. `videoQueue` 전용 — 교체도 큐로 넘겨서 락 없이 안전하다.
     private var previewLUT: (CIFilter & CIColorCubeWithColorSpace)?
     private var desiredZoomFactor: CGFloat = 1
+    private let inputSettle = OSAllocatedUnfairLock(initialState: InputSettle())
+    /// 전면이면 프리뷰를 거울상으로 그린다. 세션 큐가 쓰고 비디오 큐가 읽는다.
+    private let isPreviewMirrored = OSAllocatedUnfairLock(initialState: false)
+
+    /// 입력을 갈아끼운 뒤 새 스트림이 자리 잡기까지의 상태. 세션 큐가 쓰고 비디오 큐가 읽는다.
+    private struct InputSettle {
+        /// 이 시각까지만 프레임을 검사한다 — 지나면 무조건 받아 프리뷰가 멈추는 일이 없게 한다.
+        var deadline: Date = .distantPast
+        var firstSquareFrameAt: Date?
+    }
 
     /// 세션을 구성하고 돌리기 시작한다. 권한은 진입 버튼이 이미 받아 둔 것을 전제로 한다 —
     /// 허용되지 않은 채로 부르면 입력이 붙지 않아 검은 화면이 남는다.
@@ -143,6 +153,8 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
     private func updateInput(position: CameraPosition) {
         guard currentInput?.device.position != position.avPosition else { return }
 
+        // 커밋이 끝나기 전에 새 스트림이 흐르기 시작하므로 검사는 커밋보다 먼저 켠다
+        inputSettle.withLock { $0 = InputSettle(deadline: Date().addingTimeInterval(Self.inputSettleTimeout)) }
         session.beginConfiguration()
 
         if let currentInput {
@@ -166,6 +178,12 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
         applyZoomFactor()
     }
 
+    /// 회전·거울상이 실제로 걸리기까지 새 스트림이 얼마간 변환 전 프레임을 내보낸다 (실기기 녹화에서 최대 7프레임).
+    /// 그 사이 프레임을 그리면 전환 순간 화면이 90도 돌아간 채로 보인다.
+    private static let inputSettleTimeout: TimeInterval = 1.5
+    /// 정사각 버퍼는 크기로 회전 여부를 가릴 수 없어, 첫 정사각 프레임 뒤 이만큼은 버린다.
+    private static let squareFrameHold: TimeInterval = 0.4
+
     /// 입력을 갈아끼우면 연결이 새로 생기므로 그때마다 다시 잡는다. 세션 큐에서만 호출한다.
     private func configureConnections(position: CameraPosition) {
         // 프리뷰 레이어 없이 직접 프레임을 다루므로 세로 회전도 직접 지정한다 (앱은 세로 고정)
@@ -179,11 +197,17 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
             connection.videoRotationAngle = 90
         }
         // 전면은 프리뷰도 촬영본도 거울상 (#122) — 찍는 사람은 거울을 보듯 잡고,
-        // 방에 올라가는 사진도 그때 본 그대로여야 한다. 자동 판단에 맡기면 프리뷰만 뒤집힌다.
-        for connection in [videoOutput.connection(with: .video), photoOutput.connection(with: .video)] {
-            guard let connection, connection.isVideoMirroringSupported else { continue }
-            connection.automaticallyAdjustsVideoMirroring = false
-            connection.isVideoMirrored = position == .front
+        // 방에 올라가는 사진도 그때 본 그대로여야 한다.
+        // 프리뷰는 연결에 맡기지 않고 프레임에 직접 뒤집는다 — 연결의 거울상은 새 스트림이
+        // 시작되고 몇 프레임 뒤에야 걸려서, 전환 순간 반전 안 된 프레임이 보였다.
+        if let preview = videoOutput.connection(with: .video), preview.isVideoMirroringSupported {
+            preview.automaticallyAdjustsVideoMirroring = false
+            preview.isVideoMirrored = false
+        }
+        isPreviewMirrored.withLock { $0 = position == .front }
+        if let photo = photoOutput.connection(with: .video), photo.isVideoMirroringSupported {
+            photo.automaticallyAdjustsVideoMirroring = false
+            photo.isVideoMirrored = position == .front
         }
     }
 
@@ -197,13 +221,36 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
 
 extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate {
 
+    /// 앱이 세로 고정이라 제대로 회전된 프리뷰 버퍼는 항상 세로다 — 가로면 아직 안 걸린 것이다.
+    /// 정사각 센서(iPhone 17 전면)는 크기로 못 가리므로 첫 정사각 프레임 뒤 잠시 기다린다.
+    private func isSettled(_ pixelBuffer: CVPixelBuffer) -> Bool {
+        let now = Date()
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        return inputSettle.withLock { settle in
+            guard now < settle.deadline else { return true }
+            if height > width {
+                return true
+            }
+            if width > height {
+                return false
+            }
+            let firstSquareFrameAt = settle.firstSquareFrameAt ?? now
+            settle.firstSquareFrameAt = firstSquareFrameAt
+            return now.timeIntervalSince(firstSquareFrameAt) >= Self.squareFrameHold
+        }
+    }
+
     public func captureOutput(
         _: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from _: AVCaptureConnection
     ) {
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer), isSettled(pixelBuffer) else { return }
         var image = CIImage(cvPixelBuffer: pixelBuffer)
+        if isPreviewMirrored.withLock({ $0 }) {
+            image = image.oriented(.upMirrored)
+        }
         if let previewLUT {
             previewLUT.inputImage = image
             image = previewLUT.outputImage ?? image
