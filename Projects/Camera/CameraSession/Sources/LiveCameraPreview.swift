@@ -21,6 +21,7 @@ public struct LiveCameraPreview: View {
         CameraFilteredPreviewView(source: session, isFrozen: store.isCapturing)
             .task {
                 session.setPreviewFilter(id: store.selectedFilterID)
+                session.setZoomFactor(store.zoom.factor)
                 await session.start(position: store.cameraPosition)
             }
             .onDisappear { session.stop() }

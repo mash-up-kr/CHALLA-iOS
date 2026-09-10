@@ -39,13 +39,12 @@ struct CameraViewport<Preview: View>: View {
     private var live: some View {
         preview()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .scaleEffect(zoom.factor)
             .blur(radius: isDimmed ? ViewportMetric.coachMarkBlurRadius : 0)
             .overlay {
                 CHALLAColor.Static.black
                     .opacity(isDimmed ? ViewportMetric.coachMarkShadeOpacity : 0)
             }
-            .contentShape(Rectangle()) // 확대 전 원래 프레임에서 핀치를 받는다
+            .contentShape(Rectangle())
             .gesture(magnification)
             .allowsHitTesting(!isCapturing)
             .overlay { capturedPhotoLayer }
