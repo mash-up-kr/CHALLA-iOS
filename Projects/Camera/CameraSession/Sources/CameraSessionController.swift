@@ -178,10 +178,12 @@ public final class CameraSessionController: NSObject, CameraPreviewFrameSource, 
         if let connection = photoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
             connection.videoRotationAngle = 90
         }
-        // 전면 프리뷰만 거울상 — 시스템 카메라와 동일 (저장본은 photoOutput 기본값 유지)
-        if let preview = videoOutput.connection(with: .video), preview.isVideoMirroringSupported {
-            preview.automaticallyAdjustsVideoMirroring = false
-            preview.isVideoMirrored = position == .front
+        // 전면은 프리뷰도 촬영본도 거울상 (#122) — 찍는 사람은 거울을 보듯 잡고,
+        // 방에 올라가는 사진도 그때 본 그대로여야 한다. 자동 판단에 맡기면 프리뷰만 뒤집힌다.
+        for connection in [videoOutput.connection(with: .video), photoOutput.connection(with: .video)] {
+            guard let connection, connection.isVideoMirroringSupported else { continue }
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.isVideoMirrored = position == .front
         }
     }
 
