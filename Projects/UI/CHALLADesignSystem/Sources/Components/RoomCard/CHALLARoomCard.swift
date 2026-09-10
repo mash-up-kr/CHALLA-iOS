@@ -106,9 +106,12 @@ public struct CHALLARoomCard<CoverSticker: View>: View {
                     photo
                         .resizable()
                         .scaledToFill()
+                        // clip은 그림만 자르고 히트 테스트는 못 자른다 — 넘친 사진이
+                        // 호출부 Button의 탭 영역을 옆 카드까지 넓히므로 탭에서 뺀다 (#120).
+                        .allowsHitTesting(false)
                 }
             }
-            .overlay { coverSticker }
+            .overlay { coverSticker.allowsHitTesting(false) }
             .clipped()
             .overlay { scrim }
     }

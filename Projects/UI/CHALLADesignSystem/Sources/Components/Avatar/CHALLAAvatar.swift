@@ -39,6 +39,9 @@ public struct CHALLAAvatar: View {
             photo
                 .resizable()
                 .scaledToFill()
+                // clip은 그림만 자르고 히트 테스트는 못 자른다 — 비정방형 사진이
+                // 호출부 탭 영역을 원 밖까지 넓히므로 탭에서 뺀다 (#120).
+                .allowsHitTesting(false)
         } else {
             // CHALLAIcon.image(size:)는 고정 크기 토큰만 받아서 에셋을 직접 그린다.
             Image(CHALLAIcon.person.rawValue, bundle: .module)
