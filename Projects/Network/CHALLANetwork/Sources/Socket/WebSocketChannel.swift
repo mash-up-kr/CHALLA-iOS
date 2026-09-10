@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// WebSocket 한 개를 여닫고 메시지를 주고받는 실행기의 추상.
 ///
@@ -74,8 +75,18 @@ actor URLSessionWebSocketChannel: WebSocketChannel {
 
     func ping() async throws {
         guard let task else { throw STOMPError.notConnected }
+        // `sendPing`의 핸들러는 1회 호출이 보장되지 않는다 — ping이 미결인 채로 task가 닫히면
+        // pong으로 이미 불린 핸들러가 종료 정리 경로에서 에러와 함께 한 번 더 불린다.
+        // 두 번째 호출을 버리지 않으면 continuation 이중 resume으로 프로세스가 죽는다.
+        // 핸들러는 액터 밖(URLSession의 델리게이트 큐)에서 불려서 락으로 막는다.
+        let hasResumed = OSAllocatedUnfairLock(initialState: false)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
             task.sendPing { error in
+                let alreadyResumed = hasResumed.withLock { resumed in
+                    defer { resumed = true }
+                    return resumed
+                }
+                guard !alreadyResumed else { return }
                 if let error {
                     continuation.resume(throwing: error)
                 } else {
