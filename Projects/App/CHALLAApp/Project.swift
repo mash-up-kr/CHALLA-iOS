@@ -5,7 +5,7 @@ let project = Project.makeAppProject(
     name: "CHALLAApp",
     displayName: Environment.appName,
     bundleId: "\(Environment.bundleIdPrefix).app", // 실배포앱 = com.challa.app
-    marketingVersion: "1.0.1",
+    marketingVersion: "1.1.0",
     buildNumber: "1",
     additionalInfoPlist: [
         // 디자인 시스템이 다크 전용 팔레트라 시스템 라이트 모드에서도 다크로 고정한다
