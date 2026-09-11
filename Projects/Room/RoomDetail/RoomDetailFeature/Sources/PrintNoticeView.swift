@@ -46,11 +46,11 @@ struct PrintNoticeView: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .top) {
-                film
-                tooltip
-                // 필름보다 나중에 그려야 필름이 슬롯 뒤에서 나오는 것처럼 보인다.
+                // 필름보다 먼저 그린다 — 필름이 슬롯에서 나와 출구 아래쪽 테두리를 덮고 내려간다.
                 bezel
                     .padding(.top, PrintNoticeMetric.bezelTopPadding)
+                film
+                tooltip
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             // 필름 폭이 좁아서, 옆의 빈 곳을 당겨도 반응하게 한다.
@@ -109,19 +109,20 @@ struct PrintNoticeView: View {
 
     // MARK: - 필름
 
-    /// 출구 아래로 흐르는 필름.
+    /// 슬롯에서 나와 아래로 흐르는 필름.
     ///
     /// 크기가 아니라 `offset`으로 움직인다. 크기를 애니메이션하면 매 프레임 배치를 다시 잡아 끊긴다.
-    /// 잘리는 창은 출구 아랫변에 고정한다. 잘린 결과를 통째로 옮기면 출구와 필름 사이가 벌어진다.
+    /// 잘리는 창은 슬롯의 세로 중앙에 고정한다 — 필름이 출구 아랫변이 아니라 슬롯에서 나와야 한다.
+    /// 잘린 결과를 통째로 옮기면 슬롯과 필름 사이가 벌어진다.
     /// 당길 곳을 알리는 튕김은 여기에 더하지 않는다 — 툴팁만 튕긴다.
     /// 필름까지 움직이면 출구에서 밀려 나왔다 들어가는 것처럼 보여 무겁다.
     private var film: some View {
         filmStrip
             .frame(width: PrintNoticeMetric.filmWidth, height: stripHeight)
-            .offset(y: pulled - PrintNoticeMetric.filmHiddenByBezel - stripHeight)
+            .offset(y: pulled - stripHeight)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .clipped()
-            .padding(.top, PrintNoticeMetric.filmWindowTopPadding)
+            .padding(.top, PrintNoticeMetric.filmTopPadding)
     }
 
     private var filmStrip: some View {
@@ -264,7 +265,7 @@ struct PrintNoticeView: View {
     private var restVisibleFrameCount: Int {
         min(
             frames.count,
-            Int((PrintNoticeMetric.restReveal / PrintNoticeMetric.frameHeight).rounded(.up))
+            Int((PrintNoticeMetric.initialReveal / PrintNoticeMetric.frameHeight).rounded(.up))
         )
     }
 
