@@ -20,6 +20,7 @@ extension ListPhotosResponseDTO {
         return Photo(
             id: String(id),
             imageURL: imageURL,
+            thumbnailURL: thumbnailImageUrl.flatMap(URL.init(string:)),
             // 서버 목록·상세 어디에도 작성자 userId가 없다 — 표시에 쓰는 닉네임·이미지만 채운다.
             author: PhotoAuthor(
                 id: "",

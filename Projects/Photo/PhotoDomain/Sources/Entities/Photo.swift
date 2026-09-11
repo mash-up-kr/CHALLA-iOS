@@ -4,7 +4,10 @@ import Foundation
 public struct Photo: Identifiable, Sendable, Equatable {
 
     public let id: String
+    /// 원본 주소. 크게 보는 화면(사진 상세)과 기기 저장에 쓴다.
     public let imageURL: URL
+    /// 목록·필름용 축소본 주소. 서버가 축소본을 갖고 있지 않으면 nil이다.
+    public let thumbnailURL: URL?
     public let author: PhotoAuthor
     public let capturedAt: Date
     /// 생성 순서로 정렬된 리액션 스티커.
@@ -15,6 +18,7 @@ public struct Photo: Identifiable, Sendable, Equatable {
     public init(
         id: String,
         imageURL: URL,
+        thumbnailURL: URL? = nil,
         author: PhotoAuthor,
         capturedAt: Date,
         reactions: [PhotoReaction] = [],
@@ -22,12 +26,21 @@ public struct Photo: Identifiable, Sendable, Equatable {
     ) {
         self.id = id
         self.imageURL = imageURL
+        self.thumbnailURL = thumbnailURL
         self.author = author
         self.capturedAt = capturedAt
         // 같은 표시 ID의 중복을 제거한다.
         var seen = Set<PhotoReaction.ID>()
         self.reactions = reactions.filter { seen.insert($0.id).inserted }
         self.reactedKindsByUser = reactedKindsByUser
+    }
+
+    /// 작게 보이는 화면(목록·필름)이 쓸 주소. 축소본이 있으면 그것을, 없으면 원본을 준다.
+    ///
+    /// 폴백이 필요한 이유: 이 기능 이전에 올라간 사진에는 축소본이 없고 서버도 대신 채워 주지 않는다.
+    /// 그런 사진은 원본을 받게 되어 그 장만 느리다.
+    public var previewURL: URL {
+        thumbnailURL ?? imageURL
     }
 
     /// 이 유저가 남긴 리액션 종류 전부 (칩 띠용).
@@ -50,7 +63,8 @@ public struct Photo: Identifiable, Sendable, Equatable {
         kinds[reaction.userID, default: []].insert(reaction.kind)
 
         return Photo(
-            id: id, imageURL: imageURL, author: author, capturedAt: capturedAt,
+            id: id, imageURL: imageURL, thumbnailURL: thumbnailURL,
+            author: author, capturedAt: capturedAt,
             reactions: reactions + [reaction], reactedKindsByUser: kinds
         )
     }
@@ -70,7 +84,8 @@ public struct Photo: Identifiable, Sendable, Equatable {
         }
 
         return Photo(
-            id: id, imageURL: imageURL, author: author, capturedAt: capturedAt,
+            id: id, imageURL: imageURL, thumbnailURL: thumbnailURL,
+            author: author, capturedAt: capturedAt,
             reactions: remaining, reactedKindsByUser: kinds
         )
     }
@@ -82,7 +97,8 @@ public struct Photo: Identifiable, Sendable, Equatable {
         }
 
         return Photo(
-            id: id, imageURL: imageURL, author: author, capturedAt: capturedAt,
+            id: id, imageURL: imageURL, thumbnailURL: thumbnailURL,
+            author: author, capturedAt: capturedAt,
             reactions: updated, reactedKindsByUser: reactedKindsByUser
         )
     }
@@ -103,7 +119,8 @@ public struct Photo: Identifiable, Sendable, Equatable {
             )
         }
         return Photo(
-            id: id, imageURL: imageURL, author: author, capturedAt: capturedAt,
+            id: id, imageURL: imageURL, thumbnailURL: thumbnailURL,
+            author: author, capturedAt: capturedAt,
             reactions: stickers, reactedKindsByUser: reactions.reactedKindsByUser
         )
     }

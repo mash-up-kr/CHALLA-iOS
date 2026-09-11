@@ -8,6 +8,13 @@ import SwiftUI
 /// 필름 출구에서 아래로 당기면 사진이 지나가며 화면 밖으로 내려가고, 끝나면 `onFinished`를 부른다.
 /// 노출 기록과 화면 전환은 리듀서가 맡는다.
 ///
+/// 사진이 필름을 앞서 도착할 만큼 빨리 들어올 때부터 당길 수 있다 (`PrintNoticePhotoStore.canPull`).
+/// 전부 기다리지는 않는다 — 한 칸이 화면에 머무는 시간이 0.06초라, 받는 속도가 그보다 빠르면
+/// 남은 장은 필름이 닿기 전에 도착한다. 회선이 느려 끝내 따라오지 못하면 안내를 접는다.
+///
+/// 그때까지 필름은 출구 안에 있다. 미리 내놓으면 사진이 실리기 전의 칸이 검은 채로 걸려 있다 —
+/// 준비되면 그제서야 나오게 해서 빈 칸이 보일 자리를 없앤다.
+///
 /// `ScrollView`를 쓰지 않는다. 스크롤은 손을 뗀 시점을 알려주지 않기 때문이다 —
 /// 스크롤이 제스처를 가져가면 `onEnded`가 오지 않고, iOS 17에는 이를 관찰하는 API가 없다.
 /// "잡으면 멈추고 놓으면 이어서 내려간다"가 이 화면의 핵심이라 직접 다룬다.
@@ -17,6 +24,8 @@ struct PrintNoticeView: View {
     let photos: [Photo]
     /// 필름이 화면 밖으로 다 내려갔을 때 불린다.
     let onFinished: () -> Void
+    /// 사진을 제때 받지 못해 안내를 접을 때 불린다. 본 것이 아니므로 기록과 이어지지 않는다.
+    let onSkipped: () -> Void
 
     @Environment(\.challaTheme) private var theme
     /// 사진을 미리 받는 데 쓴다 — `CHALLAAsyncImage`가 쓰는 것과 같은 로더다.
@@ -24,7 +33,8 @@ struct PrintNoticeView: View {
     @Environment(\.displayScale) private var displayScale
 
     /// 슬롯 밖으로 나온 필름 길이. 이 값 하나가 필름과 툴팁 위치를 함께 정한다.
-    @State private var pulled: CGFloat = PrintNoticeMetric.initialReveal
+    /// 사진이 준비될 때까지는 0 — 필름이 출구 안에 있어 아무것도 보이지 않는다.
+    @State private var pulled: CGFloat = 0
     /// 당길 곳을 알리는 움직임.
     @State private var hint = PrintNoticeHint()
     /// 미리 받아 둔 사진.
@@ -46,34 +56,39 @@ struct PrintNoticeView: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .top) {
-                film
-                tooltip
-                // 필름보다 나중에 그려야 필름이 슬롯 뒤에서 나오는 것처럼 보인다.
+                // 필름보다 먼저 그린다 — 필름이 슬롯에서 나와 출구 아래쪽 테두리를 덮고 내려간다.
                 bezel
                     .padding(.top, PrintNoticeMetric.bezelTopPadding)
+                film
+                tooltip
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             // 필름 폭이 좁아서, 옆의 빈 곳을 당겨도 반응하게 한다.
             .contentShape(Rectangle())
-            .gesture(pullGesture(containerHeight: proxy.size.height))
+            // 준비 전에는 제스처 자체를 받지 않는다 — 안에서 걸러내면 손가락을 따라 필름이 움직인다.
+            .gesture(pullGesture(containerHeight: proxy.size.height), including: canPull ? .all : .subviews)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("인화된 필름")
-            .accessibilityHint("아래로 당기면 인화된 사진이 나옵니다")
+            .accessibilityHint(canPull ? "아래로 당기면 인화된 사진이 나옵니다" : "사진을 불러오는 중입니다")
             // 보이스오버는 당길 수 없으므로 같은 일을 하는 동작을 따로 준다.
             .accessibilityAction(named: "필름 당기기") {
+                guard canPull else { return }
                 run(containerHeight: proxy.size.height)
             }
         }
-        // 사진이 실리기 전에 움직이면 이미지가 하나씩 채워지며 필름이 변하는 것처럼 보인다.
-        .onChange(of: isReady, initial: true) {
-            if isReady {
-                hint.start(delay: Const.hintDelay)
+        // 사진이 준비되면 필름을 내보내고, 다 나온 뒤에 당길 곳을 알린다.
+        .onChange(of: canPull, initial: true) {
+            guard canPull else { return }
+            withAnimation(.easeOut(duration: Const.revealDuration)) {
+                pulled = PrintNoticeMetric.initialReveal
             }
+            hint.start(delay: Const.revealDuration + Const.hintDelay)
         }
-        // 사진을 못 받아도 화면이 멈춰 있지 않게 한다.
+        // 준비 전에는 당길 수 없으므로, 끝내 못 받으면 화면이 멈춘 채로 남는다. 그래서 기한을 둔다.
         .task {
-            try? await Task.sleep(for: .seconds(Const.hintLoadTimeout))
-            hint.start(delay: 0)
+            try? await Task.sleep(for: .seconds(Const.loadBudget))
+            guard !canPull else { return }
+            onSkipped()
         }
         .task { await photoStore.warm(photos, loader: imageLoader, scale: displayScale) }
         // 붙들고 있으면 로더 캐시가 이 사진들을 비우지 못한다.
@@ -109,19 +124,20 @@ struct PrintNoticeView: View {
 
     // MARK: - 필름
 
-    /// 출구 아래로 흐르는 필름.
+    /// 슬롯에서 나와 아래로 흐르는 필름.
     ///
     /// 크기가 아니라 `offset`으로 움직인다. 크기를 애니메이션하면 매 프레임 배치를 다시 잡아 끊긴다.
-    /// 잘리는 창은 출구 아랫변에 고정한다. 잘린 결과를 통째로 옮기면 출구와 필름 사이가 벌어진다.
+    /// 잘리는 창은 슬롯의 세로 중앙에 고정한다 — 필름이 출구 아랫변이 아니라 슬롯에서 나와야 한다.
+    /// 잘린 결과를 통째로 옮기면 슬롯과 필름 사이가 벌어진다.
     /// 당길 곳을 알리는 튕김은 여기에 더하지 않는다 — 툴팁만 튕긴다.
     /// 필름까지 움직이면 출구에서 밀려 나왔다 들어가는 것처럼 보여 무겁다.
     private var film: some View {
         filmStrip
             .frame(width: PrintNoticeMetric.filmWidth, height: stripHeight)
-            .offset(y: pulled - PrintNoticeMetric.filmHiddenByBezel - stripHeight)
+            .offset(y: pulled - stripHeight)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .clipped()
-            .padding(.top, PrintNoticeMetric.filmWindowTopPadding)
+            .padding(.top, PrintNoticeMetric.filmTopPadding)
     }
 
     private var filmStrip: some View {
@@ -129,7 +145,7 @@ struct PrintNoticeView: View {
             FilmPerforation(height: stripHeight)
             VStack(spacing: 0) {
                 ForEach(frames) { photo in
-                    FilmFrame(image: photoStore.images[photo.id])
+                    FilmFrame(slot: photoStore.slots[photo.id])
                 }
             }
             FilmPerforation(height: stripHeight)
@@ -146,7 +162,7 @@ struct PrintNoticeView: View {
             .offset(y: pulled - PrintNoticeMetric.initialReveal + hint.offset)
             .padding(.top, PrintNoticeMetric.filmTopPadding
                 + PrintNoticeMetric.initialReveal + PrintNoticeMetric.tooltipSpacing)
-            .opacity(didStartRun ? 0 : 1)
+            .opacity(canPull && !didStartRun ? 1 : 0)
     }
 
     // MARK: - 당기기
@@ -224,7 +240,10 @@ struct PrintNoticeView: View {
         // 남은 거리로 시간을 잡아 속도를 일정하게 한다. 너무 길거나 짧지 않게 자른다.
         let from = pulled
         let end = runEnd(containerHeight: containerHeight)
-        let duration = min(max((end - from) / Const.runSpeed, Const.minRunDuration), Const.maxRunDuration)
+        let duration = min(
+            max((end - from) / PrintNoticeMetric.runSpeed, PrintNoticeMetric.minRunDuration),
+            PrintNoticeMetric.maxRunDuration
+        )
 
         runID += 1
         let id = runID
@@ -255,17 +274,9 @@ struct PrintNoticeView: View {
         CGFloat(frames.count) * PrintNoticeMetric.frameHeight
     }
 
-    /// 처음부터 보이는 칸의 사진이 다 실렸는지.
-    private var isReady: Bool {
-        photoStore.hasImages(for: frames.suffix(restVisibleFrameCount))
-    }
-
-    /// 진입 직후 출구 밖에 나와 있는 칸 수.
-    private var restVisibleFrameCount: Int {
-        min(
-            frames.count,
-            Int((PrintNoticeMetric.restReveal / PrintNoticeMetric.frameHeight).rounded(.up))
-        )
+    /// 당겨도 되는 상태인지. 스토어가 받는 속도를 보고 정한다.
+    private var canPull: Bool {
+        photoStore.canPull
     }
 
     // MARK: - 상수
@@ -281,16 +292,15 @@ struct PrintNoticeView: View {
         static let releaseDuration: TimeInterval = 0.45
         static let releaseBounce: CGFloat = 0.45
 
-        /// 손을 뗀 뒤 내려가는 속도(pt/초)와 시간의 상·하한.
-        /// 상한이 있어 긴 필름(48·72장)은 이 속도보다 빠르게 지나간다.
-        static let runSpeed: CGFloat = 1700
-        static let minRunDuration: TimeInterval = 0.6
-        static let maxRunDuration: TimeInterval = 4.0
         static let tooltipFadeDuration: TimeInterval = 0.2
 
+        /// 사진이 준비된 뒤 필름이 출구 밖으로 나오는 시간.
+        static let revealDuration: TimeInterval = 0.5
+        /// 필름이 다 나온 뒤 당길 곳을 알리기까지 두는 사이.
         static let hintDelay: TimeInterval = 0.25
-        /// 사진을 이만큼 기다려도 안 실리면 안내 움직임을 그냥 시작한다.
-        static let hintLoadTimeout: TimeInterval = 4.0
+        /// 당길 수 있게 될 때까지 기다려 주는 시간. 넘기면 안내를 접는다.
+        /// 지금은 목록 API가 원본(장당 4~4.5MB)을 주므로 큰 방은 이 기한을 넘긴다.
+        static let loadBudget: TimeInterval = 20.0
     }
 }
 
@@ -320,7 +330,7 @@ struct RunInFlight: Equatable {
             title: "친구들과 강릉 여행",
             leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") {}
         )
-        PrintNoticeView(photos: PreviewSamples.photos(count: 24), onFinished: {})
+        PrintNoticeView(photos: PreviewSamples.photos(count: 24), onFinished: {}, onSkipped: {})
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .challaMainBackground()

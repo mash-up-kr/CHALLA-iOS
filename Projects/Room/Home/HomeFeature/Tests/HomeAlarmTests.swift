@@ -53,6 +53,8 @@ struct HomeAlarmTests {
         TestStore(initialState: HomeFeature.State(nickname: "찰나")) {
             HomeFeature()
         } withDependencies: {
+            // 미리 받기는 이 묶음의 관심사가 아니다 — 안내를 이미 본 것으로 고정해 프리페치가 돌지 않게 한다.
+            $0.shouldShowPrintNoticeUseCase.run = { _ in false }
             $0.fetchRoomsUseCase = fetchRooms
             $0.continuousClock = clock
             // 알람을 걸지 말지는 "지금이 완료 시각 전인가"로 갈린다. 실제 시각을 읽으면 돌릴 때마다

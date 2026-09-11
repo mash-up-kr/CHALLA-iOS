@@ -1,4 +1,18 @@
 import CoreGraphics
+import Foundation
+
+/// 필름 사진을 미리 받아 두는 쪽(홈)이 참조하라고 밖으로 여는 값.
+///
+/// 로더의 캐시 키가 `URL + 픽셀 크기`라, 이 크기로 받아 두지 않으면 필름이 캐시를 못 쓰고 다시 받는다.
+/// 미리 받은 것이 통째로 버려지므로 양쪽이 반드시 같은 값을 봐야 한다.
+public enum PrintNoticeFilmMetric {
+
+    /// 필름 한 칸의 사진 크기(pt). 정수로 올린 값이다 — `ImageLoadSize.quantized`와 같은 규칙.
+    public static let photoPointSize = CGSize(
+        width: PrintNoticeMetric.photoWidth.rounded(.up),
+        height: PrintNoticeMetric.photoHeight.rounded(.up)
+    )
+}
 
 /// 시안 좌표는 화면 맨 위 기준이라, 상단 바(114) 아래에 놓이는 이 화면에서는 그만큼 뺀 값을 쓴다.
 enum PrintNoticeMetric {
@@ -19,11 +33,8 @@ enum PrintNoticeMetric {
     static let slotHeight: CGFloat = 6
 
     /// 필름이 나오는 자리 — 시안 필름 top 146 − 상단 바 높이 114 (슬롯의 세로 중앙).
+    /// 필름은 출구 아랫변이 아니라 이 슬롯에서 나온다. 슬롯 아래 출구 테두리는 필름이 덮는다.
     static let filmTopPadding: CGFloat = 32
-    /// 필름이 보이기 시작하는 자리 = 출구 아랫변(테두리 포함).
-    static let filmWindowTopPadding: CGFloat = bezelTopPadding + bezelHeight + bezelBorderWidth
-    /// 슬롯부터 출구 아랫변까지 — 출구에 가려 그리지 않는 길이.
-    static let filmHiddenByBezel: CGFloat = filmWindowTopPadding - filmTopPadding
 
     /// 필름 폭 (시안 224.207 = 천공 18 + 사진 188.207 + 천공 18).
     static let filmWidth: CGFloat = 224
@@ -47,10 +58,24 @@ enum PrintNoticeMetric {
 
     /// 진입 직후 슬롯 밖으로 나와 있는 필름 길이 (시안0의 필름 높이 212).
     static let initialReveal: CGFloat = 212
-    /// 그중 실제로 보이는 길이 — 출구에 가려지는 만큼을 뺀 값.
-    static let restReveal: CGFloat = initialReveal - filmHiddenByBezel
     /// 당길 곳을 알릴 때 필름이 조금 더 나왔다 들어가는 거리 (시안 없음 — 눈으로 잡은 값).
     static let hintDistance: CGFloat = 12
     /// 툴팁과 필름 끝 사이 — 시안 툴팁 top 374 − 필름 bottom 358.
     static let tooltipSpacing: CGFloat = 16
+
+    /// 손을 뗀 뒤 필름이 내려가는 속도(pt/초)와 시간의 상·하한.
+    /// 상한이 있어 긴 필름(48·72장)은 이 속도보다 빠르게 지나간다.
+    static let runSpeed: CGFloat = 1700
+    static let minRunDuration: TimeInterval = 0.6
+    static let maxRunDuration: TimeInterval = 4.0
+
+    /// 칸 수만으로 어림한, 필름이 다 지나가는 시간.
+    ///
+    /// 실제로는 화면 높이만큼 더 내려가므로 이 값보다 조금 더 걸린다 — 짧게 잡히는 쪽이라
+    /// 당기기를 열지 판단할 때 쓰기 안전하다. 사진이 적은 방은 필름도 짧아 금방 지나가므로,
+    /// 고정값을 쓰면 그런 방에서 너무 일찍 열린다.
+    static func runDuration(frameCount: Int) -> TimeInterval {
+        let distance = CGFloat(frameCount) * frameHeight
+        return min(max(TimeInterval(distance / runSpeed), minRunDuration), maxRunDuration)
+    }
 }

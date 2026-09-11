@@ -118,6 +118,8 @@ public struct RoomDetailFeature {
             case photoTapped(Photo.ID)
             /// 필름이 다 내려가 안내가 끝났다 — 이 시점에 봤다고 기록해 다음 진입부터는 뜨지 않는다.
             case printNoticeDismissed
+            /// 사진을 제때 받지 못해 안내를 접었다 — 본 것이 아니므로 기록하지 않는다.
+            case printNoticeSkipped
         }
 
         /// 부모(App)에게만 알린다. 화면 전환은 App이 조립한다.
@@ -210,6 +212,12 @@ public struct RoomDetailFeature {
                 return .run { [markPrintNoticeSeenUseCase, roomID = state.room.id] _ in
                     await markPrintNoticeSeenUseCase.run(roomID)
                 }
+
+            // 기록하지 않고 그리드로 보낸다 — 사진을 못 받아 접은 것이라 다음 진입에 다시 시도한다.
+            // 기록해 버리면 축소본이 나중에 생겨도 그 방은 안내가 영영 뜨지 않는다.
+            case .view(.printNoticeSkipped):
+                state.isPrintNoticePresented = false
+                return .none
 
             case let .photosResponse(.success(photos)):
                 state.photosLoad = .loaded

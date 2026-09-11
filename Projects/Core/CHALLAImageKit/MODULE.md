@@ -44,6 +44,7 @@ CHALLA 모듈·외부 패키지를 하나도 import하지 않는다. `CHALLANetw
 | `ImageDownsampler` | `Sendable` 값 타입. ImageIO 썸네일 디코딩으로 타깃 픽셀 크기만큼만 디코딩 |
 | `ImageDownsamplingError` | `invalidData` / `thumbnailCreationFailed` / `invalidTargetSize` |
 | `ImageCompressor` | `Sendable` 값 타입. 파일 크기 상한에 맞춰 JPEG 재인코딩 (업로드용 — 로딩 파이프라인과 무관) |
+| `ImageThumbnailMaker` | `Sendable` 값 타입. 원본 바이트를 긴 변 상한 이하의 JPEG 축소본으로 (업로드용 — 목록·필름이 원본을 받지 않게) |
 | `ImageCompressionError` | `invalidData` / `invalidLimit` / `encodingFailed` / `unableToFit` |
 | `PixelSize` | pt·scale을 정수 픽셀로 환산·보관. 캐시 키의 크기 성분 |
 | `ImageCacheKey` | `URL + PixelSize` 조합 키. 디스크 파일명용 `storageIdentifier`(SHA256) |

@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import PhotoDomain
 import RoomData // 앱 조립 지점이라 Data를 직접 import 한다 (아키텍처 규칙 2의 예외)
 import RoomDomain
 
@@ -13,6 +14,9 @@ enum CompositionRoot {
         values.fetchRoomsUseCase = .live(repository: repository)
         values.createRoomUseCase = .live(repository: repository)
         values.joinRoomUseCase = .live(repository: repository)
+        // 데모에는 사진 서버가 없다. 미리 받기를 끄고 안내도 본 것으로 둬서 목록만 검수한다.
+        values.shouldShowPrintNoticeUseCase = ShouldShowPrintNoticeUseCase(run: { _ in false })
+        values.prefetchRoomPhotosUseCase = PrefetchRoomPhotosUseCase(run: { _ in })
     }
 
     /// 화면·상태별로 저장소 구성을 바꾼다 — 어떤 방이 들어 있는지, 응답이 늦는지, 실패하는지.

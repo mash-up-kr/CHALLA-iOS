@@ -10,7 +10,7 @@ let project = Project.makeAppProject(
     buildNumber: "1",
     usesAPIEnvironment: false, // 서버 미확정 — InMemory 저장소만 쓴다
     dependencies: [
-        .homeFeature, .roomDomain,
+        .homeFeature, .roomDomain, .photoDomain,
         .roomData, // 데모앱은 조립 지점이라 Data 직접 의존 허용 (아키텍처 규칙 2의 예외)
         .composableArchitecture
     ]
