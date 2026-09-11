@@ -26,7 +26,7 @@
   기본값은 `CameraPreviewPlaceholder`(단색 그라디언트)고, 실기기 연동 시에는
   `CameraFilteredPreviewView`(Metal 렌더러)에 `CameraPreviewFrameSource` 구현을 물려 넣는다.
 - 셔터를 눌러 촬영이 허용되면 `Action.Delegate.captureRequested(roomID:filterID:)`가 나간다.
-  **필터 없는 촬영은 없다** — 진입 시 첫 필터가 자동 선택된다.
+  **필터 없는 촬영은 없다** — 목록 맨 앞에 무필터(`CameraFilter.none`)가 고정으로 붙고 진입 시 그것이 선택된다.
   하드웨어 캡처는 이 delegate를 받는 쪽(`CameraSession`의 `LiveCameraFeature`)이 수행하고, 결과 JPEG을
   `Action.captureCompleted(roomID:filterID:jpegData:)`로 되돌려주면 리듀서가
   `UploadPhotoUseCase`(발급→스토리지 PUT→완료 통보)로 업로드한다. 응답의 `remainedPhotoCount`로
@@ -84,7 +84,7 @@
 | 두 손가락 핀치 | 배율이 1x~8x 사이에서 연속으로 바뀌고 배지 문구가 따라간다 |
 | 배율 배지 탭 | 1x → 2x → 3x → 1x 순환 |
 | 플래시 버튼 | 켜짐 ↔ 꺼짐 (아이콘 `LightningOn` / `LightningOff`). 진입 시 기본값은 꺼짐이고, 화면을 나가면 초기화된다 |
-| 필터 띠 스크롤 · 탭 | 선택 필터가 항상 화면 중앙에 물린다 |
+| 필터 띠 스크롤 · 탭 | 선택 필터가 항상 화면 중앙에 물린다. 맨 앞은 항상 무필터(`None`)이며 진입 시 선택돼 있다 |
 | 방 이름 버튼 | 방 선택 드로어(`CHALLADrawer`)를 연다 |
 | 셔터 (촬영 가능) | `delegate(.captureRequested)` → 조립 지점 캡처 → `captureCompleted` → 업로드·장수 갱신. 촬영본이 돌아오기 전까지 셔터가 잠겨 연타해도 한 번만 나간다 |
 | 셔터 (촬영 불가) | 서버가 준 문구로 토스트를 3초 띄운다. 뷰파인더는 안내 문구로 대체돼 있다 |
@@ -102,7 +102,7 @@
 mise exec -- tuist test CameraFeature
 ```
 
-`TestStore`로 플래시·카메라 전환·셔터(가능/불가/방·필터 없음)·배율(핀치·탭·범위·문구)·진입 상태(첫 방 선택·지정 방·소진 방)·필터/방 선택·업로드(장수 갱신·소진 차단·실패 토스트)·토스트 수명·닫기 스와이프·온보딩 안내(뜸 후 노출·단계 진행·재노출 차단)를 검증한다.
+`TestStore`로 플래시·카메라 전환·셔터(가능/불가/방 없음/서버 필터 없음)·배율(핀치·탭·범위·문구)·진입 상태(첫 방 선택·지정 방·소진 방)·필터/방 선택(무필터 고정·중복 제거)·업로드(장수 갱신·소진 차단·실패 토스트)·토스트 수명·닫기 스와이프·온보딩 안내(뜸 후 노출·단계 진행·재노출 차단)를 검증한다.
 `CameraFilterCatalogTests`는 .cube 등록의 성공·실패를 따로 본다 — 이 반환값이 카메라 진입 여부를 가른다.
 
 ## 데모앱

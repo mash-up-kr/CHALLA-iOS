@@ -46,8 +46,8 @@ public struct CameraFeature {
         ) {
             self.rooms = rooms
             self.selectedRoomID = selectedRoomID ?? rooms.first?.id
-            self.filters = filters
-            self.selectedFilterID = selectedFilterID ?? filters.first?.id
+            self.filters = Self.withNoneFirst(filters)
+            self.selectedFilterID = selectedFilterID ?? CameraFilter.none.id
             self.flashMode = flashMode
             self.cameraPosition = cameraPosition
             self.zoom = zoom
@@ -56,6 +56,16 @@ public struct CameraFeature {
             self.coachMark = coachMark
             // 안내를 띄운 채로 시작하는 프리뷰·데모는 이미 시작한 것으로 본다.
             self.hasStartedCoachMark = hasStartedCoachMark || coachMark != nil
+        }
+
+        /// 무필터를 맨 앞에 고정한다 — 서버 목록에는 없고, 진입 시 선택돼 있는 필터다.
+        private static func withNoneFirst(
+            _ filters: IdentifiedArrayOf<CameraFilter>
+        ) -> IdentifiedArrayOf<CameraFilter> {
+            var filters = filters
+            filters.remove(id: CameraFilter.none.id)
+            filters.insert(CameraFilter.none, at: 0)
+            return filters
         }
 
         public var selectedRoom: ShootableRoom? {

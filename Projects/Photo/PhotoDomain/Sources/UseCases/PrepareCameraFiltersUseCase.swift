@@ -26,7 +26,7 @@ extension PrepareCameraFiltersUseCase: TestDependencyKey {
             run: { filters in
                 // 파일이 10개 남짓이라 순차로 받으면 진입이 그만큼 늦어진다 — 전부 동시에 건다.
                 try await withThrowingTaskGroup(of: Void.self) { group in
-                    for filter in filters {
+                    for filter in filters where !filter.isNone {
                         group.addTask {
                             let cubeData = try await repository.lutData(for: filter)
                             guard register(cubeData, filter.id) else { throw PhotoError.unknown }

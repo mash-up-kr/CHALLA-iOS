@@ -51,6 +51,16 @@ struct PrepareCameraFiltersUseCaseLiveTests {
         #expect(registered.withLock { $0 } == expected)
     }
 
+    @Test("무필터는 내려받을 LUT가 없어 건너뛴다")
+    func skipsNoneFilter() async throws {
+        let repository = MockCameraFilterRepository(lutDataResult: .success(Data("LUT_3D_SIZE 2".utf8)))
+        let useCase = PrepareCameraFiltersUseCase.live(repository: repository) { _, _ in true }
+
+        try await useCase.run([.none] + CameraFilter.previewFilters)
+
+        #expect(!repository.lutRequests.contains { $0.isNone })
+    }
+
     @Test("다운로드가 하나라도 실패하면 던진다 — 진입 버튼이 이 오류로 카메라를 막는다")
     func throwsWhenDownloadFails() async {
         let useCase = PrepareCameraFiltersUseCase.live(
