@@ -29,6 +29,8 @@ struct HomeShootEntryTests {
         return TestStore(initialState: state) {
             HomeFeature()
         } withDependencies: {
+            // 미리 받기는 이 묶음의 관심사가 아니다 — 안내를 이미 본 것으로 고정해 프리페치가 돌지 않게 한다.
+            $0.shouldShowPrintNoticeUseCase.run = { _ in false }
             $0.fetchShootableRoomsUseCase.run = rooms
             $0.fetchCameraFiltersUseCase.run = { filters }
             $0.prepareCameraFiltersUseCase.run = { _ in }

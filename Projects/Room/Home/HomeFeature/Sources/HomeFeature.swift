@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import Foundation
+import PhotoDomain
 import RoomDomain
 import ShootEntry
 
@@ -147,6 +148,9 @@ public struct HomeFeature {
     @Dependency(\.fetchRoomsUseCase) var fetchRoomsUseCase
     @Dependency(\.joinRoomUseCase) var joinRoomUseCase
     @Dependency(\.openCameraSettingsUseCase) var openCameraSettingsUseCase
+    /// 인화 완료 안내를 아직 안 본 방인지 묻는다 — 미리 받아 둘 대상을 고르는 데만 쓴다.
+    @Dependency(\.shouldShowPrintNoticeUseCase) var shouldShowPrintNoticeUseCase
+    @Dependency(\.prefetchRoomPhotosUseCase) var prefetchRoomPhotosUseCase
 
     // MARK: - Body
 
@@ -161,7 +165,10 @@ public struct HomeFeature {
             case let .roomsResponse(.success(cards)):
                 state.loadState = .loaded
                 state.cards = IdentifiedArray(uniqueElements: cards)
-                return refreshAtPrintCompletion(cards: cards)
+                return .merge(
+                    refreshAtPrintCompletion(cards: cards),
+                    prefetchPrintNoticePhotos(cards: cards)
+                )
 
             case .printCompletionReached:
                 return fetchRooms(&state)
@@ -287,9 +294,32 @@ public struct HomeFeature {
 
     private enum CancelID {
         case fetchRooms
+        case prefetchPrintNotice
         case prepareShoot
         case printRefresh
         case inviteJoin
+    }
+
+    /// 들어가면 인화 완료 안내가 뜰 방의 사진을 미리 받아 둔다.
+    ///
+    /// 안내 필름은 사진 전부가 4초 만에 지나가서, 들어간 뒤에 받기 시작하면 뒤쪽 칸이 검게 지나간다.
+    /// 홈에 머무는 동안 받아 두면 들어갔을 때 기다릴 것이 없다.
+    ///
+    /// 한 방만 받는다 — 대상이 여럿이어도 사용자가 지금 들어갈 곳은 하나고,
+    /// 들어가지 않을 방까지 받으면 그만큼 데이터를 버린다.
+    private func prefetchPrintNoticePhotos(cards: [RoomCard]) -> Effect<Action> {
+        let printedRoomIDs = cards.filter { $0.room.status == .printed }.map(\.id)
+        guard !printedRoomIDs.isEmpty else { return .none }
+
+        return .run { [shouldShowPrintNoticeUseCase, prefetchRoomPhotosUseCase] _ in
+            for roomID in printedRoomIDs {
+                // 이미 본 방은 안내가 다시 뜨지 않으니 미리 받을 이유가 없다.
+                guard await shouldShowPrintNoticeUseCase.run(roomID) else { continue }
+                await prefetchRoomPhotosUseCase.run(roomID)
+                return
+            }
+        }
+        .cancellable(id: CancelID.prefetchPrintNotice, cancelInFlight: true)
     }
 
     /// 가장 이른 인화 완료 예정 시각에 한 번 깨어나 목록을 재조회하는 알람 (방 상세와 같은 방식).

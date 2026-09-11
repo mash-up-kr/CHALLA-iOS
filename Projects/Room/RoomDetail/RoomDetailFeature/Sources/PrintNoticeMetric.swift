@@ -1,6 +1,19 @@
 import CoreGraphics
 import Foundation
 
+/// 필름 사진을 미리 받아 두는 쪽(홈)이 참조하라고 밖으로 여는 값.
+///
+/// 로더의 캐시 키가 `URL + 픽셀 크기`라, 이 크기로 받아 두지 않으면 필름이 캐시를 못 쓰고 다시 받는다.
+/// 미리 받은 것이 통째로 버려지므로 양쪽이 반드시 같은 값을 봐야 한다.
+public enum PrintNoticeFilmMetric {
+
+    /// 필름 한 칸의 사진 크기(pt). 정수로 올린 값이다 — `ImageLoadSize.quantized`와 같은 규칙.
+    public static let photoPointSize = CGSize(
+        width: PrintNoticeMetric.photoWidth.rounded(.up),
+        height: PrintNoticeMetric.photoHeight.rounded(.up)
+    )
+}
+
 /// 시안 좌표는 화면 맨 위 기준이라, 상단 바(114) 아래에 놓이는 이 화면에서는 그만큼 뺀 값을 쓴다.
 enum PrintNoticeMetric {
 

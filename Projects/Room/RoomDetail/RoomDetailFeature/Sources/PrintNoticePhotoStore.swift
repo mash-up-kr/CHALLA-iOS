@@ -76,12 +76,8 @@ final class PrintNoticePhotoStore {
         )
         refreshCanPull()
 
-        // 표시 크기를 정수 pt로 올려 받는다 — 로더의 캐시 키가 `URL + 픽셀 크기`라
-        // `CHALLAAsyncImage`가 쓰는 규칙(`ImageLoadSize.quantized`)과 맞춰야 같은 항목을 쓴다.
-        let pointSize = CGSize(
-            width: PrintNoticeMetric.photoWidth.rounded(.up),
-            height: PrintNoticeMetric.photoHeight.rounded(.up)
-        )
+        // 홈이 미리 받아 둘 때와 같은 값을 봐야 캐시가 맞는다 (`PrintNoticeFilmMetric`).
+        let pointSize = PrintNoticeFilmMetric.photoPointSize
 
         await withTaskGroup(of: LoadedPhoto.self) { group in
             var started = 0

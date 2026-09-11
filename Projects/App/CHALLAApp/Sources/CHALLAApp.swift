@@ -31,6 +31,7 @@ struct CHALLAApp: App {
         prepareDependencies {
             CompositionRoot.registerLiveDependencies(
                 into: &$0,
+                imageLoader: loader,
                 clearImageCache: { await loader?.removeAll() }
             )
         }

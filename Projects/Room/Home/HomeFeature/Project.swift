@@ -15,7 +15,11 @@ let project = Project(
             name: "HomeFeature",
             // .shootEntry: 촬영 뱃지가 카메라 진입 준비(목록·LUT·권한)를 방 상세와 공유한다.
             // .roomCoverUI: 방 카드의 커버 스티커·색을 디자인 시스템으로 옮긴다 — 커버 수정 화면과 같은 매핑.
-            dependencies: [.roomDomain, .roomCoverUI, .shootEntry, .composableArchitecture, .designSystem]
+            // .photoDomain: 인화 완료 안내에 쓸 사진을 홈에 있는 동안 미리 받아 둔다.
+            dependencies: [
+                .roomDomain, .photoDomain, .roomCoverUI, .shootEntry,
+                .composableArchitecture, .designSystem
+            ]
         ),
         .target(
             name: "HomeFeatureTests",
