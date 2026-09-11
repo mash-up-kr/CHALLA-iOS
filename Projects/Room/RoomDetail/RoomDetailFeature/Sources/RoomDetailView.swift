@@ -34,7 +34,11 @@ public struct RoomDetailView: View {
             // 인화 완료 후 첫 진입이면 그리드 대신 필름부터 보여준다. 상단 바는 그대로 둔다 —
             // 시안의 안내 화면에도 같은 제목과 뒤로 가기가 있다.
             if store.isPrintNoticePresented {
-                PrintNoticeView(photos: store.photos) { send(.printNoticeDismissed) }
+                PrintNoticeView(
+                    photos: store.photos,
+                    onFinished: { send(.printNoticeDismissed) },
+                    onSkipped: { send(.printNoticeSkipped) }
+                )
             } else {
                 slotGrid
                     .overlay(alignment: .top) { memberBar }

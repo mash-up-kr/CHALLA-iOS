@@ -154,6 +154,27 @@ struct RoomDetailPrintNoticeTests {
         #expect(markedRoomID.value == Self.printedRoom.id)
     }
 
+    @Test("사진을 못 받아 안내를 접으면 봤다고 기록하지 않는다 — 다음 진입에 다시 시도한다")
+    func skippingPrintNoticeDoesNotMarkSeen() async {
+        let markedRoomID = LockIsolated<Room.ID?>(nil)
+        let store = Self.makePrintedStore(
+            shouldShow: true,
+            markSeen: MarkPrintNoticeSeenUseCase(run: { markedRoomID.setValue($0) })
+        )
+
+        await store.send(.view(.task))
+        await Self.drain(store)
+        #expect(store.state.isPrintNoticePresented)
+
+        await store.send(.view(.printNoticeSkipped)) {
+            $0.isPrintNoticePresented = false
+        }
+        await store.finish()
+        await store.skipReceivedActions(strict: false)
+
+        #expect(markedRoomID.value == nil)
+    }
+
     @Test("안내를 한 번 닫으면 뒤늦게 도착한 응답이 다시 띄우지 않는다")
     func doesNotReshowPrintNoticeAfterDismiss() async {
         let store = Self.makePrintedStore(shouldShow: true)

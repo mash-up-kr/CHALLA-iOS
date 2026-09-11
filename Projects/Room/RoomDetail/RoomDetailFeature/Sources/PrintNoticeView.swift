@@ -24,6 +24,8 @@ struct PrintNoticeView: View {
     let photos: [Photo]
     /// 필름이 화면 밖으로 다 내려갔을 때 불린다.
     let onFinished: () -> Void
+    /// 사진을 제때 받지 못해 안내를 접을 때 불린다. 본 것이 아니므로 기록과 이어지지 않는다.
+    let onSkipped: () -> Void
 
     @Environment(\.challaTheme) private var theme
     /// 사진을 미리 받는 데 쓴다 — `CHALLAAsyncImage`가 쓰는 것과 같은 로더다.
@@ -86,7 +88,7 @@ struct PrintNoticeView: View {
         .task {
             try? await Task.sleep(for: .seconds(Const.loadBudget))
             guard !canPull else { return }
-            onFinished()
+            onSkipped()
         }
         .task { await photoStore.warm(photos, loader: imageLoader, scale: displayScale) }
         // 붙들고 있으면 로더 캐시가 이 사진들을 비우지 못한다.
@@ -328,7 +330,7 @@ struct RunInFlight: Equatable {
             title: "친구들과 강릉 여행",
             leading: .icon(.caretLeft, accessibilityLabel: "뒤로 가기") {}
         )
-        PrintNoticeView(photos: PreviewSamples.photos(count: 24), onFinished: {})
+        PrintNoticeView(photos: PreviewSamples.photos(count: 24), onFinished: {}, onSkipped: {})
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .challaMainBackground()
