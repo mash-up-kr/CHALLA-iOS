@@ -35,7 +35,7 @@ final class PrintNoticePhotoStore {
                     store(loaded)
                 }
                 let id = photo.id
-                let url = photo.imageURL
+                let url = photo.previewURL
                 group.addTask {
                     await LoadedPhoto(
                         id: id,

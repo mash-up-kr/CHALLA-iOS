@@ -118,7 +118,7 @@ public struct RoomDetailView: View {
             Button {
                 send(.photoTapped(photo.id))
             } label: {
-                CHALLAAsyncImage(url: photo.imageURL) { image in
+                CHALLAAsyncImage(url: photo.previewURL) { image in
                     CHALLAFilmCard(
                         variant: store.room.status == .printed
                             ? .printed(photo: image)
