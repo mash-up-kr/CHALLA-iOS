@@ -10,17 +10,20 @@ import SwiftUI
 ///
 /// 그래서 사진은 `PrintNoticePhotoStore`가 미리 받아 두고, 여기서는 받아 둔 것을 그 자리에서 그린다.
 /// 받아오는 창구는 그대로 `ImageLoader`다 — 그리는 시점만 앞당겼다.
+///
+/// 사진은 칸 하나를 통째로 지켜본다(`PrintNoticePhotoSlot`). 스토어의 딕셔너리를 직접 읽으면
+/// 한 장이 도착할 때마다 필름 전체가 다시 그려진다.
 struct FilmFrame: View {
 
-    /// 미리 받아 둔 사진. 아직 없으면 검은 칸으로 남는다.
-    let image: Image?
+    /// 이 칸이 들고 있는 자리. 사진이 아직 안 왔으면 검은 칸으로 남는다.
+    let slot: PrintNoticePhotoSlot?
 
     /// `Color.clear`가 칸 크기를 잡고 사진을 그 위에 얹는다 (`CHALLAFilmCard`와 같은 방식).
     /// `scaledToFill`은 긴 변이 칸 밖으로 넘치는데, 사진을 그대로 넣으면 넘친 크기가 칸 크기가 된다.
     var body: some View {
         Color.clear
             .overlay {
-                if let image {
+                if let image = slot?.image {
                     image
                         .resizable()
                         .scaledToFill()

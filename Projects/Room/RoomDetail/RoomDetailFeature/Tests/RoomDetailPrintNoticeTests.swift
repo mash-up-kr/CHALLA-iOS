@@ -185,6 +185,68 @@ struct RoomDetailPrintNoticeTests {
         #expect(run.position(at: start.addingTimeInterval(5)) == 1100)
     }
 
+    // MARK: - 당기기를 여는 시점
+
+    /// 72장 방의 기준 — 실제로 쓰는 값과 같게 맞춘다.
+    /// 상수가 바뀌어도 규칙만 따로 보면 테스트가 통과해버린다.
+    private static let gate = PrintNoticePullGate(
+        minReadyFrames: 4,
+        safetyWindow: PrintNoticeMetric.runDuration(frameCount: 72)
+    )
+
+    @Test("앞 칸이 덜 찼으면 열지 않는다 — 멈춰 있는 동안 검은 칸이 보인다")
+    func staysClosedUntilFirstFramesArrive() {
+        #expect(!Self.gate.isOpen(total: 72, leadingReady: 3, loaded: 3, elapsed: 0.05))
+    }
+
+    @Test("뒤쪽이 먼저 도착해도 앞 칸이 비어 있으면 열지 않는다")
+    func staysClosedWhenLeadingFramesAreMissing() {
+        // 30장을 받았지만 앞에서 이어진 것은 2장뿐 — 필름이 시작하자마자 빈 자리를 만난다.
+        #expect(!Self.gate.isOpen(total: 72, leadingReady: 2, loaded: 30, elapsed: 0.5))
+    }
+
+    @Test("다 받았으면 남은 장이 없으므로 연다")
+    func opensWhenEverythingLoaded() {
+        #expect(Self.gate.isOpen(total: 24, leadingReady: 24, loaded: 24, elapsed: 1))
+    }
+
+    @Test("방이 앞 칸 수보다 작으면 전부 받아야 연다")
+    func waitsForAllInTinyRoom() {
+        #expect(!Self.gate.isOpen(total: 2, leadingReady: 1, loaded: 1, elapsed: 1))
+        #expect(Self.gate.isOpen(total: 2, leadingReady: 2, loaded: 2, elapsed: 1))
+    }
+
+    @Test("빠르게 들어오면 남은 장이 많아도 연다 — 필름이 닿기 전에 도착한다")
+    func opensWhileLoadingWhenFastEnough() {
+        // 0.4초에 20장 = 장당 0.02초. 남은 52장은 1.04초면 들어온다 (필름은 4초).
+        #expect(Self.gate.isOpen(total: 72, leadingReady: 20, loaded: 20, elapsed: 0.4))
+    }
+
+    @Test("느리게 들어오면 열지 않는다 — 필름이 사진을 앞지른다")
+    func staysClosedWhenTooSlow() {
+        // 2초에 5장 = 장당 0.4초. 남은 67장에 26초가 걸린다.
+        #expect(!Self.gate.isOpen(total: 72, leadingReady: 5, loaded: 5, elapsed: 2))
+    }
+
+    @Test("시간이 흐르지 않았으면 속도를 알 수 없어 열지 않는다")
+    func staysClosedWithoutElapsedTime() {
+        #expect(!Self.gate.isOpen(total: 72, leadingReady: 10, loaded: 10, elapsed: 0))
+    }
+
+    @Test("사진이 적은 방은 필름도 짧아 기준이 함께 좁아진다")
+    func usesShorterWindowForShortFilm() {
+        // 6장 필름은 0.6초면 다 지나간다. 같은 속도라도 72장 기준으로는 열리고 6장 기준으로는 닫혀야 한다.
+        let short = PrintNoticePullGate(
+            minReadyFrames: 4,
+            safetyWindow: PrintNoticeMetric.runDuration(frameCount: 6)
+        )
+        #expect(PrintNoticeMetric.runDuration(frameCount: 6) == PrintNoticeMetric.minRunDuration)
+        // 1초에 4장 = 장당 0.25초. 남은 2장에 0.5초 — 0.6초 안에 들어오므로 열린다.
+        #expect(short.isOpen(total: 6, leadingReady: 4, loaded: 4, elapsed: 1))
+        // 2초에 4장 = 장당 0.5초. 남은 2장에 1초 — 0.6초를 넘겨 닫힌다.
+        #expect(!short.isOpen(total: 6, leadingReady: 4, loaded: 4, elapsed: 2))
+    }
+
     @Test("촬영 중인 방에서는 안내를 확인하지 않는다")
     func doesNotCheckPrintNoticeWhileShooting() async {
         let shootingRoom = Room.previewShooting

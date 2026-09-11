@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 /// 시안 좌표는 화면 맨 위 기준이라, 상단 바(114) 아래에 놓이는 이 화면에서는 그만큼 뺀 값을 쓴다.
 enum PrintNoticeMetric {
@@ -48,4 +49,20 @@ enum PrintNoticeMetric {
     static let hintDistance: CGFloat = 12
     /// 툴팁과 필름 끝 사이 — 시안 툴팁 top 374 − 필름 bottom 358.
     static let tooltipSpacing: CGFloat = 16
+
+    /// 손을 뗀 뒤 필름이 내려가는 속도(pt/초)와 시간의 상·하한.
+    /// 상한이 있어 긴 필름(48·72장)은 이 속도보다 빠르게 지나간다.
+    static let runSpeed: CGFloat = 1700
+    static let minRunDuration: TimeInterval = 0.6
+    static let maxRunDuration: TimeInterval = 4.0
+
+    /// 칸 수만으로 어림한, 필름이 다 지나가는 시간.
+    ///
+    /// 실제로는 화면 높이만큼 더 내려가므로 이 값보다 조금 더 걸린다 — 짧게 잡히는 쪽이라
+    /// 당기기를 열지 판단할 때 쓰기 안전하다. 사진이 적은 방은 필름도 짧아 금방 지나가므로,
+    /// 고정값을 쓰면 그런 방에서 너무 일찍 열린다.
+    static func runDuration(frameCount: Int) -> TimeInterval {
+        let distance = CGFloat(frameCount) * frameHeight
+        return min(max(TimeInterval(distance / runSpeed), minRunDuration), maxRunDuration)
+    }
 }
