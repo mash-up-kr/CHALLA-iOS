@@ -23,5 +23,10 @@ struct UploadURLResponseDTO: Decodable, Sendable {
     struct Payload: Decodable, Sendable {
         let uploadUrl: String
         let imageUrl: String
+        /// 축소본을 올릴 서명 URL. `purpose`가 `PHOTO`일 때만 내려온다
+        /// (프로필·방 커버는 null) — 그래서 옵셔널이다.
+        let thumbnailUploadUrl: String?
+        /// 축소본의 공개 주소. 올리기에 성공했을 때만 완료 통보에 실어 보낸다.
+        let thumbnailImageUrl: String?
     }
 }

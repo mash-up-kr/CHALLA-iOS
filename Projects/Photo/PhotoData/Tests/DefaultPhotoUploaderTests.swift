@@ -25,6 +25,23 @@ struct DefaultPhotoUploaderTests {
     }
     """
 
+    /// 축소본 주소까지 내려주는 발급 응답 (`purpose`가 `PHOTO`일 때).
+    private static let thumbnailIssueJSON = """
+    {
+      "success": true,
+      "message": "ok",
+      "data": {
+        "upload": {
+          "uploadUrl": "https://storage.test/photos/1?signature=abc",
+          "imageUrl": "https://cdn.test/photos/1.jpg",
+          "thumbnailUploadUrl": "https://storage.test/photos/1_thumbnail?signature=def",
+          "thumbnailImageUrl": "https://cdn.test/photos/1_thumbnail.jpg",
+          "expiresInSeconds": 300
+        }
+      }
+    }
+    """
+
     private static let completeJSON = """
     { "success": true, "message": "ok", "data": { "photo": { "remainedPhotoCount": 5 } } }
     """
@@ -110,6 +127,59 @@ struct DefaultPhotoUploaderTests {
 
     private enum NoiseFixtureFailure: Error {
         case encodingFailed
+    }
+
+    // MARK: - 축소본
+
+    @Test("축소본 주소가 오면 원본과 축소본을 모두 올리고 완료 통보에 축소본 주소를 싣는다")
+    func uploadsThumbnailAlongsideOriginal() async throws {
+        let client = MockHTTPClient.succeeding([Self.thumbnailIssueJSON, "", "", Self.completeJSON])
+        let uploader = DefaultPhotoUploader(client: client)
+        let jpeg = try Self.noiseJPEGData(pixelWidth: 900, pixelHeight: 900)
+
+        _ = try await uploader.upload(jpegData: jpeg, roomID: 7, filterName: "Warm")
+
+        #expect(client.requests.count == 4)
+
+        // 원본이 먼저다 — 축소본 PUT이 실패해도 사진은 이미 스토리지에 있어야 한다.
+        #expect(client.requests[1].body == jpeg)
+
+        let thumbnailPut = client.requests[2]
+        #expect(thumbnailPut.method == .put)
+        #expect(!thumbnailPut.usesBearerToken) // 서명 URL에 Authorization을 붙이면 403이 난다
+        let thumbnailBody = try #require(thumbnailPut.body)
+        #expect(thumbnailBody.count < jpeg.count)
+
+        // 긴 변이 상한(400px) 이하로 줄어 있어야 한다.
+        let source = try #require(CGImageSourceCreateWithData(thumbnailBody as CFData, nil))
+        let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+        let width = try #require(properties[kCGImagePropertyPixelWidth] as? Int)
+        let height = try #require(properties[kCGImagePropertyPixelHeight] as? Int)
+        #expect(max(width, height) <= 400)
+
+        let body = try #require(client.requests[3].body)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: [String: Any]])
+        #expect(json["photo"]?["thumbnailImageUrl"] as? String == "https://cdn.test/photos/1_thumbnail.jpg")
+    }
+
+    @Test("축소본 PUT이 실패해도 업로드는 끝나고, 완료 통보에서 축소본 주소만 빠진다")
+    func completesWithoutThumbnailWhenThumbnailPutFails() async throws {
+        let client = MockHTTPClient(results: [
+            .success(Response(statusCode: 200, data: Data(Self.thumbnailIssueJSON.utf8))),
+            .success(Response(statusCode: 200, data: Data())),
+            .success(Response(statusCode: 403, data: Data())), // 축소본만 실패
+            .success(Response(statusCode: 200, data: Data(Self.completeJSON.utf8)))
+        ])
+        let uploader = DefaultPhotoUploader(client: client)
+        let jpeg = try Self.noiseJPEGData(pixelWidth: 900, pixelHeight: 900)
+
+        let remained = try await uploader.upload(jpegData: jpeg, roomID: 7, filterName: "Warm")
+
+        #expect(remained == 5)
+        #expect(client.requests.count == 4)
+        let body = try #require(client.requests[3].body)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: [String: Any]])
+        #expect(json["photo"]?["thumbnailImageUrl"] == nil)
     }
 
     @Test("스토리지 PUT이 실패하면 완료 통보를 부르지 않는다")
