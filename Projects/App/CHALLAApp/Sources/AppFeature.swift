@@ -487,16 +487,14 @@ extension AppFeature {
 
             // MARK: - 카메라 delegate
 
-            // 들어온 화면을 새로 만들어 되돌린다 — 촬영으로 남은 장수·사진이 바뀌었을 수 있어 다시 조회된다.
+            // 들어온 화면으로 되돌린다. 메인은 통째로 새로 만들어져 다시 조회된다 — 촬영으로 남은 장수·사진이 바뀌었을 수 있다.
             case .camera(.camera(.delegate(.closeRequested))):
                 guard case let .camera(screen) = state else { return .none }
                 switch screen.origin {
                 case .home:
-                    state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
+                    state = Self.returnToMain(profile: screen.profile, cards: screen.homeCards)
                 case let .roomDetail(room):
-                    state = .roomDetail(
-                        RoomDetailScreen(profile: screen.profile, room: room, homeCards: screen.homeCards)
-                    )
+                    state = Self.returnToMain(profile: screen.profile, cards: screen.homeCards, room: room)
                 }
                 return .none
 
@@ -507,13 +505,11 @@ extension AppFeature {
                 guard let room = screen.shotRoom(id: roomID) else {
                     return .send(.camera(.camera(.delegate(.closeRequested))))
                 }
-                state = .roomDetail(
-                    RoomDetailScreen(
-                        profile: screen.profile,
-                        room: room,
-                        homeCards: screen.homeCards,
-                        highlightsNewestPhoto: true
-                    )
+                state = Self.returnToMain(
+                    profile: screen.profile,
+                    cards: screen.homeCards,
+                    room: room,
+                    highlightsNewestPhoto: true
                 )
                 return .none
 
@@ -523,11 +519,11 @@ extension AppFeature {
                 guard case let .roomSettings(screen) = state else { return .none }
                 // 맡아둔 room의 제목은 설정 진입 시점 값이라, 설정 화면이 들고 있는 최신 제목으로 고쳐서 넘긴다.
                 // 상세 첫 프레임부터 새 이름이 보이고, 재조회가 실패해도 옛 이름으로 되돌아가지 않는다.
-                state = .roomDetail(RoomDetailScreen(
+                state = Self.returnToMain(
                     profile: screen.profile,
-                    room: screen.room.renamed(to: screen.settings.title),
-                    homeCards: screen.homeCards
-                ))
+                    cards: screen.homeCards,
+                    room: screen.room.renamed(to: screen.settings.title)
+                )
                 return .none
 
             case .roomSettings(.delegate(.coverEditRequested)):
@@ -544,7 +540,7 @@ extension AppFeature {
 
             case .setting(.delegate(.backRequested)):
                 guard case let .setting(screen) = state else { return .none }
-                state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
+                state = Self.returnToMain(profile: screen.profile, cards: screen.homeCards)
                 return .none
 
             case .setting(.delegate(.editProfileRequested)):
@@ -582,5 +578,28 @@ extension AppFeature {
                 return .none
             }
         }
+    }
+}
+
+// MARK: - 메인 복귀 (단계 2~4까지의 임시 브리지)
+
+extension AppFeature {
+
+    /// 옛 enum 화면(설정·방 설정·카메라)에서 메인으로 돌아간다. 메인은 통째로 새로 만들어진다 —
+    /// 지금까지의 enum 교체와 같은 동작이라 재조회도 같은 시점에 일어난다.
+    ///
+    /// `room`을 주면 그 방 상세를 홈 위에 한 장 쌓은 채로 돌아간다 (방 설정·카메라에서 상세로 복귀).
+    /// 단계 4가 끝나면 이 함수를 부르는 곳이 없어져 함께 지운다.
+    static func returnToMain(
+        profile: UserProfile,
+        cards: IdentifiedArrayOf<RoomCard>,
+        room: Room? = nil,
+        highlightsNewestPhoto: Bool = false
+    ) -> State {
+        var path = StackState<MainFeature.Path.State>()
+        if let room {
+            path.append(.roomDetail(RoomDetailFeature.State(room: room, highlightsNewestPhoto: highlightsNewestPhoto)))
+        }
+        return .main(MainFeature.State(profile: profile, cards: cards, path: path))
     }
 }

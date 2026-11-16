@@ -261,14 +261,14 @@ struct AppFeatureTests {
         }
     }
 
-    @Test("설정에서 뒤로가면 프로필을 다시 조회하지 않고 홈으로 돌아간다")
-    func returnsHomeFromSetting() async {
+    @Test("설정에서 뒤로가면 프로필을 다시 조회하지 않고 메인(홈)으로 돌아간다")
+    func returnsMainFromSetting() async {
         let store = Self.store(
             initialState: .setting(AppFeature.SettingScreen(profile: Fixture.profile))
         )
 
         await store.send(.setting(.delegate(.backRequested))) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .main(MainFeature.State(profile: Fixture.profile))
         }
     }
 

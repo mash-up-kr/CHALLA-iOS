@@ -37,6 +37,22 @@ struct AppCameraRoutingTests {
         }
     }
 
+    /// 홈 위에 그 방의 상세가 한 장 쌓인 메인. `id`는 그 원소의 스택 id.
+    private static func main(
+        cards: IdentifiedArrayOf<RoomCard> = [],
+        roomDetail room: Room? = nil,
+        id: StackElementID = 0,
+        highlightsNewestPhoto: Bool = false
+    ) -> AppFeature.State {
+        var main = MainFeature.State(profile: CameraFixture.profile, cards: cards)
+        if let room {
+            main.path[id: id] = .roomDetail(
+                RoomDetailFeature.State(room: room, highlightsNewestPhoto: highlightsNewestPhoto)
+            )
+        }
+        return .main(main)
+    }
+
     @Test("메인의 홈에서 촬영 준비가 끝나면 홈에서 들어온 카메라로 간다 — 돌아올 때 쓸 목록을 들고")
     func opensCameraFromMainHome() async {
         let store = Self.store(initialState: .main(MainFeature.State(profile: CameraFixture.profile, cards: [CameraFixture.card])))
@@ -92,7 +108,7 @@ struct AppCameraRoutingTests {
     }
 
     /// 방에서 나가지 않고 카메라만 덮었다 걷히는 흐름이라 홈이 아니라 그 방으로 돌아간다.
-    @Test("방 상세에서 들어간 카메라를 닫으면 방 상세를 새로 만들어 돌아간다")
+    @Test("방 상세에서 들어간 카메라를 닫으면 그 방 상세를 쌓은 메인으로 돌아간다")
     func returnsToRoomDetailFromCamera() async {
         let store = Self.store(
             initialState: .camera(
@@ -105,13 +121,11 @@ struct AppCameraRoutingTests {
         )
 
         await store.send(.camera(.camera(.delegate(.closeRequested)))) {
-            $0 = .roomDetail(
-                AppFeature.RoomDetailScreen(profile: CameraFixture.profile, room: CameraFixture.card.room)
-            )
+            $0 = Self.main(roomDetail: CameraFixture.card.room)
         }
     }
 
-    @Test("홈에서 들어간 카메라를 닫으면 홈으로 돌아간다")
+    @Test("홈에서 들어간 카메라를 닫으면 메인(홈)으로 돌아간다")
     func returnsHomeFromCamera() async {
         let store = Self.store(
             initialState: .camera(
@@ -124,7 +138,7 @@ struct AppCameraRoutingTests {
         )
 
         await store.send(.camera(.camera(.delegate(.closeRequested)))) {
-            $0 = .home(AppFeature.HomeScreen(profile: CameraFixture.profile))
+            $0 = .main(MainFeature.State(profile: CameraFixture.profile))
         }
     }
 
@@ -142,13 +156,7 @@ struct AppCameraRoutingTests {
         )
 
         await store.send(.camera(.camera(.delegate(.captureFinished(roomID: CameraFixture.card.id))))) {
-            $0 = .roomDetail(
-                AppFeature.RoomDetailScreen(
-                    profile: CameraFixture.profile,
-                    room: CameraFixture.card.room,
-                    highlightsNewestPhoto: true
-                )
-            )
+            $0 = Self.main(roomDetail: CameraFixture.card.room, highlightsNewestPhoto: true)
         }
     }
 
@@ -166,13 +174,10 @@ struct AppCameraRoutingTests {
         )
 
         await store.send(.camera(.camera(.delegate(.captureFinished(roomID: CameraFixture.card.id))))) {
-            $0 = .roomDetail(
-                AppFeature.RoomDetailScreen(
-                    profile: CameraFixture.profile,
-                    room: CameraFixture.card.room,
-                    homeCards: [CameraFixture.card],
-                    highlightsNewestPhoto: true
-                )
+            $0 = Self.main(
+                cards: [CameraFixture.card],
+                roomDetail: CameraFixture.card.room,
+                highlightsNewestPhoto: true
             )
         }
     }

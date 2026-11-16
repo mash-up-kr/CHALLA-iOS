@@ -76,8 +76,11 @@ final class ScreenTransitionCoordinator {
 
     static func popParent(of id: AppFeature.State.ScreenID) -> AppFeature.State.ScreenID? {
         switch id {
-        case .roomDetail, .setting: return .home
-        case .photoDetail, .chat, .roomSettings: return .roomDetail
+        case .roomDetail: return .home
+        // 설정·방 설정은 이제 메인으로 돌아간다. 메인은 스냅샷을 남기지 않아(isPopParent 참고)
+        // 이 둘의 스와이프 pop은 단계 4까지 꺼진다 — 버튼 뒤로가기는 동작한다.
+        case .setting, .roomSettings: return .main
+        case .photoDetail, .chat: return .roomDetail
         case .profileEdit: return .setting
         case .roomCoverEdit: return .roomSettings
         default: return nil
@@ -85,6 +88,9 @@ final class ScreenTransitionCoordinator {
     }
 
     /// pop으로 이 화면이 드러날 수 있어 스냅샷을 남겨둘 화면인지.
+    ///
+    /// `.main`은 넣지 않는다 — 스냅샷은 screenID가 바뀔 때만 찍히는데 `.main` 안에서 push가 일어나도
+    /// screenID는 그대로라 낡은 화면(홈)이 남는다.
     static func isPopParent(_ id: AppFeature.State.ScreenID) -> Bool {
         switch id {
         case .home, .roomDetail, .setting, .roomSettings: return true

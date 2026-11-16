@@ -212,6 +212,17 @@ struct AppCoverEditRoutingTests {
         }
     }
 
+    @Test("방 설정에서 뒤로가면 설정의 최신 제목을 단 방 상세를 쌓은 메인으로 돌아간다")
+    func returnsToMainWithRenamedRoom() async {
+        let store = Self.store(initialState: .roomSettings(Self.settingsScreen(title: CoverEditFixture.renamedTitle)))
+
+        await store.send(.roomSettings(.delegate(.closeTapped))) {
+            $0 = Self.mainWithRoomDetail(
+                RoomDetailFeature.State(room: CoverEditFixture.card.room.renamed(to: CoverEditFixture.renamedTitle))
+            )
+        }
+    }
+
     @Test("메인 스택의 방 상세에서 설정으로 가면 인원수는 상세의 멤버 수, 없으면 홈 카드 값이다")
     func settingsFromMainUsesDetailThenHomeCard() async {
         var detail = RoomDetailFeature.State(room: CoverEditFixture.card.room)

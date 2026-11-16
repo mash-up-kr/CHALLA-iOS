@@ -1,6 +1,7 @@
 @testable import CHALLAApp
 import ComposableArchitecture
 import Foundation
+import RoomDetailFeature
 import RoomDomain
 import Testing
 import UserDomain
@@ -78,14 +79,31 @@ struct AppInteractivePopTests {
         }
     }
 
-    @Test("엣지 스와이프 pop은 설정에서 홈으로 돌아간다")
-    func popsSettingToHomeBySwipe() async {
+    @Test("엣지 스와이프 pop은 방 설정에서 최신 제목의 방 상세를 쌓은 메인으로 돌아간다")
+    func popsRoomSettingsToMainBySwipe() async {
+        var screen = AppFeature.RoomSettingsScreen(
+            profile: PopFixture.profile,
+            room: PopFixture.card.room,
+            homeCards: [PopFixture.card]
+        )
+        screen.settings.title = "강릉 여행"
+        let store = Self.store(initialState: .roomSettings(screen))
+
+        await store.send(.popGestureCompleted) {
+            var main = MainFeature.State(profile: PopFixture.profile, cards: [PopFixture.card])
+            main.path[id: 0] = .roomDetail(RoomDetailFeature.State(room: PopFixture.card.room.renamed(to: "강릉 여행")))
+            $0 = .main(main)
+        }
+    }
+
+    @Test("엣지 스와이프 pop은 설정에서 메인(홈)으로 돌아간다")
+    func popsSettingToMainBySwipe() async {
         let store = Self.store(
             initialState: .setting(AppFeature.SettingScreen(profile: PopFixture.profile))
         )
 
         await store.send(.popGestureCompleted) {
-            $0 = .home(AppFeature.HomeScreen(profile: PopFixture.profile))
+            $0 = .main(MainFeature.State(profile: PopFixture.profile))
         }
     }
 
