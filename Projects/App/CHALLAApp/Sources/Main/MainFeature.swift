@@ -13,8 +13,8 @@ import UserDomain
 /// `AppFeature`가 enum으로 화면을 "교체"하던 것과 달리 이전 화면이 살아 있다.
 /// 뒤로 갈 때 홈·방 상세를 다시 만들지 않으므로, 그러기 위해 profile·cards를 실어 나를 필요도 없다.
 ///
-/// 아직 enum 교체로 남아 있는 화면(방 설정·커버 수정·설정·프로필 편집·카메라)은
-/// `AppFeature`가 이 리듀서의 Action을 엿보고 처리한다 — 단계 2~4에서 이쪽으로 옮겨 온다.
+/// 아직 enum 교체로 남아 있는 화면(설정·프로필 편집·카메라)은
+/// `AppFeature`가 이 리듀서의 Action을 엿보고 처리한다 — 단계 3~4에서 이쪽으로 옮겨 온다.
 @Reducer
 public struct MainFeature {
 
@@ -184,7 +184,6 @@ public struct MainFeature {
                 state.path.pop(from: id)
                 return .none
 
-            // 홈의 설정·카메라 요청과 방 상세의 카메라 요청은 아직 AppFeature가 enum 교체로 처리한다.
             // MARK: - 커버 수정을 스와이프로 닫음
 
             // 스와이프는 뒤로 버튼을 거치지 않아 커버 수정이 스스로 저장하지 못한다 — 화면이 빠지면 그쪽 이펙트도 취소된다.
@@ -207,6 +206,7 @@ public struct MainFeature {
                 state.updateRoom(id: roomID) { $0.withCover(previousCover) }
                 return .none
 
+            // 홈의 설정·카메라 요청과 방 상세의 카메라 요청은 아직 AppFeature가 enum 교체로 처리한다.
             case .home, .path:
                 return .none
             }

@@ -16,8 +16,8 @@ import UserDomain
 // 그래서 뒤로가기로 이전 화면을 다시 만들 때 필요한 값을 각 Screen이 미리 들고 다닌다.
 // 어느 delegate가 어느 Screen을 만들지는 `AppFeature.swift`의 "화면 전이" 부분이 정한다.
 //
-// 홈·방 상세·사진 상세·채팅은 `MainFeature`의 스택으로 옮겨 가 포장이 필요 없어졌다.
-// 남은 Screen들도 단계 2~4에서 같은 길을 밟는다.
+// 홈·방 상세·사진 상세·채팅·방 설정·커버 수정은 `MainFeature`의 스택으로 옮겨 가 포장이 필요 없어졌다.
+// 남은 Screen들도 단계 3~4에서 같은 길을 밟는다.
 
 // MARK: - SplashScreen
 
@@ -55,72 +55,6 @@ public extension AppFeature {
                 return true
             }
             return false
-        }
-    }
-}
-
-// MARK: - RoomSettingsScreen
-
-public extension AppFeature {
-
-    /// 방 설정 화면 State + 상세 복귀용 재료.
-    ///
-    /// `State`가 enum이라 설정으로 오면 메인(홈·상세) State는 사라진다. 뒤로가기로 상세를 다시 만들 때
-    /// 필요한 방·프로필을 여기 맡아둔다.
-    @ObservableState
-    struct RoomSettingsScreen: Equatable {
-        public var profile: UserProfile
-        public var room: Room
-        /// 방 상세를 거쳐 홈까지 되돌아갈 때 이어 줄 직전 방 목록.
-        public var homeCards: IdentifiedArrayOf<RoomCard>
-        /// 설정 화면은 쓰지 않는다 — 커버 수정 화면의 미리보기에 넘기려고 맡아 둔다.
-        public var memberCount: Int
-        public var settings: RoomSettingsFeature.State
-
-        public init(
-            profile: UserProfile,
-            room: Room,
-            homeCards: IdentifiedArrayOf<RoomCard> = [],
-            memberCount: Int = 0
-        ) {
-            self.profile = profile
-            self.room = room
-            self.homeCards = homeCards
-            self.memberCount = memberCount
-            self.settings = RoomSettingsFeature.State(roomID: room.id, title: room.title)
-        }
-    }
-}
-
-// MARK: - RoomCoverEditScreen
-
-public extension AppFeature {
-
-    /// 커버 수정 화면 State + 뒤로가기로 설정 화면을 다시 만들 때 돌려줄 값.
-    @ObservableState
-    struct RoomCoverEditScreen: Equatable {
-        public var profile: UserProfile
-        public var room: Room
-        public var homeCards: IdentifiedArrayOf<RoomCard>
-        public var memberCount: Int
-        public var coverEdit: RoomCoverEditFeature.State
-
-        public init(
-            profile: UserProfile,
-            room: Room,
-            homeCards: IdentifiedArrayOf<RoomCard> = [],
-            memberCount: Int
-        ) {
-            self.profile = profile
-            self.room = room
-            self.homeCards = homeCards
-            self.memberCount = memberCount
-            self.coverEdit = RoomCoverEditFeature.State(
-                roomID: room.id,
-                title: room.title,
-                memberCount: memberCount,
-                cover: room.cover
-            )
         }
     }
 }
@@ -239,8 +173,6 @@ public extension AppFeature.State {
     var currentProfile: UserProfile? {
         switch self {
         case let .main(main): main.profile
-        case let .roomSettings(screen): screen.profile
-        case let .roomCoverEdit(screen): screen.profile
         case let .setting(screen): screen.profile
         case let .profileEdit(screen): screen.profile
         case let .camera(screen): screen.profile

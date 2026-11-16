@@ -13,7 +13,7 @@ import UIKit
 /// 앱 최상위 View. `AppFeature.State`에 따라 보여줄 화면을 고른다.
 ///
 /// 로그인 뒤 화면은 `.main`(`MainView`)이 `NavigationStack` 하나로 맡는다.
-/// 아직 enum 교체로 남은 화면(방 설정·커버 수정·설정·프로필 편집·카메라)은 여기서 갈아끼우고,
+/// 아직 enum 교체로 남은 화면(설정·프로필 편집·카메라)은 여기서 갈아끼우고,
 /// 그 전환 애니메이션은 `ScreenTransitionCoordinator`가 화면 관계에 맞춰 재현한다 —
 /// 네비게이션 관계면 push/pop 슬라이드, 카메라는 모달처럼 아래에서 위로, 나머지는 페이드.
 /// `SettingView`는 자기 `NavigationStack`을 소유해 아직 `.main` 안으로 push하지 못한다 (단계 4).
@@ -155,18 +155,6 @@ public struct AppView: View {
                 if let mainStore = store.scope(state: \.main, action: \.main) {
                     MainView(store: mainStore)
                         .screenLayer(.main, coordinator: transitionCoordinator)
-                }
-
-            case .roomSettings:
-                if let settingsStore = store.scope(state: \.roomSettings?.settings, action: \.roomSettings) {
-                    RoomSettingsView(store: settingsStore)
-                        .screenLayer(.roomSettings, coordinator: transitionCoordinator)
-                }
-
-            case .roomCoverEdit:
-                if let coverStore = store.scope(state: \.roomCoverEdit?.coverEdit, action: \.roomCoverEdit) {
-                    RoomCoverEditView(store: coverStore)
-                        .screenLayer(.roomCoverEdit, coordinator: transitionCoordinator)
                 }
 
             case .setting:

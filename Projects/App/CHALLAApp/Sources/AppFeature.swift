@@ -29,8 +29,6 @@ public struct AppFeature {
         case login(LoginFeature.State)
         case profileSetup(ProfileSetupFeature.State)
         case main(MainFeature.State)
-        case roomSettings(RoomSettingsScreen)
-        case roomCoverEdit(RoomCoverEditScreen)
         case setting(SettingScreen)
         case profileEdit(ProfileEditScreen)
         case camera(CameraScreen)
@@ -47,8 +45,6 @@ public struct AppFeature {
             case .login: return .login
             case .profileSetup: return .profileSetup
             case .main: return .main
-            case .roomSettings: return .roomSettings
-            case .roomCoverEdit: return .roomCoverEdit
             case .setting: return .setting
             case .profileEdit: return .profileEdit
             case .camera: return .camera
@@ -62,8 +58,6 @@ public struct AppFeature {
             switch self {
             case .launching, .login, .profileSetup, .forceUpdate: return nil
             case let .main(main): return main.profile
-            case let .roomSettings(screen): return screen.profile
-            case let .roomCoverEdit(screen): return screen.profile
             case let .setting(screen): return screen.profile
             case let .profileEdit(screen): return screen.profile
             case let .camera(screen): return screen.profile
@@ -71,7 +65,7 @@ public struct AppFeature {
         }
 
         public enum ScreenID: Equatable, Sendable {
-            case launching, login, profileSetup, main, roomSettings, roomCoverEdit
+            case launching, login, profileSetup, main
             case setting, profileEdit, camera
             case forceUpdate
         }
@@ -87,8 +81,6 @@ public struct AppFeature {
         case login(LoginFeature.Action)
         case profileSetup(ProfileSetupFeature.Action)
         case main(MainFeature.Action)
-        case roomSettings(RoomSettingsFeature.Action)
-        case roomCoverEdit(RoomCoverEditFeature.Action)
         case setting(SettingFeature.Action)
         case profileEdit(ProfileSetupFeature.Action)
         case camera(LiveCameraFeature.Action)
@@ -99,8 +91,6 @@ public struct AppFeature {
         case splashMinimumHoldFinished
         /// 강제 업데이트 알럿의 '확인'.
         case forceUpdateConfirmTapped
-        /// 커버 화면을 스와이프로 닫으며 맡긴 저장이 실패했다 — 맡아 둔 방의 커버를 저장 전 값으로 되돌린다.
-        case roomCoverSaveFailed(roomID: Room.ID, previousCover: RoomCover)
         /// 엣지 스와이프 pop 제스처 완료. 자식의 뒤로가기 delegate와 같은 곳으로 되돌린다.
         case popGestureCompleted
 
@@ -124,7 +114,6 @@ public struct AppFeature {
     @Dependency(\.pushTokenSynchronizer) var pushTokenSynchronizer
     @Dependency(\.checkAppUpdateUseCase) var checkAppUpdateUseCase
     @Dependency(\.openURL) var openURL
-    @Dependency(\.updateRoomCoverUseCase) var updateRoomCoverUseCase
     @Dependency(\.pendingInviteCode) var pendingInviteCode
 
     // MARK: - Body
@@ -140,17 +129,7 @@ public struct AppFeature {
             .ifCaseLet(\.main, action: \.main) {
                 MainFeature()
             }
-            // 래퍼(RoomSettingsScreen·SettingScreen·…)를 한 겹 벗겨 자식 리듀서에 넘긴다.
-            .ifCaseLet(\.roomSettings, action: \.roomSettings) {
-                Scope(state: \.settings, action: \.self) {
-                    RoomSettingsFeature()
-                }
-            }
-            .ifCaseLet(\.roomCoverEdit, action: \.roomCoverEdit) {
-                Scope(state: \.coverEdit, action: \.self) {
-                    RoomCoverEditFeature()
-                }
-            }
+            // 래퍼(SettingScreen·ProfileEditScreen·CameraScreen)를 한 겹 벗겨 자식 리듀서에 넘긴다.
             .ifCaseLet(\.setting, action: \.setting) {
                 Scope(state: \.setting, action: \.self) {
                     SettingFeature()
@@ -206,10 +185,6 @@ extension AppFeature {
             case .forceUpdateConfirmTapped:
                 guard case let .forceUpdate(storeURL) = state, let url = storeURL else { return .none }
                 return .run { [openURL] _ in await openURL(url) }
-
-            case let .roomCoverSaveFailed(roomID, previousCover):
-                revertRoomCover(roomID: roomID, to: previousCover, &state)
-                return .none
 
             // MARK: - 초대 링크
 
@@ -350,29 +325,6 @@ extension AppFeature {
                 )
                 return .none
 
-            // MARK: - 방 설정 delegate
-
-            case .roomSettings(.delegate(.closeTapped)):
-                guard case let .roomSettings(screen) = state else { return .none }
-                // 맡아둔 room의 제목은 설정 진입 시점 값이라, 설정 화면이 들고 있는 최신 제목으로 고쳐서 넘긴다.
-                // 상세 첫 프레임부터 새 이름이 보이고, 재조회가 실패해도 옛 이름으로 되돌아가지 않는다.
-                state = Self.returnToMain(
-                    profile: screen.profile,
-                    cards: screen.homeCards,
-                    room: screen.room.renamed(to: screen.settings.title)
-                )
-                return .none
-
-            case .roomSettings(.delegate(.coverEditRequested)):
-                openCoverEdit(&state)
-                return .none
-
-            // MARK: - 커버 수정 delegate
-
-            case .roomCoverEdit(.delegate(.closeTapped)):
-                closeCoverEdit(&state)
-                return .none
-
             // MARK: - 설정 delegate
 
             case .setting(.delegate(.backRequested)):
@@ -410,7 +362,7 @@ extension AppFeature {
             case .popGestureCompleted:
                 return popCurrentScreen(&state)
 
-            case .login, .profileSetup, .main, .roomSettings, .roomCoverEdit,
+            case .login, .profileSetup, .main,
                  .setting, .profileEdit, .camera:
                 return .none
             }
