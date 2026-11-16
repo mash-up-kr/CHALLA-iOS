@@ -280,6 +280,46 @@ struct MainFeatureTests {
         }
     }
 
+    /// 홈 위에 방 상세(0) → 방 설정(1) → 커버 수정(2). 커버 수정이 `saved`를 서버에 저장해 둔 상태로 만든다.
+    private static func stateWithCoverEdit(saved: RoomCover) -> MainFeature.State {
+        var state = Self.stateWithRoomSettings()
+        var edit = RoomCoverEditFeature.State(
+            roomID: Fixture.card.room.id, title: Fixture.card.room.title, memberCount: 4, cover: Fixture.card.room.cover
+        )
+        edit.cover = saved
+        edit.savedCover = saved
+        state.path.append(.roomCoverEdit(edit))
+        return state
+    }
+
+    @Test("커버를 저장하고 닫으면 커버 수정만 빠지고 스택 아래 방 상세의 커버가 새 커버가 된다")
+    func savedCoverPropagatesToRoomDetail() async throws {
+        let newCover = RoomCover(imageURL: URL(string: "https://cdn.example.com/cover.jpg"), sticker: nil)
+        let store = Self.store(initialState: Self.stateWithCoverEdit(saved: newCover))
+        let ids = Array(store.state.path.ids)
+
+        await store.send(.path(.element(id: ids[2], action: .roomCoverEdit(.delegate(.closeTapped))))) {
+            $0.path[id: ids[0], case: \.roomDetail]?.room = Fixture.card.room.withCover(newCover)
+            $0.home.cards[id: Fixture.card.id] = RoomCard(
+                room: Fixture.card.room.withCover(newCover),
+                memberCount: Fixture.card.memberCount,
+                thumbnailURLs: Fixture.card.thumbnailURLs,
+                photoPrintCompletionCheckedAt: Fixture.card.photoPrintCompletionCheckedAt
+            )
+            $0.path.pop(from: ids[2])
+        }
+    }
+
+    @Test("커버를 바꾸지 않고 닫으면 방 상세의 커버는 그대로다")
+    func unchangedCoverLeavesRoomDetail() async throws {
+        let store = Self.store(initialState: Self.stateWithCoverEdit(saved: Fixture.card.room.cover))
+        let ids = Array(store.state.path.ids)
+
+        await store.send(.path(.element(id: ids[2], action: .roomCoverEdit(.delegate(.closeTapped))))) {
+            $0.path.pop(from: ids[2])
+        }
+    }
+
     @Test("방 설정·커버 수정을 닫으면 그 화면만 빠지고 아래 방 상세는 그대로다")
     func popsRoomSettingsAndCoverEdit() async throws {
         var initial = Self.stateWithRoomSettings()

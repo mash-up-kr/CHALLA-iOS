@@ -166,8 +166,15 @@ public struct MainFeature {
 
             // MARK: - 방 설정·커버 수정 닫기
 
-            case let .path(.element(id: id, action: .roomSettings(.delegate(.closeTapped)))),
-                 let .path(.element(id: id, action: .roomCoverEdit(.delegate(.closeTapped)))):
+            case let .path(.element(id: id, action: .roomSettings(.delegate(.closeTapped)))):
+                state.path.pop(from: id)
+                return .none
+
+            // 닫히는 순간의 savedCover = 서버에 저장된 커버. 바꾸지 않았거나 저장을 포기했으면 처음 커버 그대로라
+            // 그대로 끼워도 아무것도 안 바뀐다. 빼기 전에 읽어야 한다 — 빼고 나면 그 원소가 없다.
+            case let .path(.element(id: id, action: .roomCoverEdit(.delegate(.closeTapped)))):
+                guard case let .roomCoverEdit(edit) = state.path[id: id] else { return .none }
+                state.updateRoom(id: edit.roomID) { $0.withCover(edit.savedCover) }
                 state.path.pop(from: id)
                 return .none
 
