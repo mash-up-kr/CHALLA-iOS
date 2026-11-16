@@ -32,8 +32,8 @@ extension AppFeature {
             return .login(LoginFeature.State())
         case .profileSetup:
             return .profileSetup(ProfileSetupFeature.State())
-        case let .home(profile):
-            return .home(HomeScreen(profile: profile))
+        case let .main(profile):
+            return .main(MainFeature.State(profile: profile))
         }
     }
 

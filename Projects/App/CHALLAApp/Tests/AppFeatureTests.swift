@@ -63,7 +63,7 @@ struct AppFeatureTests {
 
     // MARK: - 앱 진입 분기
 
-    @Test("저장된 세션이 있으면 스플래시 동안 프로필을 조회하고, 최소 노출이 끝나면 홈으로 간다")
+    @Test("저장된 세션이 있으면 스플래시 동안 프로필을 조회하고, 최소 노출이 끝나면 메인(홈)으로 간다")
     func autoLoginWithStoredSession() async {
         let channel = SessionExpirationChannel()
         let clock = TestClock()
@@ -82,12 +82,12 @@ struct AppFeatureTests {
         await store.receive(\.sessionRestored, .restored)
         // 프로필이 2초보다 먼저 준비돼도 스플래시가 유지되고 목적지만 맡아 둔다.
         await store.receive(\.profileResponse.success, Fixture.profile) {
-            $0 = .launching(.init(pendingDestination: .home(Fixture.profile)))
+            $0 = .launching(.init(pendingDestination: .main(Fixture.profile)))
         }
 
         await clock.advance(by: AppFeature.splashMinimumHold)
         await store.receive(\.splashMinimumHoldFinished) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .main(MainFeature.State(profile: Fixture.profile))
         }
 
         channel.finish()
@@ -144,12 +144,12 @@ struct AppFeatureTests {
         await store.send(.sessionExpired)
     }
 
-    @Test("최소 노출이 끝난 뒤 프로필이 오면 붙잡지 않고 곧바로 홈으로 간다")
-    func entersHomeWhenProfileCompleted() async {
+    @Test("최소 노출이 끝난 뒤 프로필이 오면 붙잡지 않고 곧바로 메인으로 간다")
+    func entersMainWhenProfileCompleted() async {
         let store = Self.store(initialState: .launching(.init(isMinimumHoldElapsed: true)))
 
         await store.send(.profileResponse(.success(Fixture.profile))) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .main(MainFeature.State(profile: Fixture.profile))
         }
     }
 
@@ -190,12 +190,12 @@ struct AppFeatureTests {
             $0.pushTokenSynchronizer = synchronizer
         }
 
-        // 로그인 직후 재진입은 최소 노출을 다시 적용하지 않는다 — 프로필이 오면 바로 홈으로 간다.
+        // 로그인 직후 재진입은 최소 노출을 다시 적용하지 않는다 — 프로필이 오면 바로 메인으로 간다.
         await store.send(.login(.delegate(.loginSucceeded))) {
             $0 = .launching(.init(isMinimumHoldElapsed: true))
         }
         await store.receive(\.profileResponse.success, Fixture.profile) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .main(MainFeature.State(profile: Fixture.profile))
         }
         await store.finish()
 

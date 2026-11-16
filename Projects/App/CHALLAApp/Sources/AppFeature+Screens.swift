@@ -48,7 +48,7 @@ public extension AppFeature {
         case forceUpdate(storeURL: URL?)
         case login
         case profileSetup
-        case home(UserProfile)
+        case main(UserProfile)
 
         var isForceUpdate: Bool {
             if case .forceUpdate = self {

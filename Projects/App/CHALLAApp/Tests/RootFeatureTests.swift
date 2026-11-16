@@ -130,7 +130,7 @@ struct RootFeatureTests {
     func subscribesToRoomsFromHome() async {
         let spy = SpyRoomEventStream()
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
 
         let cards = [Fixture.card(id: 11), Fixture.card(id: 22)]
         let store = TestStore(initialState: initialState) {
@@ -142,7 +142,7 @@ struct RootFeatureTests {
         }
         store.exhaustivity = .off
 
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
         await store.finish()
 
         // 방마다 구독을 거는 것은 Data 레이어 사정이라 여기서는 한 번만 부른다.
@@ -153,7 +153,7 @@ struct RootFeatureTests {
     @Test("내가 들어간 것은 나에게 알리지 않는다")
     func ignoresOwnJoin() async {
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
 
         let store = TestStore(initialState: initialState) {
             RootFeature()
@@ -178,7 +178,7 @@ struct RootFeatureTests {
     func tappingToastOpensRoom() async {
         let spy = SpyRoomEventStream()
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
 
         let cards = [Fixture.card(id: 11)]
         let store = TestStore(initialState: initialState) {
@@ -190,15 +190,24 @@ struct RootFeatureTests {
         store.exhaustivity = .off
 
         // 홈 목록이 들어와야 열 방 정보를 알 수 있다.
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
 
         let joined = RoomMemberJoined(roomID: 11, roomTitle: "강릉 여행", nickname: "연준", profileImageURL: nil)
         await store.send(.roomEvent(.joined(joined)))
         await store.send(.toastTapped)
         await store.receive(\.app.openRoomRequested)
+        // 메인에 있으면 App이 Main에 넘기고, Main이 그 방 상세를 쌓는다.
+        await store.receive(\.app.main.roomOpenRequested)
 
         #expect(store.state.joinToast == nil)
-        #expect(store.state.app.screenID == .roomDetail)
+        guard case let .main(main) = store.state.app,
+              let top = main.path.ids.last,
+              case let .roomDetail(detail) = main.path[id: top]
+        else {
+            Issue.record("방 상세가 쌓이지 않았다")
+            return
+        }
+        #expect(detail.room.id == 11)
     }
 
     @Test("로그인 전 화면에서는 방 열기 요청을 무시한다")
@@ -295,7 +304,7 @@ struct RootFeatureTests {
             }
         })
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
 
         let cards = [Fixture.card(id: 11)]
         let store = TestStore(initialState: initialState) {
@@ -307,7 +316,7 @@ struct RootFeatureTests {
         }
         store.exhaustivity = .off
 
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
         await store.finish()
 
         #expect(store.state.joinToast == nil)
@@ -317,7 +326,7 @@ struct RootFeatureTests {
     func retryBudgetResetsWhenSubscribingAnew() async {
         let spy = SpyRoomEventStream()
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
         // 앞선 장애로 재시도를 다 쓴 상태.
         initialState.roomEventRetryCount = 3
 
@@ -331,7 +340,7 @@ struct RootFeatureTests {
         }
         store.exhaustivity = .off
 
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
         await store.finish()
 
         // 예산을 되돌리지 않으면 이후 어떤 장애에도 다시 걸지 않는다.
@@ -341,7 +350,7 @@ struct RootFeatureTests {
     @Test("실시간이 다시 붙으면(.resumed) 재시도 예산을 되돌린다")
     func retryBudgetResetsOnResume() async {
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
         initialState.roomEventRetryCount = 3
 
         let store = TestStore(initialState: initialState) {
@@ -359,7 +368,7 @@ struct RootFeatureTests {
     @Test("구독이 실패하면 정해진 횟수만 다시 걸고 멈춘다")
     func retriesSubscriptionABoundedNumberOfTimes() async {
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
         initialState.roomEventRetryCount = 3
 
         let store = TestStore(initialState: initialState) {
@@ -379,7 +388,7 @@ struct RootFeatureTests {
     func stopsSubscribingWhenLastRoomIsLeft() async {
         let spy = SpyRoomEventStream()
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
 
         let cards = [Fixture.card(id: 11)]
         let store = TestStore(initialState: initialState) {
@@ -391,12 +400,12 @@ struct RootFeatureTests {
         }
         store.exhaustivity = .off
 
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
         await store.finish()
         #expect(store.state.subscribedRooms.map(\.id) == [11])
 
         // 조회가 끝난 뒤의 빈 목록은 "아직 안 불러왔다"가 아니라 "이제 내 방이 없다"이다.
-        await store.send(.app(.home(.roomsResponse(.success([])))))
+        await store.send(.app(.main(.home(.roomsResponse(.success([]))))))
         await store.finish()
 
         #expect(store.state.subscribedRooms.isEmpty)

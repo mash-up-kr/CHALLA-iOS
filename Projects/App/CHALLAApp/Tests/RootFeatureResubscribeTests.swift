@@ -16,7 +16,7 @@ struct RootFeatureResubscribeTests {
         // 구독이 끊겼다 붙는 사이에 온 참여 이벤트가 사라진다.
         let spy = SpyRoomEventStream()
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Sample.profile))
+        initialState.app = .main(MainFeature.State(profile: Sample.profile))
 
         let cards = [Sample.card(id: 11), Sample.card(id: 22)]
         let store = TestStore(initialState: initialState) {
@@ -28,9 +28,9 @@ struct RootFeatureResubscribeTests {
         }
         store.exhaustivity = .off
 
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
         await store.finish()
-        await store.send(.app(.home(.roomsResponse(.success(cards.reversed())))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards.reversed()))))))
         await store.finish()
 
         #expect(spy.subscribeCalls.count == 1)
@@ -40,7 +40,7 @@ struct RootFeatureResubscribeTests {
     func resubscribesWhenRoomSetChanges() async {
         let spy = SpyRoomEventStream()
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Sample.profile))
+        initialState.app = .main(MainFeature.State(profile: Sample.profile))
 
         let cards = [Sample.card(id: 11)]
         let store = TestStore(initialState: initialState) {
@@ -52,9 +52,9 @@ struct RootFeatureResubscribeTests {
         }
         store.exhaustivity = .off
 
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
         await store.finish()
-        await store.send(.app(.home(.roomsResponse(.success(cards + [Sample.card(id: 22)])))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards + [Sample.card(id: 22)]))))))
         await store.finish()
 
         #expect(spy.subscribeCalls.count == 2)

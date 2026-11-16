@@ -241,7 +241,7 @@ extension AppFeature {
                     return .none
                 }
                 state = Self.resolvedState(for: destination)
-                guard case .home = state else { return .none }
+                guard case .main = state else { return .none }
                 return deliverPendingInviteCode()
 
             case .forceUpdateConfirmTapped:
@@ -262,10 +262,14 @@ extension AppFeature {
                     return .run { [pendingInviteCode] _ in pendingInviteCode.store(code) }
                 }
                 // 어느 화면에 있었든 홈으로 돌아가 입장을 맡긴다 — 성공 반영도 실패 얼럿도 홈의 것을 쓴다.
-                if state.screenID != .home {
-                    state = .home(HomeScreen(profile: profile))
+                if case var .main(main) = state {
+                    // 쌓인 화면을 비우면 홈이다. 홈은 살아 있으니 새로 만들지 않는다.
+                    main.path.removeAll()
+                    state = .main(main)
+                } else {
+                    state = Self.returnToMain(profile: profile, cards: [])
                 }
-                return .send(.home(.inviteCodeReceived(code)))
+                return .send(.main(.home(.inviteCodeReceived(code))))
 
             case .sessionRestored(.restored):
                 return fetchMyProfile()
@@ -289,11 +293,11 @@ extension AppFeature {
                 guard case let .launching(splash) = state, splash.pendingDestination == nil
                 else { return .none }
                 leaveSplash(
-                    for: profile.isProfileCompleted ? .home(profile) : .profileSetup,
+                    for: profile.isProfileCompleted ? .main(profile) : .profileSetup,
                     &state
                 )
                 // 스플래시가 홈을 맡아 두기만 했으면 아직 꺼내지 않는다 — 실제로 도달한 순간에 꺼낸다.
-                guard case .home = state else { return .none }
+                guard case .main = state else { return .none }
                 return deliverPendingInviteCode()
 
             case .profileResponse(.failure):
@@ -313,7 +317,7 @@ extension AppFeature {
                 )
 
             case let .profileSetup(.delegate(.setupCompleted(profile))):
-                state = .home(HomeScreen(profile: profile))
+                state = .main(MainFeature.State(profile: profile))
                 return deliverPendingInviteCode()
 
             // MARK: - 홈 delegate
@@ -338,7 +342,10 @@ extension AppFeature {
                 // 촬영 중에는 화면을 뺏지 않는다 — 찍고 있던 것이 사라진다.
                 // 로그인 전 화면에는 프로필이 없어 만들 화면도 없다.
                 guard state.screenID != .camera, let profile = state.currentProfile else { return .none }
-                state = .roomDetail(RoomDetailScreen(profile: profile, room: room))
+                if case .main = state {
+                    return .send(.main(.roomOpenRequested(room)))
+                }
+                state = Self.returnToMain(profile: profile, cards: [], room: room)
                 return .none
 
             // 진입 버튼이 방·필터·권한을 모두 갖춘 뒤에만 오는 요청이라 여기서 바로 띄운다.
