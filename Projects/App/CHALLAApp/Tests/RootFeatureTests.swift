@@ -2,8 +2,8 @@
 import ComposableArchitecture
 import Foundation
 import HomeFeature
-import os
 import RoomDetailFeature
+import os
 import RoomDomain
 import Testing
 import UserDomain
@@ -200,14 +200,23 @@ struct RootFeatureTests {
         await store.receive(\.app.main.roomOpenRequested)
 
         #expect(store.state.joinToast == nil)
-        guard case let .main(main) = store.state.app,
-              let top = main.path.ids.last,
-              case let .roomDetail(detail) = main.path[id: top]
-        else {
-            Issue.record("방 상세가 쌓이지 않았다")
-            return
-        }
-        #expect(detail.room.id == 11)
+        #expect(Self.topRoomID(of: store.state.app) == 11)
+    }
+
+    /// 메인 스택 맨 위가 방 상세면 그 방의 id. 아니면 nil.
+    private static func topRoomID(of state: AppFeature.State) -> Room.ID? {
+        guard case let .main(main) = state,
+              let id = main.path.ids.last,
+              case let .roomDetail(detail) = main.path[id: id]
+        else { return nil }
+        return detail.room.id
+    }
+
+    /// 홈 위에 그 방의 상세가 한 장(id 0) 쌓인 메인.
+    private static func mainWithRoomDetail(_ room: Room) -> AppFeature.State {
+        var main = MainFeature.State(profile: Fixture.profile)
+        main.path[id: 0] = .roomDetail(RoomDetailFeature.State(room: room))
+        return .main(main)
     }
 
     @Test("로그인 전 화면에서는 방 열기 요청을 무시한다")
@@ -225,11 +234,11 @@ struct RootFeatureTests {
         #expect(store.state.app.screenID == .launching)
     }
 
-    @Test("그 방을 보고 있으면 참여자를 다시 조회하라고 방 상세에 알린다")
+    @Test("그 방의 상세가 스택에 있으면 참여자를 다시 조회하라고 방 상세에 알린다")
     func notifiesOpenRoomDetail() async {
         let room = Fixture.card(id: 11).room
         var initialState = RootFeature.State()
-        initialState.app = .roomDetail(AppFeature.RoomDetailScreen(profile: Fixture.profile, room: room))
+        initialState.app = Self.mainWithRoomDetail(room)
 
         let store = TestStore(initialState: initialState) {
             RootFeature()
@@ -245,30 +254,6 @@ struct RootFeatureTests {
 
         let joined = RoomMemberJoined(roomID: 11, roomTitle: "강릉 여행", nickname: "연준", profileImageURL: nil)
         await store.send(.roomEvent(.joined(joined)))
-        await store.receive(\.app.roomDetail.memberJoined)
-        await store.receive(\.app.roomDetail.detailResponse.success)
-    }
-
-    @Test("메인 스택에 그 방의 상세가 쌓여 있으면 그 원소에 참여자를 다시 조회하라고 알린다")
-    func notifiesRoomDetailInsideMainStack() async {
-        let room = Fixture.card(id: 11).room
-        var main = MainFeature.State(profile: Fixture.profile)
-        main.path[id: 0] = .roomDetail(RoomDetailFeature.State(room: room))
-        var initialState = RootFeature.State()
-        initialState.app = .main(main)
-
-        let store = TestStore(initialState: initialState) {
-            RootFeature()
-        } withDependencies: {
-            $0.continuousClock = ImmediateClock()
-            $0.observeRoomMemberJoinedUseCase = .previewValue
-            $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in .preview })
-            $0.shouldShowInviteGuideUseCase.run = { false }
-        }
-        store.exhaustivity = .off
-
-        let joined = RoomMemberJoined(roomID: 11, roomTitle: "강릉 여행", nickname: "연준", profileImageURL: nil)
-        await store.send(.roomEvent(.joined(joined)))
         await store.receive(\.app.main.path[id: 0].roomDetail.memberJoined)
         await store.receive(\.app.main.path[id: 0].roomDetail.detailResponse.success)
     }
@@ -277,7 +262,7 @@ struct RootFeatureTests {
     func doesNotNotifyForOtherRoom() async {
         let room = Fixture.card(id: 11).room
         var initialState = RootFeature.State()
-        initialState.app = .roomDetail(AppFeature.RoomDetailScreen(profile: Fixture.profile, room: room))
+        initialState.app = Self.mainWithRoomDetail(room)
 
         let store = TestStore(initialState: initialState) {
             RootFeature()
@@ -292,7 +277,7 @@ struct RootFeatureTests {
 
         // 토스트는 뜨지만 방 상세는 건드리지 않는다.
         #expect(store.state.joinToast == other)
-        #expect(store.state.app.screenID == .roomDetail)
+        #expect(Self.topRoomID(of: store.state.app) == 11)
     }
 
     @Test("재연결(.resumed)은 토스트를 띄우지 않는다")

@@ -45,7 +45,7 @@ struct AppCoverEditRoutingTests {
         return screen
     }
 
-    /// 홈 위에 방 상세가 한 장(id 0) 쌓인 메인.
+    /// 홈 위에 방 상세가 한 장(id 0) 쌓인 메인. 방 상세는 아직 조회 전이다.
     private static func mainWithRoomDetail(
         _ detail: RoomDetailFeature.State,
         cards: IdentifiedArrayOf<RoomCard> = [CoverEditFixture.card]
@@ -154,31 +154,8 @@ struct AppCoverEditRoutingTests {
         }
     }
 
-    @Test("저장 실패 응답이 왔을 때 이미 상세로 돌아갔어도 그 방의 커버를 되돌린다")
+    @Test("저장 실패 응답이 왔을 때 이미 상세로 돌아갔어도 스택 안 그 방의 커버를 되돌린다")
     func revertsCoverOnDetailScreenToo() async {
-        let store = Self.store(
-            initialState: .roomDetail(
-                AppFeature.RoomDetailScreen(
-                    profile: CoverEditFixture.profile,
-                    room: CoverEditFixture.card.room.withCover(CoverEditFixture.savedCover),
-                    homeCards: [CoverEditFixture.card]
-                )
-            )
-        )
-
-        await store.send(.roomCoverSaveFailed(roomID: CoverEditFixture.card.room.id, previousCover: .none)) {
-            $0 = .roomDetail(
-                AppFeature.RoomDetailScreen(
-                    profile: CoverEditFixture.profile,
-                    room: CoverEditFixture.card.room,
-                    homeCards: [CoverEditFixture.card]
-                )
-            )
-        }
-    }
-
-    @Test("저장 실패 응답이 왔을 때 메인 스택 안에 그 방 상세가 있으면 그 커버를 되돌린다")
-    func revertsCoverInsideMainStack() async {
         let store = Self.store(
             initialState: Self.mainWithRoomDetail(
                 RoomDetailFeature.State(room: CoverEditFixture.card.room.withCover(CoverEditFixture.savedCover))
@@ -187,28 +164,6 @@ struct AppCoverEditRoutingTests {
 
         await store.send(.roomCoverSaveFailed(roomID: CoverEditFixture.card.room.id, previousCover: .none)) {
             $0 = Self.mainWithRoomDetail(RoomDetailFeature.State(room: CoverEditFixture.card.room))
-        }
-    }
-
-    @Test("상세를 조회한 뒤 설정으로 가면 인원수는 상세의 멤버 수다")
-    func settingsMemberCountComesFromDetail() async {
-        var screen = AppFeature.RoomDetailScreen(
-            profile: CoverEditFixture.profile,
-            room: CoverEditFixture.card.room,
-            homeCards: [CoverEditFixture.card]
-        )
-        screen.roomDetail.detail = RoomDetail.preview // 멤버 3명 — 홈 카드(4명)와 다르다
-        let store = Self.store(initialState: .roomDetail(screen))
-
-        await store.send(.roomDetail(.delegate(.settingsTapped))) {
-            $0 = .roomSettings(
-                AppFeature.RoomSettingsScreen(
-                    profile: CoverEditFixture.profile,
-                    room: CoverEditFixture.card.room,
-                    homeCards: [CoverEditFixture.card],
-                    memberCount: RoomDetail.preview.members.count
-                )
-            )
         }
     }
 
@@ -223,12 +178,13 @@ struct AppCoverEditRoutingTests {
         }
     }
 
-    @Test("메인 스택의 방 상세에서 설정으로 가면 인원수는 상세의 멤버 수, 없으면 홈 카드 값이다")
-    func settingsFromMainUsesDetailThenHomeCard() async {
+    @Test("상세를 조회한 뒤 설정으로 가면 인원수는 상세의 멤버 수다")
+    func settingsMemberCountComesFromDetail() async {
         var detail = RoomDetailFeature.State(room: CoverEditFixture.card.room)
         detail.detail = RoomDetail.preview // 멤버 3명 — 홈 카드(4명)와 다르다
-        let withDetail = Self.store(initialState: Self.mainWithRoomDetail(detail))
-        await withDetail.send(.main(.path(.element(id: 0, action: .roomDetail(.delegate(.settingsTapped)))))) {
+        let store = Self.store(initialState: Self.mainWithRoomDetail(detail))
+
+        await store.send(.main(.path(.element(id: 0, action: .roomDetail(.delegate(.settingsTapped)))))) {
             $0 = .roomSettings(
                 AppFeature.RoomSettingsScreen(
                     profile: CoverEditFixture.profile,
@@ -238,28 +194,15 @@ struct AppCoverEditRoutingTests {
                 )
             )
         }
-
-        let beforeDetail = Self.store(
-            initialState: Self.mainWithRoomDetail(RoomDetailFeature.State(room: CoverEditFixture.card.room))
-        )
-        await beforeDetail.send(.main(.path(.element(id: 0, action: .roomDetail(.delegate(.settingsTapped)))))) {
-            $0 = .roomSettings(Self.settingsScreen())
-        }
     }
 
     @Test("상세 조회 전에 설정으로 가면 인원수는 홈 카드 값으로 메운다")
     func settingsMemberCountFallsBackToHomeCard() async {
         let store = Self.store(
-            initialState: .roomDetail(
-                AppFeature.RoomDetailScreen(
-                    profile: CoverEditFixture.profile,
-                    room: CoverEditFixture.card.room,
-                    homeCards: [CoverEditFixture.card]
-                )
-            )
+            initialState: Self.mainWithRoomDetail(RoomDetailFeature.State(room: CoverEditFixture.card.room))
         )
 
-        await store.send(.roomDetail(.delegate(.settingsTapped))) {
+        await store.send(.main(.path(.element(id: 0, action: .roomDetail(.delegate(.settingsTapped)))))) {
             $0 = .roomSettings(Self.settingsScreen())
         }
     }
@@ -267,12 +210,10 @@ struct AppCoverEditRoutingTests {
     @Test("상세도 홈 카드도 없으면 인원수는 0이다")
     func settingsMemberCountDefaultsToZero() async {
         let store = Self.store(
-            initialState: .roomDetail(
-                AppFeature.RoomDetailScreen(profile: CoverEditFixture.profile, room: CoverEditFixture.card.room)
-            )
+            initialState: Self.mainWithRoomDetail(RoomDetailFeature.State(room: CoverEditFixture.card.room), cards: [])
         )
 
-        await store.send(.roomDetail(.delegate(.settingsTapped))) {
+        await store.send(.main(.path(.element(id: 0, action: .roomDetail(.delegate(.settingsTapped)))))) {
             $0 = .roomSettings(
                 AppFeature.RoomSettingsScreen(
                     profile: CoverEditFixture.profile,

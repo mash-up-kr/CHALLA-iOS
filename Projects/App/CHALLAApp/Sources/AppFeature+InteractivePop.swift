@@ -1,15 +1,14 @@
 import ComposableArchitecture
 import Foundation
-import HomeFeature
-import RoomDetailFeature
 import RoomDomain
-import SettingFeature
 
 // 엣지 스와이프 pop이 도착할 화면을 정한다.
 //
 // 제스처는 뷰(`AppView`)가 직접 보내므로 자식 delegate를 거치지 않는다.
 // 각 화면의 뒤로가기 delegate와 같은 전이를 유지해야 한다 —
 // 전이를 고칠 때 `AppFeature.swift`의 delegate case와 함께 고친다.
+//
+// `.main` 안의 화면(방 상세·사진 상세·채팅)은 NavigationStack이 스와이프를 스스로 처리하므로 여기 오지 않는다.
 
 extension AppFeature {
 
@@ -17,16 +16,6 @@ extension AppFeature {
     func popCurrentScreen(_ state: inout State) -> Effect<Action> {
         switch state {
 
-        case let .roomDetail(screen):
-            state = .home(HomeScreen(profile: screen.profile, cards: screen.homeCards))
-        case let .photoDetail(screen):
-            state = .roomDetail(
-                RoomDetailScreen(profile: screen.profile, room: screen.room, homeCards: screen.homeCards)
-            )
-        case let .chat(screen):
-            state = .roomDetail(
-                RoomDetailScreen(profile: screen.profile, room: screen.room, homeCards: screen.homeCards)
-            )
         case let .roomSettings(screen):
             state = Self.returnToMain(
                 profile: screen.profile,

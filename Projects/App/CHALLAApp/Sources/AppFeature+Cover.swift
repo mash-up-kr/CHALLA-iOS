@@ -54,9 +54,6 @@ extension AppFeature {
         case var .roomSettings(screen) where screen.room.id == roomID:
             screen.room = screen.room.withCover(previousCover)
             state = .roomSettings(screen)
-        case var .roomDetail(screen) where screen.roomDetail.room.id == roomID:
-            screen.roomDetail.room = screen.roomDetail.room.withCover(previousCover)
-            state = .roomDetail(screen)
         case var .main(main):
             // 스택 안에 그 방의 상세가 있으면(위에 다른 화면이 덮여 있어도) 커버를 되돌린다.
             // 스택 원소는 값 타입이라 꺼내서 고친 뒤 같은 id 자리에 다시 넣는다.

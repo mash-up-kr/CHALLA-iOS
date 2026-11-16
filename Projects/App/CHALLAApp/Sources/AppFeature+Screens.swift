@@ -1,10 +1,7 @@
 import CameraFeature
 import CameraSession
-import ChatRoomFeature
 import ComposableArchitecture
 import Foundation
-import HomeFeature
-import PhotoDetailFeature
 import ProfileSetupFeature
 import RoomDetailFeature
 import RoomDomain
@@ -18,6 +15,9 @@ import UserDomain
 // `AppFeature.State`가 enum이라 다음 화면으로 가면 이전 화면의 State는 사라진다.
 // 그래서 뒤로가기로 이전 화면을 다시 만들 때 필요한 값을 각 Screen이 미리 들고 다닌다.
 // 어느 delegate가 어느 Screen을 만들지는 `AppFeature.swift`의 "화면 전이" 부분이 정한다.
+//
+// 홈·방 상세·사진 상세·채팅은 `MainFeature`의 스택으로 옮겨 가 포장이 필요 없어졌다.
+// 남은 Screen들도 단계 2~4에서 같은 길을 밟는다.
 
 // MARK: - SplashScreen
 
@@ -59,71 +59,14 @@ public extension AppFeature {
     }
 }
 
-// MARK: - HomeScreen
-
-public extension AppFeature {
-
-    /// 홈 화면 State + 설정으로 넘길 프로필.
-    ///
-    /// `HomeFeature.State`는 인사말용 닉네임·이미지만 들고 있다. 설정·프로필 편집은 전체 `UserProfile`이
-    /// 필요해서, 홈에 들어올 때 받은 프로필을 여기 함께 두었다가 설정 진입 때 넘긴다.
-    @ObservableState
-    struct HomeScreen: Equatable {
-        public var profile: UserProfile
-        public var home: HomeFeature.State
-
-        /// `cards`는 pop으로 돌아올 때 직전 목록을 되살리는 값이다. 비워 두면 첫 조회처럼
-        /// 스피너가 뜨지만, 시딩하면 목록을 즉시 그린 채 재조회 결과로 갱신된다 —
-        /// 전환 중 홈이 통째로 비어 보이는 것을 막는다.
-        public init(profile: UserProfile, cards: IdentifiedArrayOf<RoomCard> = []) {
-            self.profile = profile
-            var home = HomeFeature.State(
-                nickname: profile.nickname ?? "",
-                profileImageURL: profile.imageURL
-            )
-            home.cards = cards
-            self.home = home
-        }
-    }
-}
-
-// MARK: - RoomDetailScreen
-
-public extension AppFeature {
-
-    /// 방 상세 화면 State + 홈으로 돌아갈 때 쓸 프로필.
-    ///
-    /// `State`가 enum이라 방 상세로 오면 홈 State는 사라진다. 뒤로가기로 홈을 다시 만들 때
-    /// 인사말에 쓸 프로필이 필요한데, 안 들고 오면 서버를 다시 조회해야 하고 그동안 화면이 빈다.
-    /// 방 상세 화면 자체는 이 프로필을 쓰지 않는다 — 돌아갈 때까지 맡아두는 값이다.
-    @ObservableState
-    struct RoomDetailScreen: Equatable {
-        public var profile: UserProfile
-        /// 홈으로 pop할 때 되살릴 직전 방 목록 (profile을 맡아 두는 것과 같은 이유).
-        public var homeCards: IdentifiedArrayOf<RoomCard>
-        public var roomDetail: RoomDetailFeature.State
-
-        public init(
-            profile: UserProfile,
-            room: Room,
-            homeCards: IdentifiedArrayOf<RoomCard> = [],
-            highlightsNewestPhoto: Bool = false
-        ) {
-            self.profile = profile
-            self.homeCards = homeCards
-            roomDetail = RoomDetailFeature.State(room: room, highlightsNewestPhoto: highlightsNewestPhoto)
-        }
-    }
-}
-
 // MARK: - RoomSettingsScreen
 
 public extension AppFeature {
 
     /// 방 설정 화면 State + 상세 복귀용 재료.
     ///
-    /// `State`가 enum이라 설정으로 오면 상세 State는 사라진다. 뒤로가기로 상세를 다시 만들 때
-    /// 필요한 방·프로필을 여기 맡아둔다 (RoomDetailScreen이 프로필을 맡아두는 것과 같은 이유).
+    /// `State`가 enum이라 설정으로 오면 메인(홈·상세) State는 사라진다. 뒤로가기로 상세를 다시 만들 때
+    /// 필요한 방·프로필을 여기 맡아둔다.
     @ObservableState
     struct RoomSettingsScreen: Equatable {
         public var profile: UserProfile
@@ -177,77 +120,6 @@ public extension AppFeature {
                 title: room.title,
                 memberCount: memberCount,
                 cover: room.cover
-            )
-        }
-    }
-}
-
-// MARK: - PhotoDetailScreen
-
-public extension AppFeature {
-
-    /// 사진 상세 화면 State + 뒤로 갈 때 복원할 방·프로필.
-    ///
-    /// `State`가 enum이라 사진 상세로 오면 방 상세 State가 사라진다. 뒤로가기로 방 상세를 다시 만들 때
-    /// 쓸 방과 프로필을 여기 맡아 둔다 (방 상세→홈 복귀가 프로필을 들고 다니는 것과 같은 이유).
-    @ObservableState
-    struct PhotoDetailScreen: Equatable {
-        public var profile: UserProfile
-        public var room: Room
-        /// 방 상세를 거쳐 홈까지 되돌아갈 때 이어 줄 직전 방 목록.
-        public var homeCards: IdentifiedArrayOf<RoomCard>
-        public var photoDetail: PhotoDetailFeature.State
-
-        public init(
-            profile: UserProfile,
-            room: Room,
-            initialPhotoID: String,
-            homeCards: IdentifiedArrayOf<RoomCard> = []
-        ) {
-            self.profile = profile
-            self.room = room
-            self.homeCards = homeCards
-            self.photoDetail = PhotoDetailFeature.State(
-                roomID: room.id,
-                roomTitle: room.title,
-                // 리액션을 남기는 주체 = 지금 보는 사람. PhotoReaction.userID(String)와 맞춘다.
-                currentUserID: String(profile.id),
-                // 인화 완료 전이면 방 상세처럼 사진을 blur로 가린다.
-                isPrinted: room.status == .printed,
-                initialPhotoID: initialPhotoID
-            )
-        }
-    }
-}
-
-// MARK: - ChatScreen
-
-public extension AppFeature {
-
-    /// 방 채팅 화면 State + 뒤로 갈 때 복원할 방·프로필.
-    ///
-    /// `State`가 enum이라 채팅으로 오면 방 상세 State가 사라진다. 뒤로가기로 방 상세를 다시 만들 때
-    /// 쓸 방과 프로필을 여기 맡아 둔다 (PhotoDetailScreen과 같은 이유).
-    @ObservableState
-    struct ChatScreen: Equatable {
-        public var profile: UserProfile
-        public var room: Room
-        /// 방 상세를 거쳐 홈까지 되돌아갈 때 이어 줄 직전 방 목록.
-        public var homeCards: IdentifiedArrayOf<RoomCard>
-        public var chat: ChatRoomFeature.State
-
-        public init(profile: UserProfile, room: Room, homeCards: IdentifiedArrayOf<RoomCard> = []) {
-            self.profile = profile
-            self.room = room
-            self.homeCards = homeCards
-            self.chat = ChatRoomFeature.State(
-                roomID: room.id,
-                roomTitle: room.title,
-                // 내 메시지(오른쪽 흰 버블) 판별 기준.
-                currentUserID: profile.id,
-                // 낙관적으로 덧붙이는 내 메시지의 표시 이름.
-                currentUserNickname: profile.nickname ?? "",
-                isPrinted: room.status == .printed
             )
         }
     }
@@ -362,17 +234,13 @@ public extension AppFeature {
 
 public extension AppFeature.State {
 
-    /// 로그인 뒤 화면들이 저마다 들고 다니는 프로필. 로그인 전 화면에서는 nil이다.
+    /// 로그인 뒤 화면들이 들고 있는 프로필. 로그인 전 화면에서는 nil이다.
     /// 화면 밖(참여 토스트 등)에서 방을 열 때, 새 화면을 만들 프로필을 여기서 얻는다.
     var currentProfile: UserProfile? {
         switch self {
-        case let .home(screen): screen.profile
         case let .main(main): main.profile
-        case let .roomDetail(screen): screen.profile
         case let .roomSettings(screen): screen.profile
         case let .roomCoverEdit(screen): screen.profile
-        case let .photoDetail(screen): screen.profile
-        case let .chat(screen): screen.profile
         case let .setting(screen): screen.profile
         case let .profileEdit(screen): screen.profile
         case let .camera(screen): screen.profile

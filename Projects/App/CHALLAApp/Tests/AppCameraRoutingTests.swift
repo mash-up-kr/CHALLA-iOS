@@ -27,6 +27,7 @@ private enum CameraFixture {
 }
 
 /// 카메라는 덮었다 걷히는 화면이라, 닫을 때 들어온 곳으로 되돌아가는 것까지가 App의 몫이다.
+/// 카메라는 아직 `.main` 밖의 enum 화면이라 돌아갈 때 메인을 새로 만든다 (단계 3에서 `@Presents`로 들어간다).
 @MainActor
 @Suite("AppFeature — 카메라 진입·이탈")
 struct AppCameraRoutingTests {
@@ -53,9 +54,9 @@ struct AppCameraRoutingTests {
         return .main(main)
     }
 
-    @Test("메인의 홈에서 촬영 준비가 끝나면 홈에서 들어온 카메라로 간다 — 돌아올 때 쓸 목록을 들고")
-    func opensCameraFromMainHome() async {
-        let store = Self.store(initialState: .main(MainFeature.State(profile: CameraFixture.profile, cards: [CameraFixture.card])))
+    @Test("홈에서 촬영 준비가 끝나면 홈에서 들어온 카메라로 간다 — 돌아올 때 쓸 목록을 들고")
+    func opensCameraFromHome() async {
+        let store = Self.store(initialState: Self.main(cards: [CameraFixture.card]))
 
         await store.send(.main(.home(.delegate(.cameraRequested(CameraFixture.cameraEntry))))) {
             $0 = .camera(
@@ -69,34 +70,13 @@ struct AppCameraRoutingTests {
         }
     }
 
-    @Test("메인 스택의 방 상세에서 촬영 준비가 끝나면 그 방이 선택된 카메라로 들어간다")
-    func opensCameraFromMainRoomDetail() async {
-        var main = MainFeature.State(profile: CameraFixture.profile)
-        main.path[id: 0] = .roomDetail(RoomDetailFeature.State(room: CameraFixture.card.room))
-        let store = Self.store(initialState: .main(main))
+    @Test("방 상세에서 촬영 준비가 끝나면 그 방이 선택된 카메라로 들어간다")
+    func opensCameraFromRoomDetail() async {
+        let store = Self.store(initialState: Self.main(roomDetail: CameraFixture.card.room))
 
         await store.send(
             .main(.path(.element(id: 0, action: .roomDetail(.delegate(.cameraRequested(CameraFixture.cameraEntry))))))
         ) {
-            $0 = .camera(
-                AppFeature.CameraScreen(
-                    profile: CameraFixture.profile,
-                    entry: CameraFixture.cameraEntry,
-                    origin: .roomDetail(CameraFixture.card.room)
-                )
-            )
-        }
-    }
-
-    @Test("방 상세에서 촬영 준비가 끝나면 그 방이 선택된 카메라로 들어간다")
-    func opensCameraFromRoomDetail() async {
-        let store = Self.store(
-            initialState: .roomDetail(
-                AppFeature.RoomDetailScreen(profile: CameraFixture.profile, room: CameraFixture.card.room)
-            )
-        )
-
-        await store.send(.roomDetail(.delegate(.cameraRequested(CameraFixture.cameraEntry)))) {
             $0 = .camera(
                 AppFeature.CameraScreen(
                     profile: CameraFixture.profile,

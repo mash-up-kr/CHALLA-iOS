@@ -38,22 +38,17 @@ public struct RootFeature {
             // 로그인 전 화면에서는 비운다. 로그아웃 뒤에도 이전 계정의 방을 듣고 있으면
             // 그 계정의 참여 토스트가 로그인 화면 위에 뜬다.
             guard app.currentProfile != nil else { return [] }
-            // 홈은 `.home` 화면이거나 `.main` 안에 살아 있다. 그 밖의 화면에서는 지금 구독 중인 값을 그대로 쓴다.
-            let home: HomeFeature.State
-            switch app {
-            case let .home(screen): home = screen.home
-            case let .main(main): home = main.home
-            default: return subscribedRooms
-            }
-            // 홈으로 돌아오면 화면이 새로 만들어져 목록이 잠깐 비어 있다.
-            // 그때 구독을 끊으면 뒤로 갈 때마다 전체 재구독이 돌고, 그 틈에 온 이벤트를 놓친다.
+            // 홈은 `.main` 안에 항상 살아 있다. 그 밖의 화면(설정·카메라…)에서는 지금 구독 중인 값을 그대로 쓴다.
+            guard case let .main(main) = app else { return subscribedRooms }
+            // 설정·카메라에서 돌아오면 메인이 새로 만들어져 목록이 잠깐 비어 있다 (단계 4까지).
+            // 그때 구독을 끊으면 돌아올 때마다 전체 재구독이 돌고, 그 틈에 온 이벤트를 놓친다.
             //
             // 조회가 끝난 뒤의 빈 목록은 다르다. 마지막 방을 나간 경우라
             // 그대로 두면 이제 내 방이 아닌 곳의 참여 토스트를 계속 받는다.
-            guard home.loadState == .loaded || !home.cards.isEmpty else {
+            guard main.home.loadState == .loaded || !main.home.cards.isEmpty else {
                 return subscribedRooms
             }
-            return home.cards.map(\.room)
+            return main.home.cards.map(\.room)
         }
 
         /// 구독을 다시 걸지 판단하는 기준. **어느 방이 있는지**가 바뀔 때만 다시 건다.
@@ -223,28 +218,19 @@ public struct RootFeature {
         .cancellable(id: CancelID.roomEvents, cancelInFlight: true)
     }
 
-    /// 그 방을 보고 있으면 참여자 목록을 다시 조회하라고 알린다.
+    /// 스택에 그 방의 상세가 쌓여 있으면 참여자 목록을 다시 조회하라고 알린다 —
+    /// 위에 사진 상세·채팅이 덮여 있어도 돌아왔을 때 최신이어야 한다.
     /// 방 상세는 따로 구독하지 않는다 — 앱 전체에서 참여 구독은 이 리듀서 하나뿐이다.
     private func notifyOpenRoomDetail(_ state: State, joinedRoomID: Room.ID?) -> Effect<Action> {
-        switch state.app {
-        case let .roomDetail(screen):
+        guard case let .main(main) = state.app else { return .none }
+        let targets = main.path.ids.filter { id in
+            guard case let .roomDetail(detail) = main.path[id: id] else { return false }
             // 재연결(joinedRoomID == nil)이면 어느 방인지 몰라 열려 있는 방을 그냥 갱신한다.
-            guard joinedRoomID == nil || joinedRoomID == screen.roomDetail.room.id else { return .none }
-            return .send(.app(.roomDetail(.memberJoined)))
-
-        case let .main(main):
-            // 스택에 쌓인 그 방의 상세 전부 — 위에 사진 상세·채팅이 덮여 있어도 돌아왔을 때 최신이어야 한다.
-            let targets = main.path.ids.filter { id in
-                guard case let .roomDetail(detail) = main.path[id: id] else { return false }
-                return joinedRoomID == nil || joinedRoomID == detail.room.id
-            }
-            return .merge(targets.map { id in
-                .send(.app(.main(.path(.element(id: id, action: .roomDetail(.memberJoined))))))
-            })
-
-        default:
-            return .none
+            return joinedRoomID == nil || joinedRoomID == detail.room.id
         }
+        return .merge(targets.map { id in
+            .send(.app(.main(.path(.element(id: id, action: .roomDetail(.memberJoined))))))
+        })
     }
 
     /// 같은 참여인지 가리는 식별자.
