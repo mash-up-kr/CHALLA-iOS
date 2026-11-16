@@ -190,6 +190,56 @@ struct MainFeatureTests {
         return state
     }
 
+    /// 맨 위 방 설정의 이름 수정 드로어를 열어 둔다 — 이름 저장 액션은 드로어가 열려 있을 때만 온다.
+    private static func openRenameDrawer(in state: inout MainFeature.State) {
+        guard let id = state.path.ids.last, case var .roomSettings(settings) = state.path[id: id] else { return }
+        settings.rename = RenameRoomFeature.State(roomID: settings.roomID, title: settings.title)
+        state.path[id: id] = .roomSettings(settings)
+    }
+
+    @Test("방 설정에서 이름이 바뀌면 스택 아래 방 상세와 홈 카드의 방 이름이 함께 바뀐다")
+    func renamePropagatesToRoomDetailAndHomeCard() async throws {
+        var initial = Self.stateWithRoomSettings()
+        Self.openRenameDrawer(in: &initial)
+        let store = Self.store(initialState: initial)
+        store.exhaustivity = .off   // 방 설정 자신의 드로어·이름 행 변화는 RoomSettingsFeature 테스트의 몫
+        let ids = Array(store.state.path.ids)
+
+        await store.send(.path(.element(id: ids[1], action: .roomSettings(.rename(.presented(.delegate(.renamed("강릉 여행")))))))) 
+
+        guard case let .roomDetail(detail) = store.state.path[id: ids[0]] else {
+            Issue.record("방 상세가 없다")
+            return
+        }
+        #expect(detail.room.title == "강릉 여행")
+        #expect(store.state.home.cards[id: Fixture.card.id]?.room.title == "강릉 여행")
+    }
+
+    @Test("다른 방의 이름 변경은 스택의 방 상세와 홈의 다른 카드를 건드리지 않는다")
+    func renameLeavesOtherRoomsAlone() async throws {
+        let other = Room.previewPrinted
+        var initial = MainFeature.State(
+            profile: Fixture.profile,
+            cards: [Fixture.card, RoomCard(room: other, memberCount: 2, thumbnailURLs: [])]
+        )
+        initial.path.append(.roomDetail(RoomDetailFeature.State(room: Fixture.card.room)))
+        initial.path.append(.roomSettings(RoomSettingsFeature.State(roomID: other.id, title: other.title)))
+        Self.openRenameDrawer(in: &initial)
+        let store = Self.store(initialState: initial)
+        store.exhaustivity = .off
+        let ids = Array(store.state.path.ids)
+
+        await store.send(.path(.element(id: ids[1], action: .roomSettings(.rename(.presented(.delegate(.renamed("제주")))))))) 
+
+        guard case let .roomDetail(detail) = store.state.path[id: ids[0]] else {
+            Issue.record("방 상세가 없다")
+            return
+        }
+        #expect(detail.room.title == Fixture.card.room.title)
+        #expect(store.state.home.cards[id: Fixture.card.id]?.room.title == Fixture.card.room.title)
+        #expect(store.state.home.cards[id: other.id]?.room.title == "제주")
+    }
+
     @Test("방 설정에서 커버를 누르면 설정의 최신 이름과 방 상세의 커버로 커버 수정을 쌓는다")
     func pushesCoverEditWithLatestTitleAndDetailCover() async throws {
         let store = Self.store(initialState: Self.stateWithRoomSettings(settingsTitle: "강릉 여행"))

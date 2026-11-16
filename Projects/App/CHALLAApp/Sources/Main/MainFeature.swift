@@ -136,6 +136,15 @@ public struct MainFeature {
                 ))
                 return .none
 
+            // MARK: - 방 설정에서 이름 변경
+
+            // 방 설정은 자기 이름 행만 고친다. 아래에 살아 있는 화면들은 MainFeature가 같은 액션을 엿보고 고친다.
+            // 서버가 저장한 이름이 실려 오므로 다시 조회하지 않는다.
+            case let .path(.element(id: id, action: .roomSettings(.rename(.presented(.delegate(.renamed(name))))))):
+                guard case let .roomSettings(settings) = state.path[id: id] else { return .none }
+                state.updateRoom(id: settings.roomID) { $0.renamed(to: name) }
+                return .none
+
             // MARK: - 방 설정 → 커버 수정
 
             // 방 설정은 방 이름만 안다. 커버·인원수는 스택 아래에 살아 있는 그 방의 상세에서 읽는다.
@@ -184,6 +193,19 @@ extension MainFeature.State {
         }
         return nil
     }
+
+    /// 그 방을 들고 있는 곳(스택 안 방 상세 전부 · 홈 목록의 카드)을 한 번에 고친다.
+    /// 스택 원소와 카드는 값 타입이라 꺼내 고친 뒤 같은 자리에 다시 넣는다.
+    mutating func updateRoom(id roomID: Room.ID, _ transform: (Room) -> Room) {
+        for id in path.ids {
+            guard case var .roomDetail(detail) = path[id: id], detail.room.id == roomID else { continue }
+            detail.room = transform(detail.room)
+            path[id: id] = .roomDetail(detail)
+        }
+        if let card = home.cards[id: roomID] {
+            home.cards[id: roomID] = card.replacingRoom(transform(card.room))
+        }
+    }
 }
 
 // MARK: - 자식 State 조립
@@ -222,3 +244,16 @@ extension MainFeature {
 // `@Reducer enum`이 만든 State는 Equatable을 자동으로 따르지 않아 파일 스코프에서 붙인다.
 // 부모 State가 `StackState<Path.State>`를 담아서 Equatable이어야 한다.
 extension MainFeature.Path.State: Equatable {}
+
+private extension RoomCard {
+
+    /// `RoomCard`는 전부 `let`이라 방만 바꾼 새 카드를 만든다.
+    func replacingRoom(_ room: Room) -> RoomCard {
+        RoomCard(
+            room: room,
+            memberCount: memberCount,
+            thumbnailURLs: thumbnailURLs,
+            photoPrintCompletionCheckedAt: photoPrintCompletionCheckedAt
+        )
+    }
+}
