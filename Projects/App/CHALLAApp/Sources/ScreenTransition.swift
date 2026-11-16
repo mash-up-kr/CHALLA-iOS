@@ -168,7 +168,7 @@ final class ScreenTransitionCoordinator {
 
     private static func navigationDepth(_ id: AppFeature.State.ScreenID) -> Int? {
         switch id {
-        case .home: return 0
+        case .home, .main: return 0
         case .roomDetail, .setting: return 1
         case .photoDetail, .chat, .profileEdit, .roomSettings: return 2
         case .roomCoverEdit: return 3

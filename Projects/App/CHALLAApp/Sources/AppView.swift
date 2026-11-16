@@ -160,6 +160,13 @@ public struct AppView: View {
                         .screenLayer(.home, coordinator: transitionCoordinator)
                 }
 
+            case .main:
+                // 홈 + 그 위에 쌓인 화면들(방 상세·사진 상세·채팅). 안에서의 전환은 NavigationStack이 맡는다.
+                if let mainStore = store.scope(state: \.main, action: \.main) {
+                    MainView(store: mainStore)
+                        .screenLayer(.main, coordinator: transitionCoordinator)
+                }
+
             case .roomDetail:
                 if let roomDetailStore = store.scope(state: \.roomDetail?.roomDetail, action: \.roomDetail) {
                     RoomDetailView(store: roomDetailStore)

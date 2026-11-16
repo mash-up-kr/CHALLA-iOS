@@ -367,6 +367,7 @@ public extension AppFeature.State {
     var currentProfile: UserProfile? {
         switch self {
         case let .home(screen): screen.profile
+        case let .main(main): main.profile
         case let .roomDetail(screen): screen.profile
         case let .roomSettings(screen): screen.profile
         case let .roomCoverEdit(screen): screen.profile

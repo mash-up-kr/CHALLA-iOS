@@ -1,6 +1,7 @@
 @testable import CHALLAApp
 import ComposableArchitecture
 import Foundation
+import RoomDetailFeature
 import RoomDomain
 import Testing
 import UserDomain
@@ -42,6 +43,16 @@ struct AppCoverEditRoutingTests {
             screen.settings.title = title
         }
         return screen
+    }
+
+    /// 홈 위에 방 상세가 한 장(id 0) 쌓인 메인.
+    private static func mainWithRoomDetail(
+        _ detail: RoomDetailFeature.State,
+        cards: IdentifiedArrayOf<RoomCard> = [CoverEditFixture.card]
+    ) -> AppFeature.State {
+        var main = MainFeature.State(profile: CoverEditFixture.profile, cards: cards)
+        main.path[id: 0] = .roomDetail(detail)
+        return .main(main)
     }
 
     private static func coverEditScreen(savedCover: RoomCover? = nil) -> AppFeature.RoomCoverEditScreen {
@@ -163,6 +174,19 @@ struct AppCoverEditRoutingTests {
                     homeCards: [CoverEditFixture.card]
                 )
             )
+        }
+    }
+
+    @Test("저장 실패 응답이 왔을 때 메인 스택 안에 그 방 상세가 있으면 그 커버를 되돌린다")
+    func revertsCoverInsideMainStack() async {
+        let store = Self.store(
+            initialState: Self.mainWithRoomDetail(
+                RoomDetailFeature.State(room: CoverEditFixture.card.room.withCover(CoverEditFixture.savedCover))
+            )
+        )
+
+        await store.send(.roomCoverSaveFailed(roomID: CoverEditFixture.card.room.id, previousCover: .none)) {
+            $0 = Self.mainWithRoomDetail(RoomDetailFeature.State(room: CoverEditFixture.card.room))
         }
     }
 

@@ -57,6 +57,15 @@ extension AppFeature {
         case var .roomDetail(screen) where screen.roomDetail.room.id == roomID:
             screen.roomDetail.room = screen.roomDetail.room.withCover(previousCover)
             state = .roomDetail(screen)
+        case var .main(main):
+            // 스택 안에 그 방의 상세가 있으면(위에 다른 화면이 덮여 있어도) 커버를 되돌린다.
+            // 스택 원소는 값 타입이라 꺼내서 고친 뒤 같은 id 자리에 다시 넣는다.
+            for id in main.path.ids {
+                guard case var .roomDetail(detail) = main.path[id: id], detail.room.id == roomID else { continue }
+                detail.room = detail.room.withCover(previousCover)
+                main.path[id: id] = .roomDetail(detail)
+            }
+            state = .main(main)
         default:
             break
         }

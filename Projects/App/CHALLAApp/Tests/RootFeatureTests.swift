@@ -3,6 +3,7 @@ import ComposableArchitecture
 import Foundation
 import HomeFeature
 import os
+import RoomDetailFeature
 import RoomDomain
 import Testing
 import UserDomain
@@ -237,6 +238,30 @@ struct RootFeatureTests {
         await store.send(.roomEvent(.joined(joined)))
         await store.receive(\.app.roomDetail.memberJoined)
         await store.receive(\.app.roomDetail.detailResponse.success)
+    }
+
+    @Test("메인 스택에 그 방의 상세가 쌓여 있으면 그 원소에 참여자를 다시 조회하라고 알린다")
+    func notifiesRoomDetailInsideMainStack() async {
+        let room = Fixture.card(id: 11).room
+        var main = MainFeature.State(profile: Fixture.profile)
+        main.path[id: 0] = .roomDetail(RoomDetailFeature.State(room: room))
+        var initialState = RootFeature.State()
+        initialState.app = .main(main)
+
+        let store = TestStore(initialState: initialState) {
+            RootFeature()
+        } withDependencies: {
+            $0.continuousClock = ImmediateClock()
+            $0.observeRoomMemberJoinedUseCase = .previewValue
+            $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in .preview })
+            $0.shouldShowInviteGuideUseCase.run = { false }
+        }
+        store.exhaustivity = .off
+
+        let joined = RoomMemberJoined(roomID: 11, roomTitle: "강릉 여행", nickname: "연준", profileImageURL: nil)
+        await store.send(.roomEvent(.joined(joined)))
+        await store.receive(\.app.main.path[id: 0].roomDetail.memberJoined)
+        await store.receive(\.app.main.path[id: 0].roomDetail.detailResponse.success)
     }
 
     @Test("다른 방의 참여 이벤트는 방 상세에 알리지 않는다")
