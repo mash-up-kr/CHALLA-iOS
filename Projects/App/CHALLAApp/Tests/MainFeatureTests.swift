@@ -165,6 +165,89 @@ struct MainFeatureTests {
         #expect(store.state.path.count == 1)
     }
 
+    // MARK: - 방 상세 → 방 설정 → 커버 수정
+
+    @Test("방 상세에서 설정을 누르면 그 방의 이름으로 방 설정을 쌓는다")
+    func pushesRoomSettingsFromRoomDetail() async throws {
+        let store = Self.store(initialState: Self.stateWithRoomDetail())
+        let detailID = try #require(store.state.path.ids.first)
+
+        await store.send(.path(.element(id: detailID, action: .roomDetail(.delegate(.settingsTapped))))) {
+            $0.path[id: 1] = .roomSettings(
+                RoomSettingsFeature.State(roomID: Fixture.card.room.id, title: Fixture.card.room.title)
+            )
+        }
+    }
+
+    /// 홈 위에 방 상세(0) → 방 설정(1)이 쌓인 상태. 설정에서 이름을 바꿨다면 `settingsTitle`로 준다.
+    private static func stateWithRoomSettings(
+        detail: RoomDetailFeature.State = RoomDetailFeature.State(room: Fixture.card.room),
+        cards: IdentifiedArrayOf<RoomCard> = [Fixture.card],
+        settingsTitle: String = Fixture.card.room.title
+    ) -> MainFeature.State {
+        var state = Self.stateWithRoomDetail(detail, cards: cards)
+        state.path.append(.roomSettings(RoomSettingsFeature.State(roomID: Fixture.card.room.id, title: settingsTitle)))
+        return state
+    }
+
+    @Test("방 설정에서 커버를 누르면 설정의 최신 이름과 방 상세의 커버로 커버 수정을 쌓는다")
+    func pushesCoverEditWithLatestTitleAndDetailCover() async throws {
+        let store = Self.store(initialState: Self.stateWithRoomSettings(settingsTitle: "강릉 여행"))
+        let settingsID = try #require(store.state.path.ids.last)
+
+        await store.send(.path(.element(id: settingsID, action: .roomSettings(.delegate(.coverEditRequested))))) {
+            $0.path[id: 2] = .roomCoverEdit(RoomCoverEditFeature.State(
+                roomID: Fixture.card.room.id,
+                title: "강릉 여행",
+                memberCount: Fixture.card.memberCount,
+                cover: Fixture.card.room.cover
+            ))
+        }
+    }
+
+    /// 인원수는 상세 조회 결과 → 홈 카드 → 0 순서로 고른다.
+    @Test("커버 수정의 인원수는 상세 조회 후면 상세의 멤버 수, 전이면 홈 카드 값, 둘 다 없으면 0이다")
+    func coverEditMemberCountFallsBack() async throws {
+        var loaded = RoomDetailFeature.State(room: Fixture.card.room)
+        loaded.detail = .preview // 멤버 3명 — 홈 카드(4명)와 다르다
+        let cases: [(RoomDetailFeature.State, IdentifiedArrayOf<RoomCard>, Int)] = [
+            (loaded, [Fixture.card], RoomDetail.preview.members.count),
+            (RoomDetailFeature.State(room: Fixture.card.room), [Fixture.card], Fixture.card.memberCount),
+            (RoomDetailFeature.State(room: Fixture.card.room), [], 0)
+        ]
+        for (detail, cards, expected) in cases {
+            let store = Self.store(initialState: Self.stateWithRoomSettings(detail: detail, cards: cards))
+            store.exhaustivity = .off
+            let settingsID = try #require(store.state.path.ids.last)
+
+            await store.send(.path(.element(id: settingsID, action: .roomSettings(.delegate(.coverEditRequested)))))
+
+            guard let topID = store.state.path.ids.last, case let .roomCoverEdit(edit) = store.state.path[id: topID] else {
+                Issue.record("커버 수정이 쌓이지 않았다")
+                continue
+            }
+            #expect(edit.memberCount == expected)
+        }
+    }
+
+    @Test("방 설정·커버 수정을 닫으면 그 화면만 빠지고 아래 방 상세는 그대로다")
+    func popsRoomSettingsAndCoverEdit() async throws {
+        var initial = Self.stateWithRoomSettings()
+        initial.path.append(.roomCoverEdit(RoomCoverEditFeature.State(
+            roomID: Fixture.card.room.id, title: Fixture.card.room.title, memberCount: 4, cover: Fixture.card.room.cover
+        )))
+        let store = Self.store(initialState: initial)
+        let ids = Array(store.state.path.ids)
+
+        await store.send(.path(.element(id: ids[2], action: .roomCoverEdit(.delegate(.closeTapped))))) {
+            $0.path.pop(from: ids[2])
+        }
+        await store.send(.path(.element(id: ids[1], action: .roomSettings(.delegate(.closeTapped))))) {
+            $0.path.pop(from: ids[1])
+        }
+        #expect(store.state.path.count == 1)
+    }
+
     // MARK: - 화면 밖에서 방 열기
 
     @Test("참여 토스트로 방을 열면 쌓인 화면을 비우고 그 방 상세만 쌓는다")

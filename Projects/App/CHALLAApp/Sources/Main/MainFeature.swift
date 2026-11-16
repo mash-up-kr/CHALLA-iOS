@@ -127,13 +127,62 @@ public struct MainFeature {
                 state.path.pop(from: id)
                 return .none
 
-            // 설정·방 설정·카메라 요청(settingsTapped·cameraRequested)은 아직 AppFeature가 enum 교체로 처리한다.
+            // MARK: - 방 상세 → 방 설정
+
+            case let .path(.element(id: id, action: .roomDetail(.delegate(.settingsTapped)))):
+                guard case let .roomDetail(detail) = state.path[id: id] else { return .none }
+                state.path.append(.roomSettings(
+                    RoomSettingsFeature.State(roomID: detail.room.id, title: detail.room.title)
+                ))
+                return .none
+
+            // MARK: - 방 설정 → 커버 수정
+
+            // 방 설정은 방 이름만 안다. 커버·인원수는 스택 아래에 살아 있는 그 방의 상세에서 읽는다.
+            case let .path(.element(id: id, action: .roomSettings(.delegate(.coverEditRequested)))):
+                guard case let .roomSettings(settings) = state.path[id: id],
+                      let detail = state.roomDetail(roomID: settings.roomID)
+                else { return .none }
+                state.path.append(.roomCoverEdit(RoomCoverEditFeature.State(
+                    roomID: settings.roomID,
+                    // 설정에서 이름을 바꿨을 수 있어 설정 화면의 최신 이름을 쓴다.
+                    title: settings.title,
+                    // 커버 미리보기가 그릴 인원수. 상세 조회 전이면 홈 카드 값으로 메운다.
+                    memberCount: detail.detail?.members.count
+                        ?? state.home.cards[id: settings.roomID]?.memberCount
+                        ?? 0,
+                    cover: detail.room.cover
+                )))
+                return .none
+
+            // MARK: - 방 설정·커버 수정 닫기
+
+            case let .path(.element(id: id, action: .roomSettings(.delegate(.closeTapped)))),
+                 let .path(.element(id: id, action: .roomCoverEdit(.delegate(.closeTapped)))):
+                state.path.pop(from: id)
+                return .none
+
+            // 홈의 설정·카메라 요청과 방 상세의 카메라 요청은 아직 AppFeature가 enum 교체로 처리한다.
             case .home, .path:
                 return .none
             }
         }
         // 스택의 각 원소에 해당 Feature를 실행한다. 원소의 id로 찾아 포장을 벗기고 자식 리듀서를 돌린다.
         .forEach(\.path, action: \.path)
+    }
+}
+
+// MARK: - 스택 안 찾기
+
+extension MainFeature.State {
+
+    /// 스택에 쌓인 그 방의 상세 중 가장 위의 것. 방 설정·커버 수정이 커버·인원수를 읽을 때 쓴다.
+    /// 같은 방 상세가 두 번 쌓일 수 있어(토스트로 같은 방을 다시 연 경우) 위에서부터 찾는다.
+    func roomDetail(roomID: Room.ID) -> RoomDetailFeature.State? {
+        for id in path.ids.reversed() {
+            if case let .roomDetail(detail) = path[id: id], detail.room.id == roomID { return detail }
+        }
+        return nil
     }
 }
 

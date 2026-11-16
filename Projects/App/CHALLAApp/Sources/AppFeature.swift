@@ -298,23 +298,6 @@ extension AppFeature {
                 )
                 return .none
 
-            case let .main(.path(.element(id: id, action: .roomDetail(.delegate(.settingsTapped))))):
-                guard case let .main(main) = state,
-                      case let .roomDetail(detail) = main.path[id: id]
-                else { return .none }
-                state = .roomSettings(
-                    RoomSettingsScreen(
-                        profile: main.profile,
-                        room: detail.room,
-                        homeCards: main.home.cards,
-                        // 커버 미리보기가 그릴 인원수. 상세 조회 전이면 홈 카드 값으로 메운다.
-                        memberCount: detail.detail?.members.count
-                            ?? main.home.cards[id: detail.room.id]?.memberCount
-                            ?? 0
-                    )
-                )
-                return .none
-
             case let .main(.path(.element(id: id, action: .roomDetail(.delegate(.cameraRequested(entry)))))):
                 guard case let .main(main) = state,
                       case let .roomDetail(detail) = main.path[id: id]
