@@ -68,11 +68,17 @@ public struct MainFeature {
         case path(StackActionOf<Path>)
         /// 화면 밖(참여 토스트)에서 방을 열어 달라는 요청. 쌓인 화면을 비우고 그 방 상세를 쌓는다.
         case roomOpenRequested(Room)
+        /// 스와이프로 닫으며 맡긴 커버 저장이 실패했다 — 미리 끼워 둔 커버를 저장 전 값으로 되돌린다.
+        case roomCoverSaveFailed(roomID: Room.ID, previousCover: RoomCover)
     }
 
     // MARK: - Init
 
     public init() {}
+
+    // MARK: - Dependencies
+
+    @Dependency(\.updateRoomCoverUseCase) var updateRoomCoverUseCase
 
     // MARK: - Body
 
@@ -179,6 +185,28 @@ public struct MainFeature {
                 return .none
 
             // 홈의 설정·카메라 요청과 방 상세의 카메라 요청은 아직 AppFeature가 enum 교체로 처리한다.
+            // MARK: - 커버 수정을 스와이프로 닫음
+
+            // 스와이프는 뒤로 버튼을 거치지 않아 커버 수정이 스스로 저장하지 못한다 — 화면이 빠지면 그쪽 이펙트도 취소된다.
+            // popFrom은 이 Reduce가 먼저 받고 .forEach가 그다음에 원소를 빼므로, 여기서는 편집값을 아직 읽을 수 있다.
+            // 올리는 중이던 사진은 URL이 없어 실리지 못한다 (업로드는 화면과 함께 끝난다).
+            case let .path(.popFrom(id: id)):
+                guard case let .roomCoverEdit(edit) = state.path[id: id], edit.hasChanges else { return .none }
+                // 저장 전에 미리 새 커버로 보여 준다 (낙관 반영). 실패하면 아래 case가 되돌린다.
+                state.updateRoom(id: edit.roomID) { $0.withCover(edit.cover) }
+                return .run { [updateRoomCoverUseCase, roomID = edit.roomID, cover = edit.cover, previous = edit.savedCover] send in
+                    do {
+                        try await updateRoomCoverUseCase.run(roomID, RoomCoverDraft(cover: cover))
+                    } catch {
+                        await send(.roomCoverSaveFailed(roomID: roomID, previousCover: previous))
+                    }
+                }
+
+            // 사용자는 이미 다른 화면이라 알리지 않는다 — 다음 조회가 서버 값을 다시 준다.
+            case let .roomCoverSaveFailed(roomID, previousCover):
+                state.updateRoom(id: roomID) { $0.withCover(previousCover) }
+                return .none
+
             case .home, .path:
                 return .none
             }
