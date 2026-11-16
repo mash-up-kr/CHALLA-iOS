@@ -2,6 +2,7 @@
 import ComposableArchitecture
 import Foundation
 import PhotoDomain
+import RoomDetailFeature
 import RoomDomain
 import ShootEntry
 import Testing
@@ -33,6 +34,41 @@ struct AppCameraRoutingTests {
     private static func store(initialState: AppFeature.State) -> TestStoreOf<AppFeature> {
         TestStore(initialState: initialState) {
             AppFeature()
+        }
+    }
+
+    @Test("메인의 홈에서 촬영 준비가 끝나면 홈에서 들어온 카메라로 간다 — 돌아올 때 쓸 목록을 들고")
+    func opensCameraFromMainHome() async {
+        let store = Self.store(initialState: .main(MainFeature.State(profile: CameraFixture.profile, cards: [CameraFixture.card])))
+
+        await store.send(.main(.home(.delegate(.cameraRequested(CameraFixture.cameraEntry))))) {
+            $0 = .camera(
+                AppFeature.CameraScreen(
+                    profile: CameraFixture.profile,
+                    entry: CameraFixture.cameraEntry,
+                    origin: .home,
+                    homeCards: [CameraFixture.card]
+                )
+            )
+        }
+    }
+
+    @Test("메인 스택의 방 상세에서 촬영 준비가 끝나면 그 방이 선택된 카메라로 들어간다")
+    func opensCameraFromMainRoomDetail() async {
+        var main = MainFeature.State(profile: CameraFixture.profile)
+        main.path[id: 0] = .roomDetail(RoomDetailFeature.State(room: CameraFixture.card.room))
+        let store = Self.store(initialState: .main(main))
+
+        await store.send(
+            .main(.path(.element(id: 0, action: .roomDetail(.delegate(.cameraRequested(CameraFixture.cameraEntry))))))
+        ) {
+            $0 = .camera(
+                AppFeature.CameraScreen(
+                    profile: CameraFixture.profile,
+                    entry: CameraFixture.cameraEntry,
+                    origin: .roomDetail(CameraFixture.card.room)
+                )
+            )
         }
     }
 

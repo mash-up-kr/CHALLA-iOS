@@ -250,6 +250,17 @@ struct AppFeatureTests {
         }
     }
 
+    /// 설정은 아직 `.main` 밖의 enum 화면이라 메인을 통째로 교체한다 (단계 4에서 스택으로 들어간다).
+    @Test("메인의 홈에서 설정을 누르면 설정 화면으로 간다 — 돌아올 때 쓸 목록을 들고")
+    func opensSettingFromMain() async {
+        let card = RoomCard.previewShooting
+        let store = Self.store(initialState: .main(MainFeature.State(profile: Fixture.profile, cards: [card])))
+
+        await store.send(.main(.home(.delegate(.settingsTapped)))) {
+            $0 = .setting(AppFeature.SettingScreen(profile: Fixture.profile, homeCards: [card]))
+        }
+    }
+
     @Test("설정에서 뒤로가면 프로필을 다시 조회하지 않고 홈으로 돌아간다")
     func returnsHomeFromSetting() async {
         let store = Self.store(

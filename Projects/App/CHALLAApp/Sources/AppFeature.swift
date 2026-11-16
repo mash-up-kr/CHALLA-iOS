@@ -354,6 +354,56 @@ extension AppFeature {
                 )
                 return .none
 
+            // MARK: - 메인(홈·스택)에서 enum 화면으로 나가는 요청
+            //
+            // 홈·방 상세의 delegate 중 Main이 스스로 처리하지 못하는 것 — 목적지가 아직 enum 화면이라서다.
+            // Main 안의 Feature끼리는 서로를 모르므로 조립은 여전히 App이 한다 (규칙 3).
+            // 단계 2~4에서 목적지가 Main의 path·@Presents로 옮겨 가면 이 블록은 MainFeature로 내려간다.
+
+            case .main(.home(.delegate(.settingsTapped))):
+                guard case let .main(main) = state else { return .none }
+                state = .setting(SettingScreen(profile: main.profile, homeCards: main.home.cards))
+                return .none
+
+            // 진입 버튼이 방·필터·권한을 모두 갖춘 뒤에만 오는 요청이라 여기서 바로 띄운다.
+            case let .main(.home(.delegate(.cameraRequested(entry)))):
+                guard case let .main(main) = state else { return .none }
+                state = .camera(
+                    CameraScreen(profile: main.profile, entry: entry, origin: .home, homeCards: main.home.cards)
+                )
+                return .none
+
+            case let .main(.path(.element(id: id, action: .roomDetail(.delegate(.settingsTapped))))):
+                guard case let .main(main) = state,
+                      case let .roomDetail(detail) = main.path[id: id]
+                else { return .none }
+                state = .roomSettings(
+                    RoomSettingsScreen(
+                        profile: main.profile,
+                        room: detail.room,
+                        homeCards: main.home.cards,
+                        // 커버 미리보기가 그릴 인원수. 상세 조회 전이면 홈 카드 값으로 메운다.
+                        memberCount: detail.detail?.members.count
+                            ?? main.home.cards[id: detail.room.id]?.memberCount
+                            ?? 0
+                    )
+                )
+                return .none
+
+            case let .main(.path(.element(id: id, action: .roomDetail(.delegate(.cameraRequested(entry)))))):
+                guard case let .main(main) = state,
+                      case let .roomDetail(detail) = main.path[id: id]
+                else { return .none }
+                state = .camera(
+                    CameraScreen(
+                        profile: main.profile,
+                        entry: entry,
+                        origin: .roomDetail(detail.room),
+                        homeCards: main.home.cards
+                    )
+                )
+                return .none
+
             // MARK: - 방 상세 delegate
 
             case .roomDetail(.delegate(.closeTapped)):
