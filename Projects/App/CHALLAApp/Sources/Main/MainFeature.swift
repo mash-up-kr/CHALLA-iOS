@@ -26,6 +26,8 @@ public struct MainFeature {
         case roomDetail(RoomDetailFeature)
         case photoDetail(PhotoDetailFeature)
         case chat(ChatRoomFeature)
+        case roomSettings(RoomSettingsFeature)
+        case roomCoverEdit(RoomCoverEditFeature)
     }
 
     // MARK: - State

@@ -29,6 +29,10 @@ struct MainView: View {
                     PhotoDetailView(store: store)
                 case let .chat(store):
                     ChatRoomView(store: store)
+                case let .roomSettings(store):
+                    RoomSettingsView(store: store)
+                case let .roomCoverEdit(store):
+                    RoomCoverEditView(store: store)
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
