@@ -60,7 +60,8 @@
 - **커버 수정을 스와이프로 닫으면 대신 저장한다.** 커버 수정은 "뒤로 버튼 = 저장"인데 스와이프는 버튼을 거치지 않는다.
   `popFrom`은 부모 Reduce가 먼저 받고 `.forEach`가 그다음에 원소를 빼므로, 그 사이에 편집값을 읽어 아래 화면에
   낙관 반영하고 `UpdateRoomCoverUseCase`를 부른다. 실패하면 `roomCoverSaveFailed`로 저장 전 커버로 되돌린다
-  (사용자는 이미 다른 화면이라 알리지 않는다). 올리는 중이던 사진은 화면과 함께 끝나 실리지 않는다.
+  (사용자는 이미 다른 화면이라 알리지 않는다). 성공하면 `roomCoverSaved`로 **한 번 더 반영한다** — 스와이프 직후 방 상세가
+  다시 보이며 재조회하는데, 그 응답이 저장보다 먼저 처리되면 옛 커버로 덮이기 때문이다. 올리는 중이던 사진은 화면과 함께 끝나 실리지 않는다.
 - 스택 안 화면은 전부 `CHALLATopNavigation`을 직접 그려 `MainView`가 시스템 바를 숨긴다. 바를 숨기면 꺼지는
   스와이프 뒤로가기는 `InteractivePopGestureEnabler`(`Sources/Main/`)가 루트에서 한 번 다시 켠다.
 - 화면 하나를 스택에 추가하는 순서: `Path`에 case 1줄 → `MainView` destination 1줄 → 여는 delegate를 `MainFeature`에서

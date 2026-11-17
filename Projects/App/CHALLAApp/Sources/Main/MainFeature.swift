@@ -70,6 +70,8 @@ public struct MainFeature {
         case roomOpenRequested(Room)
         /// 스와이프로 닫으며 맡긴 커버 저장이 실패했다 — 미리 끼워 둔 커버를 저장 전 값으로 되돌린다.
         case roomCoverSaveFailed(roomID: Room.ID, previousCover: RoomCover)
+        /// 스와이프로 닫으며 맡긴 커버 저장이 성공했다 — 그사이 재조회가 옛 커버로 덮었을 수 있어 한 번 더 끼운다.
+        case roomCoverSaved(roomID: Room.ID, cover: RoomCover)
     }
 
     // MARK: - Init
@@ -196,10 +198,17 @@ public struct MainFeature {
                 return .run { [updateRoomCoverUseCase, roomID = edit.roomID, cover = edit.cover, previous = edit.savedCover] send in
                     do {
                         try await updateRoomCoverUseCase.run(roomID, RoomCoverDraft(cover: cover))
+                        await send(.roomCoverSaved(roomID: roomID, cover: cover))
                     } catch {
                         await send(.roomCoverSaveFailed(roomID: roomID, previousCover: previous))
                     }
                 }
+
+            // 방 상세가 다시 보이며 재조회한 응답이 저장보다 먼저 처리되면 옛 커버로 덮인다.
+            // 저장이 끝난 이 시점의 값이 최종 정답이라 한 번 더 끼운다. 이미 새 커버면 아무것도 안 바뀐다.
+            case let .roomCoverSaved(roomID, cover):
+                state.updateRoom(id: roomID) { $0.withCover(cover) }
+                return .none
 
             // 사용자는 이미 다른 화면이라 알리지 않는다 — 다음 조회가 서버 값을 다시 준다.
             case let .roomCoverSaveFailed(roomID, previousCover):

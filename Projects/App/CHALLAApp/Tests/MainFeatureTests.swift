@@ -361,10 +361,25 @@ struct MainFeatureTests {
             $0.home.cards[id: Fixture.card.id] = Self.card(withCover: Self.editedCover)
             $0.path.pop(from: ids[2])
         }
-        await store.finish()
+        // 저장이 끝나면 한 번 더 알린다 — 이미 새 커버라 상태는 그대로다.
+        await store.receive(\.roomCoverSaved)
 
         #expect(drafts.value.map(\.0) == [Fixture.card.room.id])
         #expect(drafts.value.map(\.1) == [RoomCoverDraft(cover: Self.editedCover)])
+    }
+
+    /// 스와이프 직후 방 상세가 다시 보이며 재조회한다. 그 응답이 저장보다 먼저 처리되면 방 상세가 옛 커버로 덮인다.
+    /// 그 상태에서 저장 성공이 오면 새 커버로 다시 맞춰야 한다.
+    @Test("재조회가 옛 커버로 덮은 뒤 저장 성공이 오면 방 상세와 홈 카드를 새 커버로 다시 맞춘다")
+    func savedCoverReappliesAfterStaleRefetch() async throws {
+        // 재조회 결과로 옛 커버가 된 상태 = 방 상세·홈 카드가 처음 커버 그대로인 상태
+        let store = Self.store(initialState: Self.stateWithRoomDetail())
+        let detailID = try #require(store.state.path.ids.first)
+
+        await store.send(.roomCoverSaved(roomID: Fixture.card.room.id, cover: Self.editedCover)) {
+            $0.path[id: detailID, case: \.roomDetail]?.room = Fixture.card.room.withCover(Self.editedCover)
+            $0.home.cards[id: Fixture.card.id] = Self.card(withCover: Self.editedCover)
+        }
     }
 
     @Test("커버를 바꾸지 않고 스와이프로 닫으면 저장하지 않는다")
