@@ -13,6 +13,12 @@ paths: Projects/**/*.swift
   예외: 서버가 내려주는 색(방 커버 팔레트의 hex)은 토큰이 될 수 없어 `RoomCoverUI`에서만 원시 변환한다.
 - 색상·폰트·간격 하드코딩을 발견하면 토큰 추가를 먼저 제안한다 (토큰이 없다고 하드코딩하지 말 것).
 
+## 탭 영역
+
+- 버튼 label로 쓰이는 컴포넌트에서 바닥이 `Color.clear`이고 위 내용이 `.allowsHitTesting(false)`면 **안쪽에 탭 받는 면이 없다.**
+  컴포넌트 모양으로 `.contentShape(...)`를 지정한다 (`CHALLAFilmCard` — 인화 완료 사진 칸이 가장자리만 눌리던 버그).
+- 넘치는 이미지(`scaledToFill`)는 `.allowsHitTesting(false)`로 탭에서 빼고, 탭 영역은 `.contentShape`로 카드 프레임에 맞춘다 (#120).
+
 ## 디자인 시스템 모듈 순수성
 
 - `CHALLADesignSystem`은 SwiftUI 기반으로 유지한다 — Feature import 금지, 서비스 로직 금지.

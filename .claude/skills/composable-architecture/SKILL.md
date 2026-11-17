@@ -27,6 +27,7 @@ TCA는 composable reducer, 중앙화된 state 관리, side effect 처리를 통�
 | **[Testing - Advanced](references/testing-advanced.md)** | `TestClock`, keypath matching, `exhaustivity = .off`, 또는 시간 기반 테스트를 사용할 때 |
 | **[Testing - Utilities](references/testing-utilities.md)** | test data factory, `LockIsolated`, `ConfirmationDialogState` 테스트, 또는 `@Shared` 테스트를 다룰 때 |
 | **[Performance](references/performance.md)** | state 업데이트, 고빈도 action, 메모리, 또는 store scoping을 최적화할 때 |
+| **[CHALLA Navigation](references/challa-navigation.md)** | **CHALLA에서 화면을 추가·연결·이동할 때 항상.** MainFeature 스택, delegate 연결, 아래 화면 반영, 스와이프 닫힘 처리, 스택 테스트 함정 |
 
 ## 흔한 실수
 
@@ -39,3 +40,13 @@ TCA는 composable reducer, 중앙화된 state 관리, side effect 처리를 통�
 4. **TestStore exhaustivity 없이 테스트하는 것** — "단순한" effect나 "당연한" state 변경에 대해 TestStore assertion을 생략하면 버그를 놓치게 됩니다. exhaustivity checking을 철저히 사용하세요. 이는 회귀(regression)를 조기에 잡아냅니다.
 
 5. **async/await와 Effect를 잘못 혼용하는 것** — 적절한 cancellation이나 error handling 없이 async/await를 `.run` effect로 변환하면 isolation 보장을 잃게 됩니다. `.run` 안에서 `yield` 문을 사용해 async 작업을 신중하게 감싸세요.
+
+## CHALLA에서 실제로 겪은 실수 (#126)
+
+6. **스택 원소 id를 테스트에서 손으로 넣는 것** — `path[id: 0] = …`로 넣으면 id 생성기가 같은 번호를 다시 발급해 원소를 덮어씁니다. 초기 State는 `append`로 쌓고 id는 `path.ids`에서 읽으세요.
+
+7. **닫힐 때 읽을 값을 `pop` 뒤에 읽는 것** — `pop(from:)` 뒤에는 원소가 없습니다. 스와이프 닫힘은 `.popFrom(id:)`에서 부모 Reduce가 먼저 받으므로 거기서 읽으세요.
+
+8. **아래 화면이 다시 보일 때 `.task`가 재실행되는 걸 놓치는 것** — 스택에서 위 화면이 빠지면 아래 화면의 조회가 다시 돕니다. 저장이 끝나기 전에 닫히는 경로는 재조회가 옛 값으로 덮을 수 있으니 저장 성공 때 한 번 더 반영하세요.
+
+상세: [CHALLA Navigation](references/challa-navigation.md)
