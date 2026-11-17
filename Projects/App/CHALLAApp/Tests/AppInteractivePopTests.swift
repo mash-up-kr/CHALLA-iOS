@@ -15,6 +15,8 @@ private enum PopFixture {
     static let card = RoomCard.previewShooting
 }
 
+/// 아직 `.main` 밖에 남은 enum 화면들의 엣지 스와이프 pop.
+/// `.main` 안(방 상세·사진 상세·채팅)의 스와이프는 NavigationStack이 처리해 여기 오지 않는다 — `MainFeatureTests` 참고.
 @MainActor
 @Suite("AppFeature — 엣지 스와이프 pop")
 struct AppInteractivePopTests {
@@ -27,65 +29,14 @@ struct AppInteractivePopTests {
         }
     }
 
-    @Test("엣지 스와이프 pop은 방 상세에서 직전 목록을 시딩한 홈으로 돌아간다")
-    func popsRoomDetailToHomeBySwipe() async {
-        let store = Self.store(
-            initialState: .roomDetail(
-                AppFeature.RoomDetailScreen(
-                    profile: PopFixture.profile,
-                    room: PopFixture.card.room,
-                    homeCards: [PopFixture.card]
-                )
-            )
-        )
-
-        await store.send(.popGestureCompleted) {
-            $0 = .home(AppFeature.HomeScreen(profile: PopFixture.profile, cards: [PopFixture.card]))
-        }
-    }
-
-    @Test("엣지 스와이프 pop은 사진 상세에서 방 상세를 새로 만들어 돌아간다")
-    func popsPhotoDetailToRoomDetailBySwipe() async {
-        let store = Self.store(
-            initialState: .photoDetail(
-                AppFeature.PhotoDetailScreen(
-                    profile: PopFixture.profile,
-                    room: PopFixture.card.room,
-                    initialPhotoID: "photo-1"
-                )
-            )
-        )
-
-        await store.send(.popGestureCompleted) {
-            $0 = .roomDetail(
-                AppFeature.RoomDetailScreen(profile: PopFixture.profile, room: PopFixture.card.room)
-            )
-        }
-    }
-
-    @Test("엣지 스와이프 pop은 채팅에서 방 상세를 새로 만들어 돌아간다")
-    func popsChatToRoomDetailBySwipe() async {
-        let store = Self.store(
-            initialState: .chat(
-                AppFeature.ChatScreen(profile: PopFixture.profile, room: PopFixture.card.room)
-            )
-        )
-
-        await store.send(.popGestureCompleted) {
-            $0 = .roomDetail(
-                AppFeature.RoomDetailScreen(profile: PopFixture.profile, room: PopFixture.card.room)
-            )
-        }
-    }
-
-    @Test("엣지 스와이프 pop은 설정에서 홈으로 돌아간다")
-    func popsSettingToHomeBySwipe() async {
+    @Test("엣지 스와이프 pop은 설정에서 메인(홈)으로 돌아간다")
+    func popsSettingToMainBySwipe() async {
         let store = Self.store(
             initialState: .setting(AppFeature.SettingScreen(profile: PopFixture.profile))
         )
 
         await store.send(.popGestureCompleted) {
-            $0 = .home(AppFeature.HomeScreen(profile: PopFixture.profile))
+            $0 = .main(MainFeature.State(profile: PopFixture.profile))
         }
     }
 
@@ -102,7 +53,7 @@ struct AppInteractivePopTests {
 
     @Test("pop할 부모가 없는 화면에서는 스와이프 완료가 아무것도 하지 않는다")
     func ignoresPopGestureOnRootScreens() async {
-        let store = Self.store(initialState: .home(AppFeature.HomeScreen(profile: PopFixture.profile)))
+        let store = Self.store(initialState: .main(MainFeature.State(profile: PopFixture.profile)))
 
         await store.send(.popGestureCompleted)
     }

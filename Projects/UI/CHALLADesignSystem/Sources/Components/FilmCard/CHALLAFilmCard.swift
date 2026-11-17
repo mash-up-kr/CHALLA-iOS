@@ -64,6 +64,10 @@ public struct CHALLAFilmCard: View {
     private var card: some View {
         photoLayer
             .clipShape(RoundedRectangle(cornerRadius: CHALLARadius.medium))
+            // 탭 영역을 카드 모양으로 못 박는다. 사진 층은 바닥이 Color.clear이고 사진도 탭에서 뺐기 때문에(#120)
+            // 지정하지 않으면 안쪽에 탭 받는 면이 없어, 인화 완료 칸은 테두리·번호 근처만 눌린다.
+            // 카드 모양으로 자르므로 넘친 사진이 옆 칸 탭을 가로채는 #120 문제는 다시 생기지 않는다.
+            .contentShape(RoundedRectangle(cornerRadius: CHALLARadius.medium))
             .overlay(alignment: .bottomLeading) { numberLabel }
             .overlay { moreLabel }
             .overlay { border }

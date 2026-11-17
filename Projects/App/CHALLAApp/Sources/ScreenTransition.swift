@@ -67,27 +67,29 @@ final class ScreenTransitionCoordinator {
     /// pop에서 밀려나는 자식이 부모에 덮이지 않으려면 깊은 화면이 항상 위라고 못 박아야 한다.
     static func zIndex(of id: AppFeature.State.ScreenID) -> Double {
         switch id {
-        case .roomDetail, .setting: return 1
-        case .photoDetail, .chat, .profileEdit, .roomSettings: return 2
-        case .roomCoverEdit, .camera: return 3
+        case .setting: return 1
+        case .profileEdit: return 2
+        case .camera: return 3
         default: return 0
         }
     }
 
     static func popParent(of id: AppFeature.State.ScreenID) -> AppFeature.State.ScreenID? {
         switch id {
-        case .roomDetail, .setting: return .home
-        case .photoDetail, .chat, .roomSettings: return .roomDetail
+        case .setting: return .main
         case .profileEdit: return .setting
-        case .roomCoverEdit: return .roomSettings
         default: return nil
         }
     }
 
     /// pop으로 이 화면이 드러날 수 있어 스냅샷을 남겨둘 화면인지.
+    ///
+    /// `.main`은 넣지 않는다 — 스냅샷은 screenID가 바뀔 때만 찍히는데 `.main` 안에서 push가 일어나도
+    /// screenID는 그대로라 낡은 화면(홈)이 남는다. 그래서 설정에서 `.main`으로의 스와이프 pop은
+    /// 단계 4까지 잠시 꺼진다 (버튼 뒤로가기는 동작). 전부 스택에 들어오면 시스템 스와이프가 대신한다.
     static func isPopParent(_ id: AppFeature.State.ScreenID) -> Bool {
         switch id {
-        case .home, .roomDetail, .setting, .roomSettings: return true
+        case .setting: return true
         default: return false
         }
     }
@@ -142,8 +144,8 @@ final class ScreenTransitionCoordinator {
         var statusCover: Double = 0
     }
 
-    /// 화면 관계 분류. 네비게이션 트리는 홈(0) → 방 상세·설정(1) → 사진 상세·채팅·프로필 편집·방 설정(2)
-    /// → 커버 수정(3), 카메라는 어디서 열려도 모달이다.
+    /// 화면 관계 분류. 네비게이션 트리는 메인(0) → 설정(1) → 프로필 편집(2),
+    /// 카메라는 어디서 열려도 모달이다. 메인 안(홈·방 상세·사진·채팅·방 설정·커버 수정)의 전환은 NavigationStack이 맡아 여기 안 온다.
     private static func classify(
         from: AppFeature.State.ScreenID,
         to: AppFeature.State.ScreenID
@@ -168,10 +170,9 @@ final class ScreenTransitionCoordinator {
 
     private static func navigationDepth(_ id: AppFeature.State.ScreenID) -> Int? {
         switch id {
-        case .home: return 0
-        case .roomDetail, .setting: return 1
-        case .photoDetail, .chat, .profileEdit, .roomSettings: return 2
-        case .roomCoverEdit: return 3
+        case .main: return 0
+        case .setting: return 1
+        case .profileEdit: return 2
         default: return nil
         }
     }

@@ -3,7 +3,6 @@ import AppDomain
 import AuthDomain
 import ComposableArchitecture
 import Foundation
-import HomeFeature
 import NotificationDomain
 import ProfileSetupFeature
 import RoomDomain
@@ -20,7 +19,6 @@ private enum Fixture {
     )
     static let renamedProfile = UserProfile(id: 1, nickname: "새이름", imageURL: profile.imageURL)
     static let pushToken = "fcm-token"
-    static let card = RoomCard.previewShooting
     static let appStore = URL(string: "https://apps.apple.com/kr/app/id0000000000")
 }
 
@@ -42,6 +40,7 @@ private actor SpyPushTokenRepository: PushTokenRepository {
     #endif
 }
 
+/// 앱 루트의 큰 흐름 — 스플래시·로그인·메인 사이의 전이. 메인 안에서 쌓고 빼는 것은 `MainFeatureTests`가 본다.
 @MainActor
 @Suite("AppFeature — 화면 전이")
 struct AppFeatureTests {
@@ -63,7 +62,7 @@ struct AppFeatureTests {
 
     // MARK: - 앱 진입 분기
 
-    @Test("저장된 세션이 있으면 스플래시 동안 프로필을 조회하고, 최소 노출이 끝나면 홈으로 간다")
+    @Test("저장된 세션이 있으면 스플래시 동안 프로필을 조회하고, 최소 노출이 끝나면 메인(홈)으로 간다")
     func autoLoginWithStoredSession() async {
         let channel = SessionExpirationChannel()
         let clock = TestClock()
@@ -82,12 +81,12 @@ struct AppFeatureTests {
         await store.receive(\.sessionRestored, .restored)
         // 프로필이 2초보다 먼저 준비돼도 스플래시가 유지되고 목적지만 맡아 둔다.
         await store.receive(\.profileResponse.success, Fixture.profile) {
-            $0 = .launching(.init(pendingDestination: .home(Fixture.profile)))
+            $0 = .launching(.init(pendingDestination: .main(Fixture.profile)))
         }
 
         await clock.advance(by: AppFeature.splashMinimumHold)
         await store.receive(\.splashMinimumHoldFinished) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .main(MainFeature.State(profile: Fixture.profile))
         }
 
         channel.finish()
@@ -130,7 +129,7 @@ struct AppFeatureTests {
 
     @Test("토큰 갱신이 최종 실패하면 어느 화면에 있든 로그인으로 되돌린다")
     func resetsToLoginOnSessionExpiration() async {
-        let store = Self.store(initialState: .home(AppFeature.HomeScreen(profile: Fixture.profile)))
+        let store = Self.store(initialState: .main(MainFeature.State(profile: Fixture.profile)))
 
         await store.send(.sessionExpired) {
             $0 = .login(.init())
@@ -144,12 +143,12 @@ struct AppFeatureTests {
         await store.send(.sessionExpired)
     }
 
-    @Test("최소 노출이 끝난 뒤 프로필이 오면 붙잡지 않고 곧바로 홈으로 간다")
-    func entersHomeWhenProfileCompleted() async {
+    @Test("최소 노출이 끝난 뒤 프로필이 오면 붙잡지 않고 곧바로 메인으로 간다")
+    func entersMainWhenProfileCompleted() async {
         let store = Self.store(initialState: .launching(.init(isMinimumHoldElapsed: true)))
 
         await store.send(.profileResponse(.success(Fixture.profile))) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .main(MainFeature.State(profile: Fixture.profile))
         }
     }
 
@@ -190,74 +189,38 @@ struct AppFeatureTests {
             $0.pushTokenSynchronizer = synchronizer
         }
 
-        // 로그인 직후 재진입은 최소 노출을 다시 적용하지 않는다 — 프로필이 오면 바로 홈으로 간다.
+        // 로그인 직후 재진입은 최소 노출을 다시 적용하지 않는다 — 프로필이 오면 바로 메인으로 간다.
         await store.send(.login(.delegate(.loginSucceeded))) {
             $0 = .launching(.init(isMinimumHoldElapsed: true))
         }
         await store.receive(\.profileResponse.success, Fixture.profile) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .main(MainFeature.State(profile: Fixture.profile))
         }
         await store.finish()
 
         #expect(await repository.registered == [Fixture.pushToken])
     }
 
-    // MARK: - 방 상세 진입·이탈
-
-    /// 목록에서 고르든, 방금 만들었든, 초대 코드로 들어왔든 다음 동작은 같다.
-    @Test("홈이 알리는 세 경로 모두 그 방의 상세로 들어간다", arguments: [
-        HomeFeature.Action.Delegate.roomSelected(Fixture.card),
-        .roomCreated(Fixture.card),
-        .roomJoined(Fixture.card)
-    ])
-    func opensRoomDetailFromHome(delegate: HomeFeature.Action.Delegate) async {
-        let store = Self.store(initialState: .home(AppFeature.HomeScreen(profile: Fixture.profile)))
-
-        await store.send(.home(.delegate(delegate))) {
-            $0 = .roomDetail(
-                AppFeature.RoomDetailScreen(profile: Fixture.profile, room: Fixture.card.room)
-            )
-        }
-    }
-
-    /// 방에서 사진을 찍고 나왔을 수 있어 홈 State를 새로 만든다 — 목록이 다시 조회된다.
-    /// 직전 목록은 시딩된다 — 재조회가 끝날 때까지 전환 중 홈이 비어 보이면 안 된다.
-    @Test("방 상세에서 뒤로가면 직전 목록을 시딩한 홈을 새로 만들어 돌아간다")
-    func returnsHomeFromRoomDetail() async {
-        let store = Self.store(
-            initialState: .roomDetail(
-                AppFeature.RoomDetailScreen(
-                    profile: Fixture.profile,
-                    room: Fixture.card.room,
-                    homeCards: [Fixture.card]
-                )
-            )
-        )
-
-        await store.send(.roomDetail(.delegate(.closeTapped))) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile, cards: [Fixture.card]))
-        }
-    }
-
     // MARK: - 설정 진입·이탈
 
+    /// 설정은 아직 `.main` 밖의 enum 화면이라 메인을 통째로 교체한다 (단계 4에서 스택으로 들어간다).
     @Test("홈에서 설정을 누르면 설정 화면으로 간다")
     func opensSettingFromHome() async {
-        let store = Self.store(initialState: .home(AppFeature.HomeScreen(profile: Fixture.profile)))
+        let store = Self.store(initialState: .main(MainFeature.State(profile: Fixture.profile)))
 
-        await store.send(.home(.delegate(.settingsTapped))) {
+        await store.send(.main(.home(.delegate(.settingsTapped)))) {
             $0 = .setting(AppFeature.SettingScreen(profile: Fixture.profile))
         }
     }
 
-    @Test("설정에서 뒤로가면 프로필을 다시 조회하지 않고 홈으로 돌아간다")
-    func returnsHomeFromSetting() async {
+    @Test("설정에서 뒤로가면 프로필을 다시 조회하지 않고 메인(홈)으로 돌아간다")
+    func returnsMainFromSetting() async {
         let store = Self.store(
             initialState: .setting(AppFeature.SettingScreen(profile: Fixture.profile))
         )
 
         await store.send(.setting(.delegate(.backRequested))) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .main(MainFeature.State(profile: Fixture.profile))
         }
     }
 
@@ -328,19 +291,17 @@ struct AppFeatureTests {
 
     // MARK: - 화면 식별자
 
-    @Test("나중에 추가된 화면들도 screenID로 구분된다 — VoiceOver 화면 전환 알림에 쓴다")
-    func screenIDCoversNewScreens() {
+    @Test("화면들이 screenID로 구분된다 — VoiceOver 화면 전환 알림에 쓴다")
+    func screenIDCoversScreens() {
         let setting = AppFeature.State.setting(AppFeature.SettingScreen(profile: Fixture.profile))
         let edit = AppFeature.State.profileEdit(
             AppFeature.ProfileEditScreen(profile: Fixture.profile)
         )
-        let roomDetail = AppFeature.State.roomDetail(
-            AppFeature.RoomDetailScreen(profile: Fixture.profile, room: Fixture.card.room)
-        )
+        let main = AppFeature.State.main(MainFeature.State(profile: Fixture.profile))
 
         #expect(setting.screenID == .setting)
         #expect(edit.screenID == .profileEdit)
-        #expect(roomDetail.screenID == .roomDetail)
+        #expect(main.screenID == .main)
         #expect(AppFeature.State.forceUpdate(storeURL: nil).screenID == .forceUpdate)
     }
 }

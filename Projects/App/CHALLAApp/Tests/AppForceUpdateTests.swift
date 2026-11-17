@@ -50,12 +50,12 @@ struct AppForceUpdateTests {
         await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .restored)
         await store.receive(\.profileResponse.success, Fixture.profile) {
-            $0 = .launching(.init(pendingDestination: .home(Fixture.profile)))
+            $0 = .launching(.init(pendingDestination: .main(Fixture.profile)))
         }
 
         await clock.advance(by: AppFeature.splashMinimumHold)
         await store.receive(\.splashMinimumHoldFinished) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .main(MainFeature.State(profile: Fixture.profile))
         }
 
         channel.finish()
@@ -89,7 +89,7 @@ struct AppForceUpdateTests {
     @Test("이미 화면에 진입한 뒤 task가 다시 와도 버전 체크를 반복하지 않는다")
     func ignoresTaskAfterLeavingLaunching() async {
         // checkAppUpdateUseCase를 주입하지 않는다 — 가드가 뚫리면 unimplemented로 실패한다.
-        let store = Self.store(initialState: .home(AppFeature.HomeScreen(profile: Fixture.profile)))
+        let store = Self.store(initialState: .main(MainFeature.State(profile: Fixture.profile)))
 
         await store.send(.task)
         await store.finish()
@@ -114,12 +114,12 @@ struct AppForceUpdateTests {
         await store.receive(\.updateCheckResponse, .notRequired)
         await store.receive(\.sessionRestored, .restored)
         await store.receive(\.profileResponse.success, Fixture.profile) {
-            $0 = .launching(.init(pendingDestination: .home(Fixture.profile)))
+            $0 = .launching(.init(pendingDestination: .main(Fixture.profile)))
         }
 
         await clock.advance(by: AppFeature.splashMinimumHold)
         await store.receive(\.splashMinimumHoldFinished) {
-            $0 = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+            $0 = .main(MainFeature.State(profile: Fixture.profile))
         }
 
         channel.finish()

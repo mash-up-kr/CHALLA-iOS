@@ -122,7 +122,7 @@
   - `options`(색·스티커 목록, 진입 후 조회) · `cover`(화면이 그리는 값) · `savedCover`(진입 값, 저장 성공 시 갱신) ·
     `localImageData`(방금 고른 사진 바이트) · `selectedColor`(칩 선택) · `isUploadingPhoto`(사진 업로드 중) ·
     `isSaving`(뒤로가기 저장 진행 중) · `isPhotoPickerPresented` · `photoPickerItem` · `toast` · `alert`(저장 실패)
-  - `hasChanges`(computed) — `cover != savedCover`. App이 엣지 스와이프 pop을 막을 때 `isSaving`·`isUploadingPhoto`와 함께 본다
+  - `hasChanges`(computed) — `cover != savedCover`. App(`MainFeature`)이 스와이프로 닫힐 때 대신 저장할지 판단하는 데 쓴다
 - `Action.delegate` — `closeTapped`(뒤로). 설정 ↔ 커버 전환은 App이 하고, 돌아갈 때 `savedCover`를
   `Room.withCover(_:)`로 방에 되돌려 넣는다
 - **뒤로가기 때 한 번 저장한다.** 완료 버튼이 없다 — 색·스티커·X 버튼·사진 선택은 `cover`만 바꾸고 저장하지 않는다.
@@ -134,7 +134,8 @@
   4. 변경이 있으면 그 시점의 `cover`로 `RoomCoverDraft`(사진 URL · 스티커 id · 색 id)를 만들어 `UpdateRoomCoverUseCase`를
      부른다. 성공하면 `savedCover`를 갱신하고 `delegate(.closeTapped)`. 실패하면 얼럿 "커버를 저장하지 못했어요" —
      "다시 시도"는 저장을 다시 부르고, "저장 안 함"은 `cover`를 `savedCover`로 되돌리고 `localImageData`를 버린 뒤 나간다
-  - 엣지 스와이프 pop 차단은 App 소관이라 여기서 다루지 않는다
+  - 스와이프로 닫히면 이 순서를 거치지 않는다. App(`MainFeature`)이 `popFrom`에서 `hasChanges`면 대신 저장한다 —
+    스와이프를 막지는 않으므로 업로드 중에 스와이프하면 그 사진은 실리지 않는다 (`CHALLAApp/MODULE.md`)
 - 색은 스티커가 있을 때만 서버에 실린다. 스티커 없이 색을 탭하면 `selectedColor`만 바뀐다 —
   다음에 붙이는 스티커가 그 색을 쓴다. 스티커가 있으면 그 스티커의 색을 바꾼다. 같은 색을 다시 탭하면 아무 일도 없다.
   스티커는 같은 것을 다시 탭하면 빠지고, 다른 것을 탭하면 교체된다

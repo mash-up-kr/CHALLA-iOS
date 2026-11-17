@@ -3,6 +3,7 @@ import ComposableArchitecture
 import Foundation
 import HomeFeature
 import os
+import RoomDetailFeature
 import RoomDomain
 import Testing
 import UserDomain
@@ -45,6 +46,22 @@ private enum Fixture {
     static func card(id: Room.ID) -> RoomCard {
         RoomCard(room: .previewShooting, memberCount: 2, thumbnailURLs: [])
             .withRoomID(id)
+    }
+
+    /// 메인 스택 맨 위가 방 상세면 그 방의 id. 아니면 nil.
+    static func topRoomID(of state: AppFeature.State) -> Room.ID? {
+        guard case let .main(main) = state,
+              let id = main.path.ids.last,
+              case let .roomDetail(detail) = main.path[id: id]
+        else { return nil }
+        return detail.room.id
+    }
+
+    /// 홈 위에 그 방의 상세가 한 장(id 0) 쌓인 메인.
+    static func mainWithRoomDetail(_ room: Room) -> AppFeature.State {
+        var main = MainFeature.State(profile: Fixture.profile)
+        main.path[id: 0] = .roomDetail(RoomDetailFeature.State(room: room))
+        return .main(main)
     }
 }
 
@@ -129,7 +146,7 @@ struct RootFeatureTests {
     func subscribesToRoomsFromHome() async {
         let spy = SpyRoomEventStream()
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
 
         let cards = [Fixture.card(id: 11), Fixture.card(id: 22)]
         let store = TestStore(initialState: initialState) {
@@ -141,7 +158,7 @@ struct RootFeatureTests {
         }
         store.exhaustivity = .off
 
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
         await store.finish()
 
         // 방마다 구독을 거는 것은 Data 레이어 사정이라 여기서는 한 번만 부른다.
@@ -152,7 +169,7 @@ struct RootFeatureTests {
     @Test("내가 들어간 것은 나에게 알리지 않는다")
     func ignoresOwnJoin() async {
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
 
         let store = TestStore(initialState: initialState) {
             RootFeature()
@@ -177,7 +194,7 @@ struct RootFeatureTests {
     func tappingToastOpensRoom() async {
         let spy = SpyRoomEventStream()
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
 
         let cards = [Fixture.card(id: 11)]
         let store = TestStore(initialState: initialState) {
@@ -189,15 +206,17 @@ struct RootFeatureTests {
         store.exhaustivity = .off
 
         // 홈 목록이 들어와야 열 방 정보를 알 수 있다.
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
 
         let joined = RoomMemberJoined(roomID: 11, roomTitle: "강릉 여행", nickname: "연준", profileImageURL: nil)
         await store.send(.roomEvent(.joined(joined)))
         await store.send(.toastTapped)
         await store.receive(\.app.openRoomRequested)
+        // 메인에 있으면 App이 Main에 넘기고, Main이 그 방 상세를 쌓는다.
+        await store.receive(\.app.main.roomOpenRequested)
 
         #expect(store.state.joinToast == nil)
-        #expect(store.state.app.screenID == .roomDetail)
+        #expect(Fixture.topRoomID(of: store.state.app) == 11)
     }
 
     @Test("로그인 전 화면에서는 방 열기 요청을 무시한다")
@@ -215,52 +234,6 @@ struct RootFeatureTests {
         #expect(store.state.app.screenID == .launching)
     }
 
-    @Test("그 방을 보고 있으면 참여자를 다시 조회하라고 방 상세에 알린다")
-    func notifiesOpenRoomDetail() async {
-        let room = Fixture.card(id: 11).room
-        var initialState = RootFeature.State()
-        initialState.app = .roomDetail(AppFeature.RoomDetailScreen(profile: Fixture.profile, room: room))
-
-        let store = TestStore(initialState: initialState) {
-            RootFeature()
-        } withDependencies: {
-            $0.continuousClock = ImmediateClock()
-            $0.observeRoomMemberJoinedUseCase = .previewValue
-            // 알림을 받은 방 상세가 참여자를 다시 조회한다.
-            $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in .preview })
-            // 재조회에 딸려 오는 초대 안내 확인 — 이 테스트의 관심사가 아니라 띄우지 않는다.
-            $0.shouldShowInviteGuideUseCase.run = { false }
-        }
-        store.exhaustivity = .off
-
-        let joined = RoomMemberJoined(roomID: 11, roomTitle: "강릉 여행", nickname: "연준", profileImageURL: nil)
-        await store.send(.roomEvent(.joined(joined)))
-        await store.receive(\.app.roomDetail.memberJoined)
-        await store.receive(\.app.roomDetail.detailResponse.success)
-    }
-
-    @Test("다른 방의 참여 이벤트는 방 상세에 알리지 않는다")
-    func doesNotNotifyForOtherRoom() async {
-        let room = Fixture.card(id: 11).room
-        var initialState = RootFeature.State()
-        initialState.app = .roomDetail(AppFeature.RoomDetailScreen(profile: Fixture.profile, room: room))
-
-        let store = TestStore(initialState: initialState) {
-            RootFeature()
-        } withDependencies: {
-            $0.continuousClock = ImmediateClock()
-            $0.observeRoomMemberJoinedUseCase = .previewValue
-        }
-        store.exhaustivity = .off
-
-        let other = RoomMemberJoined(roomID: 99, roomTitle: "제주", nickname: "성현", profileImageURL: nil)
-        await store.send(.roomEvent(.joined(other)))
-
-        // 토스트는 뜨지만 방 상세는 건드리지 않는다.
-        #expect(store.state.joinToast == other)
-        #expect(store.state.app.screenID == .roomDetail)
-    }
-
     @Test("재연결(.resumed)은 토스트를 띄우지 않는다")
     func resumedDoesNotShowToast() async {
         let spy = SpyRoomEventStream(events: { _ in
@@ -270,7 +243,7 @@ struct RootFeatureTests {
             }
         })
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
 
         let cards = [Fixture.card(id: 11)]
         let store = TestStore(initialState: initialState) {
@@ -282,7 +255,7 @@ struct RootFeatureTests {
         }
         store.exhaustivity = .off
 
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
         await store.finish()
 
         #expect(store.state.joinToast == nil)
@@ -292,7 +265,7 @@ struct RootFeatureTests {
     func retryBudgetResetsWhenSubscribingAnew() async {
         let spy = SpyRoomEventStream()
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
         // 앞선 장애로 재시도를 다 쓴 상태.
         initialState.roomEventRetryCount = 3
 
@@ -306,7 +279,7 @@ struct RootFeatureTests {
         }
         store.exhaustivity = .off
 
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
         await store.finish()
 
         // 예산을 되돌리지 않으면 이후 어떤 장애에도 다시 걸지 않는다.
@@ -316,7 +289,7 @@ struct RootFeatureTests {
     @Test("실시간이 다시 붙으면(.resumed) 재시도 예산을 되돌린다")
     func retryBudgetResetsOnResume() async {
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
         initialState.roomEventRetryCount = 3
 
         let store = TestStore(initialState: initialState) {
@@ -334,7 +307,7 @@ struct RootFeatureTests {
     @Test("구독이 실패하면 정해진 횟수만 다시 걸고 멈춘다")
     func retriesSubscriptionABoundedNumberOfTimes() async {
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
         initialState.roomEventRetryCount = 3
 
         let store = TestStore(initialState: initialState) {
@@ -354,7 +327,7 @@ struct RootFeatureTests {
     func stopsSubscribingWhenLastRoomIsLeft() async {
         let spy = SpyRoomEventStream()
         var initialState = RootFeature.State()
-        initialState.app = .home(AppFeature.HomeScreen(profile: Fixture.profile))
+        initialState.app = .main(MainFeature.State(profile: Fixture.profile))
 
         let cards = [Fixture.card(id: 11)]
         let store = TestStore(initialState: initialState) {
@@ -366,15 +339,67 @@ struct RootFeatureTests {
         }
         store.exhaustivity = .off
 
-        await store.send(.app(.home(.roomsResponse(.success(cards)))))
+        await store.send(.app(.main(.home(.roomsResponse(.success(cards))))))
         await store.finish()
         #expect(store.state.subscribedRooms.map(\.id) == [11])
 
         // 조회가 끝난 뒤의 빈 목록은 "아직 안 불러왔다"가 아니라 "이제 내 방이 없다"이다.
-        await store.send(.app(.home(.roomsResponse(.success([])))))
+        await store.send(.app(.main(.home(.roomsResponse(.success([]))))))
         await store.finish()
 
         #expect(store.state.subscribedRooms.isEmpty)
+    }
+}
+
+/// 참여 이벤트가 스택에 쌓인 방 상세까지 닿는지.
+@MainActor
+@Suite("RootFeature — 방 상세에 참여 알림")
+struct RootFeatureRoomDetailNotifyTests {
+
+    @Test("그 방의 상세가 스택에 있으면 참여자를 다시 조회하라고 방 상세에 알린다")
+    func notifiesOpenRoomDetail() async {
+        let room = Fixture.card(id: 11).room
+        var initialState = RootFeature.State()
+        initialState.app = Fixture.mainWithRoomDetail(room)
+
+        let store = TestStore(initialState: initialState) {
+            RootFeature()
+        } withDependencies: {
+            $0.continuousClock = ImmediateClock()
+            $0.observeRoomMemberJoinedUseCase = .previewValue
+            // 알림을 받은 방 상세가 참여자를 다시 조회한다.
+            $0.fetchRoomDetailUseCase = FetchRoomDetailUseCase(run: { _ in .preview })
+            // 재조회에 딸려 오는 초대 안내 확인 — 이 테스트의 관심사가 아니라 띄우지 않는다.
+            $0.shouldShowInviteGuideUseCase.run = { false }
+        }
+        store.exhaustivity = .off
+
+        let joined = RoomMemberJoined(roomID: 11, roomTitle: "강릉 여행", nickname: "연준", profileImageURL: nil)
+        await store.send(.roomEvent(.joined(joined)))
+        await store.receive(\.app.main.path[id: 0].roomDetail.memberJoined)
+        await store.receive(\.app.main.path[id: 0].roomDetail.detailResponse.success)
+    }
+
+    @Test("다른 방의 참여 이벤트는 방 상세에 알리지 않는다")
+    func doesNotNotifyForOtherRoom() async {
+        let room = Fixture.card(id: 11).room
+        var initialState = RootFeature.State()
+        initialState.app = Fixture.mainWithRoomDetail(room)
+
+        let store = TestStore(initialState: initialState) {
+            RootFeature()
+        } withDependencies: {
+            $0.continuousClock = ImmediateClock()
+            $0.observeRoomMemberJoinedUseCase = .previewValue
+        }
+        store.exhaustivity = .off
+
+        let other = RoomMemberJoined(roomID: 99, roomTitle: "제주", nickname: "성현", profileImageURL: nil)
+        await store.send(.roomEvent(.joined(other)))
+
+        // 토스트는 뜨지만 방 상세는 건드리지 않는다.
+        #expect(store.state.joinToast == other)
+        #expect(Fixture.topRoomID(of: store.state.app) == 11)
     }
 }
 

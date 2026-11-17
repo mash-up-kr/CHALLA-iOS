@@ -1,11 +1,8 @@
 import CameraFeature
 import CameraSession
 import CHALLADesignSystem
-import ChatRoomFeature
 import ComposableArchitecture
-import HomeFeature
 import LoginFeature
-import PhotoDetailFeature
 import ProfileSetupFeature
 import RoomDetailFeature
 import SettingDomain
@@ -15,12 +12,11 @@ import UIKit
 
 /// 앱 최상위 View. `AppFeature.State`에 따라 보여줄 화면을 고른다.
 ///
-/// `SettingView`가 자기 `NavigationStack`을 소유하므로 여기서 push하지 않고 화면을 교체한다 —
-/// 중첩 `NavigationStack`은 동작이 깨진다 (`SettingFeature/MODULE.md`).
-/// 앱에 `NavigationStack`이 하나도 없어 이 방식으로 충돌이 생기지 않는다.
-///
-/// 대신 전환 애니메이션은 `ScreenTransitionCoordinator`가 화면 관계에 맞춰 재현한다 —
+/// 로그인 뒤 화면은 `.main`(`MainView`)이 `NavigationStack` 하나로 맡는다.
+/// 아직 enum 교체로 남은 화면(설정·프로필 편집·카메라)은 여기서 갈아끼우고,
+/// 그 전환 애니메이션은 `ScreenTransitionCoordinator`가 화면 관계에 맞춰 재현한다 —
 /// 네비게이션 관계면 push/pop 슬라이드, 카메라는 모달처럼 아래에서 위로, 나머지는 페이드.
+/// `SettingView`는 자기 `NavigationStack`을 소유해 아직 `.main` 안으로 push하지 못한다 (단계 4).
 public struct AppView: View {
 
     @Bindable private var store: StoreOf<AppFeature>
@@ -154,44 +150,11 @@ public struct AppView: View {
                         .screenLayer(.profileSetup, coordinator: transitionCoordinator)
                 }
 
-            case .home:
-                if let homeStore = store.scope(state: \.home?.home, action: \.home) {
-                    HomeView(store: homeStore)
-                        .screenLayer(.home, coordinator: transitionCoordinator)
-                }
-
-            case .roomDetail:
-                if let roomDetailStore = store.scope(state: \.roomDetail?.roomDetail, action: \.roomDetail) {
-                    RoomDetailView(store: roomDetailStore)
-                        // 방이 바뀌면 뷰도 다른 것으로 본다. 참여 토스트를 눌러 방 A에서 방 B로
-                        // 건너뛰면 상태만 갈리고 뷰는 재사용돼 `.task`가 다시 돌지 않는다 —
-                        // 그러면 B의 상세·참여자 조회가 아예 시작되지 않는다.
-                        .id(roomDetailStore.room.id)
-                        .screenLayer(.roomDetail, coordinator: transitionCoordinator)
-                }
-
-            case .roomSettings:
-                if let settingsStore = store.scope(state: \.roomSettings?.settings, action: \.roomSettings) {
-                    RoomSettingsView(store: settingsStore)
-                        .screenLayer(.roomSettings, coordinator: transitionCoordinator)
-                }
-
-            case .roomCoverEdit:
-                if let coverStore = store.scope(state: \.roomCoverEdit?.coverEdit, action: \.roomCoverEdit) {
-                    RoomCoverEditView(store: coverStore)
-                        .screenLayer(.roomCoverEdit, coordinator: transitionCoordinator)
-                }
-
-            case .photoDetail:
-                if let photoDetailStore = store.scope(state: \.photoDetail?.photoDetail, action: \.photoDetail) {
-                    PhotoDetailView(store: photoDetailStore)
-                        .screenLayer(.photoDetail, coordinator: transitionCoordinator)
-                }
-
-            case .chat:
-                if let chatStore = store.scope(state: \.chat?.chat, action: \.chat) {
-                    ChatRoomView(store: chatStore)
-                        .screenLayer(.chat, coordinator: transitionCoordinator)
+            case .main:
+                // 홈 + 그 위에 쌓인 화면들(방 상세·사진 상세·채팅). 안에서의 전환은 NavigationStack이 맡는다.
+                if let mainStore = store.scope(state: \.main, action: \.main) {
+                    MainView(store: mainStore)
+                        .screenLayer(.main, coordinator: transitionCoordinator)
                 }
 
             case .setting:

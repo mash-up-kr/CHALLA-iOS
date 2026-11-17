@@ -3,6 +3,7 @@ import ComposableArchitecture
 import Foundation
 import HomeFeature
 import ProfileSetupFeature
+import RoomDetailFeature
 import RoomDomain
 import Testing
 import UserDomain
@@ -20,9 +21,18 @@ struct AppInviteLinkTests {
         try #require(InviteLink.url(code: "1928121"))
     }
 
+    /// 메인 스택 맨 위가 방 상세면 그 방의 id. 아니면 nil.
+    private static func topRoomID(of state: AppFeature.State) -> Room.ID? {
+        guard case let .main(main) = state,
+              let id = main.path.ids.last,
+              case let .roomDetail(detail) = main.path[id: id]
+        else { return nil }
+        return detail.room.id
+    }
+
     @Test("초대 링크가 아니면 아무것도 하지 않는다")
     func ignoresForeignURL() async throws {
-        let store = TestStore(initialState: AppFeature.State.home(AppFeature.HomeScreen(profile: Self.profile))) {
+        let store = TestStore(initialState: AppFeature.State.main(MainFeature.State(profile: Self.profile))) {
             AppFeature()
         }
 
@@ -30,9 +40,9 @@ struct AppInviteLinkTests {
         await store.send(.inviteLinkOpened(url))
     }
 
-    @Test("홈에서 링크를 받으면 그 방에 입장해 방 상세로 간다")
+    @Test("홈에서 링크를 받으면 그 방에 입장해 방 상세를 쌓는다")
     func joinsFromHome() async throws {
-        let store = TestStore(initialState: AppFeature.State.home(AppFeature.HomeScreen(profile: Self.profile))) {
+        let store = TestStore(initialState: AppFeature.State.main(MainFeature.State(profile: Self.profile))) {
             AppFeature()
         } withDependencies: {
             $0.joinRoomUseCase = JoinRoomUseCase(run: { _ in Self.card })
@@ -43,19 +53,35 @@ struct AppInviteLinkTests {
         try await store.send(.inviteLinkOpened(Self.inviteURL()))
         // 비관용 모드에서 finish()는 큐의 수신 액션을 상태에 적용하지 않는다 —
         // 마지막 액션을 받아야 입장 체인이 상태에 반영된다.
-        await store.receive(\.home.delegate.roomJoined)
+        await store.receive(\.main.home.delegate.roomJoined)
 
-        guard case let .roomDetail(screen) = store.state else {
-            Issue.record("방 상세가 아니다: \(store.state.screenID)")
-            return
-        }
-        #expect(screen.roomDetail.room.id == Self.card.id)
+        #expect(Self.topRoomID(of: store.state) == Self.card.id)
     }
 
-    @Test("다른 화면에서 링크를 받으면 홈을 거쳐 입장한다")
-    func joinsFromOtherScreen() async throws {
+    @Test("다른 방을 보고 있었으면 쌓인 화면을 비우고 링크의 방으로 간다")
+    func joinsFromAnotherRoom() async throws {
+        var main = MainFeature.State(profile: Self.profile)
+        main.path[id: 0] = .roomDetail(RoomDetailFeature.State(room: .previewPrinted))
+        let store = TestStore(initialState: AppFeature.State.main(main)) {
+            AppFeature()
+        } withDependencies: {
+            $0.joinRoomUseCase = JoinRoomUseCase(run: { _ in Self.card })
+        }
+        store.exhaustivity = .off
+
+        try await store.send(.inviteLinkOpened(Self.inviteURL()))
+        await store.receive(\.main.home.delegate.roomJoined)
+
+        // 보고 있던 인화 완료 방이 아니라 링크의 방 하나만 쌓여 있다.
+        #expect(Self.topRoomID(of: store.state) == Self.card.id)
+        #expect(store.state.main?.path.count == 1)
+    }
+
+    /// 설정은 아직 메인 밖의 enum 화면이다 — 메인을 새로 만들어 홈에 입장을 맡긴다 (단계 4까지).
+    @Test("메인 밖 화면(설정)에서 링크를 받으면 메인을 새로 만들어 입장한다")
+    func joinsFromOutsideMain() async throws {
         let store = TestStore(
-            initialState: AppFeature.State.roomDetail(AppFeature.RoomDetailScreen(profile: Self.profile, room: .previewPrinted))
+            initialState: AppFeature.State.setting(AppFeature.SettingScreen(profile: Self.profile))
         ) {
             AppFeature()
         } withDependencies: {
@@ -64,14 +90,9 @@ struct AppInviteLinkTests {
         store.exhaustivity = .off
 
         try await store.send(.inviteLinkOpened(Self.inviteURL()))
-        await store.receive(\.home.delegate.roomJoined)
+        await store.receive(\.main.home.delegate.roomJoined)
 
-        guard case let .roomDetail(screen) = store.state else {
-            Issue.record("방 상세가 아니다: \(store.state.screenID)")
-            return
-        }
-        // 보고 있던 인화 완료 방이 아니라 링크의 방으로 옮겨 갔다.
-        #expect(screen.roomDetail.room.id == Self.card.id)
+        #expect(Self.topRoomID(of: store.state) == Self.card.id)
     }
 
     @Test("프로필 설정을 마친 신규 사용자도 보관된 링크로 입장한다")
@@ -93,13 +114,9 @@ struct AppInviteLinkTests {
         store.exhaustivity = .off
 
         await store.send(.profileSetup(.delegate(.setupCompleted(Self.profile))))
-        await store.receive(\.home.delegate.roomJoined)
+        await store.receive(\.main.home.delegate.roomJoined)
 
-        guard case let .roomDetail(screen) = store.state else {
-            Issue.record("방 상세가 아니다: \(store.state.screenID)")
-            return
-        }
-        #expect(screen.roomDetail.room.id == Self.card.id)
+        #expect(Self.topRoomID(of: store.state) == Self.card.id)
         #expect(box.value == nil)
     }
 
@@ -129,21 +146,17 @@ struct AppInviteLinkTests {
 
         // 프로필 조회가 끝나 홈으로 — 보관된 코드가 입장으로 이어진다.
         await store.send(.profileResponse(.success(Self.profile)))
-        await store.receive(\.home.delegate.roomJoined)
+        await store.receive(\.main.home.delegate.roomJoined)
 
-        guard case let .roomDetail(screen) = store.state else {
-            Issue.record("방 상세가 아니다: \(store.state.screenID)")
-            return
-        }
-        #expect(screen.roomDetail.room.id == Self.card.id)
+        #expect(Self.topRoomID(of: store.state) == Self.card.id)
         #expect(box.value == nil) // 꺼낸 뒤 비워졌다
     }
 
-    @Test("스플래시가 홈을 맡아둔 경우에도 노출이 끝나는 순간 보관된 코드를 꺼낸다")
+    @Test("스플래시가 메인을 맡아둔 경우에도 노출이 끝나는 순간 보관된 코드를 꺼낸다")
     func deliversHeldCodeWhenSplashEnds() async {
         let box = LockIsolated<String?>("1928121")
         let store = TestStore(
-            initialState: AppFeature.State.launching(.init(pendingDestination: .home(Self.profile)))
+            initialState: AppFeature.State.launching(.init(pendingDestination: .main(Self.profile)))
         ) {
             AppFeature()
         } withDependencies: {
@@ -159,7 +172,7 @@ struct AppInviteLinkTests {
         store.exhaustivity = .off
 
         await store.send(.splashMinimumHoldFinished)
-        await store.receive(\.home.delegate.roomJoined)
+        await store.receive(\.main.home.delegate.roomJoined)
 
         #expect(box.value == nil)
     }

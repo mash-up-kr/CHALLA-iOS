@@ -51,10 +51,10 @@ struct AppSplashTests {
         }
     }
 
-    @Test("스플래시가 홈을 맡아둔 뒤 세션이 만료되면 로그인이 이긴다")
-    func sessionExpirationOverridesPendingHome() async {
+    @Test("스플래시가 메인을 맡아둔 뒤 세션이 만료되면 로그인이 이긴다")
+    func sessionExpirationOverridesPendingMain() async {
         let store = Self.store(
-            initialState: .launching(.init(pendingDestination: .home(Fixture.profile)))
+            initialState: .launching(.init(pendingDestination: .main(Fixture.profile)))
         )
 
         await store.send(.sessionExpired) {

@@ -14,7 +14,7 @@ extension AppFeature {
     func deliverPendingInviteCode() -> Effect<Action> {
         .run { [pendingInviteCode] send in
             guard let code = pendingInviteCode.take() else { return }
-            await send(.home(.inviteCodeReceived(code)))
+            await send(.main(.home(.inviteCodeReceived(code))))
         }
     }
 
