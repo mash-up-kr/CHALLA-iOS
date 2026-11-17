@@ -234,7 +234,9 @@ extension MainFeature.State {
     /// 위에서부터 찾는 것은 방 설정 바로 아래의 상세를 고르려는 것이고, 한 장뿐이면 결과는 같다.
     func roomDetail(roomID: Room.ID) -> RoomDetailFeature.State? {
         for id in path.ids.reversed() {
-            if case let .roomDetail(detail) = path[id: id], detail.room.id == roomID { return detail }
+            if case let .roomDetail(detail) = path[id: id], detail.room.id == roomID {
+                return detail
+            }
         }
         return nil
     }
@@ -286,8 +288,8 @@ extension MainFeature {
     }
 }
 
-// `@Reducer enum`이 만든 State는 Equatable을 자동으로 따르지 않아 파일 스코프에서 붙인다.
-// 부모 State가 `StackState<Path.State>`를 담아서 Equatable이어야 한다.
+/// `@Reducer enum`이 만든 State는 Equatable을 자동으로 따르지 않아 파일 스코프에서 붙인다.
+/// 부모 State가 `StackState<Path.State>`를 담아서 Equatable이어야 한다.
 extension MainFeature.Path.State: Equatable {}
 
 private extension RoomCard {

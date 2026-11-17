@@ -255,6 +255,7 @@ extension AppFeature {
                 return deliverPendingInviteCode()
 
             // MARK: - 메인(홈·스택)에서 enum 화면으로 나가는 요청
+
             //
             // 홈·방 상세의 delegate 중 Main이 스스로 처리하지 못하는 것 — 목적지가 아직 enum 화면이라서다.
             // Main 안의 Feature끼리는 서로를 모르므로 조립은 여전히 App이 한다 (규칙 3).
