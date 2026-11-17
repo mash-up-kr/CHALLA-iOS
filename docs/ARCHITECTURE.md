@@ -37,8 +37,9 @@ Data는 aggregate 단위로 묶는 것이 자연스럽다.
 Projects/
 ├─ App/                              (폴더) 앱 실행 · 전체 흐름 조립
 │  ├─ CHALLAApp                      (앱)   실배포앱 — 모든 Feature 조립
-│  │   ├─ AppFeature                       로그인/프로필/메인 진입 분기 + 루트 네비게이션 · 초대 링크 진입
+│  │   ├─ AppFeature                       로그인/프로필/메인 진입 분기(루트 enum 교체) · 초대 링크 진입
 │  │   ├─ AppView                          최상위 SwiftUI View
+│  │   ├─ MainFeature · MainView           로그인 후 화면 — 홈 + StackState, 앱의 유일한 NavigationStack
 │  │   └─ CompositionRoot                  live 구현체 등록 (앱 시작 시 prepareDependencies로 1회)
 │
 ├─ Auth/                             (폴더) 인증

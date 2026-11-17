@@ -11,7 +11,7 @@ paths: Projects/**
 1. `Feature → Domain ← Data` — Data가 Domain의 Repository 인터페이스를 구현한다.
 2. Feature는 Data를 import 하지 않는다 — `@Dependency`로 주입받고, 구현체 등록은 실행 앱의 `Sources/CompositionRoot.swift`에서 한다.
    (예외: 피처 데모앱 `<피처명>FeatureDemo`는 앱 조립 지점이므로 Mock/실 Data 주입 가능)
-3. Feature끼리 직접 참조하지 않는다 — 화면 전환·조립은 App(AppFeature)이 담당한다.
+3. Feature끼리 직접 참조하지 않는다 — 화면 전환·조립은 App이 담당한다 (루트 분기는 `AppFeature`, 로그인 후 스택은 `MainFeature`).
 4. Core · Shared는 누구나 import 가능하다.
 5. `CHALLADesignSystem`은 Feature를 import 하지 않는다 (맨 아래 UI 레이어).
 6. `CHALLANetwork`는 Data만 import 한다 — Feature·Domain은 서버의 존재를 모른다.

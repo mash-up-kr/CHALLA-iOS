@@ -80,7 +80,11 @@ App에 올리는 `delegate`는 **설정 밖으로 나가야 하는 것**뿐이�
 
 `SettingView`가 `NavigationStack`을 소유한다. 따라서 **App은 이 뷰를 다른 `NavigationStack` 안으로
 push 하면 안 된다** — 중첩 `NavigationStack`은 SwiftUI에서 동작이 깨진다.
-뷰 교체(`AppView`의 현재 방식) · `fullScreenCover` · 탭 중 하나로 띄운다.
+뷰 교체 · `fullScreenCover` · 탭 중 하나로 띄운다.
+
+지금 App은 로그인 뒤 화면을 `MainFeature`의 `NavigationStack` 하나로 쌓지만, 설정만은 이 제약 때문에
+`AppFeature`의 enum 화면으로 **교체**해 띄운다. #126 단계 4에서 이 뷰의 `NavigationStack`을 걷어내고
+하위 화면(테마·알림·계정)을 메인 스택에 합칠 예정이다 — 그때 이 절과 `InteractivePopGestureEnabler`가 함께 바뀐다.
 
 ### 내부 구성 (`Sources/Components/`)
 

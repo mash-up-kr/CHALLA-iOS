@@ -74,7 +74,9 @@ struct MainFeatureTests {
             $0.path.pop(from: detailID)
         }
         #expect(store.state.home.cards == [Fixture.card])
-        #expect(store.state.home.loadState == .notRequested) // 재조회가 걸리지 않았다
+        // 리듀서가 홈 재조회를 걸지 않았다. 실제 앱에선 홈이 다시 보일 때 뷰의 `.task`가 재실행돼 조용히 재조회한다 —
+        // 그건 뷰 수명주기라 TestStore 범위 밖이다. 이 테스트가 못 박는 건 "홈 State를 새로 만들지 않는다"이다.
+        #expect(store.state.home.loadState == .notRequested)
     }
 
     /// 버튼 뒤로가기(delegate)와 스와이프 뒤로가기(popFrom)가 같은 결과여야 한다 — 전이를 두 곳에 적지 않는다.

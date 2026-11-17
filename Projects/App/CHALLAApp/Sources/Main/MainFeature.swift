@@ -220,8 +220,9 @@ public struct MainFeature {
 
 extension MainFeature.State {
 
-    /// 스택에 쌓인 그 방의 상세 중 가장 위의 것. 방 설정·커버 수정이 커버·인원수를 읽을 때 쓴다.
-    /// 같은 방 상세가 두 번 쌓일 수 있어(토스트로 같은 방을 다시 연 경우) 위에서부터 찾는다.
+    /// 스택에 쌓인 그 방의 상세. 방 설정·커버 수정이 커버·인원수를 읽을 때 쓴다.
+    /// 지금 흐름에서 방 상세는 스택에 한 장뿐이다 — 방을 새로 열 때(토스트·초대 링크)는 스택을 먼저 비운다.
+    /// 위에서부터 찾는 것은 방 설정 바로 아래의 상세를 고르려는 것이고, 한 장뿐이면 결과는 같다.
     func roomDetail(roomID: Room.ID) -> RoomDetailFeature.State? {
         for id in path.ids.reversed() {
             if case let .roomDetail(detail) = path[id: id], detail.room.id == roomID { return detail }
