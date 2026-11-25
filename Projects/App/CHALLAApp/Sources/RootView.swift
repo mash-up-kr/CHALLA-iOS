@@ -13,20 +13,27 @@ public struct RootView: View {
     }
 
     public var body: some View {
-        AppView(store: store.scope(state: \.app, action: \.app))
-            .overlay(alignment: .top) {
-                if let joined = store.joinToast {
-                    Button {
-                        store.send(.toastTapped)
-                    } label: {
-                        RoomJoinToastView(joined: joined)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, Metric.topInset)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+        // 카메라(fullScreenCover)는 이 계층 위에 따로 떠서 아래 overlay를 가린다 — 그 위에도 같은 토스트를 얹는다.
+        AppView(store: store.scope(state: \.app, action: \.app)) {
+            joinToast
+        }
+        .overlay(alignment: .top) { joinToast }
+    }
+
+    private var joinToast: some View {
+        ZStack {
+            if let joined = store.joinToast {
+                Button {
+                    store.send(.toastTapped)
+                } label: {
+                    RoomJoinToastView(joined: joined)
                 }
+                .buttonStyle(.plain)
+                .padding(.top, Metric.topInset)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
-            .animation(.easeInOut(duration: Metric.animationDuration), value: store.joinToast)
+        }
+        .animation(.easeInOut(duration: Metric.animationDuration), value: store.joinToast)
     }
 }
 

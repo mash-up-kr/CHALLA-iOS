@@ -1,3 +1,5 @@
+import CameraFeature
+import CameraSession
 import ChatRoomFeature
 import ComposableArchitecture
 import Foundation
@@ -6,15 +8,17 @@ import PhotoDetailFeature
 import PhotoDomain
 import RoomDetailFeature
 import RoomDomain
+import ShootEntry
 import UserDomain
 
 /// 로그인 뒤 화면 전부를 맡는 리듀서 — 홈이 항상 맨 아래에 있고, 그 위로 화면을 쌓고(push) 뺀다(pop).
+/// 카메라는 스택 밖에서 아래 화면을 덮는다(`@Presents`).
 ///
 /// `AppFeature`가 enum으로 화면을 "교체"하던 것과 달리 이전 화면이 살아 있다.
 /// 뒤로 갈 때 홈·방 상세를 다시 만들지 않으므로, 그러기 위해 profile·cards를 실어 나를 필요도 없다.
 ///
-/// 아직 enum 교체로 남아 있는 화면(설정·프로필 편집·카메라)은
-/// `AppFeature`가 이 리듀서의 Action을 엿보고 처리한다 — 단계 3~4에서 이쪽으로 옮겨 온다.
+/// 아직 enum 교체로 남아 있는 화면(설정·프로필 편집)은
+/// `AppFeature`가 이 리듀서의 Action을 엿보고 처리한다 — 단계 4에서 이쪽으로 옮겨 온다.
 @Reducer
 public struct MainFeature {
 
@@ -41,8 +45,10 @@ public struct MainFeature {
         public var home: HomeFeature.State
         /// 홈 위에 쌓인 화면들. 비어 있으면 홈이 보인다. 원소마다 TCA가 id(`StackElementID`)를 붙인다.
         public var path = StackState<Path.State>()
+        /// 스택과 무관하게 덮는 카메라. 닫으면 열었던 화면(홈·방 상세)이 그대로 드러난다.
+        @Presents public var camera: LiveCameraFeature.State?
 
-        /// `cards`는 옛 enum 화면(설정·카메라…)에서 돌아올 때 직전 목록을 시딩하는 값 —
+        /// `cards`는 옛 enum 화면(설정·프로필 편집)에서 돌아올 때 직전 목록을 시딩하는 값 —
         /// 재조회가 끝나기 전에도 홈이 비어 보이지 않게 한다. 단계 4가 끝나면 쓸 곳이 없다.
         public init(
             profile: UserProfile,
@@ -66,7 +72,9 @@ public struct MainFeature {
         case home(HomeFeature.Action)
         /// 스택 안 화면들의 Action 통로. push·popFrom·각 화면의 Action(`.element(id:action:)`)이 전부 여기로 온다.
         case path(StackActionOf<Path>)
+        case camera(PresentationAction<LiveCameraFeature.Action>)
         /// 화면 밖(참여 토스트)에서 방을 열어 달라는 요청. 쌓인 화면을 비우고 그 방 상세를 쌓는다.
+        /// 촬영 중이면 무시한다 — 찍고 있던 것이 사라진다.
         case roomOpenRequested(Room)
         /// 스와이프로 닫으며 맡긴 커버 저장이 실패했다 — 미리 끼워 둔 커버를 저장 전 값으로 되돌린다.
         case roomCoverSaveFailed(roomID: Room.ID, previousCover: RoomCover)
@@ -101,7 +109,19 @@ public struct MainFeature {
                 state.path.append(.roomDetail(RoomDetailFeature.State(room: card.room)))
                 return .none
 
+            // 진입 버튼이 방·필터·권한을 모두 갖춘 뒤에만 오는 요청이라 바로 띄운다.
+            case let .home(.delegate(.cameraRequested(entry))):
+                guard state.camera == nil else { return .none }
+                state.camera = LiveCameraFeature.State(entry: entry)
+                return .none
+
+            // 초대 링크는 어느 화면에 있었든 홈에서 입장을 잇는다 — 카메라가 덮고 있으면 홈이 보이지 않는다.
+            case .home(.inviteCodeReceived):
+                state.camera = nil
+                return .none
+
             case let .roomOpenRequested(room):
+                guard state.camera == nil else { return .none }
                 state.path.removeAll()
                 state.path.append(.roomDetail(RoomDetailFeature.State(room: room)))
                 return .none
@@ -125,6 +145,23 @@ public struct MainFeature {
                     Self.photoDetailState(room: detail.room, initialPhotoID: photoID, profile: state.profile)
                 ))
                 return .none
+
+            case let .path(.element(id: _, action: .roomDetail(.delegate(.cameraRequested(entry))))):
+                guard state.camera == nil else { return .none }
+                state.camera = LiveCameraFeature.State(entry: entry)
+                return .none
+
+            // MARK: - 카메라에서
+
+            // fullScreenCover는 아래 뷰의 `.task`를 다시 돌리지 않아 드러난 화면을 직접 다시 조회함
+            case .camera(.presented(.camera(.delegate(.closeRequested)))):
+                state.camera = nil
+                return refreshScreenBehindCamera(state)
+
+            // 찍은 방의 상세로 가서 방금 올린 사진을 강조한다.
+            case let .camera(.presented(.camera(.delegate(.captureFinished(roomID))))):
+                state.camera = nil
+                return showShotRoom(id: roomID, &state)
 
             // MARK: - 사진 상세·채팅에서
 
@@ -215,13 +252,49 @@ public struct MainFeature {
                 state.updateRoom(id: roomID) { $0.withCover(previousCover) }
                 return .none
 
-            // 홈의 설정·카메라 요청과 방 상세의 카메라 요청은 아직 AppFeature가 enum 교체로 처리한다.
-            case .home, .path:
+            // 홈의 설정 요청은 아직 AppFeature가 enum 교체로 처리한다.
+            case .home, .path, .camera:
                 return .none
             }
         }
         // 스택의 각 원소에 해당 Feature를 실행한다. 원소의 id로 찾아 포장을 벗기고 자식 리듀서를 돌린다.
         .forEach(\.path, action: \.path)
+        .ifLet(\.$camera, action: \.camera) {
+            LiveCameraFeature()
+        }
+    }
+}
+
+// MARK: - 카메라를 닫은 뒤
+
+extension MainFeature {
+
+    /// 카메라가 덮고 있던 화면(홈 또는 맨 위 방 상세)을 다시 조회하게 한다.
+    func refreshScreenBehindCamera(_ state: State) -> Effect<Action> {
+        guard let id = state.path.ids.last else {
+            return .send(.home(.view(.task)))
+        }
+        guard case .roomDetail = state.path[id: id] else { return .none }
+        return .send(.path(.element(id: id, action: .roomDetail(.view(.task)))))
+    }
+
+    /// 찍은 방의 상세가 맨 위에 있으면 그 화면을 그대로 두고 다시 조회한다.
+    /// 아니면 그 방 상세 한 장으로 스택을 바꾼다 — 스택의 방 상세는 한 장뿐이라는 전제(`roomDetail(roomID:)`)를 지킨다.
+    func showShotRoom(id roomID: Room.ID, _ state: inout State) -> Effect<Action> {
+        if let topID = state.path.ids.last,
+           case var .roomDetail(detail) = state.path[id: topID],
+           detail.room.id == roomID {
+            detail.highlightsNewestPhoto = true
+            state.path[id: topID] = .roomDetail(detail)
+            return .send(.path(.element(id: topID, action: .roomDetail(.view(.task)))))
+        }
+        // 카메라가 들고 있는 `ShootableRoom`은 상세를 그리기에 필드가 모자라 홈 목록에서 찾는다.
+        guard let room = state.home.cards[id: roomID]?.room else {
+            return refreshScreenBehindCamera(state)
+        }
+        state.path.removeAll()
+        state.path.append(.roomDetail(RoomDetailFeature.State(room: room, highlightsNewestPhoto: true)))
+        return .none
     }
 }
 
@@ -256,6 +329,21 @@ extension MainFeature.State {
 }
 
 // MARK: - 자식 State 조립
+
+extension LiveCameraFeature.State {
+
+    /// 방·필터 목록은 진입 버튼(홈의 촬영 뱃지 · 방 상세의 사진 찍기)이 미리 받아 둔 것을 그대로 옮겨 담는다 —
+    /// 카메라 화면은 목록을 스스로 조회하지 않는다.
+    init(entry: CameraEntry) {
+        self.init(
+            camera: CameraFeature.State(
+                rooms: IdentifiedArray(uniqueElements: entry.rooms),
+                filters: IdentifiedArray(uniqueElements: entry.filters),
+                selectedRoomID: entry.roomID
+            )
+        )
+    }
+}
 
 extension MainFeature {
 

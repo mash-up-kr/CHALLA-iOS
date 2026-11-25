@@ -1,12 +1,11 @@
-import CHALLADesignSystem
 import SwiftUI
 import UIKit
 
-/// ZStack 화면 교체 위에서 UINavigationController push/pop과 모달 present/dismiss를 재현하는 전환 계산기.
+/// ZStack 화면 교체 위에서 UINavigationController push/pop을 재현하는 전환 계산기.
 ///
 /// SwiftUI는 제거되는 뷰의 `.transition` 값을 그 뷰가 마지막으로 렌더된 시점 것으로 고정한다.
-/// 그래서 "방 상세"처럼 상황 따라 나가는 방향이 다른 화면(홈으로 pop = 오른쪽으로 퇴장,
-/// 사진 상세 push = 왼쪽으로 밀림, 카메라 present = 제자리)은 정적 transition으로 표현할 수 없다.
+/// 그래서 "설정"처럼 상황 따라 나가는 방향이 다른 화면(메인으로 pop = 오른쪽으로 퇴장,
+/// 프로필 편집 push = 왼쪽으로 밀림)은 정적 transition으로 표현할 수 없다.
 /// 대신 참조 타입인 이 코디네이터에 현재 전이(from→to)를 기록해 두고,
 /// `ScreenTransitionModifier`가 애니메이션 프레임마다 이를 읽어 방향을 결정한다.
 ///
@@ -14,7 +13,7 @@ import UIKit
 final class ScreenTransitionCoordinator {
 
     enum Kind {
-        case push, pop, present, dismiss
+        case push, pop
         /// 네비게이션 관계가 아닌 화면 교체(로그인↔홈 등) — 페이드.
         case replace
     }
@@ -23,10 +22,8 @@ final class ScreenTransitionCoordinator {
     private(set) var from: AppFeature.State.ScreenID = .launching
     private(set) var to: AppFeature.State.ScreenID = .launching
     var containerSize: CGSize = .zero
-    /// 상태바 높이. 세로 전환 때 상태바 띠를 페이드로 덮는 데 쓴다.
-    var topInset: CGFloat = 0
 
-    /// 화면 전환 속도. 앱 안의 모든 push/pop·present/dismiss가 이 값 하나를 공유한다.
+    /// 화면 전환 속도. 앱 안의 모든 push/pop이 이 값 하나를 공유한다.
     ///
     /// 설정 내부 `NavigationStack`의 네이티브 전환에 맞춘 값이다
     static let transitionAnimation: Animation = .smooth(duration: 0.25)
@@ -69,7 +66,6 @@ final class ScreenTransitionCoordinator {
         switch id {
         case .setting: return 1
         case .profileEdit: return 2
-        case .camera: return 3
         default: return 0
         }
     }
@@ -122,40 +118,21 @@ final class ScreenTransitionCoordinator {
             }
             // 아래 화면은 UIKit처럼 폭의 30%만 밀리며 살짝 어두워진다.
             return Placement(offsetX: -progress * containerSize.width * 0.3, dim: 0.1 * progress)
-
-        case .present, .dismiss:
-            let covering = kind == .present ? to : from
-            if id == covering {
-                // 상태바 띠는 세로 이동 경로의 맨 끝이라 스프링 꼬리에서야 덮인다 —
-                // 위치와 무관하게 진행도에 맞춰 페이드로 덮어 색 경계를 없앤다.
-                return Placement(offsetY: progress * containerSize.height, statusCover: 1 - progress)
-            }
-            // 배경 화면은 모달이 덮는 동안 제자리에 그대로 남는다.
-            return Placement()
         }
     }
 
     struct Placement {
         var offsetX: CGFloat = 0
-        var offsetY: CGFloat = 0
         var opacity: Double = 1
         var dim: Double = 0
-        /// 상태바 띠를 덮는 검정의 불투명도 (세로 전환의 covering 화면에만 쓰인다).
-        var statusCover: Double = 0
     }
 
-    /// 화면 관계 분류. 네비게이션 트리는 메인(0) → 설정(1) → 프로필 편집(2),
-    /// 카메라는 어디서 열려도 모달이다. 메인 안(홈·방 상세·사진·채팅·방 설정·커버 수정)의 전환은 NavigationStack이 맡아 여기 안 온다.
+    /// 화면 관계 분류. 네비게이션 트리는 메인(0) → 설정(1) → 프로필 편집(2).
+    /// 메인 안(홈·방 상세·사진·채팅·방 설정·커버 수정·카메라)의 전환은 NavigationStack·fullScreenCover가 맡아 여기 안 온다.
     private static func classify(
         from: AppFeature.State.ScreenID,
         to: AppFeature.State.ScreenID
     ) -> Kind {
-        if to == .camera {
-            return .present
-        }
-        if from == .camera {
-            return .dismiss
-        }
         guard let fromDepth = navigationDepth(from), let toDepth = navigationDepth(to) else {
             return .replace
         }
@@ -194,17 +171,8 @@ struct ScreenTransitionModifier: ViewModifier, @preconcurrency Animatable {
     func body(content: Content) -> some View {
         let placement = coordinator.placement(for: id, progress: progress)
         content
-            .offset(x: placement.offsetX, y: placement.offsetY)
+            .offset(x: placement.offsetX)
             .opacity(placement.opacity)
-            .overlay(alignment: .top) {
-                if placement.statusCover > 0 {
-                    CHALLAColor.Static.black
-                        .frame(height: coordinator.topInset)
-                        .offset(y: -coordinator.topInset)
-                        .opacity(placement.statusCover)
-                        .allowsHitTesting(false)
-                }
-            }
             .overlay {
                 Color.black
                     .opacity(placement.dim)

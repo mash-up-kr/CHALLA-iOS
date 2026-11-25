@@ -1,5 +1,3 @@
-import CameraFeature
-import CameraSession
 import CHALLADesignSystem
 import ComposableArchitecture
 import LoginFeature
@@ -12,16 +10,20 @@ import UIKit
 
 /// 앱 최상위 View. `AppFeature.State`에 따라 보여줄 화면을 고른다.
 ///
-/// 로그인 뒤 화면은 `.main`(`MainView`)이 `NavigationStack` 하나로 맡는다.
-/// 아직 enum 교체로 남은 화면(설정·프로필 편집·카메라)은 여기서 갈아끼우고,
+/// 로그인 뒤 화면은 `.main`(`MainView`)이 `NavigationStack` 하나와 카메라 `fullScreenCover`로 맡는다.
+/// 아직 enum 교체로 남은 화면(설정·프로필 편집)은 여기서 갈아끼우고,
 /// 그 전환 애니메이션은 `ScreenTransitionCoordinator`가 화면 관계에 맞춰 재현한다 —
-/// 네비게이션 관계면 push/pop 슬라이드, 카메라는 모달처럼 아래에서 위로, 나머지는 페이드.
+/// 네비게이션 관계면 push/pop 슬라이드, 나머지는 페이드.
 /// `SettingView`는 자기 `NavigationStack`을 소유해 아직 `.main` 안으로 push하지 못한다 (단계 4).
-public struct AppView: View {
+///
+/// `modalOverlay`는 모달(카메라) 위에도 떠야 하는 것 — fullScreenCover는 이 뷰 계층 위에
+/// 따로 떠서, 바깥에서 건 overlay가 가려진다.
+public struct AppView<ModalOverlay: View>: View {
 
     @Bindable private var store: StoreOf<AppFeature>
+    private let modalOverlay: ModalOverlay
 
-    /// 화면 전이 방향(push/pop/present…)을 modifier가 애니메이션 시점에 읽을 수 있게 보관한다.
+    /// 화면 전이 방향(push/pop/replace)을 modifier가 애니메이션 시점에 읽을 수 있게 보관한다.
     @State private var transitionCoordinator = ScreenTransitionCoordinator()
 
     /// 진행 중인 엣지 스와이프 pop. 시작한 화면 ID를 함께 들어, pop이 끝나 화면이 바뀌면 즉시 무효가 된다.
@@ -31,10 +33,6 @@ public struct AppView: View {
     /// 스와이프 pop 완료 직후 잠깐 덮어 두는 직전 스냅샷 (nil이면 없음).
     @State private var popSwapCover: UIImage?
 
-    /// 실기기 카메라 세션. 리듀서(`LiveCameraFeature`)와 프리뷰가 같은 인스턴스를 봐야 하므로
-    /// `@Dependency`로 공유되는 live 값을 뷰에서도 그대로 가져와 프리뷰에 넘긴다.
-    @Dependency(\.cameraSession) private var cameraSession
-
     /// 사용자가 고른 테마. 앱에서 여기서만 읽어 Environment로 내려보낸다.
     /// 설정 화면이 값을 바꾸면 같은 저장소를 보고 있어 화면 전체가 함께 다시 그려진다.
     ///
@@ -42,8 +40,9 @@ public struct AppView: View {
     /// 초기화돼서, 거기 두면 `prepareDependencies`가 깔리기 전에 저장소를 구독한다.
     @SharedReader(.appTheme) private var theme: AppTheme
 
-    public init(store: StoreOf<AppFeature>) {
+    public init(store: StoreOf<AppFeature>, @ViewBuilder modalOverlay: () -> ModalOverlay) {
         self.store = store
+        self.modalOverlay = modalOverlay()
     }
 
     public var body: some View {
@@ -67,9 +66,7 @@ public struct AppView: View {
                     .transition(.opacity)
             }
         }
-        // safe area까지 더해 윈도우 전체 크기를 기록한다 — 세로 이동(카메라 present/dismiss)이
-        // safe area 안쪽 높이만큼만 움직이면, safe area를 무시하는 배경·테두리의 아랫부분이
-        // 화면 하단에 걸린 채 남는다.
+        // safe area까지 더해 윈도우 전체 크기를 기록한다 — 가로 push/pop이 safe area를 무시하는 배경까지 함께 밀어야 한다.
         .onGeometryChange(for: CGSize.self) { proxy in
             CGSize(
                 width: proxy.size.width + proxy.safeAreaInsets.leading + proxy.safeAreaInsets.trailing,
@@ -77,11 +74,6 @@ public struct AppView: View {
             )
         } action: { size in
             transitionCoordinator.containerSize = size
-        }
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.safeAreaInsets.top
-        } action: { inset in
-            transitionCoordinator.topInset = inset
         }
         .overlay(alignment: .leading) {
             if canPopInteractively {
@@ -153,7 +145,7 @@ public struct AppView: View {
             case .main:
                 // 홈 + 그 위에 쌓인 화면들(방 상세·사진 상세·채팅). 안에서의 전환은 NavigationStack이 맡는다.
                 if let mainStore = store.scope(state: \.main, action: \.main) {
-                    MainView(store: mainStore)
+                    MainView(store: mainStore) { modalOverlay }
                         .screenLayer(.main, coordinator: transitionCoordinator)
                 }
 
@@ -167,14 +159,6 @@ public struct AppView: View {
                 if let editStore = store.scope(state: \.profileEdit?.edit, action: \.profileEdit) {
                     ProfileSetupView(store: editStore)
                         .screenLayer(.profileEdit, coordinator: transitionCoordinator)
-                }
-
-            case .camera:
-                if let cameraStore = store.scope(state: \.camera?.live.camera, action: \.camera.camera) {
-                    CameraView(store: cameraStore) {
-                        LiveCameraPreview(session: cameraSession, store: cameraStore)
-                    }
-                    .screenLayer(.camera, coordinator: transitionCoordinator)
                 }
 
             case .forceUpdate:
