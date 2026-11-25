@@ -1,12 +1,8 @@
-import CameraFeature
-import CameraSession
 import ComposableArchitecture
 import Foundation
 import ProfileSetupFeature
-import RoomDetailFeature
 import RoomDomain
 import SettingFeature
-import ShootEntry
 import UserDomain
 
 // 화면 하나를 띄우는 데 필요한 값을 모은 구조체들 — 자식 Feature의 State와,
@@ -16,8 +12,8 @@ import UserDomain
 // 그래서 뒤로가기로 이전 화면을 다시 만들 때 필요한 값을 각 Screen이 미리 들고 다닌다.
 // 어느 delegate가 어느 Screen을 만들지는 `AppFeature.swift`의 "화면 전이" 부분이 정한다.
 //
-// 홈·방 상세·사진 상세·채팅·방 설정·커버 수정은 `MainFeature`의 스택으로 옮겨 가 포장이 필요 없어졌다.
-// 남은 Screen들도 단계 3~4에서 같은 길을 밟는다.
+// 홈·방 상세·사진 상세·채팅·방 설정·커버 수정·카메라는 `MainFeature`로 옮겨 가 포장이 필요 없어졌다.
+// 남은 Screen들도 단계 4에서 같은 길을 밟는다.
 
 // MARK: - SplashScreen
 
@@ -109,61 +105,6 @@ public extension AppFeature {
     }
 }
 
-// MARK: - CameraScreen
-
-public extension AppFeature {
-
-    /// 카메라 화면 State + 닫을 때 돌아갈 곳.
-    ///
-    /// 방·필터 목록은 진입 버튼(홈의 촬영 뱃지 · 방 상세의 사진 찍기)이 미리 받아 둔 것을 그대로 옮겨 담는다 —
-    /// 카메라 화면은 목록을 스스로 조회하지 않는다.
-    @ObservableState
-    struct CameraScreen: Equatable {
-        public var profile: UserProfile
-        /// 어디서 들어왔는지. 카메라를 닫으면 여기로 되돌린다.
-        public var origin: CameraOrigin
-        /// 돌아간 화면이 홈까지 이어 줄 직전 방 목록.
-        public var homeCards: IdentifiedArrayOf<RoomCard>
-        /// 카메라 화면 + 실기기 촬영 배선(`CameraSession`).
-        public var live: LiveCameraFeature.State
-
-        public init(
-            profile: UserProfile,
-            entry: CameraEntry,
-            origin: CameraOrigin,
-            homeCards: IdentifiedArrayOf<RoomCard> = []
-        ) {
-            self.profile = profile
-            self.origin = origin
-            self.homeCards = homeCards
-            live = LiveCameraFeature.State(
-                camera: CameraFeature.State(
-                    rooms: IdentifiedArray(uniqueElements: entry.rooms),
-                    filters: IdentifiedArray(uniqueElements: entry.filters),
-                    selectedRoomID: entry.roomID
-                )
-            )
-        }
-
-        /// 촬영을 마친 방의 상세로 들어갈 때 쓸 `Room`.
-        /// 방 상세에서 들어왔으면 그 방을, 홈에서 들어왔으면 맡아둔 목록에서 찾는다 —
-        /// 카메라가 들고 있는 `ShootableRoom`은 상세를 그리기에 필드가 모자라다.
-        func shotRoom(id: Room.ID) -> Room? {
-            if case let .roomDetail(room) = origin, room.id == id {
-                return room
-            }
-            return homeCards[id: id]?.room
-        }
-    }
-
-    /// 카메라를 닫았을 때 돌아갈 화면. 방 상세로 돌아가려면 그 방이 필요해 함께 들고 있는다 —
-    /// `State`가 enum이라 카메라로 오면 앞 화면의 State는 사라진다.
-    enum CameraOrigin: Equatable {
-        case home
-        case roomDetail(Room)
-    }
-}
-
 // MARK: - 현재 화면이 들고 있는 프로필
 
 public extension AppFeature.State {
@@ -175,7 +116,6 @@ public extension AppFeature.State {
         case let .main(main): main.profile
         case let .setting(screen): screen.profile
         case let .profileEdit(screen): screen.profile
-        case let .camera(screen): screen.profile
         case .launching, .login, .profileSetup, .forceUpdate: nil
         }
     }

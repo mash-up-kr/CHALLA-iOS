@@ -25,6 +25,7 @@ PR 리뷰 봇도 같은 기준으로 검사한다: `Claude-Code-PR-Review/archit
 - 이전 화면 데이터를 포장 struct로 들고 다니지 않는다 — 부모가 스택 아래 화면 State에서 꺼낸다.
 - 위 화면에서 바꾼 값은 부모가 아래 화면에 반영한다(`updateRoom`). 닫힐 때 읽을 값은 `pop` 전에 읽는다.
 - 아래 화면이 다시 보이면 뷰의 `.task`가 재실행된다 — 한 번만 불러와야 하면 가드를 둔다.
+  단 `@Presents` 커버(`fullScreenCover`)를 닫을 때는 재실행되지 않아, 부모가 드러난 화면에 `view(.task)`를 보낸다.
 - 상세·코드 예시·테스트 함정: `composable-architecture` 스킬의 `references/challa-navigation.md`
 
 ## 권장

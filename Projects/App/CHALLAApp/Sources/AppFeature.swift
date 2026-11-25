@@ -1,7 +1,5 @@
 import AppDomain
 import AuthDomain
-import CameraFeature
-import CameraSession
 import ComposableArchitecture
 import Foundation
 import HomeFeature
@@ -10,7 +8,6 @@ import ProfileSetupFeature
 import RoomDetailFeature
 import RoomDomain
 import SettingFeature
-import ShootEntry
 import UserDomain
 
 /// 앱 루트 리듀서 — 진입할 때마다 내 프로필을 조회해 첫 화면을 고르고, 각 화면이 끝나면 다음 화면으로 넘긴다.
@@ -22,7 +19,7 @@ public struct AppFeature {
     /// 앱의 큰 흐름 단계. 동시에 두 화면이 살아 있을 수 없으므로 enum으로 못 박는다.
     ///
     /// 로그인 뒤 화면은 `.main` 하나가 맡는다 — 홈 위에 화면을 쌓는 방식이라 이전 화면이 살아 있다.
-    /// 아직 enum 교체로 남은 화면(방 설정·커버 수정·설정·프로필 편집·카메라)은 단계 2~4에서 `.main` 안으로 옮긴다.
+    /// 아직 enum 교체로 남은 화면(설정·프로필 편집)은 단계 4에서 `.main` 안으로 옮긴다.
     @ObservableState
     public enum State: Equatable {
         case launching(SplashScreen)
@@ -31,7 +28,6 @@ public struct AppFeature {
         case main(MainFeature.State)
         case setting(SettingScreen)
         case profileEdit(ProfileEditScreen)
-        case camera(CameraScreen)
 
         /// 강제 업데이트. 여기서 나가는 전이는 없다 — 앱을 지우거나 업데이트해야 끝난다.
         /// `storeURL`은 버전 체크 응답에 실려 온 스토어 주소 — '확인'이 연다 (nil이면 아무 것도 안 한다).
@@ -47,7 +43,6 @@ public struct AppFeature {
             case .main: return .main
             case .setting: return .setting
             case .profileEdit: return .profileEdit
-            case .camera: return .camera
             case .forceUpdate: return .forceUpdate
             }
         }
@@ -60,13 +55,12 @@ public struct AppFeature {
             case let .main(main): return main.profile
             case let .setting(screen): return screen.profile
             case let .profileEdit(screen): return screen.profile
-            case let .camera(screen): return screen.profile
             }
         }
 
         public enum ScreenID: Equatable, Sendable {
             case launching, login, profileSetup, main
-            case setting, profileEdit, camera
+            case setting, profileEdit
             case forceUpdate
         }
     }
@@ -83,7 +77,6 @@ public struct AppFeature {
         case main(MainFeature.Action)
         case setting(SettingFeature.Action)
         case profileEdit(ProfileSetupFeature.Action)
-        case camera(LiveCameraFeature.Action)
 
         /// 버전 체크 결과. 실패는 여기 오기 전에 `.notRequired`로 접힌다 (fail-open).
         case updateCheckResponse(AppUpdateRequirement)
@@ -129,7 +122,7 @@ public struct AppFeature {
             .ifCaseLet(\.main, action: \.main) {
                 MainFeature()
             }
-            // 래퍼(SettingScreen·ProfileEditScreen·CameraScreen)를 한 겹 벗겨 자식 리듀서에 넘긴다.
+            // 래퍼(SettingScreen·ProfileEditScreen)를 한 겹 벗겨 자식 리듀서에 넘긴다.
             .ifCaseLet(\.setting, action: \.setting) {
                 Scope(state: \.setting, action: \.self) {
                     SettingFeature()
@@ -138,11 +131,6 @@ public struct AppFeature {
             .ifCaseLet(\.profileEdit, action: \.profileEdit) {
                 Scope(state: \.edit, action: \.self) {
                     ProfileSetupFeature()
-                }
-            }
-            .ifCaseLet(\.camera, action: \.camera) {
-                Scope(state: \.live, action: \.self) {
-                    LiveCameraFeature()
                 }
             }
     }
@@ -257,73 +245,21 @@ extension AppFeature {
             // MARK: - 메인(홈·스택)에서 enum 화면으로 나가는 요청
 
             //
-            // 홈·방 상세의 delegate 중 Main이 스스로 처리하지 못하는 것 — 목적지가 아직 enum 화면이라서다.
-            // Main 안의 Feature끼리는 서로를 모르므로 조립은 여전히 App이 한다 (규칙 3).
-            // 단계 2~4에서 목적지가 Main의 path·@Presents로 옮겨 가면 이 블록은 MainFeature로 내려간다.
+            // 홈의 delegate 중 Main이 스스로 처리하지 못하는 것 — 목적지가 아직 enum 화면이라서다.
+            // 단계 4에서 목적지가 Main의 path로 옮겨 가면 이 블록은 MainFeature로 내려간다.
 
             case .main(.home(.delegate(.settingsTapped))):
                 guard case let .main(main) = state else { return .none }
                 state = .setting(SettingScreen(profile: main.profile, homeCards: main.home.cards))
                 return .none
 
-            // 진입 버튼이 방·필터·권한을 모두 갖춘 뒤에만 오는 요청이라 여기서 바로 띄운다.
-            case let .main(.home(.delegate(.cameraRequested(entry)))):
-                guard case let .main(main) = state else { return .none }
-                state = .camera(
-                    CameraScreen(profile: main.profile, entry: entry, origin: .home, homeCards: main.home.cards)
-                )
-                return .none
-
-            case let .main(.path(.element(id: id, action: .roomDetail(.delegate(.cameraRequested(entry)))))):
-                guard case let .main(main) = state,
-                      case let .roomDetail(detail) = main.path[id: id]
-                else { return .none }
-                state = .camera(
-                    CameraScreen(
-                        profile: main.profile,
-                        entry: entry,
-                        origin: .roomDetail(detail.room),
-                        homeCards: main.home.cards
-                    )
-                )
-                return .none
-
             case let .openRoomRequested(room):
-                // 촬영 중에는 화면을 뺏지 않는다 — 찍고 있던 것이 사라진다.
-                // 로그인 전 화면에는 프로필이 없어 만들 화면도 없다.
-                guard state.screenID != .camera, let profile = state.currentProfile else { return .none }
+                // 로그인 전 화면에는 프로필이 없어 만들 화면도 없다. 촬영 중인지는 메인이 판단한다.
+                guard let profile = state.currentProfile else { return .none }
                 if case .main = state {
                     return .send(.main(.roomOpenRequested(room)))
                 }
                 state = Self.returnToMain(profile: profile, cards: [], room: room)
-                return .none
-
-            // MARK: - 카메라 delegate
-
-            // 들어온 화면으로 되돌린다. 메인은 통째로 새로 만들어져 다시 조회된다 — 촬영으로 남은 장수·사진이 바뀌었을 수 있다.
-            case .camera(.camera(.delegate(.closeRequested))):
-                guard case let .camera(screen) = state else { return .none }
-                switch screen.origin {
-                case .home:
-                    state = Self.returnToMain(profile: screen.profile, cards: screen.homeCards)
-                case let .roomDetail(room):
-                    state = Self.returnToMain(profile: screen.profile, cards: screen.homeCards, room: room)
-                }
-                return .none
-
-            // 촬영본이 방에 올라갔다 — 찍은 방의 상세로 들어가고, 방금 넣은 사진을 강조하라고 알린다.
-            // 방을 못 찾으면(있을 수 없지만) 닫기와 같은 길로 되돌린다.
-            case let .camera(.camera(.delegate(.captureFinished(roomID)))):
-                guard case let .camera(screen) = state else { return .none }
-                guard let room = screen.shotRoom(id: roomID) else {
-                    return .send(.camera(.camera(.delegate(.closeRequested))))
-                }
-                state = Self.returnToMain(
-                    profile: screen.profile,
-                    cards: screen.homeCards,
-                    room: room,
-                    highlightsNewestPhoto: true
-                )
                 return .none
 
             // MARK: - 설정 delegate
@@ -364,7 +300,7 @@ extension AppFeature {
                 return popCurrentScreen(&state)
 
             case .login, .profileSetup, .main,
-                 .setting, .profileEdit, .camera:
+                 .setting, .profileEdit:
                 return .none
             }
         }
@@ -375,20 +311,19 @@ extension AppFeature {
 
 extension AppFeature {
 
-    /// 옛 enum 화면(설정·방 설정·카메라)에서 메인으로 돌아간다. 메인은 통째로 새로 만들어진다 —
+    /// 옛 enum 화면(설정·프로필 편집)에서 메인으로 돌아간다. 메인은 통째로 새로 만들어진다 —
     /// 지금까지의 enum 교체와 같은 동작이라 재조회도 같은 시점에 일어난다.
     ///
-    /// `room`을 주면 그 방 상세를 홈 위에 한 장 쌓은 채로 돌아간다 (방 설정·카메라에서 상세로 복귀).
+    /// `room`을 주면 그 방 상세를 홈 위에 한 장 쌓은 채로 돌아간다 (참여 토스트로 방을 열 때).
     /// 단계 4가 끝나면 이 함수를 부르는 곳이 없어져 함께 지운다.
     static func returnToMain(
         profile: UserProfile,
         cards: IdentifiedArrayOf<RoomCard>,
-        room: Room? = nil,
-        highlightsNewestPhoto: Bool = false
+        room: Room? = nil
     ) -> State {
         var path = StackState<MainFeature.Path.State>()
         if let room {
-            path.append(.roomDetail(RoomDetailFeature.State(room: room, highlightsNewestPhoto: highlightsNewestPhoto)))
+            path.append(.roomDetail(RoomDetailFeature.State(room: room)))
         }
         return .main(MainFeature.State(profile: profile, cards: cards, path: path))
     }

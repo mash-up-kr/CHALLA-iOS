@@ -17,10 +17,11 @@
   `MainView`가 앱의 유일한 `NavigationStack`이다. 뒤로 가면 위 화면만 빠지고 **아래 화면 State는 그대로 살아 있다** —
   스크롤·목록·조회 결과가 유지된다. 다만 아래 화면이 다시 보일 때 SwiftUI가 그 뷰의 `.task`를 다시 실행해
   홈·방 상세가 **뒤에서 조용히 재조회**한다 (목록이 있으면 스피너 없음).
+  카메라만 스택 밖에서 아래 화면을 덮는다(`@Presents var camera` + `MainView`의 `fullScreenCover`).
 
-아직 스택으로 옮기지 않은 **설정 · 프로필 편집 · 카메라**는 `AppFeature`의 enum 화면으로 남아 있다.
+아직 스택으로 옮기지 않은 **설정 · 프로필 편집**은 `AppFeature`의 enum 화면으로 남아 있다.
 메인에서 그리로 나가는 요청은 `AppFeature`가 `.main(...)` 액션을 엿보고 처리하고("메인에서 enum 화면으로 나가는 요청" 블록),
-돌아올 때는 `returnToMain(profile:cards:room:)`로 메인을 새로 만든다. 단계 3·4에서 이 화면들이 스택·`@Presents`로 옮겨 가면
+돌아올 때는 `returnToMain(profile:cards:room:)`로 메인을 새로 만든다. 단계 4에서 이 화면들이 스택으로 옮겨 가면
 이 다리와 `returnToMain`은 함께 지운다. `SettingView`가 자기 `NavigationStack`을 소유해서 지금은 메인 스택에 push하지 못한다
 (`SettingFeature/MODULE.md`).
 
@@ -32,14 +33,13 @@
 | (모든 화면) | 세션 만료 알림 → `login` (이미 `login`이면 무시) |
 | `login` | `loginSucceeded` → 프로필 재조회 |
 | `profileSetup` | `setupCompleted` → `main` |
-| `main` | 홈의 설정 버튼 → `setting` / 홈·방 상세의 촬영 준비 완료 → `camera` (그 밖의 이동은 아래 `MainFeature`) |
-| `camera` | `closeRequested` → 들어온 곳으로(홈이면 `main`, 방 상세면 그 방 상세를 쌓은 `main`) / `captureFinished` → 찍은 방 상세를 쌓은 `main`(방금 올린 사진 강조) |
+| `main` | 홈의 설정 버튼 → `setting` (그 밖의 이동은 아래 `MainFeature`) |
 | `setting` | `backRequested` → `main` / `editProfileRequested` → `profileEdit` / `signedOut`·`accountDeleted` → `login` |
 | `profileEdit` | `editCompleted` → `setting`(새 State) / `cancelled` → `setting` |
-| (로그인 후 모든 화면) | 초대 링크 수신 → 메인이면 쌓인 화면만 비우고, 아니면 메인을 새로 만들어 홈에 입장을 맡긴다 → 성공 시 방 상세가 쌓인다 |
+| (로그인 후 모든 화면) | 초대 링크 수신 → 메인이면 쌓인 화면을 비우고 카메라도 닫고, 아니면 메인을 새로 만들어 홈에 입장을 맡긴다 → 성공 시 방 상세가 쌓인다 |
 | `forceUpdate` | **나가는 전이 없음** — 앱 업데이트만 가능 |
 
-`camera`·`setting`·`profileEdit` 케이스는 돌아올 때 메인을 다시 만들 재료(`UserProfile`·홈 목록)를 포장 struct에
+`setting`·`profileEdit` 케이스는 돌아올 때 메인을 다시 만들 재료(`UserProfile`·홈 목록)를 포장 struct에
 함께 들고 있다. 편집 저장 후에는 `SettingFeature.State`를 **새로 만든다** — `onAppear`가 `profile == nil`일 때만
 조회하므로, 그래야 헤더가 바뀐 닉네임을 다시 읽는다.
 
@@ -47,8 +47,9 @@
 
 | 화면 | 다음 |
 | :-- | :-- |
-| 홈 | 방 진입(목록에서 고름·방 만들기·초대 코드) → 방 상세 push |
-| 방 상세 | `closeTapped` → pop / 채팅 → 채팅 push / 사진 슬롯 탭 → 사진 상세 push / 설정 → 방 설정 push |
+| 홈 | 방 진입(목록에서 고름·방 만들기·초대 코드) → 방 상세 push / 촬영 준비 완료 → 카메라 present |
+| 방 상세 | `closeTapped` → pop / 채팅 → 채팅 push / 사진 슬롯 탭 → 사진 상세 push / 설정 → 방 설정 push / 촬영 준비 완료 → 카메라 present |
+| 카메라 (`@Presents`) | `closeRequested` → dismiss하고 드러난 화면(홈 또는 맨 위 방 상세)을 재조회 / `captureFinished` → dismiss하고 찍은 방 상세로(방금 올린 사진 강조) |
 | 사진 상세 · 채팅 | `closeRequested` → pop |
 | 방 설정 | `closeTapped` → pop / `coverEditRequested` → 커버 수정 push (인원수·커버는 스택 아래 방 상세에서 읽는다) |
 | 커버 수정 | `closeTapped` → 저장된 커버(`savedCover`)를 아래 방 상세·홈 카드에 반영하고 pop |
@@ -64,6 +65,15 @@
   다시 보이며 재조회하는데, 그 응답이 저장보다 먼저 처리되면 옛 커버로 덮이기 때문이다. 올리는 중이던 사진은 화면과 함께 끝나 실리지 않는다.
 - 스택 안 화면은 전부 `CHALLATopNavigation`을 직접 그려 `MainView`가 시스템 바를 숨긴다. 바를 숨기면 꺼지는
   스와이프 뒤로가기는 `InteractivePopGestureEnabler`(`Sources/Main/`)가 루트에서 한 번 다시 켠다.
+- **카메라는 덮을 뿐 아래 화면을 지우지 않는다.** 그래서 돌아갈 곳(옛 `CameraOrigin`)을 기억하지 않는다. 대신 두 가지를 직접 챙긴다.
+  - **닫은 뒤 재조회** — fullScreenCover는 아래 화면을 가린 적이 없어 그 뷰의 `.task`가 다시 돌지 않는다.
+    메인을 새로 만들어 저절로 다시 조회하던 옛 방식과 같아지도록, 닫을 때 드러나는 화면에 `view(.task)`를 보낸다.
+  - **촬영 뒤 이동** — 맨 위가 찍은 방의 상세면 그 화면을 그대로 두고 `highlightsNewestPhoto`를 켠 채 재조회한다.
+    아니면(홈에서 열었거나, 홈에서 촬영 준비 중 다른 방 상세로 들어갔으면) 홈 카드에서 방을 찾아 그 방 상세 한 장으로 스택을 바꾼다 —
+    스택의 방 상세는 한 장뿐이라는 전제를 지킨다.
+  - 촬영 중에는 참여 토스트의 방 열기(`roomOpenRequested`)를 무시한다. 초대 링크는 카메라를 닫고 홈에서 입장을 잇는다.
+  - 참여 토스트는 카메라 위에도 떠야 해서 `RootView`가 `AppView` → `MainView`로 같은 토스트를 넘겨 커버 안에도 얹는다
+    (fullScreenCover는 뷰 계층 위에 따로 떠 바깥 overlay를 가린다). 카메라 프리뷰용 `@Dependency(\.cameraSession)`은 `MainView`가 읽는다.
 - 화면 하나를 스택에 추가하는 순서: `Path`에 case 1줄 → `MainView` destination 1줄 → 여는 delegate를 `MainFeature`에서
   `append` → `AppFeature`의 다리 case 삭제 → 옛 enum case·포장 struct 삭제.
 
@@ -80,7 +90,7 @@
 
 파싱은 `RoomDomain.InviteLink`가 한다 — 두 모양이 아니면 조용히 무시한다.
 
-- **로그인 후** — 메인에 있으면 쌓인 화면을 비워 홈을 드러내고(홈은 새로 만들지 않는다), 메인 밖이면 메인을 새로
+- **로그인 후** — 메인에 있으면 쌓인 화면을 비우고 카메라가 떠 있으면 닫아 홈을 드러내고(홈은 새로 만들지 않는다), 메인 밖이면 메인을 새로
   만든 뒤 홈에 `inviteCodeReceived(code)`를 넘긴다. 입장(드로어와 같은 `JoinRoomUseCase`)·목록 반영·실패 얼럿까지
   홈이 맡고, 성공하면 `roomJoined`로 방 상세가 쌓인다. 서버는 이미 참여한 방도 성공(그 방 id)으로 준다
   (2026-09-05 실서버 확인) — 내 방 링크 = 그 방 열기다
@@ -175,6 +185,8 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme CHALLAApp \
 버튼과 스와이프 pop이 같음 · 이름·커버 반영 · 스와이프 저장과 실패 되돌리기)을 TestStore로 고정한다.
 `AppInviteLinkTests`는 초대 링크 분기(초대 링크 아님 무시 · 홈에서 즉시 입장 · 다른 방에서 스택 비우고 입장 ·
 메인 밖에서 메인 새로 만들어 입장 · 로그인 전 보관 → 홈 도달 후 전달)를 본다.
+`MainCameraTests`는 카메라 열기·닫기(중복 열기 무시 · 닫으면 드러난 화면 재조회 · 촬영 완료 시 찍은 방 상세로 이동 ·
+촬영 중 참여 토스트 무시 · 초대 링크로 카메라 닫기)를 본다.
 
 스택 테스트에서 원소 id(`StackElementID`)를 `path[id: 0] = …`처럼 손으로 넣으면 테스트용 id 생성기가 그걸 모르고
 같은 번호를 다시 발급해 덮어쓴다. 초기 상태는 `append`로 쌓아 번호를 소비시키고, 새로 쌓일 원소는 다음 번호로 기대한다.
@@ -222,7 +234,7 @@ xcodebuild -workspace CHALLA.xcworkspace -scheme CHALLAApp \
   값 전체를 비교하면 같은 참여가 서로 다른 값이 되어 토스트가 두 번 뜬다.
 - 토스트를 누르면 그 방으로 이동한다(`AppFeature.Action.openRoomRequested`). 메인에 있으면 `MainFeature`가
   쌓인 화면을 비우고 그 방 상세를 쌓는다 — push마다 새 원소라 방 A를 보다 방 B로 가도 뷰가 새로 만들어져 `.task`가 돈다.
-  촬영 중에는 무시한다 — 찍고 있던 것이 사라진다.
+  촬영 중(`MainFeature.State.camera != nil`)에는 무시한다 — 찍고 있던 것이 사라진다.
 - 참여 이벤트가 오면 **스택에 쌓인 그 방의 상세 전부**에 참여자를 다시 조회하라고 알린다(`memberJoined`) —
   위에 사진 상세·채팅이 덮여 있어도 돌아왔을 때 최신이어야 한다.
 - 재연결(`.resumed`)에는 토스트를 띄우지 않는다. 그동안 누가 들어왔는지 알 수 없기 때문이다.
